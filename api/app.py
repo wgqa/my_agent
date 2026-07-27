@@ -3,6 +3,9 @@ import tempfile
 from contextlib import asynccontextmanager
 from typing import Optional
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -61,9 +64,9 @@ def health():
     p = _get_pipeline()
     return HealthResponse(
         docs_count=p.vector_store.count(),
-        embedding_provider=p.config.get("embedding", {}).get("provider", "unknown"),
-        retriever_strategy=p.config.get("retriever", {}).get("strategy", "unknown"),
-        generator_provider=p.config.get("generator", {}).get("provider", "unknown"),
+        embedding_provider=p.config.embedding_provider,
+        retriever_strategy=p.config.retriever_strategy,
+        generator_provider=p.config.generator_provider,
     )
 
 
