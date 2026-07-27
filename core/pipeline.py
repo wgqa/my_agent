@@ -57,7 +57,7 @@ class Pipeline:
 
     def _init_embedding(self) -> BaseEmbedding:         
         cfg = self.config.get("embedding", {})
-        provider = cfg.get("provider", "openai")        
+        provider = cfg.get("provider", "bge")
         if provider == "openai":
             return OpenAIEmbedding(
                 model=cfg.get("model", "text-embedding-3-small"),
