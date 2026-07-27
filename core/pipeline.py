@@ -1,7 +1,7 @@
 from typing import List, Optional
 import os
-import yaml
 
+from core.config import Config
 from core.loader.base import Document
 from core.loader.text_loader import TextLoader
 from core.loader.pdf_loader import PDFLoader
@@ -27,14 +27,11 @@ class Pipeline:
 
     def __init__(self, config_path: str = "config.yaml",
                  deepseek_api_key: str = None,
-                 openai_api_key: str = None):       #定义传入参数
+                 openai_api_key: str = None):
         self.deepseek_api_key = deepseek_api_key or os.getenv("DEEPSEEK_API_KEY")
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
 
-        self.config = {}                    
-        if config_path and os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                self.config = yaml.safe_load(f) or {}       
+        self.config = Config(config_path)
 
         self.embedding = self._init_embedding()
         self.vector_store = self._init_vector_store()
@@ -55,48 +52,42 @@ class Pipeline:
             ".java": CodeLoader(language="java"),
         }                                               
 
-    def _init_embedding(self) -> BaseEmbedding:         
-        cfg = self.config.get("embedding", {})
-        provider = cfg.get("provider", "bge")
-        if provider == "openai":
+    def _init_embedding(self) -> BaseEmbedding:
+        if self.config.embedding_provider == "openai":
             return OpenAIEmbedding(
-                model=cfg.get("model", "text-embedding-3-small"),
+                model=self.config.embedding_model,
                 api_key=self.openai_api_key,
             )
         from core.embeddings.bge_emb import BGEEmbedding
-        return BGEEmbedding(model_name=cfg.get("model", "BAAI/bge-small-zh-v1.5"))
+        return BGEEmbedding(model_name=self.config.embedding_model)
 
-    def _init_vector_store(self) -> BaseVectorStore:        
-        path = self.config.get("vector_store", {}).get("path", "./data/vector_store")
-        return ChromaStore(path=path)
+    def _init_vector_store(self) -> BaseVectorStore:
+        return ChromaStore(path=self.config.vector_store_path)
 
     def _init_chunker(self) -> BaseChunker:
-        cfg = self.config.get("chunker", {})
-        strategy = cfg.get("strategy", "recursive")
-        chunk_size = cfg.get("size_tokens") or cfg.get("chunk_size", 512)
-        chunk_overlap = cfg.get("overlap_tokens") or cfg.get("chunk_overlap", 64)
-
-        if strategy == "fixed":
-            return FixedSizeChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        elif strategy == "semantic":
+        if self.config.chunker_strategy == "fixed":
+            return FixedSizeChunker(
+                chunk_size=self.config.chunk_size,
+                chunk_overlap=self.config.chunk_overlap,
+            )
+        elif self.config.chunker_strategy == "semantic":
             from core.chunker.semantic import SemanticChunker
             return SemanticChunker(embedding_fn=self.embedding.embed)
-        return RecursiveChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        return RecursiveChunker(
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap,
+        )
 
     def _init_retriever(self) -> BaseRetriever:
-        cfg = self.config.get("retriever", {})
-        strategy = cfg.get("strategy", "hybrid")
-        top_k = cfg.get("top_k", 5)
-
-        if strategy == "simple":
+        if self.config.retriever_strategy == "simple":
             return SimpleRetriever(self.embedding, self.vector_store)
-        elif strategy == "hybrid":
+        elif self.config.retriever_strategy == "hybrid":
             return HybridRetriever(
                 self.embedding, self.vector_store,
-                dense_candidate_k=cfg.get("dense_candidate_k", 30),
-                sparse_candidate_k=cfg.get("sparse_candidate_k", 30),
-                final_k=cfg.get("final_k", 20),
-                rrf_k=cfg.get("rrf_k", 60.0),
+                dense_candidate_k=self.config.dense_candidate_k,
+                sparse_candidate_k=self.config.sparse_candidate_k,
+                final_k=self.config.top_k,
+                rrf_k=self.config.rrf_k,
             )
         from core.retriever.mmr import MMRRetriever
         return MMRRetriever(self.embedding, self.vector_store)
@@ -105,22 +96,17 @@ class Pipeline:
         return BGEReranker()
 
     def _init_generator(self) -> BaseGenerator:
-        cfg = self.config.get("generator", {})
-        provider = cfg.get("provider", "deepseek")
-        model = cfg.get("model", "deepseek-v4-flash")
-        temperature = cfg.get("temperature", 0.3)
-
-        if provider == "deepseek":
+        if self.config.generator_provider == "deepseek":
             return DeepSeekGenerator(
                 api_key=self.deepseek_api_key or "",
-                model=model,
-                temperature=temperature,
+                model=self.config.generator_model,
+                temperature=self.config.generator_temperature,
             )
         from core.generator.openai_gen import OpenAIGenerator
         return OpenAIGenerator(
             api_key=self.openai_api_key or "",
-            model=model,
-            temperature=temperature,
+            model=self.config.generator_model,
+            temperature=self.config.generator_temperature,
         )
 
     def _get_loader(self, file_path: str):
@@ -147,8 +133,8 @@ class Pipeline:
 
     def query(self, question: str, top_k: int = None) -> dict:
         """查询：检索 → 重排序 → 生成，返回答案和来源"""
-        k = top_k or self.config.get("retriever", {}).get("top_k", 5)
-        candidate_k = self.config.get("retriever", {}).get("candidate_k", k * 3)
+        k = top_k or self.config.top_k
+        candidate_k = max(self.config.top_k * 3, k * 3)
 
         retrieved = self.retriever.retrieve(question, top_k=candidate_k)
         retrieved = self.reranker.rerank(question, retrieved, top_k=k)

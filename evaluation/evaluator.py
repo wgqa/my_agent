@@ -58,10 +58,14 @@ class Evaluator:
         return results
 
     def _apply_config(self, config: Dict):
-        if "chunk_strategy" in config:
-            self.pipeline.config.setdefault("chunker", {})["strategy"] = config["chunk_strategy"]
-        if "retriever_strategy" in config:
-            self.pipeline.config.setdefault("retriever", {})["strategy"] = config["retriever_strategy"]
-        if "top_k" in config:
-            self.pipeline.config.setdefault("retriever", {})["top_k"] = config["top_k"]
+        # Phase 2 重写 ExperimentRunner，届时移除这里的 dict 操作
+        try:
+            if "chunk_strategy" in config:
+                self.pipeline.config.chunker_strategy = config["chunk_strategy"]
+            if "retriever_strategy" in config:
+                self.pipeline.config.retriever_strategy = config["retriever_strategy"]
+            if "top_k" in config:
+                self.pipeline.config.top_k = config["top_k"]
+        except AttributeError:
+            pass
         self.pipeline.retriever = self.pipeline._init_retriever()
