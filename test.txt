@@ -1,0 +1,1 @@
+RAG stands for Retrieval Augmented Generation. It combines a retriever and generator to answer questions based on document context. DeepSeek is a powerful LLM for generation.

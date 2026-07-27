@@ -1,0 +1,29 @@
+embedding:
+  provider: bge
+  model: BAAI/bge-small-zh-v1.5
+
+chunker:
+  strategy: recursive
+  size_tokens: 512
+  overlap_tokens: 64
+
+retriever:
+  strategy: hybrid
+  top_k: 5
+  dense_candidate_k: 30
+  sparse_candidate_k: 30
+  final_k: 20
+  rrf_k: 60.0
+
+reranker:
+  enabled: true
+  candidate_k: 20
+  final_k: 5
+
+generator:
+  provider: deepseek
+  model: deepseek-v4-flash
+  temperature: 0.3
+
+vector_store:
+  path: ./data/vector_store
