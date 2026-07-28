@@ -35,6 +35,78 @@ def test_chroma_store_delete():
     docs = [Document(content="test")]
     ids = store.add(docs, [[0.1, 0.2, 0.3]])
     assert store.count() == 1
-
     store.delete(ids)
+    assert store.count() == 0
+
+
+# ── M1-T2 回归测试 ─────────────────────────────────────
+
+def test_upsert_same_chunk_is_idempotent():
+    store = ChromaStore(path=None, collection_name="test_idempotent")
+    doc = Document(content="unique", metadata={"document_id": "d1"})
+    ids1 = store.upsert([doc], [[0.1, 0.2, 0.3]])
+    ids2 = store.upsert([doc], [[0.1, 0.2, 0.3]])
+    assert ids1 == ids2
+    assert store.count() == 1
+
+
+def test_delete_then_add_does_not_reuse_existing_id():
+    store = ChromaStore(path=None, collection_name="test_reuse")
+    doc = Document(content="hello", metadata={"document_id": "d1"})
+    ids = store.add([doc], [[0.1, 0.2, 0.3]])
+    assert store.count() == 1
+    store.delete(ids)
+    assert store.count() == 0
+    ids2 = store.add([doc], [[0.1, 0.2, 0.3]])
+    assert store.count() == 1
+    assert ids2[0] == ids[0]
+
+
+def test_search_returns_distance_and_rank():
+    store = ChromaStore(path=None, collection_name="test_dist_rank")
+    docs = [Document(content="a"), Document(content="b")]
+    store.add(docs, [[0.1, 0.2, 0.3], [0.5, 0.6, 0.7]])
+    results = store.search([0.1, 0.2, 0.3], top_k=2)
+    for r in results:
+        assert "distance" in r.metadata
+        assert "score" in r.metadata
+        assert "rank" in r.metadata
+    assert results[0].metadata["score"] >= results[1].metadata["score"]
+
+
+def test_delete_by_document_removes_only_target():
+    store = ChromaStore(path=None, collection_name="test_delete_doc")
+    store.add([Document(content="redis", metadata={"document_id": "a"})], [[0.1, 0.2]])
+    store.add([Document(content="jvm", metadata={"document_id": "b"})], [[0.3, 0.4]])
+    assert store.count() == 2
+    store.delete_by_document_id("a")
+    assert store.count() == 1
+    remaining = store.search([0.1, 0.2], top_k=5)
+    assert "a" not in [r.metadata["document_id"] for r in remaining]
+
+
+def test_filter_by_document_id():
+    store = ChromaStore(path=None, collection_name="test_filter")
+    store.add([Document(content="x", metadata={"document_id": "d1"}),
+               Document(content="y", metadata={"document_id": "d2"})],
+              [[0.1, 0.2], [0.3, 0.4]])
+    results = store.search([0.1, 0.2], top_k=5, where={"document_id": "d1"})
+    for r in results:
+        assert r.metadata["document_id"] == "d1"
+
+
+def test_embedding_dimension_mismatch_fails():
+    store = ChromaStore(path=None, collection_name="test_dim")
+    store.add([Document(content="a")], [[0.1, 0.2, 0.3]])
+    try:
+        store.add([Document(content="b")], [[0.5, 0.6]])
+        assert False
+    except ValueError:
+        pass
+
+
+def test_empty_batch_is_handled_explicitly():
+    store = ChromaStore(path=None, collection_name="test_empty_batch")
+    ids = store.add([], [])
+    assert ids == []
     assert store.count() == 0
