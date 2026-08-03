@@ -46,50 +46,10 @@
 
 ## 待修复（未修复）
 
-### SemanticChunker
-
-#### Bug 7：超长单句无兜底硬切
-- **位置：** `semantic.py` `_group_sentences`
-- **现象：** 单句本身 token > max_chunk_len 时，代码不做处理，产生超上限 chunk
-- **原因：** 没有对超长单句做 token 级硬切
-
 ### HybridRetriever / BM25Index
 
-#### Bug 8：IDF 全量重算
-- **位置：** `hybrid.py` `BM25Index.add_document` / `remove_document`
-- **现象：** 每次 add/remove 全量重算 IDF，文档上千后性能显著下降
-- **原因：** 没有增量更新 IDF 的机制
-
-#### Bug 9：BM25 无持久化
-- **位置：** `hybrid.py` `BM25Index`
-- **现象：** 程序重启后 BM25 索引丢失，与 Chroma 持久化数据不一致
-- **原因：** BM25 索引仅存在内存中，没有保存到磁盘
-
-#### Bug 10：没有停用词过滤
+#### Bug 15：没有停用词过滤（增强级）
 - **位置：** `hybrid.py` `BM25Index`
 - **现象：** "的""和"等高频虚词干扰 BM25 打分
 - **原因：** 分词后没有过滤停用词
-
-### Generator
-
-#### Bug 11：没有最大上下文长度限制
-- **位置：** `deepseek_gen.py` / `openai_gen.py` / `base.py`
-- **现象：** context_docs 太多时拼接超长，触发模型截断或超限报错
-- **原因：** `_build_prompt` 没有对 context token 数量做预算控制
-
-#### Bug 12：缺少异常捕获
-- **位置：** `deepseek_gen.py` `generate`
-- **现象：** 网络波动、API 限额、key 错误、接口超时会直接抛异常
-- **原因：** 没有 try-except 和重试逻辑
-
-### Pipeline
-
-#### Bug 13：BM25 索引与 Chroma 不一致
-- **位置：** `pipeline.py`
-- **现象：** 服务重启后 BM25 清空但 Chroma 磁盘持久化还在，两边数据不同步
-- **原因：** 启动时没有从 Chroma 重建 BM25 稀疏索引
-
-#### Bug 14：没有文档删除接口
-- **位置：** `pipeline.py`
-- **现象：** 文件更新后旧 chunk 残留在向量库和 BM25 中
-- **原因：** Pipeline 只实现了新增索引，没有删除/清空方法
+- **优先级：** 增强级，可延后
