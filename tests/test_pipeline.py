@@ -179,3 +179,30 @@ def test_query_low_score_refuses_answer(tmp_path):
 
     result = pipeline.query("缓存穿透的解决方案")
     assert "资料不足" in result["answer"] or "没有找到" in result["answer"]
+
+
+# ── M3-T6: 多轮对话改写 ──────────────────────────────
+
+def test_query_rewriter_no_history_unchanged():
+    """无历史时原样返回"""
+    from core.query_rewriter import QueryRewriter
+    rw = QueryRewriter()
+    assert rw.rewrite([], "什么是缓存穿透？") == "什么是缓存穿透？"
+
+
+def test_query_rewriter_no_pronoun_unchanged():
+    """无指代词时原样返回"""
+    from core.query_rewriter import QueryRewriter
+    rw = QueryRewriter()
+    history = [{"role": "user", "content": "什么是缓存穿透？"}]
+    assert rw.rewrite(history, "缓存击穿是什么？") == "缓存击穿是什么？"
+
+
+def test_query_rewriter_pronoun_resolved():
+    """指代问题被改写为独立问句"""
+    from core.query_rewriter import QueryRewriter
+    rw = QueryRewriter()
+    history = [{"role": "user", "content": "什么是缓存穿透？"}]
+    result = rw.rewrite(history, "它和击穿有什么区别？")
+    assert "缓存穿透" in result
+    assert "击穿" in result

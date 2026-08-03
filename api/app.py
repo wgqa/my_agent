@@ -111,7 +111,7 @@ def query(req: QueryRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
     try:
-        result = p.query(req.question, top_k=req.top_k)
+        result = p.query(req.question, top_k=req.top_k, history=req.history)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
 

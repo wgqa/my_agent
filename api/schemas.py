@@ -5,6 +5,7 @@ from typing import List, Optional
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 5
+    history: List[dict] = []  # [{"role": "user"/"assistant", "content": "..."}]
 
 
 class SourceItem(BaseModel):

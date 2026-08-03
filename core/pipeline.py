@@ -170,13 +170,18 @@ class Pipeline:
             "chunks": len(chunks),
         }
 
-    def query(self, question: str, top_k: int = None) -> dict:
+    def query(self, question: str, top_k: int = None, history: list = None) -> dict:
         """查询：检索 → 重排序 → 上下文组装 → 生成 → 引用验证"""
         from core.context.assembler import ContextAssembler
         from core.generator.citation import CitationValidator
 
         k = top_k or self.config.top_k
         candidate_k = max(self.config.top_k * 3, k * 3)
+
+        # 多轮改写：指代问题 → 独立问句
+        if history:
+            from core.query_rewriter import QueryRewriter
+            question = QueryRewriter().rewrite(history, question)
 
         retrieved = self.retriever.retrieve(question, top_k=candidate_k)
 
