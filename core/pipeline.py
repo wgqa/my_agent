@@ -176,7 +176,13 @@ class Pipeline:
         candidate_k = max(self.config.top_k * 3, k * 3)
 
         retrieved = self.retriever.retrieve(question, top_k=candidate_k)
-        retrieved = self.reranker.rerank(question, retrieved, top_k=k)
+
+        # Reranker 失败时降级为检索结果，不中断请求
+        try:
+            retrieved = self.reranker.rerank(question, retrieved, top_k=k)
+        except Exception as e:
+            import warnings
+            warnings.warn(f"Reranker 失败，使用检索结果: {type(e).__name__}")
 
         answer = self.generator.generate(question, retrieved)
 
