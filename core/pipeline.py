@@ -171,7 +171,10 @@ class Pipeline:
         }
 
     def query(self, question: str, top_k: int = None) -> dict:
-        """查询：检索 → 重排序 → 生成，返回答案和来源"""
+        """查询：检索 → 重排序 → 上下文组装 → 生成 → 引用验证"""
+        from core.context.assembler import ContextAssembler
+        from core.generator.citation import CitationValidator
+
         k = top_k or self.config.top_k
         candidate_k = max(self.config.top_k * 3, k * 3)
 
@@ -184,18 +187,36 @@ class Pipeline:
             import warnings
             warnings.warn(f"Reranker 失败，使用检索结果: {type(e).__name__}")
 
-        answer = self.generator.generate(question, retrieved)
+        # 上下文组装（去重 + token 预算 + 引用编号）
+        assembler = ContextAssembler()
+        blocks = assembler.assemble(retrieved)
+
+        answer = self.generator.generate(question, [b for b in blocks])
+
+        # 引用验证：答案中的 [Cx] 必须存在于本次 Context
+        validator = CitationValidator()
+        validation = validator.validate(answer, blocks)
 
         sources = [
             {
-                "content": d.content[:200],
-                "source": d.metadata.get("source", "unknown"),
-                "score": d.metadata.get("score", d.metadata.get("rrf_score", 0.0)),
+                "content": b.content[:200],
+                "source": b.source_name,
+                "score": b.retrieval_scores.get("score", 0.0),
+                "citation_id": b.citation_id,
             }
-            for d in retrieved
+            for b in blocks
         ]
 
-        return {"answer": answer, "sources": sources}
+        return {
+            "answer": answer,
+            "sources": sources,
+            "citation_validation": {
+                "valid_count": len(validation.valid),
+                "invalid_count": len(validation.invalid),
+                "validity_rate": validation.validity_rate,
+                "invalid_ids": [c.citation_id for c in validation.invalid],
+            },
+        }
 
     def _rebuild_sparse_index(self):
         """从 Chroma 全量重建 BM25 稀疏索引"""
