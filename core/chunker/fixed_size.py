@@ -20,16 +20,21 @@ class FixedSizeChunker(BaseChunker):
 
     def chunk(self, documents: List[Document]) -> List[Document]:
         chunked = []
-        chunk_index = 0
 
         for doc in documents:
             tokens = self._counter.encode(doc.content)
             total = len(tokens)
             step = self.chunk_size - self.chunk_overlap
 
+            # 空文档 / 纯空白：不生成空块
+            if total == 0 or not doc.content.strip():
+                continue
+
+            # chunk_index 按文档重置
+            chunk_index = 0
+
             if total <= self.chunk_size:
                 chunked.append(self._make_chunk(doc, tokens, chunk_index, 0, total))
-                chunk_index += 1
                 continue
 
             start = 0
