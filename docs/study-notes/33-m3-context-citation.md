@@ -1,6 +1,6 @@
-# M3：上下文组装与引用验证（T1 + T2 + T3）
+# M3：上下文、生成与引用（T1~T6 全部）
 
-> 2026-07-29 — 121 passed, 0 failed
+> 2026-07-29 — 130 passed, 0 failed
 
 ## 概览
 
@@ -9,6 +9,9 @@
 | M3-T1 | ContextAssembler（预算/去重/引用编号） | `51bd80d` |
 | M3-T2 | 重写 Prompt 与消息边界（system/user + 注入防护） | `b81be15` |
 | M3-T3 | 引用验证（答案 [Cx] 可追溯） | `51bd80d` |
+| M3-T4 | 无答案拒答（基础版） | `532168e` |
+| M3-T5 | Generator 可靠性（重试/超时/故障码） | `fcd427c` |
+| M3-T6 | 多轮对话（指代改写） | `1110b1f` |
 
 ---
 
@@ -263,3 +266,113 @@ prompt 增加引用规则：
 **坑 1：tiktoken 对重复字符压缩。** 测试用 `"a" * 100` 想造 100 token 的块，实际只有 25 token（BPE 压缩重复序列）。修复：用真实感中文文本。
 
 **坑 2：单文档占比限制丢光文档。** 第一块本身就超过 cap 时，整个文档被丢空。修复：`doc_used == 0` 时无论多大都保留第一块。
+
+---
+
+## M3-T4：无答案拒答（基础版）
+
+### 问题
+
+空检索也会调用 LLM 强行生成 → 幻觉回答。
+
+### 实现（Pipeline.query 入口）
+
+```python
+# 1. 无候选 → 直接返回，不调 LLM
+if not retrieved:
+    return {"answer": "现有资料中没有找到与问题相关的信息。", ...}
+
+# 2. 低置信（可选，M4 校准阈值）
+if self.config.min_score > 0.0:
+    top_score = max(d.metadata.get("score", 0.0) for d in retrieved)
+    if top_score < self.config.min_score:
+        return {"answer": "现有资料不足，无法可靠回答该问题。", ...}
+```
+
+Config 新增 `generator.min_score`（默认 0.0 = 关闭）。阈值用 M4 测试集校准。
+
+---
+
+## M3-T5：Generator 可靠性
+
+### 问题
+
+- 网络波动/429 直接失败
+- 无超时（请求可能挂死）
+- 无 max_tokens 控制
+
+### 实现（DeepSeekGenerator）
+
+```python
+_RETRYABLE = (RateLimitError, APITimeoutError)
+
+for attempt in range(self.max_retries + 1):
+    try:
+        resp = self.client.chat.completions.create(..., max_tokens=800)
+        return resp.choices[0].message.content
+    except AuthenticationError:
+        return "[GENERATOR_AUTH_ERROR] API key 无效"       # 不重试
+    except APIStatusError as e:
+        if e.status_code >= 500 and attempt < self.max_retries:
+            time.sleep(2 ** attempt); continue             # 指数退避
+        return f"[GENERATOR_UNAVAILABLE] HTTP {e.status_code}"
+    except _RETRYABLE as e:
+        if attempt < self.max_retries:
+            time.sleep(2 ** attempt); continue
+        return "[GENERATOR_TIMEOUT] 请求超时"
+```
+
+关键点：
+- SDK 默认重试关闭（`max_retries=0`），自己控制
+- 认证错误不重试（重试也白搭）
+- 指数退避 1s、2s
+
+---
+
+## M3-T6：多轮对话（最小方案）
+
+### 问题
+
+UI 显示历史但后端只收当前问题——"它和击穿有什么区别？"无法检索。
+
+### 实现
+
+**新增 `core/query_rewriter.py`：**
+
+```python
+class QueryRewriter:
+    def rewrite(self, history, current_query):
+        if not history:
+            return current_query
+        # 无指代词（它/这/那/上述...）→ 原样返回
+        if not any(ind in current_query for ind in indicators):
+            return current_query
+        # 取最近的用户问题，拼接改写
+        return f"{last_user_q}和{current_query}的区别是什么"
+```
+
+示例：
+```
+上一轮：什么是缓存穿透？
+本轮：它和击穿有什么区别？
+改写：什么是缓存穿透和击穿的区别是什么
+```
+
+**链路：** API `QueryRequest.history` → `Pipeline.query(history=...)` → QueryRewriter 改写 → 用改写后的 query 检索。
+
+注意这是**启发式最小实现**——真正的 LLM 改写留到 M2-T6（查询理解）。
+
+---
+
+## M3 测试汇总（新增 20 个）
+
+| 子任务 | 测试 |
+|--------|------|
+| T1 | 引用编号/去重/排序/预算/占比（5） |
+| T3 | 有效/无效/混合/无引用（4） |
+| T2 | 消息结构/注入防护/无答案规则/引用规则/ContextBlock（5） |
+| T5 | auth 不重试/429 重试/超时重试/max_tokens（4） |
+| T4 | 空检索拒答/低置信拒答（2） |
+| T6 | 无历史/无指代/指代改写（3） |
+
+**全量 130 passed, 0 failed。**
