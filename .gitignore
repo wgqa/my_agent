@@ -10,6 +10,7 @@ data/runtime/
 data/vector_store/
 data/test_store/
 experiments/results/tmp/
+.tmp_pytest/
 *.log
 .DS_Store
 Thumbs.db
