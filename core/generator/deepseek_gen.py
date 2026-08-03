@@ -21,11 +21,11 @@ class DeepSeekGenerator(BaseGenerator):
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def generate(self, query: str, context_docs: List[Document]) -> str:
-        prompt = self._build_prompt(query, context_docs)
+        messages = self._build_messages(query, context_docs)
         try:
             resp = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 temperature=self.temperature,
             )
             return resp.choices[0].message.content

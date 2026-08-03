@@ -22,10 +22,10 @@ class OpenAIGenerator(BaseGenerator):
         self.client = OpenAI(**kwargs)
 
     def generate(self, query: str, context_docs: List[Document]) -> str:
-        prompt = self._build_prompt(query, context_docs)
+        messages = self._build_messages(query, context_docs)
         resp = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             temperature=self.temperature,
         )
         return resp.choices[0].message.content
