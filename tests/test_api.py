@@ -17,7 +17,11 @@ def mock_pipeline():
             retriever_strategy="hybrid",
             generator_provider="deepseek",
         )
-        p.index_file.return_value = 3
+        p.index_file.return_value = {
+            "status": "create",
+            "document_id": "doc_mock",
+            "chunks": 3,
+        }
         p.query.return_value = {
             "answer": "测试回答",
             "sources": [
@@ -75,7 +79,7 @@ class TestIndex:
         data = resp.json()
         assert data["file_name"] == "test.txt"
         assert data["chunks"] == 3
-        assert data["status"] == "success"
+        assert data["status"] in ("success", "create", "update", "no_change")
 
     def test_index_unsupported_file_type(self, client):
         resp = client.post(

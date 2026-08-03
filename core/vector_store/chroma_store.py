@@ -49,11 +49,16 @@ class ChromaStore(BaseVectorStore):
 
     # ── 写入 ────────────────────────────────────────────────
 
-    def _batch(self, docs: List[Document]):
-        ids, metas, texts = [], [], []
-        for d in docs:
+    def _batch(self, docs: List[Document], embs: List[List[float]]):
+        """去重相同内容 chunk，同时过滤 embeddings"""
+        ids, metas, texts, filtered_embs = [], [], [], []
+        seen = set()
+        for d, emb in zip(docs, embs):
             doc_id = d.metadata.get("document_id", "unknown")
             cid = self._make_chunk_id(doc_id, d.content)
+            if cid in seen:
+                continue
+            seen.add(cid)
             ids.append(cid)
             meta = dict(d.metadata) if d.metadata else {}
             meta["document_id"] = doc_id
@@ -61,20 +66,21 @@ class ChromaStore(BaseVectorStore):
             metas.append(meta)
             d.metadata = meta
             texts.append(d.content)
-        return ids, metas, texts
+            filtered_embs.append(emb)
+        return ids, metas, texts, filtered_embs
 
     def add(self, docs: List[Document], embs: List[List[float]]) -> List[str]:
         self._validate_batch(docs, embs)
-        ids, metas, texts = self._batch(docs)
+        ids, metas, texts, f_embs = self._batch(docs, embs)
         if ids:
-            self.collection.add(ids=ids, embeddings=embs, documents=texts, metadatas=metas)
+            self.collection.add(ids=ids, embeddings=f_embs, documents=texts, metadatas=metas)
         return ids
 
     def upsert(self, docs: List[Document], embs: List[List[float]]) -> List[str]:
         self._validate_batch(docs, embs)
-        ids, metas, texts = self._batch(docs)
+        ids, metas, texts, f_embs = self._batch(docs, embs)
         if ids:
-            self.collection.upsert(ids=ids, embeddings=embs, documents=texts, metadatas=metas)
+            self.collection.upsert(ids=ids, embeddings=f_embs, documents=texts, metadatas=metas)
         return ids
 
     # ── 查询 ────────────────────────────────────────────────
@@ -118,3 +124,15 @@ class ChromaStore(BaseVectorStore):
     def list_ids(self, limit: int = 100) -> List[str]:
         data = self.collection.get(limit=limit)
         return list(data["ids"]) if data else []
+
+    def get_by_document_id(self, document_id: str) -> List[dict]:
+        """返回该文档的所有 chunk（id/content/metadata）"""
+        data = self.collection.get(where={"document_id": document_id})
+        out = []
+        for i in range(len(data["ids"])):
+            out.append({
+                "id": data["ids"][i],
+                "content": data["documents"][i],
+                "metadata": data["metadatas"][i] if data["metadatas"] else {},
+            })
+        return out

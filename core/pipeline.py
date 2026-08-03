@@ -116,20 +116,59 @@ class Pipeline:
             loader = TextLoader()
         return loader
 
-    def index_file(self, file_path: str) -> int:        
-        """索引文件：加载 → 分块 → embedding → 存储，返回 chunk 数量"""
-        loader = self._get_loader(file_path)       
+    def index_file(self, file_path: str) -> dict:
+        """幂等入库：相同文件 no_change，内容变更 update，新文件 create"""
+        from core.domain.models import compute_content_hash, make_document_id
+
+        source_name = os.path.basename(file_path)
+        document_id = make_document_id(source_name)
+
+        loader = self._get_loader(file_path)
         docs = loader.load(file_path)
+        full_text = "".join(d.content for d in docs)
+        content_hash = compute_content_hash(full_text)
+
+        # decide：查是否已入库
+        existing = self.vector_store.get_by_document_id(document_id)
+
+        if existing:
+            old_hash = existing[0]["metadata"].get("content_hash", "")
+            if old_hash == content_hash:
+                return {
+                    "status": "no_change",
+                    "document_id": document_id,
+                    "chunks": 0,
+                }
+
+        # 新版本：先删旧 chunk 再入库
+        if existing:
+            old_ids = [c["id"] for c in existing]
+            self.vector_store.delete(old_ids)
+            if hasattr(self.retriever, "_bm25"):
+                for cid in old_ids:
+                    self.retriever._bm25.remove_document(cid)
+
+        # 分块 → embedding → 入库
         chunks = self.chunker.chunk(docs)
         texts = [d.content for d in chunks]
         embeddings = self.embedding.embed(texts)
-        ids = self.vector_store.add(chunks, embeddings)
 
-        # 同步更新 BM25 稀疏索引
+        for c in chunks:
+            c.metadata["document_id"] = document_id
+            c.metadata["content_hash"] = content_hash
+
+        # upsert 而非 add：内容重复产生相同 chunk_id 时幂等处理
+        ids = self.vector_store.upsert(chunks, embeddings)
+
+        # 同步 BM25 稀疏索引
         if hasattr(self.retriever, "build_sparse_index"):
             self.retriever.build_sparse_index(zip(ids, texts))
 
-        return len(chunks)
+        return {
+            "status": "update" if existing else "create",
+            "document_id": document_id,
+            "chunks": len(chunks),
+        }
 
     def query(self, question: str, top_k: int = None) -> dict:
         """查询：检索 → 重排序 → 生成，返回答案和来源"""
@@ -171,7 +210,11 @@ class Pipeline:
             pass
 
     def delete_document(self, document_id: str) -> int:
-        """删除文档"""
+        """删除文档：向量库 + BM25 同步清理"""
+        chunks = self.vector_store.get_by_document_id(document_id)
+        if hasattr(self.retriever, "_bm25"):
+            for c in chunks:
+                self.retriever._bm25.remove_document(c["id"])
         try:
             self.vector_store.delete_by_document_id(document_id)
         except Exception:

@@ -82,3 +82,75 @@ def test_tests_are_independent_of_execution_order():
     s1.add([Document(content="x", metadata={})], [[0.1, 0.2, 0.3]])
     assert s1.count() == 1
     assert s2.count() == 0
+
+
+# ── M1-T6 幂等入库 ────────────────────────────────────
+
+def _make_pipeline(tmp_path):
+    """构造使用 tmp_path 的 Pipeline（BGE embedding + 持久化 store）"""
+    config = {
+        "embedding": {"provider": "bge", "model": "BAAI/bge-small-zh-v1.5"},
+        "chunker": {"strategy": "fixed", "size_tokens": 100, "overlap_tokens": 10},
+        "retriever": {"strategy": "hybrid", "top_k": 3},
+        "generator": {"provider": "deepseek", "model": "deepseek-v4-flash", "temperature": 0.3},
+        "vector_store": {"path": str(tmp_path / "vs")},
+    }
+    config_path = tmp_path / "cfg.yaml"
+    with open(config_path, "w") as f:
+        yaml.dump(config, f)
+    return Pipeline(config_path=str(config_path), deepseek_api_key="sk-00000000000000000000000000000000")
+
+
+def test_index_file_create(tmp_path):
+    """新文件 → create"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "doc1.txt"
+    f.write_text("第一段内容。第二段内容。" * 20, encoding="utf-8")
+
+    result = pipeline.index_file(str(f))
+    assert result["status"] == "create"
+    assert result["chunks"] > 0
+
+
+def test_index_file_no_change(tmp_path):
+    """相同文件重复上传 → no_change，不重复计数"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "doc2.txt"
+    f.write_text("缓存穿透是指查询不存在的数据。" * 20, encoding="utf-8")
+
+    r1 = pipeline.index_file(str(f))
+    r2 = pipeline.index_file(str(f))
+    assert r1["status"] == "create"
+    assert r2["status"] == "no_change"
+    assert r2["chunks"] == 0
+    assert pipeline.vector_store.count() == r1["chunks"]
+
+
+def test_index_file_update(tmp_path):
+    """内容变更 → update，旧 chunk 被替换"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "doc3.txt"
+    f.write_text("旧内容。" * 30, encoding="utf-8")
+
+    r1 = pipeline.index_file(str(f))
+    assert r1["status"] == "create"
+
+    f.write_text("新内容。" * 30, encoding="utf-8")
+    r2 = pipeline.index_file(str(f))
+    assert r2["status"] == "update"
+    assert r2["chunks"] > 0
+    assert pipeline.vector_store.count() == r2["chunks"]
+
+
+def test_delete_document_cleans_vector_store(tmp_path):
+    """删除文档后向量库中不再有该文档的 chunk"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "doc4.txt"
+    f.write_text("要被删除的内容。" * 20, encoding="utf-8")
+
+    r = pipeline.index_file(str(f))
+    assert r["status"] == "create"
+    assert pipeline.vector_store.count() == r["chunks"]
+
+    pipeline.delete_document(r["document_id"])
+    assert pipeline.vector_store.count() == 0

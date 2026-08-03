@@ -89,14 +89,18 @@ def index_file(file: UploadFile = File(...)):
         content = file.file.read()
         with open(tmp_path, "wb") as f:
             f.write(content)
-        chunks = p.index_file(tmp_path)
+        result = p.index_file(tmp_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-    return IndexResponse(file_name=file.filename, chunks=chunks)
+    return IndexResponse(
+        file_name=file.filename,
+        chunks=result.get("chunks", 0),
+        status=result.get("status", "success"),
+    )
 
 
 @app.post("/query", response_model=QueryResponse)
