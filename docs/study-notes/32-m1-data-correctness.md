@@ -11,6 +11,7 @@
 | M1-T3 | 统一 Token 计数与分块单位（补充） | `1d5dbfe` |
 | M1-T4 | 修复 Recursive/Semantic Chunker | `844718f` |
 | M1-T5 | Loader 元数据与文件安全 | `058d907` |
+| M1-T6 | 幂等增量入库服务 | `3873fdf` |
 
 ---
 
@@ -239,10 +240,108 @@ Loader 测试一直有 8 个 PermissionError。发现用 `--basetemp=.tmp_pytest
 
 ---
 
+## M1-T6：幂等增量入库服务
+
+### 问题
+
+旧 `index_file` 每次上传都重新切分 + 重新写入：
+- 相同文件传两次 → 向量库出现两份重复数据
+- 文件更新 → 旧 chunk 残留
+- 无法判断"这是新文档还是更新"
+
+### 新流程
+
+```
+index_file(file_path)
+  → document_id = make_document_id(文件名)
+  → content_hash = compute_content_hash(全文)   # fingerprint
+  → decide：
+      无记录        → create
+      有记录且 hash 相同 → no_change（直接返回，不重复入库）
+      有记录且 hash 不同 → update（先删旧 chunk 再入库）
+  → 分块 → embedding → upsert → 同步 BM25
+```
+
+### 关键代码
+
+```python
+def index_file(self, file_path: str) -> dict:
+    source_name = os.path.basename(file_path)
+    document_id = make_document_id(source_name)
+
+    existing = self.vector_store.get_by_document_id(document_id)
+
+    if existing:
+        old_hash = existing[0]["metadata"].get("content_hash", "")
+        if old_hash == content_hash:
+            return {"status": "no_change", "document_id": document_id, "chunks": 0}
+
+    # update 路径：先删旧 chunk 再入库
+    if existing:
+        old_ids = [c["id"] for c in existing]
+        self.vector_store.delete(old_ids)
+        for cid in old_ids:
+            self.retriever._bm25.remove_document(cid)
+
+    # 新版本入库（用 upsert 而非 add：内容重复时幂等）
+    ids = self.vector_store.upsert(chunks, embeddings)
+```
+
+### 返回格式变化
+
+```python
+# 旧：返回 int（chunk 数）
+# 新：返回 dict
+{"status": "create" | "update" | "no_change", "document_id": "...", "chunks": n}
+```
+
+API 端点 `/index/file` 同步适配，`IndexResponse` 增加 `status` 字段。
+
+### ChromaStore 配套改动
+
+**1. 新增 `get_by_document_id`：** 按 document_id 查全部 chunk（id/content/metadata），用于 decide 判断和删除。
+
+**2. 批次内去重（`_batch`）：** 相同内容 chunk 生成相同 ID，ChromaDB 拒绝同批次重复 ID。`_batch` 对重复 ID 跳过，并同步过滤 embeddings：
+```python
+seen = set()
+for d, emb in zip(docs, embs):
+    cid = self._make_chunk_id(doc_id, d.content)
+    if cid in seen:
+        continue        # 去重
+    seen.add(cid)
+    ...
+    filtered_embs.append(emb)   # embeddings 也过滤
+```
+
+### delete_document 同步清理
+
+```python
+def delete_document(self, document_id: str) -> int:
+    chunks = self.vector_store.get_by_document_id(document_id)
+    for c in chunks:
+        self.retriever._bm25.remove_document(c["id"])  # BM25 同步删
+    self.vector_store.delete_by_document_id(document_id)
+```
+
+### 新增测试（4 个）
+
+- 新文件 → create ✓
+- 相同文件重复上传 → no_change，count 不变 ✓
+- 内容变更 → update，count 等于新版本 chunk 数 ✓
+- 删除 → 向量库清空 ✓
+
+### 踩坑记录
+
+**坑 1：测试文本高度重复导致 chunk_id 冲突。** "内容"×20 切出来的块内容完全相同 → 相同 chunk_id → ChromaDB 报 DuplicateIDError。修复：`_batch` 去重。
+
+**坑 2：Windows 下 `write_text` 默认 GBK 编码。** 测试写中文文件必须 `encoding="utf-8"`，否则 TextLoader（UTF-8 读）报 UnicodeDecodeError。
+
+---
+
 ## 当前测试总览
 
 ```
-95 passed, 0 failed, 4 warnings
+99 passed, 0 failed, 4 warnings
 ```
 
 | 模块 | 测试数 |
