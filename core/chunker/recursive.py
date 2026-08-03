@@ -24,6 +24,9 @@ class RecursiveChunker(BaseChunker):
         chunked = []
         for doc in documents:
             tokens = self._counter.encode(doc.content)
+            # 空文档 / 纯空白：不生成空块
+            if not tokens or not doc.content.strip():
+                continue
             chunks = self._split_tokens(tokens, 0, len(tokens))
             for i, (start, end) in enumerate(chunks):
                 chunked.append(self._make_chunk(doc, tokens, i, start, end))
@@ -56,8 +59,18 @@ class RecursiveChunker(BaseChunker):
                     end_pos = pos + acc_tokens
                     merged.append((pos, end_pos))
                     pos = end_pos
-                acc_segs = [seg]
-                acc_tokens = seg_len
+                # 单个 segment 超长：硬切
+                if seg_len > self.chunk_size:
+                    seg_tokens = self._counter.encode(seg)
+                    seg_start = pos
+                    seg_end = seg_start + seg_len
+                    merged.extend(self._hard_split(tokens, seg_start, seg_end))
+                    pos = seg_end
+                    acc_segs = []
+                    acc_tokens = 0
+                else:
+                    acc_segs = [seg]
+                    acc_tokens = seg_len
 
         if acc_segs:
             merged.append((pos, pos + acc_tokens))

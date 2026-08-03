@@ -43,7 +43,20 @@ class SemanticChunker(BaseChunker):
                 ))
                 continue
 
-            embeddings = self.embedding_fn(sentences)
+            # batch embedding 失败时降级为 Recursive，并记录 warning
+            try:
+                embeddings = self.embedding_fn(sentences)
+            except Exception as e:
+                import warnings
+                warnings.warn(
+                    f"SemanticChunker embedding 失败，降级 Recursive: {type(e).__name__}"
+                )
+                from core.chunker.recursive import RecursiveChunker
+                return RecursiveChunker(
+                    chunk_size=self.max_chunk_len,
+                    token_counter=self._counter,
+                ).chunk(documents)
+
             groups = self._group_sentences(sentences, embeddings)
 
             for i, group in enumerate(groups):
