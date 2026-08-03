@@ -80,3 +80,71 @@ def test_build_messages_with_context_block():
     messages = gen._build_messages("什么是缓存穿透？", blocks)
     assert "[C1]" in messages[1]["content"]
     assert "redis.md" in messages[1]["content"]
+
+
+# ── M3-T5: Generator 可靠性 ──────────────────────────
+
+from unittest.mock import MagicMock, patch
+
+
+def test_auth_error_not_retried():
+    """认证错误不重试，立即返回 AUTH_ERROR"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    gen = DeepSeekGenerator(api_key="sk-test")
+    gen.client.chat.completions.create = MagicMock(
+        side_effect=__import__("openai").AuthenticationError(
+            "bad key", response=MagicMock(status_code=401), body={}
+        )
+    )
+    result = gen.generate("q", [])
+    assert "[GENERATOR_AUTH_ERROR]" in result
+
+
+def test_rate_limit_retried_then_succeeds():
+    """429 重试一次后成功"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from openai import RateLimitError
+
+    gen = DeepSeekGenerator(api_key="sk-test", max_retries=1)
+
+    resp = MagicMock()
+    resp.choices = [MagicMock(message=MagicMock(content="重试后成功"))]
+
+    mock_create = MagicMock(
+        side_effect=[
+            RateLimitError("limit", response=MagicMock(status_code=429), body={}),
+            resp,
+        ]
+    )
+    gen.client.chat.completions.create = mock_create
+    result = gen.generate("q", [])
+    assert result == "重试后成功"
+    assert mock_create.call_count == 2
+
+
+def test_timeout_retried_then_fails():
+    """超时重试后仍失败 → GENERATOR_TIMEOUT"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from openai import APITimeoutError
+
+    gen = DeepSeekGenerator(api_key="sk-test", max_retries=1)
+    gen.client.chat.completions.create = MagicMock(
+        side_effect=APITimeoutError("timeout")
+    )
+    result = gen.generate("q", [])
+    assert "[GENERATOR_TIMEOUT]" in result
+
+
+def test_max_tokens_set():
+    """generate 调用必须传 max_tokens"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    gen = DeepSeekGenerator(api_key="sk-test")
+
+    resp = MagicMock()
+    resp.choices = [MagicMock(message=MagicMock(content="ok"))]
+    mock_create = MagicMock(return_value=resp)
+    gen.client.chat.completions.create = mock_create
+
+    gen.generate("q", [])
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs.get("max_tokens") == 800
