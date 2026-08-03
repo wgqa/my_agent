@@ -10,12 +10,13 @@ def mock_pipeline():
     with patch("api.app.Pipeline") as mock_cls:
         p = MagicMock()
         p.vector_store.count.return_value = 5
-        p.config = {
-            "embedding": {"provider": "openai"},
-            "retriever": {"strategy": "hybrid"},
-            "generator": {"provider": "deepseek"},
-            "vector_store": {"path": "./data/vector_store"},
-        }
+        # /health 现在通过 Config 属性访问
+        from types import SimpleNamespace
+        p.config = SimpleNamespace(
+            embedding_provider="openai",
+            retriever_strategy="hybrid",
+            generator_provider="deepseek",
+        )
         p.index_file.return_value = 3
         p.query.return_value = {
             "answer": "测试回答",

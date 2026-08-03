@@ -37,7 +37,7 @@ class MockVectorStore:
             Document(content="dog in park", metadata={"distance": 0.5}),
         ]
 
-    def search(self, query_emb, top_k=5):
+    def search(self, query_emb, top_k=5, where=None):
         return self.docs[:top_k]
 
 

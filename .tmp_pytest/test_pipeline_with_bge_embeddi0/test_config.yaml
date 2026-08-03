@@ -1,0 +1,17 @@
+chunker:
+  chunk_overlap: 32
+  chunk_size: 256
+  strategy: recursive
+embedding:
+  model: BAAI/bge-small-zh-v1.5
+  provider: bge
+generator:
+  model: deepseek-v4-flash
+  provider: deepseek
+  temperature: 0.3
+retriever:
+  strategy: hybrid
+  top_k: 3
+vector_store:
+  path: "D:\\\u5B66\u4E60\\rag\u5B9E\u6218\u9879\u76EE\\rag-knowledge-base\\.tmp_pytest\\\
+    test_pipeline_with_bge_embeddi0\\vector_store"

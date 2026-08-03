@@ -20,4 +20,4 @@ def test_text_loader_metadata(tmp_path):
       docs = loader.load(str(file_path))
 
       assert docs[0].metadata["type"] == "text"
-      assert "readme.md" in docs[0].metadata.get("filename", "")
+      assert "readme.md" in docs[0].metadata["source_name"]
