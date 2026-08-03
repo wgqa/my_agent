@@ -154,3 +154,28 @@ def test_delete_document_cleans_vector_store(tmp_path):
 
     pipeline.delete_document(r["document_id"])
     assert pipeline.vector_store.count() == 0
+
+
+# ── M3-T4: 无答案拒答 ────────────────────────────────
+
+def test_query_empty_retrieval_returns_no_answer():
+    """空检索时不调用 LLM，直接返回无答案"""
+    pipeline = Pipeline(config_path=None, deepseek_api_key="sk-00000000000000000000000000000000")
+    pipeline.vector_store = ChromaStore(path=None, collection_name="empty_qa")
+    pipeline.retriever = pipeline._init_retriever()
+
+    result = pipeline.query("不存在的知识")
+    assert "现有资料中没有找到" in result["answer"]
+
+
+def test_query_low_score_refuses_answer(tmp_path):
+    """min_score 开启时低置信问题被拒答"""
+    pipeline = _make_pipeline(tmp_path)
+    pipeline.config.min_score = 0.9  # 高阈值，逼出拒答
+
+    f = tmp_path / "doc5.txt"
+    f.write_text("缓存穿透的解决方案是布隆过滤器。" * 20, encoding="utf-8")
+    pipeline.index_file(str(f))
+
+    result = pipeline.query("缓存穿透的解决方案")
+    assert "资料不足" in result["answer"] or "没有找到" in result["answer"]

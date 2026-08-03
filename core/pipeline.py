@@ -187,6 +187,28 @@ class Pipeline:
             import warnings
             warnings.warn(f"Reranker 失败，使用检索结果: {type(e).__name__}")
 
+        # ── 无答案拒答（M3-T4 基础版） ────────────────
+        if not retrieved:
+            return {
+                "answer": "现有资料中没有找到与问题相关的信息。",
+                "sources": [],
+                "citation_validation": {"valid_count": 0, "invalid_count": 0,
+                                        "validity_rate": 1.0, "invalid_ids": []},
+            }
+
+        if self.config.min_score > 0.0:
+            top_score = max(
+                (d.metadata.get("score", 0.0) for d in retrieved),
+                default=0.0,
+            )
+            if top_score < self.config.min_score:
+                return {
+                    "answer": "现有资料不足，无法可靠回答该问题。",
+                    "sources": [],
+                    "citation_validation": {"valid_count": 0, "invalid_count": 0,
+                                            "validity_rate": 1.0, "invalid_ids": []},
+                }
+
         # 上下文组装（去重 + token 预算 + 引用编号）
         assembler = ContextAssembler()
         blocks = assembler.assemble(retrieved)

@@ -92,6 +92,10 @@ class Config:
         vs = raw.get("vector_store", {})
         self.vector_store_path = vs.get("path", "./data/vector_store")
 
+        # ── 拒答阈值（M4 测试集校准后启用） ─────────────
+        gen2 = raw.get("generator", {})
+        self.min_score = gen2.get("min_score", 0.0)  # top 分低于此值拒答
+
     def dump(self) -> dict:
         """脱敏配置摘要（不含 API Key）"""
         return {
