@@ -52,6 +52,6 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-33 |
+| docs/study-notes/ | 学习笔记 00-34 |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |
