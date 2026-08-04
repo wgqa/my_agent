@@ -32,10 +32,10 @@ class ContextAssembler:
 
     def assemble(self, hits: List[Document]) -> List[ContextBlock]:
         """输入检索结果，输出带引用编号的 ContextBlock 列表"""
-        # 1. 按检索分数排序（score 高在前）
+        # 1. 按检索分数排序：有 rerank_score 时优先（rerank 顺序不被稠密分数覆盖）
         ordered = sorted(
             hits,
-            key=lambda d: d.metadata.get("score", 0.0),
+            key=lambda d: d.metadata.get("rerank_score", d.metadata.get("score", 0.0)),
             reverse=True,
         )
 
@@ -56,8 +56,8 @@ class ContextAssembler:
                 content=d.content,
                 token_count=self._counter.count(d.content),
                 retrieval_scores={
-                    "score": d.metadata.get("score", 0.0),
-                    "rank": d.metadata.get("rank"),
+                    "score": d.metadata.get("rerank_score", d.metadata.get("score", 0.0)),
+                    "rank": d.metadata.get("final_rank", d.metadata.get("rank")),
                 },
             ))
 

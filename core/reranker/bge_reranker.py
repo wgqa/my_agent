@@ -26,4 +26,9 @@ class BGEReranker(BaseReranker):
         scored = list(zip(scores, documents))
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        return [doc for _, doc in scored[:top_k]]
+        result = []
+        for rank, (score, doc) in enumerate(scored[:top_k], start=1):
+            doc.metadata["rerank_score"] = round(float(score), 4)
+            doc.metadata["final_rank"] = rank
+            result.append(doc)
+        return result

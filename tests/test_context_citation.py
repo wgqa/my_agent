@@ -45,6 +45,16 @@ class TestContextAssembler:
         blocks = ContextAssembler().assemble(hits)
         assert blocks[0].content == "高分"
 
+    def test_sorts_by_rerank_score_when_present(self):
+        # 有 rerank_score 时按它排，不能被稠密 score 覆盖
+        hits = [
+            Document(content="A", metadata={"id": "a", "score": 0.9, "rerank_score": 0.2}),
+            Document(content="B", metadata={"id": "b", "score": 0.1, "rerank_score": 0.8}),
+        ]
+        blocks = ContextAssembler().assemble(hits)
+        assert blocks[0].content == "B"
+        assert blocks[0].retrieval_scores["score"] == 0.8
+
     def test_token_budget_truncation(self):
         hits = [
             Document(content="a" * 100, metadata={"score": 0.9, "id": "a"}),
