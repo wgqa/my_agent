@@ -58,11 +58,24 @@ python -m pytest --basetemp=.tmp_pytest
 uvicorn api.app:app --host 0.0.0.0 --port 8000
 ```
 
+## 启动服务
+
+**API：**
+```bash
+uvicorn api.app:app --host 0.0.0.0 --port 8000
+```
+
+**UI（新终端）：**
+```bash
+streamlit run ui/app.py
+```
+
+浏览器访问 `http://localhost:8501`。
+
 ## 已知限制
 
-- 暂无前端 UI（API 可通过 `curl` / 编程方式调用）
 - BM25 索引重启后需从 ChromaDB 重建（已实现自动重建）
-- API 支持多轮对话（`history` 字段 + 指代改写）
+- 多轮对话仅 API 支持（`history` 字段 + 指代改写），UI 暂未接入
 - 未实现流式输出
 
 ## Roadmap
