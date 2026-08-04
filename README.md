@@ -46,8 +46,10 @@ DEEPSEEK_API_KEY=sk-your-key
 ## 运行测试
 
 ```bash
-python -m pytest
+python -m pytest --basetemp=.tmp_pytest
 ```
+
+`--basetemp=.tmp_pytest` 是 Windows 中文用户名环境的临时目录权限规避。
 
 ## 启动服务
 
@@ -56,21 +58,13 @@ python -m pytest
 uvicorn api.app:app --host 0.0.0.0 --port 8000
 ```
 
-**UI（新终端）：**
-```bash
-streamlit run ui/app.py
-```
-
-浏览器访问 `http://localhost:8501`。
-
 ## 已知限制
 
-- RecursiveChunker overlap 已修复，中文混合文本边界映射需进一步验证
+- 暂无前端 UI（API 可通过 `curl` / 编程方式调用）
 - BM25 索引重启后需从 ChromaDB 重建（已实现自动重建）
-- 不支持多轮对话
+- API 支持多轮对话（`history` 字段 + 指代改写）
 - 未实现流式输出
-- Loader 测试在 Windows 中文用户名环境下存在临时目录权限问题
 
 ## Roadmap
 
-见 `RAG项目-进阶规划-RAG与Agent融合.md`
+见 `docs/status.md`（实时状态）。历史大规划见 `docs/archive/`。
