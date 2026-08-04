@@ -27,11 +27,14 @@ class TokenCounter:
 
     def decode(self, token_ids: List[int]) -> str:
         if self._enc:
-            return self._enc.decode(token_ids)
+            # tiktoken 切片截断可能落在多字节字符中间 → 边界出现 U+FFFD，去掉
+            return self._enc.decode(token_ids).strip("�")
+        # fallback：token_ids 为 UTF-8 字节；截断落在多字节字符中间时丢弃不完整字节，避免 U+FFFD 乱码
         try:
-            return bytes(token_ids).decode("utf-8", errors="replace")
-        except Exception:
-            return "<decode_error>"
+            raw = bytes(token_ids)
+        except (ValueError, TypeError):
+            return ""
+        return raw.decode("utf-8", errors="ignore")
 
     @property
     def name(self) -> str:
