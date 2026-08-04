@@ -75,3 +75,69 @@ def max_substring(self, text, start, limit) -> int:
    要写"拼接必须精确等于原文"这种可证伪的不变量。
 3. **编码可逆性不是免费的**：`encode(decode(tokens)) == tokens` 不总成立——
    不同字节序列可能编码成相同 token（`�` 撞上"缓"）。
+
+---
+
+# REWORK-P0-03-R1：语义契约——"不可同时满足"边界条件的拆解
+
+> 2026-08-05 — 163 → 165 passed（`3761ed5` + `ae22f4c`）
+> 复审发现：overlap 字符减法可死循环、assembler 可超预算、recursive 用字符数
+> 判断超长等 5 个边界问题。
+
+## 核心矛盾：chunk_size=1 时三个目标不可同时满足
+
+一个占 3 token 的 Emoji、预算只有 1 时，不存在同时满足以下三者的结果：
+
+1. 不超过 token 预算；
+2. 不拆字符；
+3. 原文完整保留。
+
+**修法是先把策略拆开（语义契约），而不是继续打补丁**：
+
+| 组件 | 策略 | 契约 |
+|------|------|------|
+| `max_substring()` | 只计算 | 放得下返回结束位置；放不下返回 start；**不擅自强塞**（`allow_oversize=False` 默认） |
+| Chunker | 文本完整优先 | 单字符超预算 → 允许 oversized 单字符块 + **`oversized=true` 元数据** + 强制前进一字符 |
+| ContextAssembler | 预算严格优先 | 单字符放不下就不加入；`total_tokens <= max` 永远成立 |
+| overlap | token 语义 | 从块尾找不超过 `chunk_overlap` token 的最长完整字符后缀；`next_start <= current_start` 时缩小 overlap，**无条件前进** |
+| Recursive | 段内约束 | 超长用 `count()` 判断；硬切不超语义段边界；合并对完整候选重算 |
+
+## 实现要点
+
+```python
+# max_substring：指数试探 + 二分（小 limit 不 count 大窗口，否则慢百倍）
+probe = start + 1
+while probe <= hi:
+    if count(text[start:probe]) > limit: break
+    lo = probe
+    ...
+while lo + 1 < probe:  # 二分
+    ...
+
+# Chunker：宽松放行 + 显式标记
+strict_end = max_substring(text, start, chunk_size)          # 严格
+end = max_substring(text, start, chunk_size, allow_oversize=True)  # 放行
+oversized = strict_end == start and end > start              # 唯一超预算情形
+
+# FixedSize overlap：按 token 回退
+while k < end - start:
+    if count(text[end-k:end]) > chunk_overlap: k -= 1; break
+next_start = max(start, end - k)
+start = next_start if next_start > start else end   # 前进保护
+```
+
+## 过程中踩的坑
+
+- **死循环真实复现**：每字符 3 token + overlap=2 时 `next_start == start`，
+  测试直接卡死——前进保护测试不是形式主义。
+- **性能坑**：直接二分大窗口对 chunk_size=1 慢百倍（每块 8 次 count 大窗口，
+  173 块 → 超时）；指数试探先找超预算上界，小 limit 只 count 小窗口。
+- **测试断言要自洽**：align_window 断言方向写反（s<=start）、tiny_budget 没传
+  allow_oversize——测试与语义契约不一致时先改测试，不要为绿而绿。
+
+## 可复用的契约模板（面试可讲）
+
+遇到"预算/完整性/无损"三难边界时：**把决策权分层**——计算层只算不决策
+（max_substring 返回"无可行结果"）、消费层按各自约束决策（chunker 宽松 +
+标记、assembler 严格 + 拒绝）、并把唯一的例外显式标记（oversized）而不是
+静默处理。
