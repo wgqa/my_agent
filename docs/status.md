@@ -21,7 +21,7 @@
 | M3 上下文/生成/引用 | ✅ | T1-T6（08-03） | ContextAssembler / Prompt 重写 / 引用验证 / 拒答 / Generator 可靠性 / 多轮对话 |
 | REWORK-P0-01 | ✅ | 08-05 复审通过 | Hybrid 候选链路 |
 | REWORK-P0-02 | ✅ | 08-05 复审通过 | BM25 统计膨胀 + ID 错位 |
-| REWORK-P0-03 | ✅ | 08-05 完成，待复审 | TokenCounter/Chunker 静默丢字 |
+| REWORK-P0-03 | 🔄 | 08-05 R1 返工完成，待复审 | TokenCounter/Chunker 静默丢字 + 严格预算 |
 | M4 评测与消融 | ⬜ | 需要真实语料 + QA 测试集 | — |
 | M5/M6 | ⏭ | 计划跳过大部分，仅做 Docker | — |
 | Agent（结构化 Tool） | ⬜ | M4 之后 | — |
@@ -37,12 +37,12 @@
 | P0-5 | 实验脚本旧 API | 改用现行 API | ✅ |
 | REWORK-P0-01 | candidate_k 被 internal final_k 截断 | 池取 max(final_k, top_k)；top_k 语义明确 | ✅ 复审通过 |
 | REWORK-P0-02 | BM25 重复入库统计膨胀 + zip 错位 | add_document 真 upsert；全量 idf；_batch 写回 id | ✅ 复审通过 |
-| REWORK-P0-03 | 分块静默丢字/乱码 | 文本为事实源 + token 只做预算（见 study-notes 35） | ✅ 待复审 |
+| REWORK-P0-03 | 分块静默丢字/乱码 | 文本为事实源 + token 只做预算（见 study-notes 35） | 🔄 R1 返工待复审 |
 
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ **157**（REWORK-03，08-05）
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ **163**（REWORK-03-R1，08-05）
 
 ## Git
 

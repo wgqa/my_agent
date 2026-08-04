@@ -31,23 +31,39 @@ class TokenCounter:
             return self._enc.decode(token_ids)
         return "".join(chr(t) for t in token_ids)
 
-    def max_substring(self, text: str, start: int, limit: int) -> int:
+    def max_substring(
+        self, text: str, start: int, limit: int,
+        end: int | None = None, allow_oversize: bool = False,
+    ) -> int:
         """返回最大的 end（字符位置），使 count(text[start:end]) <= limit。
 
+        - end：可选结束边界，结果不跨出该字符位置。
+        - allow_oversize：limit 小于单字符 token 跨度时放行一个完整字符。
+          Chunker 传 True（预算超支但语义上优于丢字）；
+          ContextAssembler 用默认 False（严格预算，放不下就返回 start）。
         二分依赖 BPE 编码长度随文本增长的单调非减性。
-        例外：limit 小于单个字符的 token 跨度时，放行一个完整字符
-        （预算超支但语义上优于丢字，测试 test_fixed_token_budget_respected 记录）。
         """
-        if limit <= 0 or start >= len(text):
+        hi = end if end is not None else len(text)
+        if limit <= 0 or start >= hi:
             return start
-        lo, hi = start, len(text) + 1
-        while lo + 1 < hi:
-            mid = (lo + hi) // 2
+        # 指数试探找第一个超预算位置，再在其内二分：
+        # 小 limit 时只 count 小窗口（直接二分大窗口对 chunk_size=1 会慢百倍）
+        lo = start
+        probe = start + 1
+        while probe <= hi:
+            if self.count(text[start:probe]) > limit:
+                break
+            lo = probe
+            if probe == hi:
+                break
+            probe = min(hi, probe * 2)
+        while lo + 1 < probe:
+            mid = (lo + probe) // 2
             if self.count(text[start:mid]) <= limit:
                 lo = mid
             else:
-                hi = mid
-        if lo == start:
+                probe = mid
+        if lo == start and allow_oversize and start < hi:
             lo = start + 1
         return lo
 

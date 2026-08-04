@@ -38,34 +38,31 @@ class RecursiveChunker(BaseChunker):
                 seg_ranges.append((pos, pos + len(seg)))
                 pos += len(seg)
 
-            # 超长段在字符层硬切（不超过预算）
+            # 超长段按 token 预算判断（字符数 ≠ token 数），在段内硬切
             pieces = []
             for (s, e) in seg_ranges:
-                if e - s <= self.chunk_size:
+                if self._counter.count(text[s:e]) <= self.chunk_size:
                     pieces.append((s, e))
                 else:
                     p = s
                     while p < e:
-                        q = self._counter.max_substring(text, p, self.chunk_size)
+                        q = self._counter.max_substring(
+                            text, p, self.chunk_size, end=e, allow_oversize=True,
+                        )
                         pieces.append((p, q))
                         if q >= e:
                             break
                         p = q
 
-            # 按 token 预算组装 piece
+            # 按预算组装：完整候选文本重新计数（BPE token 不可严格相加）
             merged = []
             acc_start = 0
-            acc_tokens = 0
             for (s, e) in pieces:
-                t = self._counter.count(text[s:e])
-                if acc_tokens + t <= self.chunk_size:
-                    acc_tokens += t
-                else:
-                    if acc_tokens > 0:
+                if self._counter.count(text[acc_start:e]) > self.chunk_size:
+                    if acc_start < s:
                         merged.append((acc_start, s))
                     acc_start = s
-                    acc_tokens = t
-            if acc_tokens > 0:
+            if acc_start < pieces[-1][1]:
                 merged.append((acc_start, pieces[-1][1]))
 
             # overlap：相邻块按字符位置向前回退

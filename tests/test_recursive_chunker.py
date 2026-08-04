@@ -1,3 +1,4 @@
+from core.chunker.token_counter import TokenCounter
 from core.loader.base import Document
 from core.chunker.recursive import RecursiveChunker
 
@@ -99,3 +100,39 @@ def test_recursive_chunks_are_exact_substrings():
         s, e = c.metadata["char_start"], c.metadata["char_end"]
         assert text[s:e] == c.content
         assert counter.count(c.content) == c.metadata["token_count"]
+
+
+# ── REWORK-P0-03-R1: 严格预算 ───────────────────────
+
+class Char3TokenCounter(TokenCounter):
+    """每字符 3 token 的确定性计数器"""
+
+    def __init__(self):
+        self._enc = None
+
+    def count(self, text):
+        return len(text) * 3
+
+
+def test_recursive_char3_budget_respected():
+    """每字符 3 token、预算 3：每块恰 1 字符，全部不超过预算"""
+    chunker = RecursiveChunker(chunk_size=3, chunk_overlap=0, token_counter=Char3TokenCounter())
+    chunks = chunker.chunk([Document(content="ab", metadata={})])
+    assert _join(chunks) == "ab"
+    assert all(c.metadata["token_count"] <= 3 for c in chunks)
+
+
+def test_recursive_segments_overlap_token_budget():
+    """overlap 配置按 token：重叠区 token 数不超过配置"""
+    text = "第一段内容。第二段内容。第三段内容。"
+    for overlap in (0, 3, 6):
+        chunker = RecursiveChunker(chunk_size=6, chunk_overlap=overlap,
+                                   token_counter=Char3TokenCounter())
+        chunks = chunker.chunk([Document(content=text, metadata={})])
+        for prev, cur in zip(chunks, chunks[1:]):
+            ov = prev.metadata["char_end"] - cur.metadata["char_start"]
+            assert ov >= 0
+            ov_tokens = Char3TokenCounter().count(
+                text[cur.metadata["char_start"]:prev.metadata["char_end"]]
+            )
+            assert ov_tokens <= overlap, f"重叠区 {ov_tokens} token > 配置 {overlap}"

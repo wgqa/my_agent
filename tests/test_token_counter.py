@@ -42,9 +42,16 @@ def test_max_substring_full_fit():
 
 
 def test_max_substring_tiny_budget_still_returns_one_char():
-    """预算小于单字符 token 跨度时放行一个字符（例外，不丢字）"""
+    """预算小于单字符 token 跨度时放行一个字符（allow_oversize=True 的例外，不丢字）"""
     counter = TokenCounter()
     text = "缓存穿透"
-    end = counter.max_substring(text, 0, 1)
+    end = counter.max_substring(text, 0, 1, allow_oversize=True)
     assert end >= 1
     assert text[:end] != ""  # 有内容，不是空切
+
+
+def test_max_substring_strict_mode_returns_start():
+    """严格模式（默认）：预算放不下一个完整字符时返回 start，不超预算"""
+    counter = TokenCounter()
+    text = "缓存穿透"
+    assert counter.max_substring(text, 0, 1) == 0

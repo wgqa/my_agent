@@ -99,7 +99,8 @@ class ContextAssembler:
             if used + b.token_count > self.max_context_tokens:
                 remaining = self.max_context_tokens - used
                 if remaining > 0:
-                    # 字符级截断：截断结果永远是原文前缀，不切半字符
+                    # 字符级截断：截断结果永远是原文前缀，不切半字符；
+                    # 严格预算：连一个完整字符都放不下（cut==0）就跳过，绝不超预算
                     cut = self._counter.max_substring(b.content, 0, remaining)
                     truncated = b.content[:cut]
                     if truncated:

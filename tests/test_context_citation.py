@@ -3,6 +3,7 @@
 from core.loader.base import Document
 from core.context.assembler import ContextAssembler, ContextBlock
 from core.generator.citation import CitationValidator
+from core.chunker.token_counter import TokenCounter
 
 
 def _hits():
@@ -122,3 +123,23 @@ class TestCitationValidator:
         result = CitationValidator().validate("没有引用的答案", [])
         assert len(result.valid) == 0
         assert result.validity_rate == 1.0
+
+
+class Char3TokenCounter(TokenCounter):
+    """每字符 3 token 的确定性计数器"""
+
+    def __init__(self):
+        self._enc = None
+
+    def count(self, text):
+        return len(text) * 3
+
+
+def test_assembler_strict_budget_no_oversize():
+    """预算 1、单字符 3 token：连一个完整字符都放不下时输出为空，总 token <= 1"""
+    from core.loader.base import Document
+    hits = [Document(content="缓存", metadata={"id": "c1", "source": "a.md",
+                                              "source_name": "a.md", "score": 0.9})]
+    assembler = ContextAssembler(max_context_tokens=1, token_counter=Char3TokenCounter())
+    blocks = assembler.assemble(hits)
+    assert blocks == [] or sum(b.token_count for b in blocks) <= 1

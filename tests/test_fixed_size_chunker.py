@@ -1,3 +1,4 @@
+from core.chunker.token_counter import TokenCounter
 from core.loader.base import Document
 from core.chunker.fixed_size import FixedSizeChunker
 
@@ -151,3 +152,40 @@ def test_fixed_chunks_are_exact_substrings():
             s, e = c.metadata["char_start"], c.metadata["char_end"]
             assert text[s:e] == c.content
             assert counter.count(c.content) == c.metadata["token_count"]
+
+
+# ── REWORK-P0-03-R1: 严格预算 + 游标前进保证 ───────────
+
+class Char3TokenCounter(TokenCounter):
+    """每字符 3 token 的确定性计数器（构造死循环/预算边界场景）"""
+
+    def __init__(self):
+        self._enc = None
+
+    def count(self, text):
+        return len(text) * 3
+
+
+def test_fixed_no_deadlock_char3_overlap():
+    """每字符 3 token、chunk_size=3、overlap=2：不前进的极端场景必须不死循环"""
+    text = "缓存穿透是指查询不存在的数据缓存击穿"
+    chunker = FixedSizeChunker(chunk_size=3, chunk_overlap=2, token_counter=Char3TokenCounter())
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    assert _join(chunks) == text
+    assert all(c.metadata["token_count"] <= 3 for c in chunks)
+
+
+def test_fixed_overlap_token_budget_respected():
+    """overlap 按 token 配置：相邻块重叠区的 token 数不超过配置"""
+    text = "缓存穿透是指查询不存在的数据" * 10
+    for overlap in (0, 4, 10):
+        chunker = FixedSizeChunker(chunk_size=24, chunk_overlap=overlap,
+                                   token_counter=Char3TokenCounter())
+        chunks = chunker.chunk([Document(content=text, metadata={})])
+        for prev, cur in zip(chunks, chunks[1:]):
+            ov = prev.metadata["char_end"] - cur.metadata["char_start"]
+            assert ov >= 0
+            ov_tokens = Char3TokenCounter().count(
+                text[cur.metadata["char_start"]:prev.metadata["char_end"]]
+            )
+            assert ov_tokens <= overlap, f"重叠区 {ov_tokens} token > 配置 {overlap}"

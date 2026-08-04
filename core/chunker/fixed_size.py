@@ -36,13 +36,25 @@ class FixedSizeChunker(BaseChunker):
             chunk_index = 0
             start = 0
             while start < total:
-                end = self._counter.max_substring(text, start, self.chunk_size)
+                end = self._counter.max_substring(
+                    text, start, self.chunk_size, allow_oversize=True,
+                )
                 chunked.append(self._make_chunk(doc, text, chunk_index, start, end))
                 chunk_index += 1
                 if end >= total:
                     break
-                # overlap 按字符位置向前回退
-                start = end if self.chunk_overlap == 0 else max(start, end - self.chunk_overlap)
+                # overlap 按 token 回退：从 end 往回找不超过 overlap token 的字符跨度
+                next_start = end
+                if self.chunk_overlap > 0:
+                    k = 0
+                    while k < end - start:
+                        k += 1
+                        if self._counter.count(text[end - k:end]) > self.chunk_overlap:
+                            k -= 1
+                            break
+                    next_start = max(start, end - k)
+                # 前进保护：下一轮起点必须超过当前块起点（极端 overlap 不吃光窗口）
+                start = next_start if next_start > start else end
 
         return chunked
 
