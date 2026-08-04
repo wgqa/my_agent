@@ -43,7 +43,7 @@
 ## Git
 
 - 远端：GitHub `wgqa/my_agent`，分支 main
-- 最近提交：`3fd2620`（08-04 docs 重组）；P0 修复提交 639b944/198bf92/b277473/7f226be/3fd2620
+- 最近验收基线：REWORK-P0-01 通过（d849e4b）；REWORK-P0-02 提交后待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
 
 ## 文档地图
 

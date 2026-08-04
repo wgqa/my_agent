@@ -58,13 +58,6 @@ python -m pytest --basetemp=.tmp_pytest
 uvicorn api.app:app --host 0.0.0.0 --port 8000
 ```
 
-## 启动服务
-
-**API：**
-```bash
-uvicorn api.app:app --host 0.0.0.0 --port 8000
-```
-
 **UI（新终端）：**
 ```bash
 streamlit run ui/app.py
