@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from core.loader.base import Document
 from core.retriever.simple import SimpleRetriever
 from core.retriever.mmr import MMRRetriever
-from core.retriever.hybrid import HybridRetriever, BM25
+from core.retriever.hybrid import HybridRetriever
 
 
 # ========== Mock 组件（模拟 embedding 和向量库） ==========
@@ -58,7 +58,7 @@ class MockVectorStore:
     def __init__(self, docs):
         self.docs = docs
 
-    def search(self, query_emb, top_k=5):
+    def search(self, query_emb, top_k=5, where=None):
         import numpy as np
         scores = []
         for d in self.docs:
@@ -77,13 +77,19 @@ def main():
 
     embedding = MockEmbedding()
     docs = make_docs()
+    for i, d in enumerate(docs):
+        d.metadata["id"] = f"doc{i}"
     vector_store = MockVectorStore(docs)
+
+    # Hybrid 依赖 metadata["id"] 做 RRF 合并，需先建 BM25 稀疏索引
+    hybrid = HybridRetriever(embedding, vector_store)
+    hybrid.build_sparse_index([(d.metadata["id"], d.content) for d in docs])
 
     # 三种检索器
     retrievers = {
         "Simple (纯向量)": SimpleRetriever(embedding, vector_store),
         "MMR (λ=0.5)": MMRRetriever(embedding, vector_store, lambda_param=0.5, top_k_initial=20),
-        "Hybrid (α=0.5)": HybridRetriever(embedding, vector_store, alpha=0.5, top_k_initial=20),
+        "Hybrid (Dense+BM25 RRF)": hybrid,
     }
 
     queries = [
@@ -108,21 +114,23 @@ def main():
     print("BM25 示例：关键词匹配 vs 语义匹配")
     print('=' * 60)
 
-    bm25 = BM25()
+    from core.retriever.hybrid import BM25Index
+
+    bm25 = BM25Index()
     corpus = [
         "the cat sat on the mat",
         "the dog chased the cat through the park",
         "the cat and the dog are friends",
         "machine learning is transforming technology",
     ]
-    bm25.fit(corpus)
+    for i, text in enumerate(corpus):
+        bm25.add_document(f"doc{i}", text)
 
     test_queries = ["cat dog", "machine learning"]
     for q in test_queries:
         print(f"\n查询: 「{q}」")
-        for i in range(len(corpus)):
-            score = bm25.score(q, i)
-            print(f"  文档{i+1}: {corpus[i][:50]:50s} BM25={score:.4f}")
+        for doc_id, score in bm25.search(q, top_k=4):
+            print(f"  {doc_id}: BM25={score:.4f}")
 
 
 if __name__ == "__main__":
