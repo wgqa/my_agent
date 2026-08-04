@@ -229,7 +229,8 @@ class HybridRetriever(BaseRetriever):
                 )
 
         final = []
-        for doc_id, rrf in rrf_scores[:self.final_k]:
+        # 池大小取 final_k 与请求 top_k 的较大者，避免内部截断吞掉候选
+        for doc_id, rrf in rrf_scores[:max(self.final_k, top_k)]:
             if doc_id in result_map:
                 doc = result_map[doc_id]
                 doc.metadata["rrf_score"] = round(rrf, 6)

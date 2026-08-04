@@ -239,6 +239,82 @@ def test_query_disabled_reranker_skips_rerank(tmp_path):
     assert not spy.called
 
 
+# ── REWORK-P0-01: 真实 Hybrid 候选链路 ───────────────
+
+class _FakeEmbedding:
+    def embed(self, texts):
+        return [[0.1, 0.2, 0.3]] * len(texts)
+
+    def embed_query(self, text):
+        return [0.1, 0.2, 0.3]
+
+
+class _FakeStore10:
+    def __init__(self):
+        self.docs = [
+            Document(content=f"文档内容{i}", metadata={
+                "id": f"c{i}", "source_name": "doc.md", "score": 0.9 - i * 0.01,
+            })
+            for i in range(10)
+        ]
+
+    def search(self, query_emb, top_k=5, where=None):
+        return self.docs[:top_k]
+
+    def count(self):
+        return len(self.docs)
+
+
+class _RecordingReranker:
+    def __init__(self):
+        self.received = None
+
+    def rerank(self, query, docs, top_k=5):
+        self.received = len(docs)
+        return docs[:top_k]
+
+
+class _FakeGenerator:
+    def generate(self, question, blocks):
+        return " ".join(f"[C{i}]" for i in range(1, len(blocks) + 1))
+
+
+def _pipeline_with_real_hybrid():
+    """按 Pipeline 实际初始化方式构造：真实 HybridRetriever（final_k=config.top_k）"""
+    pipeline = Pipeline(config_path=None, deepseek_api_key="sk-00000000000000000000000000000000")
+    pipeline.embedding = _FakeEmbedding()
+    pipeline.vector_store = _FakeStore10()
+    pipeline.retriever = pipeline._init_retriever()
+    return pipeline
+
+
+def test_real_hybrid_candidate_chain(tmp_path):
+    """真实 HybridRetriever：candidate_k=7 → reranker 收到 7 条 → final=2 返回 2 条"""
+    pipeline = _pipeline_with_real_hybrid()
+    reranker = _RecordingReranker()
+    pipeline.reranker = reranker
+    pipeline.generator = _FakeGenerator()
+    pipeline.config.reranker_candidate_k = 7
+    pipeline.config.reranker_final_k = 2
+
+    result = pipeline.query("测试问题", top_k=5)
+
+    assert reranker.received == 7, f"reranker 应收到 7 条候选，实际 {reranker.received}"
+    assert len(result["sources"]) == 2
+
+
+def test_reranker_disabled_truncates_to_request_k(tmp_path):
+    """reranker 关闭时，最终结果严格截断为请求的 top_k"""
+    pipeline = _pipeline_with_real_hybrid()
+    pipeline.reranker = _RecordingReranker()
+    pipeline.generator = _FakeGenerator()
+    pipeline.config.reranker_enabled = False
+
+    result = pipeline.query("测试问题", top_k=3)
+
+    assert len(result["sources"]) == 3
+
+
 # ── M3-T4: 无答案拒答 ────────────────────────────────
 
 def test_query_empty_retrieval_returns_no_answer():

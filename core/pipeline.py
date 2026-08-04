@@ -198,6 +198,9 @@ class Pipeline:
                 import warnings
                 warnings.warn(f"Reranker 失败，使用检索结果: {type(e).__name__}")
 
+        # 语义：请求 top_k 是最终答案数上限；reranker 关闭时也严格截断
+        retrieved = retrieved[:k]
+
         # ── 无答案拒答（M3-T4 基础版） ────────────────
         if not retrieved:
             return {
