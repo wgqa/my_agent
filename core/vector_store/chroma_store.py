@@ -56,15 +56,16 @@ class ChromaStore(BaseVectorStore):
         for d, emb in zip(docs, embs):
             doc_id = d.metadata.get("document_id", "unknown")
             cid = self._make_chunk_id(doc_id, d.content)
+            # 所有输入 doc 都写回 id（含被去重的），保证下游 id↔正文 对齐
+            meta = dict(d.metadata) if d.metadata else {}
+            meta["document_id"] = doc_id
+            meta["id"] = cid
+            d.metadata = meta
             if cid in seen:
                 continue
             seen.add(cid)
             ids.append(cid)
-            meta = dict(d.metadata) if d.metadata else {}
-            meta["document_id"] = doc_id
-            meta["id"] = cid
             metas.append(meta)
-            d.metadata = meta
             texts.append(d.content)
             filtered_embs.append(emb)
         return ids, metas, texts, filtered_embs

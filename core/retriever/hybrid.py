@@ -36,7 +36,9 @@ class BM25Index:
         self._total_docs: int = 0
 
     def add_document(self, doc_id: str, text: str):
-        """添加一篇文档到索引（增量 IDF）"""
+        """添加一篇文档到索引（增量 IDF）；同一 ID 重复添加视为更新，先撤销旧统计"""
+        if doc_id in self._doc_freqs:
+            self.remove_document(doc_id)
         tokens = _tokenize(text)
         self._doc_freqs[doc_id] = Counter(tokens)
         self._doc_lens[doc_id] = sum(self._doc_freqs[doc_id].values())
@@ -47,7 +49,8 @@ class BM25Index:
             self._df[term] = self._df.get(term, 0) + 1
         self._total_docs += 1
         self._update_avgdl()
-        self._recompute_affected_idf(set(self._doc_freqs[doc_id].keys()))
+        # 总文档数变化影响所有词项的 idf，必须全量重算（增量只重算新增词会留下陈旧值）
+        self._recompute_idf()
 
     def remove_document(self, doc_id: str):
         """从索引中移除一篇文档（增量 IDF）"""
@@ -63,24 +66,13 @@ class BM25Index:
         self._texts.pop(doc_id, None)
         self._total_docs -= 1
         self._update_avgdl()
-        self._recompute_affected_idf(affected | {t for t in affected})
+        self._recompute_idf()
 
     def get_text(self, doc_id: str) -> str:
         return self._texts.get(doc_id, "")
 
     def _update_avgdl(self):
         self._avgdl = sum(self._doc_lens.values()) / max(self._total_docs, 1)
-
-    def _recompute_affected_idf(self, terms: set):
-        """只重算受影响的词，不扫全库"""
-        for term in terms:
-            freq = self._df.get(term, 0)
-            if freq <= 0:
-                self._idf.pop(term, None)
-            else:
-                self._idf[term] = math.log(
-                    (self._total_docs - freq + 0.5) / (freq + 0.5) + 1.0
-                )
 
     # ── 持久化 ───────────────────────────────────────
 

@@ -288,7 +288,7 @@ def _pipeline_with_real_hybrid():
     return pipeline
 
 
-def test_real_hybrid_candidate_chain(tmp_path):
+def test_real_hybrid_candidate_chain():
     """真实 HybridRetriever：candidate_k=7 → reranker 收到 7 条 → final=2 返回 2 条"""
     pipeline = _pipeline_with_real_hybrid()
     reranker = _RecordingReranker()
@@ -303,7 +303,7 @@ def test_real_hybrid_candidate_chain(tmp_path):
     assert len(result["sources"]) == 2
 
 
-def test_reranker_disabled_truncates_to_request_k(tmp_path):
+def test_reranker_disabled_truncates_to_request_k():
     """reranker 关闭时，最终结果严格截断为请求的 top_k"""
     pipeline = _pipeline_with_real_hybrid()
     pipeline.reranker = _RecordingReranker()
@@ -313,6 +313,44 @@ def test_reranker_disabled_truncates_to_request_k(tmp_path):
     result = pipeline.query("测试问题", top_k=3)
 
     assert len(result["sources"]) == 3
+
+
+# ── REWORK-P0-02: BM25 不膨胀 + ID 正文对齐 ───────────
+
+def test_index_file_update_no_bm25_inflation(tmp_path):
+    """部分 Chunk ID 不变时更新文档，BM25 文档数不膨胀"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "bm1.txt"
+    f.write_text("缓存穿透的解决方案是布隆过滤器。" * 40, encoding="utf-8")
+    r1 = pipeline.index_file(str(f))
+    assert r1["status"] == "create"
+
+    f.write_text(
+        "缓存穿透的解决方案是布隆过滤器。" * 35 + "缓存击穿的解决方案是互斥锁。" * 5,
+        encoding="utf-8",
+    )
+    r2 = pipeline.index_file(str(f))
+    assert r2["status"] == "update"
+
+    store_count = pipeline.vector_store.count()
+    bm25_count = pipeline.retriever._bm25._total_docs
+    assert store_count > 0
+    assert bm25_count == store_count, f"BM25 {bm25_count} != store {store_count}"
+
+
+def test_delete_document_bm25_consistent(tmp_path):
+    """删除更新后的文档，BM25 所有统计恢复一致"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "bm2.txt"
+    f.write_text("缓存穿透的解决方案是布隆过滤器。" * 40, encoding="utf-8")
+    r = pipeline.index_file(str(f))
+    assert r["chunks"] > 0
+
+    pipeline.delete_document(r["document_id"])
+
+    assert pipeline.retriever._bm25._total_docs == 0
+    assert len(pipeline.retriever._bm25._doc_freqs) == 0
+    assert pipeline.retriever._bm25._df == {}
 
 
 # ── M3-T4: 无答案拒答 ────────────────────────────────

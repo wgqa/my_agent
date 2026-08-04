@@ -164,9 +164,11 @@ class Pipeline:
                     for cid in stale:
                         self.retriever._bm25.remove_document(cid)
 
-        # 同步 BM25 稀疏索引
+        # 同步 BM25 稀疏索引：用 chunk 元数据 id 配对（upsert 去重后 zip 会错位）
         if hasattr(self.retriever, "build_sparse_index"):
-            self.retriever.build_sparse_index(zip(ids, texts))
+            self.retriever.build_sparse_index(
+                [(c.metadata["id"], c.content) for c in chunks]
+            )
 
         return {
             "status": "update" if existing else "create",

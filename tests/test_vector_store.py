@@ -110,3 +110,22 @@ def test_empty_batch_is_handled_explicitly():
     ids = store.add([], [])
     assert ids == []
     assert store.count() == 0
+
+
+def test_upsert_sets_id_on_all_input_docs_including_deduped():
+    """upsert 去重后，输入中每个 doc（含被去重的）都必须拿到正确的 id"""
+    store = ChromaStore(path=None, collection_name="align_test")
+    docs = [
+        Document(content="内容A", metadata={"document_id": "doc1"}),
+        Document(content="内容B", metadata={"document_id": "doc1"}),
+        Document(content="内容A", metadata={"document_id": "doc1"}),  # 中间重复
+        Document(content="内容C", metadata={"document_id": "doc1"}),
+    ]
+    store.upsert(docs, [[0.1] * 512] * 4)
+
+    ids = [d.metadata.get("id") for d in docs]
+    assert all(ids), f"去重后被跳过的 doc 缺少 id: {ids}"
+    assert ids[0] == ids[2]  # 重复内容同 id
+    assert ids[1] != ids[0]
+    assert ids[3] != ids[0]
+    assert store.count() == 3
