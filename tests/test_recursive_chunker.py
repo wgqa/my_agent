@@ -136,3 +136,13 @@ def test_recursive_segments_overlap_token_budget():
                 text[cur.metadata["char_start"]:prev.metadata["char_end"]]
             )
             assert ov_tokens <= overlap, f"重叠区 {ov_tokens} token > 配置 {overlap}"
+
+
+def test_recursive_oversized_marked_for_over_budget_char():
+    """chunk_size=1：超预算字符块标记 oversized，正常块不标记"""
+    chunks = RecursiveChunker(chunk_size=1, chunk_overlap=0).chunk(
+        [Document(content="缓存", metadata={})]
+    )
+    assert _join(chunks) == "缓存"
+    assert any(c.metadata["oversized"] for c in chunks)
+    assert any(not c.metadata["oversized"] for c in chunks)  # "存"=1 token 正常

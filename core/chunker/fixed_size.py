@@ -36,10 +36,13 @@ class FixedSizeChunker(BaseChunker):
             chunk_index = 0
             start = 0
             while start < total:
+                strict_end = self._counter.max_substring(text, start, self.chunk_size)
                 end = self._counter.max_substring(
                     text, start, self.chunk_size, allow_oversize=True,
                 )
-                chunked.append(self._make_chunk(doc, text, chunk_index, start, end))
+                # 文本完整优先：单字符超过预算时放行一个完整字符并标记 oversized
+                oversized = strict_end == start and end > start
+                chunked.append(self._make_chunk(doc, text, chunk_index, start, end, oversized))
                 chunk_index += 1
                 if end >= total:
                     break
@@ -60,6 +63,7 @@ class FixedSizeChunker(BaseChunker):
 
     def _make_chunk(
         self, doc: Document, text: str, idx: int, start: int, end: int,
+        oversized: bool = False,
     ) -> Document:
         content = text[start:end]
         return Document(
@@ -70,5 +74,6 @@ class FixedSizeChunker(BaseChunker):
                 "token_count": self._counter.count(content),
                 "char_start": start,
                 "char_end": end,
+                "oversized": oversized,
             },
         )

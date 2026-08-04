@@ -74,7 +74,10 @@ class RecursiveChunker(BaseChunker):
                 final.append((s, e))
 
             for i, (start, end) in enumerate(final):
-                chunked.append(self._make_chunk(doc, text, i, start, end))
+                # 文本完整优先：严格预算放不下但放行单字符时标记 oversized
+                strict_end = self._counter.max_substring(text, start, self.chunk_size)
+                oversized = strict_end == start and end > start
+                chunked.append(self._make_chunk(doc, text, i, start, end, oversized))
         return chunked
 
     def _split_text(self, text: str, separators: List[str], depth: int) -> List[str]:
@@ -111,6 +114,7 @@ class RecursiveChunker(BaseChunker):
 
     def _make_chunk(
         self, doc: Document, text: str, idx: int, start: int, end: int,
+        oversized: bool = False,
     ) -> Document:
         content = text[start:end]
         return Document(
@@ -121,5 +125,6 @@ class RecursiveChunker(BaseChunker):
                 "token_count": self._counter.count(content),
                 "char_start": start,
                 "char_end": end,
+                "oversized": oversized,
             },
         )

@@ -189,3 +189,12 @@ def test_fixed_overlap_token_budget_respected():
                 text[cur.metadata["char_start"]:prev.metadata["char_end"]]
             )
             assert ov_tokens <= overlap, f"重叠区 {ov_tokens} token > 配置 {overlap}"
+
+
+def test_fixed_oversized_marked_for_over_budget_char():
+    """chunk_size=1：超预算的完整字符块必须标记 oversized=True（文本完整优先）"""
+    chunks = FixedSizeChunker(chunk_size=1, chunk_overlap=0).chunk(
+        [Document(content="缓存", metadata={})]
+    )
+    assert _join(chunks) == "缓存"
+    assert any(c.metadata["oversized"] for c in chunks)  # "缓"=2 token > 1
