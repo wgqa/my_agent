@@ -142,6 +142,33 @@ def test_index_file_update(tmp_path):
     assert pipeline.vector_store.count() == r2["chunks"]
 
 
+def test_index_file_update_keeps_old_data_when_embedding_fails(tmp_path):
+    """更新时写入失败（embedding 报错）→ 旧数据必须保留（先写后删，不能先删后写）"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "doc6.txt"
+    f.write_text("旧内容。" * 30, encoding="utf-8")
+
+    r1 = pipeline.index_file(str(f))
+    assert r1["status"] == "create"
+    old_count = pipeline.vector_store.count()
+    assert old_count > 0
+
+    f.write_text("新内容。" * 30, encoding="utf-8")
+
+    def boom(texts):
+        raise RuntimeError("embedding 失败")
+
+    pipeline.embedding.embed = boom
+
+    try:
+        pipeline.index_file(str(f))
+        raise AssertionError("embedding 失败时应当抛出异常")
+    except RuntimeError:
+        pass
+
+    assert pipeline.vector_store.count() == old_count
+
+
 def test_delete_document_cleans_vector_store(tmp_path):
     """删除文档后向量库中不再有该文档的 chunk"""
     pipeline = _make_pipeline(tmp_path)
@@ -154,6 +181,62 @@ def test_delete_document_cleans_vector_store(tmp_path):
 
     pipeline.delete_document(r["document_id"])
     assert pipeline.vector_store.count() == 0
+
+
+# ── P0-3: reranker 配置接线 ──────────────────────────
+
+def test_query_wires_reranker_candidate_and_final_k(tmp_path):
+    """reranker_candidate_k/final_k 配置真正生效"""
+    pipeline = _make_pipeline(tmp_path)
+    calls = {}
+
+    class FakeRetriever:
+        def retrieve(self, query, top_k=5):
+            calls["retrieve_top_k"] = top_k
+            return [Document(content="内容A", metadata={"id": "a", "score": 0.99, "source_name": "x.md"})]
+
+    class FakeReranker:
+        def rerank(self, query, docs, top_k=5):
+            calls["rerank_top_k"] = top_k
+            return docs
+
+    pipeline.retriever = FakeRetriever()
+    pipeline.reranker = FakeReranker()
+    pipeline.config.reranker_candidate_k = 7
+    pipeline.config.reranker_final_k = 2
+    pipeline.config.min_score = 0.95  # 高阈值 → 拒答，不触发 generator
+
+    pipeline.query("测试问题")
+
+    assert calls["retrieve_top_k"] == 7
+    assert calls["rerank_top_k"] == 2
+
+
+def test_query_disabled_reranker_skips_rerank(tmp_path):
+    """reranker_enabled=False 时完全不调用 reranker"""
+    pipeline = _make_pipeline(tmp_path)
+
+    class FakeRetriever:
+        def retrieve(self, query, top_k=5):
+            return [Document(content="内容A", metadata={"id": "a", "score": 0.99, "source_name": "x.md"})]
+
+    class SpyReranker:
+        def __init__(self):
+            self.called = False
+
+        def rerank(self, query, docs, top_k=5):
+            self.called = True
+            return docs
+
+    spy = SpyReranker()
+    pipeline.retriever = FakeRetriever()
+    pipeline.reranker = spy
+    pipeline.config.reranker_enabled = False
+    pipeline.config.min_score = 0.95
+
+    pipeline.query("测试问题")
+
+    assert not spy.called
 
 
 # ── M3-T4: 无答案拒答 ────────────────────────────────

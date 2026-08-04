@@ -140,15 +140,9 @@ class Pipeline:
                     "chunks": 0,
                 }
 
-        # 新版本：先删旧 chunk 再入库
-        if existing:
-            old_ids = [c["id"] for c in existing]
-            self.vector_store.delete(old_ids)
-            if hasattr(self.retriever, "_bm25"):
-                for cid in old_ids:
-                    self.retriever._bm25.remove_document(cid)
+        old_ids = [c["id"] for c in existing] if existing else []
 
-        # 分块 → embedding → 入库
+        # 分块 → embedding → 入库（先写新版本）
         chunks = self.chunker.chunk(docs)
         texts = [d.content for d in chunks]
         embeddings = self.embedding.embed(texts)
@@ -159,6 +153,16 @@ class Pipeline:
 
         # upsert 而非 add：内容重复产生相同 chunk_id 时幂等处理
         ids = self.vector_store.upsert(chunks, embeddings)
+
+        # 写入成功后，删除旧版本中未被新版本覆盖的 chunk（先写后删，中途失败不丢数据）
+        if old_ids:
+            new_ids = set(ids)
+            stale = [oid for oid in old_ids if oid not in new_ids]
+            if stale:
+                self.vector_store.delete(stale)
+                if hasattr(self.retriever, "_bm25"):
+                    for cid in stale:
+                        self.retriever._bm25.remove_document(cid)
 
         # 同步 BM25 稀疏索引
         if hasattr(self.retriever, "build_sparse_index"):
@@ -176,7 +180,8 @@ class Pipeline:
         from core.generator.citation import CitationValidator
 
         k = top_k or self.config.top_k
-        candidate_k = max(self.config.top_k * 3, k * 3)
+        final_k = self.config.reranker_final_k or k
+        candidate_k = self.config.reranker_candidate_k or max(self.config.top_k * 3, k * 3)
 
         # 多轮改写：指代问题 → 独立问句
         if history:
@@ -186,11 +191,12 @@ class Pipeline:
         retrieved = self.retriever.retrieve(question, top_k=candidate_k)
 
         # Reranker 失败时降级为检索结果，不中断请求
-        try:
-            retrieved = self.reranker.rerank(question, retrieved, top_k=k)
-        except Exception as e:
-            import warnings
-            warnings.warn(f"Reranker 失败，使用检索结果: {type(e).__name__}")
+        if self.config.reranker_enabled:
+            try:
+                retrieved = self.reranker.rerank(question, retrieved, top_k=final_k)
+            except Exception as e:
+                import warnings
+                warnings.warn(f"Reranker 失败，使用检索结果: {type(e).__name__}")
 
         # ── 无答案拒答（M3-T4 基础版） ────────────────
         if not retrieved:
