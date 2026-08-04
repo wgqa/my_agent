@@ -3,12 +3,12 @@
 > 唯一的实时状态表。每次里程碑/修复后更新本文件。
 > 历史大规划已归档至 `docs/archive/`，以本文件为真相来源。
 
-**更新日期：** 2026-08-04
+**更新日期：** 2026-08-05
 
 ## 当前结论
 
 - **定位**：面向技术文档与代码的可评测 RAG Agent
-- **阶段**：M0-M3 完成 → P0 修复完成（08-04）→ **下一步 M4（评测与消融，等真实语料）**
+- **阶段**：M0-M3 完成 → REWORK-P0-01/02/03 完成 → **下一步 M4（评测与消融，等真实语料）**
 - **测试**：全量 suite 通过（--basetemp=.tmp_pytest）
 
 ## 任务状态
@@ -19,31 +19,35 @@
 | M1 数据正确性 | ✅ | T1-T6 | 领域模型 / ChromaStore 契约 / 统一 Token 计数 / chunker 修复 / Loader 元数据 / 幂等入库 |
 | M2 检索验证 | ✅ | 08-03 收尾 | Dense fixture / Sparse 补召回 / Reranker 降级 |
 | M3 上下文/生成/引用 | ✅ | T1-T6（08-03） | ContextAssembler / Prompt 重写 / 引用验证 / 拒答 / Generator 可靠性 / 多轮对话 |
-| P0 修复 | ✅ | 08-04（外部评审驱动） | 见下表 |
+| REWORK-P0-01 | ✅ | 08-05 复审通过 | Hybrid 候选链路 |
+| REWORK-P0-02 | ✅ | 08-05 复审通过 | BM25 统计膨胀 + ID 错位 |
+| REWORK-P0-03 | ✅ | 08-05 完成，待复审 | TokenCounter/Chunker 静默丢字 |
 | M4 评测与消融 | ⬜ | 需要真实语料 + QA 测试集 | — |
 | M5/M6 | ⏭ | 计划跳过大部分，仅做 Docker | — |
 | Agent（结构化 Tool） | ⬜ | M4 之后 | — |
 
-## P0 修复清单（2026-08-04）
+## 修复清单
 
-| # | 问题 | 修复 | 验证 |
+| # | 问题 | 修复 | 状态 |
 |---|------|------|------|
-| P0-1 | rerank 分数未写回，assembler 按稠密分重排覆盖 rerank 顺序 | bge_reranker 写回 `rerank_score`/`final_rank`；assembler 优先按 rerank_score 排序 | tests/test_reranker.py、test_context_citation.py |
-| P0-2 | 更新先删旧数据，中途失败丢数据 | 先写后删，仅删未被新版本覆盖的旧 chunk | test_index_file_update_keeps_old_data_when_embedding_fails |
-| P0-3 | reranker.enabled/candidate_k/final_k 是死配置 | pipeline.query 接线 | test_query_wires_reranker_candidate_and_final_k、test_query_disabled_reranker_skips_rerank |
-| P0-4 | TokenCounter 解码乱码（tiktoken 与 fallback 两条路径） | decode 去除边界 U+FFFD；fallback 丢弃不完整字节 | tests/test_token_counter.py |
-| P0-5 | compare_retrievers.py 引用已删除的旧 API（BM25/alpha/top_k_initial） | 改用现行 API（BM25Index / Hybrid 新签名） | 脚本可完整运行 |
-| P0-6 | README 过期声明（不存在的 streamlit UI、不支持多轮、错误测试命令） | 已更新 | — |
+| P0-1 | rerank 分数未写回，assembler 按稠密分重排 | 写回 rerank_score/final_rank；按 rerank 排序 | ✅ 08-05 复审通过 |
+| P0-2 | 更新先删旧数据 | 先写后删 | ✅ |
+| P0-3 | reranker 死配置 | pipeline 接线 | ✅ |
+| P0-4 | TokenCounter 乱码 | 见 REWORK-P0-03（推翻重做） | ✅ |
+| P0-5 | 实验脚本旧 API | 改用现行 API | ✅ |
+| REWORK-P0-01 | candidate_k 被 internal final_k 截断 | 池取 max(final_k, top_k)；top_k 语义明确 | ✅ 复审通过 |
+| REWORK-P0-02 | BM25 重复入库统计膨胀 + zip 错位 | add_document 真 upsert；全量 idf；_batch 写回 id | ✅ 复审通过 |
+| REWORK-P0-03 | 分块静默丢字/乱码 | 文本为事实源 + token 只做预算（见 study-notes 35） | ✅ 待复审 |
 
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130 passed（08-03）→ **139 passed**（08-04 P0 修复后，新增 9 用例）
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ **157**（REWORK-03，08-05）
 
 ## Git
 
 - 远端：GitHub `wgqa/my_agent`，分支 main
-- 最近验收基线：REWORK-P0-01 通过（d849e4b）；REWORK-P0-02 提交后待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
+- 最近验收基线：REWORK-P0-01/02 均复审通过；REWORK-P0-03 待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
 
 ## 文档地图
 
@@ -52,6 +56,6 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-34 |
+| docs/study-notes/ | 学习笔记 00-35 |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |
