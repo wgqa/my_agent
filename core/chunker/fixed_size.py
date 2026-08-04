@@ -6,7 +6,11 @@ from core.chunker.token_counter import TokenCounter
 
 
 class FixedSizeChunker(BaseChunker):
-    """按固定 token 数切分，带 overlap，中文友好"""
+    """按固定 token 预算切分，带 overlap。
+
+    原始文本是事实来源：先按字符位置选候选区间，再算 token 预算，
+    因此每个 chunk 都是原文的精确子串，不会切出半字符或丢内容。
+    """
 
     def __init__(
         self,
@@ -22,43 +26,37 @@ class FixedSizeChunker(BaseChunker):
         chunked = []
 
         for doc in documents:
-            tokens = self._counter.encode(doc.content)
-            total = len(tokens)
-            step = self.chunk_size - self.chunk_overlap
+            text = doc.content
+            total = len(text)
 
             # 空文档 / 纯空白：不生成空块
-            if total == 0 or not doc.content.strip():
+            if total == 0 or not text.strip():
                 continue
 
-            # chunk_index 按文档重置
             chunk_index = 0
-
-            if total <= self.chunk_size:
-                chunked.append(self._make_chunk(doc, tokens, chunk_index, 0, total))
-                continue
-
             start = 0
             while start < total:
-                end = min(start + self.chunk_size, total)
-                chunked.append(self._make_chunk(doc, tokens, chunk_index, start, end))
+                end = self._counter.max_substring(text, start, self.chunk_size)
+                chunked.append(self._make_chunk(doc, text, chunk_index, start, end))
                 chunk_index += 1
-                if end == total:
+                if end >= total:
                     break
-                start += step
+                # overlap 按字符位置向前回退
+                start = end if self.chunk_overlap == 0 else max(start, end - self.chunk_overlap)
 
         return chunked
 
     def _make_chunk(
-        self, doc: Document, tokens: List[int], idx: int,
-        start: int, end: int,
+        self, doc: Document, text: str, idx: int, start: int, end: int,
     ) -> Document:
+        content = text[start:end]
         return Document(
-            content=self._counter.decode(tokens[start:end]),
+            content=content,
             metadata={
                 **doc.metadata,
                 "chunk_index": idx,
-                "token_count": end - start,
-                "token_start": start,
-                "token_end": end,
+                "token_count": self._counter.count(content),
+                "char_start": start,
+                "char_end": end,
             },
         )

@@ -75,3 +75,79 @@ def test_reassembly_does_not_lose_content():
     result = chunker.chunk([doc])
     reassembled = "".join(c.content for c in result)
     assert len(reassembled) >= len(content)
+
+
+# ── REWORK-P0-03: overlap=0 精确重组 + 极小 chunk_size ──
+
+LONG_ZH = (
+    "缓存穿透是指查询不存在的数据由于缓存中没有请求会穿过缓存直接打到数据库"
+    "常见解决方案包括布隆过滤器和缓存空值布隆过滤器将所有可能存在的数据哈希"
+    "到一个足够大的bitmap中一个一定不存在的数据会被这个bitmap拦截掉"
+    "缓存击穿是指热点key在失效的瞬间大量并发请求同时打到数据库"
+    "与缓存穿透不同击穿的key在数据库中是有值的解决方案包括互斥锁和逻辑过期"
+)
+
+LONG_EN = "the quick brown fox jumps over the lazy dog " * 8
+
+LONG_MIXED = "🎉🎊🚀 中文混排 mixed content 测试 🎯 emoji 与汉字并存 " * 6
+
+WITH_REPLACEMENT = "缓存�穿透与击穿的区别�"
+
+
+def _join(chunks):
+    return "".join(c.content for c in chunks)
+
+
+def test_fixed_overlap0_joins_to_original():
+    """overlap=0 时全部 chunk 拼接必须精确还原原文（中文/英文/Emoji/混排）"""
+    for text in [LONG_ZH, LONG_EN, LONG_MIXED]:
+        for size in (7, 16, 32):
+            chunks = FixedSizeChunker(chunk_size=size, chunk_overlap=0).chunk(
+                [Document(content=text, metadata={})]
+            )
+            assert _join(chunks) == text
+
+
+def test_fixed_small_chunk_size_chinese_no_loss():
+    """chunk_size=1/2/3 中文边界：不丢字、无额外 U+FFFD"""
+    for size in (1, 2, 3):
+        chunks = FixedSizeChunker(chunk_size=size, chunk_overlap=0).chunk(
+            [Document(content=LONG_ZH, metadata={})]
+        )
+        assert _join(chunks) == LONG_ZH
+        assert all("�" not in c.content for c in chunks)
+
+
+def test_fixed_token_budget_respected():
+    """每块 token 数不超预算；预算小于单字符 token 跨度时放行一个字符（例外，注释记录）"""
+    for size in (3, 7, 16):
+        chunks = FixedSizeChunker(chunk_size=size, chunk_overlap=0).chunk(
+            [Document(content=LONG_MIXED, metadata={})]
+        )
+        for c in chunks:
+            assert c.metadata["token_count"] <= max(size, 4), (
+                f"chunk {c.metadata['chunk_index']} token_count={c.metadata['token_count']} > {size}"
+            )
+
+
+def test_fixed_keeps_legit_replacement_chars():
+    """原文合法的 U+FFFD 必须保留且不新增"""
+    chunks = FixedSizeChunker(chunk_size=7, chunk_overlap=0).chunk(
+        [Document(content=WITH_REPLACEMENT, metadata={})]
+    )
+    assert _join(chunks) == WITH_REPLACEMENT
+    assert sum(c.content.count("�") for c in chunks) == WITH_REPLACEMENT.count("�")
+
+
+def test_fixed_chunks_are_exact_substrings():
+    """每个 chunk 必须是原文精确子串，char_start/char_end 能映射回原文"""
+    from core.chunker.token_counter import TokenCounter
+    counter = TokenCounter()
+    for text in [LONG_ZH, LONG_EN, LONG_MIXED, WITH_REPLACEMENT]:
+        chunks = FixedSizeChunker(chunk_size=16, chunk_overlap=4).chunk(
+            [Document(content=text, metadata={})]
+        )
+        for c in chunks:
+            s, e = c.metadata["char_start"], c.metadata["char_end"]
+            assert text[s:e] == c.content
+            assert counter.count(c.content) == c.metadata["token_count"]

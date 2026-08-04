@@ -6,7 +6,11 @@ from core.chunker.token_counter import TokenCounter
 
 
 class RecursiveChunker(BaseChunker):
-    """按分隔符优先级递归分割，保留语义边界，带真实 overlap"""
+    """按分隔符优先级递归分割，保留语义边界，带真实 overlap。
+
+    原始文本是事实来源：先按分隔符切出字符级语义段，再按 token 预算组装，
+    chunk 永远是原文的精确子串，不丢标点/汉字/Emoji。
+    """
 
     SEPARATORS = ["\n\n", "\n", "。", ".", " ", ""]
 
@@ -23,68 +27,58 @@ class RecursiveChunker(BaseChunker):
     def chunk(self, documents: List[Document]) -> List[Document]:
         chunked = []
         for doc in documents:
-            tokens = self._counter.encode(doc.content)
-            # 空文档 / 纯空白：不生成空块
-            if not tokens or not doc.content.strip():
+            text = doc.content
+            if not text or not text.strip():
                 continue
-            chunks = self._split_tokens(tokens, 0, len(tokens))
-            for i, (start, end) in enumerate(chunks):
-                chunked.append(self._make_chunk(doc, tokens, i, start, end))
-        return chunked
 
-    def _split_tokens(
-        self, tokens: List[int], start: int, end: int,
-    ) -> List[tuple[int, int]]:
-        """按分隔符优先切分 token 区间，带 overlap"""
-        span = end - start
-        if span <= self.chunk_size:
-            return [(start, end)]
+            # 语义段（字符级，分隔符保留在段尾）→ 全局字符区间
+            seg_ranges = []
+            pos = 0
+            for seg in self._split_text(text, self.SEPARATORS, 0):
+                seg_ranges.append((pos, pos + len(seg)))
+                pos += len(seg)
 
-        text = self._counter.decode(tokens[start:end])
-        segments = self._split_text(text, self.SEPARATORS, 0)
-
-        # 每个 segment 单独编码，得到精确的 token 位置
-        pos = start
-        merged = []
-        acc_segs = []
-        acc_tokens = 0
-
-        for seg in segments:
-            seg_len = len(self._counter.encode(seg))
-            if acc_tokens + seg_len <= self.chunk_size:
-                acc_segs.append(seg)
-                acc_tokens += seg_len
-            else:
-                if acc_segs:
-                    end_pos = pos + acc_tokens
-                    merged.append((pos, end_pos))
-                    pos = end_pos
-                # 单个 segment 超长：硬切
-                if seg_len > self.chunk_size:
-                    seg_tokens = self._counter.encode(seg)
-                    seg_start = pos
-                    seg_end = seg_start + seg_len
-                    merged.extend(self._hard_split(tokens, seg_start, seg_end))
-                    pos = seg_end
-                    acc_segs = []
-                    acc_tokens = 0
+            # 超长段在字符层硬切（不超过预算）
+            pieces = []
+            for (s, e) in seg_ranges:
+                if e - s <= self.chunk_size:
+                    pieces.append((s, e))
                 else:
-                    acc_segs = [seg]
-                    acc_tokens = seg_len
+                    p = s
+                    while p < e:
+                        q = self._counter.max_substring(text, p, self.chunk_size)
+                        pieces.append((p, q))
+                        if q >= e:
+                            break
+                        p = q
 
-        if acc_segs:
-            merged.append((pos, pos + acc_tokens))
+            # 按 token 预算组装 piece
+            merged = []
+            acc_start = 0
+            acc_tokens = 0
+            for (s, e) in pieces:
+                t = self._counter.count(text[s:e])
+                if acc_tokens + t <= self.chunk_size:
+                    acc_tokens += t
+                else:
+                    if acc_tokens > 0:
+                        merged.append((acc_start, s))
+                    acc_start = s
+                    acc_tokens = t
+            if acc_tokens > 0:
+                merged.append((acc_start, pieces[-1][1]))
 
-        # 加 overlap：相邻块向前扩展
-        final = []
-        for i, (s, e) in enumerate(merged):
-            if i > 0 and self.chunk_overlap > 0:
-                prev_end = merged[i - 1][1]
-                overlap_start = max(s, prev_end - self.chunk_overlap)
-                if overlap_start < s:
-                    s = overlap_start
-            final.append((s, e))
-        return final
+            # overlap：相邻块按字符位置向前回退
+            final = []
+            for i, (s, e) in enumerate(merged):
+                if i > 0 and self.chunk_overlap > 0:
+                    prev_end = merged[i - 1][1]
+                    s = max(s, prev_end - self.chunk_overlap)
+                final.append((s, e))
+
+            for i, (start, end) in enumerate(final):
+                chunked.append(self._make_chunk(doc, text, i, start, end))
+        return chunked
 
     def _split_text(self, text: str, separators: List[str], depth: int) -> List[str]:
         """递归按分隔符切分文本，保留分隔符在片段末尾"""
@@ -100,49 +94,35 @@ class RecursiveChunker(BaseChunker):
             return self._split_text(text, separators, depth + 1)
 
         result = []
+        pending = ""
         for i, part in enumerate(parts):
             # 继续用更深层的分隔符切分
             sub = self._split_text(part, separators, depth + 1)
             if sub:
+                # 前导空 part 产生的分隔符附加到下一个子段开头（否则字符丢失）
+                if pending:
+                    sub[0] = pending + sub[0]
+                    pending = ""
                 result.extend(sub)
-            # 分隔符附到最后一个子段上
-            if i < len(parts) - 1 and result:
-                result[-1] = result[-1] + sep
+            # 分隔符附到最后一个子段上；前面没有内容时先缓存
+            if i < len(parts) - 1:
+                if result:
+                    result[-1] = result[-1] + sep
+                else:
+                    pending += sep
         return result
 
-    def _hard_split(
-        self, tokens: List[int], start: int, end: int,
-    ) -> List[tuple[int, int]]:
-        """按 token 硬切，带 overlap"""
-        span = end - start
-        if span <= self.chunk_size:
-            return [(start, end)]
-
-        step = self.chunk_size - self.chunk_overlap
-        chunks = []
-        s = start
-
-        while s < end:
-            e = min(s + self.chunk_size, end)
-            chunks.append((s, e))
-            s = s + step
-            leftover = end - s
-            if leftover > 0 and leftover < self.chunk_size * 0.3:
-                break
-
-        return chunks
-
     def _make_chunk(
-        self, doc: Document, tokens: List[int], idx: int,
-        start: int, end: int,
+        self, doc: Document, text: str, idx: int, start: int, end: int,
     ) -> Document:
+        content = text[start:end]
         return Document(
-            content=self._counter.decode(tokens[start:end]),
+            content=content,
             metadata={
                 **doc.metadata,
                 "chunk_index": idx,
-                "token_count": end - start,
-                "token_start": start,
-                "token_end": end,
+                "token_count": self._counter.count(content),
+                "char_start": start,
+                "char_end": end,
             },
         )

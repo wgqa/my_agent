@@ -2,7 +2,11 @@ from typing import List, Optional
 
 
 class TokenCounter:
-    """统一的 token 计数器，隔离不同模型的分词实现"""
+    """统一的 token 计数器，只负责预算判断，不承担文本切片。
+
+    设计原则：原始字符串是事实来源，Chunker/Assembler 始终在字符层
+    切片（文本永远是原文的精确子串），token 数只用来判断预算。
+    """
 
     def __init__(self, encoding_name: str = "cl100k_base"):
         try:
@@ -12,30 +16,41 @@ class TokenCounter:
             self._enc = None
 
     def count(self, text: str) -> int:
-        """返回文本的 token 数"""
+        """返回文本的 token 数（与 encode 同一单位）"""
         if self._enc:
             return len(self._enc.encode(text))
-        # fallback：中文字符算 1.5 token，其他算 1 token
-        chinese_chars = sum(1 for c in text if '一' <= c <= '鿿')
-        other_chars = len(text) - chinese_chars
-        return int(chinese_chars * 1.5 + other_chars)
+        return len(text)  # fallback：1 字符 = 1 token
 
     def encode(self, text: str) -> List[int]:
         if self._enc:
             return self._enc.encode(text)
-        return list(text.encode("utf-8"))
+        return [ord(c) for c in text]  # 字符级编码，任何切片都是合法边界
 
     def decode(self, token_ids: List[int]) -> str:
         if self._enc:
-            # tiktoken 切片截断可能落在多字节字符中间 → 边界出现 U+FFFD，去掉
-            return self._enc.decode(token_ids).strip("�")
-        # fallback：token_ids 为 UTF-8 字节；截断落在多字节字符中间时丢弃不完整字节，避免 U+FFFD 乱码
-        try:
-            raw = bytes(token_ids)
-        except (ValueError, TypeError):
-            return ""
-        return raw.decode("utf-8", errors="ignore")
+            return self._enc.decode(token_ids)
+        return "".join(chr(t) for t in token_ids)
+
+    def max_substring(self, text: str, start: int, limit: int) -> int:
+        """返回最大的 end（字符位置），使 count(text[start:end]) <= limit。
+
+        二分依赖 BPE 编码长度随文本增长的单调非减性。
+        例外：limit 小于单个字符的 token 跨度时，放行一个完整字符
+        （预算超支但语义上优于丢字，测试 test_fixed_token_budget_respected 记录）。
+        """
+        if limit <= 0 or start >= len(text):
+            return start
+        lo, hi = start, len(text) + 1
+        while lo + 1 < hi:
+            mid = (lo + hi) // 2
+            if self.count(text[start:mid]) <= limit:
+                lo = mid
+            else:
+                hi = mid
+        if lo == start:
+            lo = start + 1
+        return lo
 
     @property
     def name(self) -> str:
-        return self._enc.name if self._enc else "char_estimate"
+        return self._enc.name if self._enc else "char"

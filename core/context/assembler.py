@@ -99,8 +99,9 @@ class ContextAssembler:
             if used + b.token_count > self.max_context_tokens:
                 remaining = self.max_context_tokens - used
                 if remaining > 0:
-                    tokens = self._counter.encode(b.content)
-                    truncated = self._counter.decode(tokens[:remaining])
+                    # 字符级截断：截断结果永远是原文前缀，不切半字符
+                    cut = self._counter.max_substring(b.content, 0, remaining)
+                    truncated = b.content[:cut]
                     if truncated:
                         result.append(ContextBlock(
                             citation_id=b.citation_id,
@@ -108,7 +109,7 @@ class ContextAssembler:
                             source_name=b.source_name,
                             page_number=b.page_number,
                             content=truncated,
-                            token_count=remaining,
+                            token_count=self._counter.count(truncated),
                             retrieval_scores=b.retrieval_scores,
                         ))
                 break
