@@ -55,3 +55,33 @@ def test_max_substring_strict_mode_returns_start():
     counter = TokenCounter()
     text = "缓存穿透"
     assert counter.max_substring(text, 0, 1) == 0
+
+
+class RecordingCounter(TokenCounter):
+    """记录每次 count 的窗口长度，验证探测窗口不脱离起点"""
+
+    def __init__(self):
+        self._enc = None
+        self.max_window = 0
+
+    def count(self, text):
+        self.max_window = max(self.max_window, len(text))
+        return len(text)  # fallback 单位：1 字符 = 1 token
+
+
+def test_max_substring_probe_relative_to_start():
+    """指数探测基于 start 相对跨度：start=5000、limit=1 时探测窗口不接近全文"""
+    counter = RecordingCounter()
+    text = "a" * 10000
+    end = counter.max_substring(text, 5000, 1)
+    assert end == 5001
+    assert counter.max_window <= 4, f"最大探测窗口 {counter.max_window} 字符，远超相对跨度"
+
+
+def test_max_substring_zero_start_still_small_windows():
+    """start=0 场景回归：探测窗口仍是相对跨度，不因翻倍而爆炸"""
+    counter = RecordingCounter()
+    text = "a" * 10000
+    end = counter.max_substring(text, 0, 1)
+    assert end == 1
+    assert counter.max_window <= 4

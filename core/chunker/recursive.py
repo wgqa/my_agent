@@ -38,7 +38,10 @@ class RecursiveChunker(BaseChunker):
                 seg_ranges.append((pos, pos + len(seg)))
                 pos += len(seg)
 
-            # 超长段按 token 预算判断（字符数 ≠ token 数），在段内硬切
+            # 超长段按 token 预算判断（字符数 ≠ token 数），在段内硬切；
+            # 下一片起点从上一片终点回退 chunk_overlap 个 token（真实重叠，
+            # 不越出语义段；chunk_size 覆盖不了 overlap 时退化为无重叠）
+            overlap_limit = min(self.chunk_overlap, self.chunk_size - 1)
             pieces = []
             for (s, e) in seg_ranges:
                 if self._counter.count(text[s:e]) <= self.chunk_size:
@@ -52,28 +55,23 @@ class RecursiveChunker(BaseChunker):
                         pieces.append((p, q))
                         if q >= e:
                             break
-                        p = q
+                        p = self._counter.substring_start(
+                            text, q, overlap_limit, min_start=s,
+                        )
 
-            # 按预算组装：完整候选文本重新计数（BPE token 不可严格相加）
+            # 按预算组装：完整候选文本重新计数（BPE token 不可严格相加）；
+            # 超预算时块终点 = 上一片终点（重叠区保留在前一块），起点 = 本片起点
             merged = []
-            acc_start = 0
-            for (s, e) in pieces:
+            acc_start = pieces[0][0]
+            for i, (s, e) in enumerate(pieces):
                 if self._counter.count(text[acc_start:e]) > self.chunk_size:
-                    if acc_start < s:
-                        merged.append((acc_start, s))
+                    if i > 0:
+                        merged.append((acc_start, pieces[i - 1][1]))
                     acc_start = s
             if acc_start < pieces[-1][1]:
                 merged.append((acc_start, pieces[-1][1]))
 
-            # overlap：相邻块按字符位置向前回退
-            final = []
-            for i, (s, e) in enumerate(merged):
-                if i > 0 and self.chunk_overlap > 0:
-                    prev_end = merged[i - 1][1]
-                    s = max(s, prev_end - self.chunk_overlap)
-                final.append((s, e))
-
-            for i, (start, end) in enumerate(final):
+            for i, (start, end) in enumerate(merged):
                 # 文本完整优先：严格预算放不下但放行单字符时标记 oversized
                 strict_end = self._counter.max_substring(text, start, self.chunk_size)
                 oversized = strict_end == start and end > start

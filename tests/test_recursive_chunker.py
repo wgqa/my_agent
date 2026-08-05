@@ -123,19 +123,39 @@ def test_recursive_char3_budget_respected():
 
 
 def test_recursive_segments_overlap_token_budget():
-    """overlap 配置按 token：重叠区 token 数不超过配置"""
+    """overlap 按 token 真实生效：重叠区存在（>0）且不超过配置，块不突破 chunk_size"""
     text = "第一段内容。第二段内容。第三段内容。"
     for overlap in (0, 3, 6):
         chunker = RecursiveChunker(chunk_size=6, chunk_overlap=overlap,
                                    token_counter=Char3TokenCounter())
         chunks = chunker.chunk([Document(content=text, metadata={})])
+        ovs = []
         for prev, cur in zip(chunks, chunks[1:]):
-            ov = prev.metadata["char_end"] - cur.metadata["char_start"]
-            assert ov >= 0
             ov_tokens = Char3TokenCounter().count(
                 text[cur.metadata["char_start"]:prev.metadata["char_end"]]
             )
             assert ov_tokens <= overlap, f"重叠区 {ov_tokens} token > 配置 {overlap}"
+            ovs.append(ov_tokens)
+            assert cur.metadata["token_count"] <= 6, "块不得因 overlap 突破 chunk_size"
+        if overlap > 0:
+            assert max(ovs) > 0, "overlap>0 时必须存在真实重叠（假阳性）"
+        else:
+            assert max(ovs) == 0
+
+
+def test_recursive_hard_split_overlap_audit_scenario():
+    """审计场景：chunk_size=12、overlap=6、每字符 3 token，硬切块间真实重叠"""
+    text = "a" * 40  # 无分隔符，走硬切路径
+    chunker = RecursiveChunker(chunk_size=12, chunk_overlap=6,
+                               token_counter=Char3TokenCounter())
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    assert len(chunks) > 1
+    for prev, cur in zip(chunks, chunks[1:]):
+        ov_tokens = Char3TokenCounter().count(
+            text[cur.metadata["char_start"]:prev.metadata["char_end"]]
+        )
+        assert 0 < ov_tokens <= 6, f"硬切块重叠 {ov_tokens} 应满足 0 < x <= 6"
+        assert cur.metadata["token_count"] <= 12
 
 
 def test_recursive_oversized_marked_for_over_budget_char():

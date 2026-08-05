@@ -47,8 +47,10 @@ class TokenCounter:
         if limit <= 0 or start >= hi:
             return start
         # 指数试探找第一个超预算位置，再在其内二分：
-        # 小 limit 时只 count 小窗口（直接二分大窗口对 chunk_size=1 会慢百倍）
+        # 探测窗口相对 start 扩张（绝对下标翻倍会让 start>0 时第一次
+        # 加倍就跳到全文长度，小 limit 场景接近二次复杂度）
         lo = start
+        step = 1
         probe = start + 1
         while probe <= hi:
             if self.count(text[start:probe]) > limit:
@@ -56,7 +58,8 @@ class TokenCounter:
             lo = probe
             if probe == hi:
                 break
-            probe = min(hi, probe * 2)
+            step *= 2
+            probe = min(hi, start + step)
         while lo + 1 < probe:
             mid = (lo + probe) // 2
             if self.count(text[start:mid]) <= limit:
@@ -66,6 +69,39 @@ class TokenCounter:
         if lo == start and allow_oversize and start < hi:
             lo = start + 1
         return lo
+
+    def substring_start(
+        self, text: str, end: int, limit: int, min_start: int = 0,
+    ) -> int:
+        """返回最小的 start（字符位置），使 count(text[start:end]) <= limit。
+
+        用于 overlap 回退：从 end 往前找最多 limit 个 token 的起始位置。
+        返回范围 [min_start, end]；limit<=0 或 end<=min_start 时返回 end（无重叠）。
+        二分依赖 BPE 编码长度随文本增长的单调非减性。
+        """
+        if limit <= 0 or end <= min_start:
+            return end
+        # 指数回退探测窗口找第一个超限位置，再在其内二分：
+        # 窗口相对 end 扩张，小 limit 时只 count 小窗口
+        lo = end  # 可行（空文本 0 token）
+        step = 1
+        while True:
+            probe = max(min_start, end - step)
+            if self.count(text[probe:end]) > limit:
+                break
+            lo = probe
+            if probe == min_start:
+                return lo
+            step *= 2
+        # probe 不可行（count > limit）、lo 可行：二分找最小可行点
+        left, right = probe, lo
+        while left + 1 < right:
+            mid = (left + right) // 2
+            if self.count(text[mid:end]) <= limit:
+                right = mid
+            else:
+                left = mid
+        return right
 
     @property
     def name(self) -> str:

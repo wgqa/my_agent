@@ -143,3 +143,18 @@ def test_assembler_strict_budget_no_oversize():
     assembler = ContextAssembler(max_context_tokens=1, token_counter=Char3TokenCounter())
     blocks = assembler.assemble(hits)
     assert blocks == [] or sum(b.token_count for b in blocks) <= 1
+
+
+def test_assembler_skips_oversized_block_then_keeps_smaller():
+    """预算 1（真实 tiktoken）："缓"=3 token 放不下时跳过，后续 "a"=1 token 仍进入上下文"""
+    from core.loader.base import Document
+    hits = [
+        Document(content="缓", metadata={"id": "c1", "source": "a.md",
+                                        "source_name": "a.md", "score": 0.9}),
+        Document(content="a", metadata={"id": "c2", "source": "b.md",
+                                        "source_name": "b.md", "score": 0.8}),
+    ]
+    assembler = ContextAssembler(max_context_tokens=1)  # 真实 TokenCounter
+    blocks = assembler.assemble(hits)
+    assert [b.content for b in blocks] == ["a"]
+    assert sum(b.token_count for b in blocks) <= 1
