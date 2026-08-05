@@ -13,7 +13,7 @@ def generate_report(results: List[Dict]) -> str:
     report.append("| " + " | ".join(headers) + " |")
     report.append("| " + " | ".join(["---"] * len(headers)) + " |")
 
-    sorted_results = sorted(results, key=lambda r: r.get("hit_rate", 0), reverse=True)
+    sorted_results = sorted(results, key=lambda r: r.get("hit_at_k", 0), reverse=True)
     for r in sorted_results:
         row = []
         for h in headers:
@@ -26,7 +26,7 @@ def generate_report(results: List[Dict]) -> str:
 
     report.append(f"\n## 最佳配置\n")
     best = sorted_results[0]
-    report.append(f"- Hit Rate: {best.get('hit_rate', 0):.3f}")
+    report.append(f"- Hit@K: {best.get('hit_at_k', 0):.3f}")
     report.append(f"- MRR: {best.get('mrr', 0):.3f}")
     report.append(f"- NDCG@5: {best.get('ndcg', 0):.3f}")
 
