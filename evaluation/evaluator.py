@@ -21,6 +21,16 @@ class Evaluator:
 
     def run(self, config_grid: Dict[str, List]) -> List[Dict]:
         """遍历配置组合，返回实验结果列表"""
+        # 保护：_apply_config 只改配置字段，不重建切分/Embedding/索引，
+        # 跨 chunk_strategy 对比会基于同一份旧索引产生虚假报告
+        chunk_strategies = config_grid.get("chunk_strategy")
+        if chunk_strategies is not None and len(set(chunk_strategies)) > 1:
+            raise ValueError(
+                "当前 Evaluator 不支持跨 chunk_strategy 策略评测："
+                "切分和索引没有重建，对比结果不可信；"
+                "请等待后续 ExperimentRunner 实现实验隔离"
+            )
+
         results = []
         keys = list(config_grid.keys())
         values = list(config_grid.values())

@@ -1,4 +1,7 @@
+import pytest
+
 from evaluation.report import generate_report
+from evaluation.evaluator import Evaluator, QAPair
 
 
 def test_generate_report_empty():
@@ -26,3 +29,40 @@ def test_report_sorts_by_hit_at_k_and_shows_best():
     assert report.index("B") < report.index("A"), "B 必须排在 A 前面"
     assert "Hit@K: 0.800" in report, "最佳配置必须显示 0.8"
     assert "Hit Rate: 0.000" not in report and "Hit@K: 0.000" not in report
+
+
+class _FakeHit:
+    metadata = {"id": "hit1"}
+
+
+class _FakeRetriever:
+    def __init__(self):
+        self.called = False
+
+    def retrieve(self, query, top_k=5):
+        self.called = True
+        return [_FakeHit()]
+
+
+class _FakePipeline:
+    def __init__(self):
+        self.retriever = _FakeRetriever()
+
+    def _init_retriever(self):
+        return self.retriever
+
+
+def test_evaluator_rejects_multi_chunk_strategy_before_retrieval():
+    """跨 chunk_strategy 对比在检索前抛异常，信息说明索引未重建"""
+    evaluator = Evaluator(_FakePipeline(), [QAPair("q", ["hit1"])])
+    with pytest.raises(ValueError, match="重建"):
+        evaluator.run({"chunk_strategy": ["fixed", "recursive"]})
+    assert evaluator.pipeline.retriever.called is False
+
+
+def test_evaluator_single_chunk_strategy_not_blocked():
+    """单一 chunk_strategy 值不触发保护，实验正常执行"""
+    evaluator = Evaluator(_FakePipeline(), [QAPair("q", ["hit1"])])
+    results = evaluator.run({"chunk_strategy": ["fixed"]})
+    assert len(results) == 1
+    assert results[0]["hit_at_k"] == 1.0
