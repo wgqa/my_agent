@@ -33,7 +33,8 @@ def _rebuild_sparse_index(self, strict: bool = False) -> int:
 - 默认 `strict=False`：原有容错不变，`Pipeline.__init__` 照旧调用；
 - Evaluator 传 `strict=True`：三种情况抛 `RuntimeError`（信息均含
   "Hybrid 评测已终止……不能生成失真结果"）：
-  1. 读取 VectorStore 或构建 BM25 发生异常（`raise ... from exc` 保留根因）；
+  1. 读取 VectorStore 或构建 BM25 发生异常（根因文本嵌入错误信息
+     `{exc}`，未使用异常链 `from exc`）；
   2. 向量库有数据（`len(ids) > 0`）但 BM25 文档数为 0；
   3. BM25 文档数 ≠ 可索引 chunk 数（`built != len(pairs)`）。
 
