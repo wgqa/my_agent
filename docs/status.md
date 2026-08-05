@@ -40,17 +40,18 @@
 | REWORK-P0-03 | 分块静默丢字/乱码 | 文本为事实源 + token 只做预算（见 study-notes 35/36） | ✅ 08-05 R2 复审通过 |
 | E-01 | 报告排序/展示查 hit_rate，生成端是 hit_at_k | 统一 hit_at_k（见 study-notes 37） | ✅ 复审通过 |
 | E-02 | 跨 chunk_strategy 实验不重建索引，产出虚假对比 | run() 入口拒绝多值（见 study-notes 37） | ✅ 复审通过 |
-| E-03 | Evaluator 重建 Retriever 后 Hybrid BM25 为空，退化为 Dense-only | _apply_config 后调 _rebuild_sparse_index（见 study-notes 37） | 🔄 待复审 |
+| E-03 | Evaluator 重建 Retriever 后 Hybrid BM25 为空，退化为 Dense-only | _apply_config 后调 _rebuild_sparse_index（见 study-notes 37） | ✅ 复审通过 |
+| E-04 | _rebuild_sparse_index 吞异常，"调用过"≠"重建成功" | strict 模式 fail-fast + 数量校验（见 study-notes 38） | 🔄 待复审 |
 
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ **173**（E-03，08-05）
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ **180**（E-04，08-05）
 
 ## Git
 
 - 远端：GitHub `wgqa/my_agent`，分支 main
-- 最近验收基线：REWORK-P0-01/02/03 与评测项 E-01/E-02 复审通过；E-03 待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
+- 最近验收基线：REWORK-P0-01/02/03 与评测项 E-01/E-02/E-03 复审通过；E-04 待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
 
 ## 文档地图
 
@@ -59,6 +60,6 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-37 |
+| docs/study-notes/ | 学习笔记 00-38 |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |
