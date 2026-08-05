@@ -110,3 +110,50 @@ def test_id_independent_of_dict_order():
     a = ExperimentConfig(top_k=9, chunk_size=200)
     b = ExperimentConfig(chunk_size=200, top_k=9)
     assert a.experiment_id == b.experiment_id
+
+
+# ── 类型契约（复审补强） ───────────────────────────────
+
+@pytest.mark.parametrize("field", ["chunk_size", "chunk_overlap", "top_k",
+                                   "dense_candidate_k", "sparse_candidate_k"])
+def test_bool_rejected_for_int_fields(field):
+    with pytest.raises(TypeError, match=field):
+        ExperimentConfig(**{field: True})
+
+
+@pytest.mark.parametrize("field", ["chunk_size", "top_k",
+                                   "dense_candidate_k", "sparse_candidate_k"])
+def test_float_rejected_for_int_fields(field):
+    with pytest.raises(TypeError, match=field):
+        ExperimentConfig(**{field: 30.5})
+
+
+def test_float_rejected_for_chunk_overlap():
+    with pytest.raises(TypeError, match="chunk_overlap"):
+        ExperimentConfig(chunk_overlap=1.5)
+
+
+def test_rrf_k_bool_rejected():
+    with pytest.raises(TypeError, match="rrf_k"):
+        ExperimentConfig(rrf_k=True)
+
+
+def test_rrf_k_normalized_to_float():
+    config = ExperimentConfig(rrf_k=60)
+    assert config.rrf_k == 60.0
+    assert isinstance(config.rrf_k, float)
+
+
+def test_rrf_k_int_and_float_same_id():
+    """rrf_k=60 与 60.0 语义相同，必须产生相同 experiment_id"""
+    a = ExperimentConfig(rrf_k=60)
+    b = ExperimentConfig(rrf_k=60.0)
+    assert a == b
+    assert a.experiment_id == b.experiment_id
+
+
+def test_strategy_fields_must_be_str():
+    with pytest.raises(TypeError, match="chunk_strategy"):
+        ExperimentConfig(chunk_strategy=123)
+    with pytest.raises(TypeError, match="retriever_strategy"):
+        ExperimentConfig(retriever_strategy=None)

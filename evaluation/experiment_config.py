@@ -25,6 +25,12 @@ class ExperimentConfig:
     rrf_k: float = 60.0
 
     def __post_init__(self):
+        for name in ("chunk_strategy", "retriever_strategy"):
+            value = getattr(self, name)
+            if not isinstance(value, str):
+                raise TypeError(
+                    f"{name} 必须是 str，当前类型: {type(value).__name__}"
+                )
         if self.chunk_strategy not in VALID_CHUNK_STRATEGIES:
             raise ValueError(
                 f"未知 chunk_strategy: {self.chunk_strategy}，"
@@ -35,18 +41,32 @@ class ExperimentConfig:
                 f"未知 retriever_strategy: {self.retriever_strategy}，"
                 f"支持 {VALID_RETRIEVER_STRATEGIES}"
             )
+        # 严格整数（bool 是 int 子类，先排除）
+        for name in ("chunk_size", "chunk_overlap", "top_k",
+                     "dense_candidate_k", "sparse_candidate_k"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(
+                    f"{name} 必须是整数（不允许 bool），当前: {value!r}"
+                )
         for name in ("chunk_size", "top_k", "dense_candidate_k",
                      "sparse_candidate_k"):
-            value = getattr(self, name)
-            if value <= 0:
-                raise ValueError(f"{name} 必须 > 0，当前: {value}")
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} 必须 > 0，当前: {getattr(self, name)}")
         if self.chunk_overlap < 0 or self.chunk_overlap >= self.chunk_size:
             raise ValueError(
                 f"chunk_overlap ({self.chunk_overlap}) 必须 >= 0 且 < "
                 f"chunk_size ({self.chunk_size})"
             )
-        if self.rrf_k <= 0:
-            raise ValueError(f"rrf_k 必须 > 0，当前: {self.rrf_k}")
+        # rrf_k：int/float 均合法，统一规范化为 float（60 与 60.0 同配置同 ID）
+        rrf = self.rrf_k
+        if isinstance(rrf, bool) or not isinstance(rrf, (int, float)):
+            raise TypeError(
+                f"rrf_k 必须是 int 或 float（不允许 bool），当前: {rrf!r}"
+            )
+        if rrf <= 0:
+            raise ValueError(f"rrf_k 必须 > 0，当前: {rrf}")
+        object.__setattr__(self, "rrf_k", float(rrf))
 
     def to_dict(self) -> dict:
         """字段序固定（dataclass 声明序），与 dict 插入顺序无关"""
