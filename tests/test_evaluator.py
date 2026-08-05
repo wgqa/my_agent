@@ -36,20 +36,27 @@ class _FakeHit:
 
 
 class _FakeRetriever:
-    def __init__(self):
+    def __init__(self, events=None):
         self.called = False
+        self.events = events if events is not None else []
 
     def retrieve(self, query, top_k=5):
         self.called = True
+        self.events.append("retrieve")
         return [_FakeHit()]
 
 
 class _FakePipeline:
     def __init__(self):
-        self.retriever = _FakeRetriever()
+        self.events = []
+        self.retriever = _FakeRetriever(self.events)
 
     def _init_retriever(self):
+        self.events.append("init_retriever")
         return self.retriever
+
+    def _rebuild_sparse_index(self):
+        self.events.append("rebuild_sparse_index")
 
 
 def test_evaluator_rejects_multi_chunk_strategy_before_retrieval():
@@ -66,3 +73,17 @@ def test_evaluator_single_chunk_strategy_not_blocked():
     results = evaluator.run({"chunk_strategy": ["fixed"]})
     assert len(results) == 1
     assert results[0]["hit_at_k"] == 1.0
+
+
+def test_evaluator_rebuilds_sparse_index_before_retrieve():
+    """每组实验顺序：init_retriever → rebuild_sparse_index → retrieve（top_k 场景）"""
+    pipeline = _FakePipeline()
+    evaluator = Evaluator(pipeline, [QAPair("q", ["hit1"])])
+    evaluator.run({"top_k": [3]})
+    events = pipeline.events
+    assert "init_retriever" in events
+    assert "rebuild_sparse_index" in events
+    assert events.index("init_retriever") < events.index("rebuild_sparse_index"), \
+        "重建稀疏索引必须在重建 Retriever 之后"
+    assert events.index("rebuild_sparse_index") < events.index("retrieve"), \
+        "稀疏索引重建必须在本组实验第一次检索之前"
