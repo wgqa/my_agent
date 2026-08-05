@@ -256,10 +256,15 @@ class Pipeline:
             },
         }
 
-    def _rebuild_sparse_index(self):
-        """从 Chroma 全量重建 BM25 稀疏索引"""
+    def _rebuild_sparse_index(self, strict: bool = False) -> int:
+        """从 Chroma 全量重建 BM25 稀疏索引，返回实际重建的文档数。
+
+        strict=True（评测场景）：读取/构建异常、BM25 为空或文档数与
+        可索引 chunk 数不一致时抛异常，避免 Hybrid 评测静默退化为
+        Dense-only 产生失真结果。普通 Pipeline 启动保持默认容错。
+        """
         if not hasattr(self.retriever, "build_sparse_index"):
-            return
+            return 0
         try:
             all_data = self.vector_store.collection.get(
                 include=["documents", "metadatas"]
@@ -271,8 +276,26 @@ class Pipeline:
             ]
             if pairs:
                 self.retriever.build_sparse_index(pairs)
-        except Exception:
-            pass
+        except Exception as exc:
+            if strict:
+                raise RuntimeError(
+                    f"Hybrid 评测已终止：BM25 稀疏索引重建失败（{exc}），"
+                    "不能生成失真结果"
+                )
+            return 0
+        if strict:
+            built = getattr(getattr(self.retriever, "_bm25", None), "doc_count", 0)
+            if len(all_data["ids"]) > 0 and built == 0:
+                raise RuntimeError(
+                    "Hybrid 评测已终止：向量库有数据但 BM25 文档数为 0，"
+                    "不能生成失真结果"
+                )
+            if built != len(pairs):
+                raise RuntimeError(
+                    f"Hybrid 评测已终止：BM25 文档数 {built} 与可索引 "
+                    f"chunk 数 {len(pairs)} 不一致，不能生成失真结果"
+                )
+        return len(pairs)
 
     def delete_document(self, document_id: str) -> int:
         """删除文档：向量库 + BM25 同步清理"""

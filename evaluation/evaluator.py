@@ -80,5 +80,6 @@ class Evaluator:
             pass
         self.pipeline.retriever = self.pipeline._init_retriever()
         # 新 Retriever 的 Hybrid BM25 是空索引，必须重建后再检索，
-        # 否则 Hybrid 评测会退化成 Dense-only（Pipeline 只在初始化时重建一次）
-        self.pipeline._rebuild_sparse_index()
+        # 否则 Hybrid 评测会退化成 Dense-only（Pipeline 只在初始化时重建一次）；
+        # strict=True：重建失败/不完整立即终止，禁止生成失真结果
+        self.pipeline._rebuild_sparse_index(strict=True)

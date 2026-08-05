@@ -2,6 +2,7 @@ import pytest
 
 from evaluation.report import generate_report
 from evaluation.evaluator import Evaluator, QAPair
+from core.pipeline import Pipeline
 
 
 def test_generate_report_empty():
@@ -46,17 +47,64 @@ class _FakeRetriever:
         return [_FakeHit()]
 
 
-class _FakePipeline:
+class _FakeCollection:
+    def __init__(self, data):
+        self._data = data
+
+    def get(self, include=None):
+        if self._data is None:
+            raise RuntimeError("collection read failed")
+        return self._data
+
+
+class _FakeVectorStore:
+    def __init__(self, data=None):
+        self.collection = _FakeCollection(data)
+
+
+class _FakeBM25:
     def __init__(self):
+        self._count = 0
+
+    @property
+    def doc_count(self):
+        return self._count
+
+
+class _FakeHybridRetriever:
+    """带 build_sparse_index + _bm25.doc_count 的 Hybrid 替身"""
+
+    def __init__(self, fail_build=False, count_after=None):
+        self.fail_build = fail_build
+        self._count_after = count_after
+        self._bm25 = _FakeBM25()
+        self.called = False
+
+    def build_sparse_index(self, pairs):
+        if self.fail_build:
+            raise RuntimeError("build_sparse_index failed")
+        self._bm25._count = (
+            self._count_after if self._count_after is not None else len(pairs)
+        )
+
+    def retrieve(self, query, top_k=5):
+        self.called = True
+        return [_FakeHit()]
+
+
+class _FakePipeline:
+    def __init__(self, retriever=None, vector_data=None):
         self.events = []
-        self.retriever = _FakeRetriever(self.events)
+        self.retriever = retriever if retriever is not None else _FakeRetriever(self.events)
+        self.vector_store = _FakeVectorStore(vector_data)
 
     def _init_retriever(self):
         self.events.append("init_retriever")
         return self.retriever
 
-    def _rebuild_sparse_index(self):
+    def _rebuild_sparse_index(self, strict=False):
         self.events.append("rebuild_sparse_index")
+        return Pipeline._rebuild_sparse_index(self, strict=strict)
 
 
 def test_evaluator_rejects_multi_chunk_strategy_before_retrieval():
@@ -87,3 +135,65 @@ def test_evaluator_rebuilds_sparse_index_before_retrieve():
         "重建稀疏索引必须在重建 Retriever 之后"
     assert events.index("rebuild_sparse_index") < events.index("retrieve"), \
         "稀疏索引重建必须在本组实验第一次检索之前"
+
+
+VECTOR_DATA = {
+    "ids": ["c1", "c2"],
+    "documents": ["text one", "text two"],
+    "metadatas": [{"id": "c1"}, {"id": "c2"}],
+}
+
+
+def test_rebuild_strict_success_returns_built_count():
+    """Hybrid 重建成功：返回实际重建文档数，BM25 计数正确"""
+    pipeline = _FakePipeline(retriever=_FakeHybridRetriever(), vector_data=VECTOR_DATA)
+    count = pipeline._rebuild_sparse_index(strict=True)
+    assert count == 2
+    assert pipeline.retriever._bm25.doc_count == 2
+
+
+def test_rebuild_strict_raises_on_build_failure():
+    """VectorStore 有数据但构建失败：严格模式抛异常，信息说明评测终止"""
+    pipeline = _FakePipeline(retriever=_FakeHybridRetriever(fail_build=True),
+                             vector_data=VECTOR_DATA)
+    with pytest.raises(RuntimeError, match="Hybrid 评测已终止"):
+        pipeline._rebuild_sparse_index(strict=True)
+
+
+def test_rebuild_non_strict_keeps_tolerant_on_failure():
+    """普通模式（默认）构建失败不抛异常，返回 0 保留原容错"""
+    pipeline = _FakePipeline(retriever=_FakeHybridRetriever(fail_build=True),
+                             vector_data=VECTOR_DATA)
+    assert pipeline._rebuild_sparse_index() == 0
+
+
+def test_rebuild_strict_raises_when_bm25_empty_despite_data():
+    """VectorStore 有数据但 BM25 文档数为 0：严格模式抛异常"""
+    pipeline = _FakePipeline(retriever=_FakeHybridRetriever(count_after=0),
+                             vector_data=VECTOR_DATA)
+    with pytest.raises(RuntimeError, match="BM25 文档数为 0"):
+        pipeline._rebuild_sparse_index(strict=True)
+
+
+def test_rebuild_strict_raises_on_count_mismatch():
+    """BM25 文档数与可索引 chunk 数不一致：严格模式抛异常"""
+    pipeline = _FakePipeline(retriever=_FakeHybridRetriever(count_after=1),
+                             vector_data=VECTOR_DATA)
+    with pytest.raises(RuntimeError, match="不一致"):
+        pipeline._rebuild_sparse_index(strict=True)
+
+
+def test_rebuild_strict_skips_non_hybrid_retriever():
+    """Simple/MMR（无 build_sparse_index）：严格模式也安全跳过"""
+    pipeline = _FakePipeline(retriever=_FakeRetriever(), vector_data=VECTOR_DATA)
+    assert pipeline._rebuild_sparse_index(strict=True) == 0
+
+
+def test_evaluator_strict_mode_aborts_before_retrieve():
+    """Evaluator 严格模式：重建失败时在第一次 retrieve 前终止"""
+    pipeline = _FakePipeline(retriever=_FakeHybridRetriever(fail_build=True),
+                             vector_data=VECTOR_DATA)
+    evaluator = Evaluator(pipeline, [QAPair("q", ["hit1"])])
+    with pytest.raises(RuntimeError, match="Hybrid 评测已终止"):
+        evaluator.run({"top_k": [3]})
+    assert pipeline.retriever.called is False
