@@ -1,3 +1,5 @@
+import pytest
+
 from core.chunker.token_counter import TokenCounter
 from core.loader.base import Document
 from core.chunker.recursive import RecursiveChunker
@@ -178,23 +180,60 @@ def _segments_within_budget(segments, chunk_size, counter):
 
 
 def test_normal_switch_overlap_between_segments():
-    """三个短语义段：前两个组成一块，第三个触发普通换块，重叠真实生效"""
+    """三个短语义段：前两段合并成第一块，加入第三段才触发换块，重叠真实生效"""
     counter = Char3TokenCounter()
-    segments = ["第一段内容。", "第二段内容。", "第三段内容。"]
-    _segments_within_budget(segments, 30, counter)
+    segments = ["甲。", "乙乙。", "丙丙丙丙丙。"]  # 9 + 9 + 18 = 36 token
+    # 每段本身不超限；前两段合并不超限；加入第三段后才超过 chunk_size=30
+    for seg in segments:
+        assert counter.count(seg) <= 30
+    assert counter.count("".join(segments[:2])) <= 30
+    assert counter.count("".join(segments)) > 30
     text = "".join(segments)
     chunker = RecursiveChunker(chunk_size=30, chunk_overlap=6,
                                token_counter=counter)
     chunks = chunker.chunk([Document(content=text, metadata={})])
     assert len(chunks) >= 2
-    for prev, cur in zip(chunks, chunks[1:]):
-        ov = counter.count(
-            text[cur.metadata["char_start"]:prev.metadata["char_end"]]
-        )
-        assert 0 < ov <= 6, f"普通换块重叠 {ov} 应满足 0 < x <= 6"
-        assert cur.metadata["token_count"] <= 30
-        s, e = cur.metadata["char_start"], cur.metadata["char_end"]
-        assert text[s:e] == cur.content  # 精确子串
+    assert chunks[0].content == "甲。乙乙。", "第一块必须完整包含前两个语义段"
+    ov = counter.count(
+        text[chunks[1].metadata["char_start"]:chunks[0].metadata["char_end"]]
+    )
+    assert 0 < ov <= 6, f"普通换块重叠 {ov} 应满足 0 < x <= 6"
+    for c in chunks:
+        assert c.metadata["token_count"] <= 30
+        s, e = c.metadata["char_start"], c.metadata["char_end"]
+        assert text[s:e] == c.content  # 精确子串
+
+
+# ── G1-CHUNK-05A-R1：纯分隔符文本不崩溃、不丢字 ────────
+
+@pytest.mark.parametrize("text", [".", "。", "..", "。。。", ".。.。"])
+def test_punctuation_only_text_kept(text):
+    """只含中英文分隔符的文本：完整保留、精确子串、无空块、无崩溃"""
+    counter = Char3TokenCounter()
+    chunks = RecursiveChunker(chunk_size=30, chunk_overlap=6,
+                              token_counter=counter).chunk(
+        [Document(content=text, metadata={})]
+    )
+    assert _join(chunks) == text, "overlap=0 语义：拼接必须还原原文"
+    for c in chunks:
+        assert c.content, "不得产生空 Chunk"
+        s, e = c.metadata["char_start"], c.metadata["char_end"]
+        assert text[s:e] == c.content
+
+
+def test_punctuation_only_over_budget_hard_split():
+    """纯分隔符文本超过预算：仍按现有安全硬切规则处理"""
+    counter = Char3TokenCounter()
+    text = "。" * 40  # 120 token > 30
+    chunks = RecursiveChunker(chunk_size=30, chunk_overlap=0,
+                              token_counter=counter).chunk(
+        [Document(content=text, metadata={})]
+    )
+    assert _join(chunks) == text
+    for c in chunks:
+        assert c.metadata["token_count"] <= 30
+        s, e = c.metadata["char_start"], c.metadata["char_end"]
+        assert text[s:e] == c.content
 
 
 def test_normal_switch_overlap_zero_joins_exact():

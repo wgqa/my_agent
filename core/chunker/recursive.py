@@ -140,6 +140,10 @@ class RecursiveChunker(BaseChunker):
                     result[-1] = result[-1] + sep
                 else:
                     pending += sep
+        # 全文只含分隔符（如 "."、"。。。")：缓存的 pending 也要保留，
+        # 否则 seg_ranges 为空导致 pieces 为空、后续 IndexError
+        if not result and pending:
+            return [pending]
         return result
 
     def _make_chunk(
