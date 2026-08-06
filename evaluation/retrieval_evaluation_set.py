@@ -20,7 +20,7 @@ from evaluation.experiment_corpus import ExperimentCorpus
 EVALUATION_SET_SCHEMA_VERSION = 1
 
 _ALLOWED_FIELDS = frozenset({"case_id", "query", "relevant_files"})
-_CASE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_CASE_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 _DRIVE_RE = re.compile(r"^[A-Za-z]:/")
 
 
@@ -96,7 +96,7 @@ class RetrievalEvaluationSet:
                         f"第 {lineno} 行 case_id 必须是字符串，实际 "
                         f"{type(case_id).__name__}"
                     )
-                if not _CASE_ID_RE.match(case_id):
+                if _CASE_ID_RE.fullmatch(case_id) is None:
                     raise ValueError(
                         f"第 {lineno} 行 case_id={case_id!r} 只允许字母、"
                         "数字、-、_"

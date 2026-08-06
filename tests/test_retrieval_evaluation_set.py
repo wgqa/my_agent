@@ -380,3 +380,54 @@ def test_blank_lines_ignored(tmp_path):
     path.write_text(text, encoding="utf-8")
     evalset = RetrievalEvaluationSet.load_jsonl(path, corpus)
     assert [c.case_id for c in evalset.cases] == ["q001", "q002"]
+
+
+# ============================================================
+# G2-EVAL-06-R1：case_id 严格全字符串匹配（fullmatch）
+# ============================================================
+
+
+@pytest.mark.parametrize("case_id", [
+    "q001\n",
+    "q001\r",
+    "q001\t",
+    " q001",
+    "q001 ",
+    "q 001",
+    "q/001",
+    "q.001",
+    "",
+])
+def test_case_id_invalid_characters_rejected(tmp_path, case_id):
+    corpus = _make_corpus(tmp_path)
+    row = {"case_id": case_id, "query": "query", "relevant_files": ["docs/x.md"]}
+    path = _write_jsonl(tmp_path, [row])
+    with pytest.raises(ValueError, match="只允许字母|case_id"):
+        RetrievalEvaluationSet.load_jsonl(path, corpus)
+
+
+def test_case_id_trailing_newline_rejected_with_context(tmp_path):
+    """G2-EVAL-06-R1：'q001\\n' 经 JSONL 转义加载后必须被拒绝，
+    且错误包含行号、原值 repr 与原因。"""
+    corpus = _make_corpus(tmp_path)
+    row = {
+        "case_id": "q001\n",
+        "query": "query",
+        "relevant_files": ["docs/x.md"],
+    }
+    path = _write_jsonl(tmp_path, [row])
+    with pytest.raises(ValueError) as excinfo:
+        RetrievalEvaluationSet.load_jsonl(path, corpus)
+    msg = str(excinfo.value)
+    assert "第 1 行" in msg
+    assert "q001" in msg
+    assert "只允许字母" in msg
+
+
+@pytest.mark.parametrize("case_id", ["q001", "Q_001", "case-01", "abc_DEF-123"])
+def test_case_id_valid_values_accepted(tmp_path, case_id):
+    corpus = _make_corpus(tmp_path)
+    row = {"case_id": case_id, "query": "query", "relevant_files": ["docs/x.md"]}
+    path = _write_jsonl(tmp_path, [row])
+    evalset = RetrievalEvaluationSet.load_jsonl(path, corpus)
+    assert evalset.cases[0].case_id == case_id
