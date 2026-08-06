@@ -82,6 +82,52 @@ def test_build_messages_with_context_block():
     assert "redis.md" in messages[1]["content"]
 
 
+# ── G1-CTX-03A：Generator 只拼接、不二次截断 ───────────
+
+def test_build_messages_uses_same_render_no_retruncation():
+    """Generator 拼接内容与 render_context_block 完全一致（超预算块也不截断）"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.context.assembler import ContextBlock, render_context_block
+    gen = DeepSeekGenerator(api_key="sk-test")
+    block = ContextBlock(citation_id="[C1]", chunk_id="c1", source_name="a.md",
+                         page_number=None, content="缓存穿透" * 200, token_count=1200)
+    messages = gen._build_messages("q", [block])
+    assert render_context_block(block) in messages[1]["content"]
+
+
+def test_build_messages_does_not_call_encode_decode(monkeypatch):
+    """Generator 不再调用 TokenCounter.encode/decode（二次截断已删除）"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.chunker.token_counter import TokenCounter
+
+    def boom(self, text):
+        raise AssertionError("二次截断已删除，encode/decode 不应被调用")
+
+    monkeypatch.setattr(TokenCounter, "encode", boom)
+    monkeypatch.setattr(TokenCounter, "decode", boom)
+    gen = DeepSeekGenerator(api_key="sk-test")
+    messages = gen._build_messages("q", [Document(content="x", metadata={"source": "s.md"})])
+    assert "<context>" in messages[1]["content"]
+
+
+def test_citation_validator_content_matches_generator():
+    """CitationValidator 验证的正文与 Generator 消息中的正文一致"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.citation import CitationValidator
+    from core.context.assembler import ContextAssembler, render_context_block
+    gen = DeepSeekGenerator(api_key="sk-test")
+    hits = [
+        Document(content="缓存穿透是……", metadata={"id": "c1", "source": "redis.md",
+                                                 "source_name": "redis.md", "score": 0.9}),
+    ]
+    blocks = ContextAssembler().assemble(hits)
+    messages = gen._build_messages("q", blocks)
+    rendered = "\n\n".join(render_context_block(b) for b in blocks)
+    assert rendered in messages[1]["content"]
+    result = CitationValidator().validate("答案见 [C1]", blocks)
+    assert result.validity_rate == 1.0
+
+
 # ── M3-T5: Generator 可靠性 ──────────────────────────
 
 from unittest.mock import MagicMock, patch

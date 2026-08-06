@@ -17,6 +17,20 @@ class ContextBlock:
     retrieval_scores: dict = field(default_factory=dict)
 
 
+def render_context_block(block) -> str:
+    """统一的 ContextBlock 渲染契约：`[C1] [来源: xxx]\n正文`。
+
+    ContextAssembler 与 BaseGenerator 共用，保证预算、生成、引用校验
+    看到的是同一份渲染文本。兼容无 citation_id 的普通 Document。
+    """
+    citation = getattr(block, "citation_id", "") or ""
+    source = (
+        getattr(block, "source_name", None)
+        or block.metadata.get("source_name", block.metadata.get("source", "unknown"))
+    )
+    return f"{citation} [来源: {source}]\n{block.content}"
+
+
 class ContextAssembler:
     """把检索结果组装成带预算、去重、稳定引用的 ContextBlock 列表"""
 
@@ -88,34 +102,56 @@ class ContextAssembler:
         return kept
 
     def _truncate_to_budget(self, blocks: List[ContextBlock]) -> List[ContextBlock]:
-        """总 token 超预算时截断，最后一块按 token 截断"""
-        total = sum(b.token_count for b in blocks)
-        if total <= self.max_context_tokens:
-            return blocks
+        """按渲染后文本预算：citation + 来源头 + 换行 + 正文 + 块间双换行。
 
+        header 必须完整保留，只允许安全截断正文（渲染前缀二分，
+        用真实 count(header + content[:cut]) 判断，不做 token decode）；
+        连完整头部+至少一个正文字符都放不下则跳过该块。
+        """
+        sep = "\n\n"
+        sep_tokens = self._counter.count(sep)
         result = []
         used = 0
         for b in blocks:
-            if used + b.token_count > self.max_context_tokens:
-                remaining = self.max_context_tokens - used
-                if remaining > 0:
-                    # 字符级截断：截断结果永远是原文前缀，不切半字符；
-                    # 严格预算：连一个完整字符都放不下（cut==0）就跳过本块，
-                    # 继续尝试后续更短的候选（高分块放不下不代表后面的也不行）
-                    cut = self._counter.max_substring(b.content, 0, remaining)
-                    truncated = b.content[:cut]
-                    if truncated:
-                        result.append(ContextBlock(
-                            citation_id=b.citation_id,
-                            chunk_id=b.chunk_id,
-                            source_name=b.source_name,
-                            page_number=b.page_number,
-                            content=truncated,
-                            token_count=self._counter.count(truncated),
-                            retrieval_scores=b.retrieval_scores,
-                        ))
-                        used += self._counter.count(truncated)
+            header = f"{b.citation_id} [来源: {b.source_name or 'unknown'}]\n"
+            header_tokens = self._counter.count(header)
+            sep_cost = sep_tokens if result else 0
+            remaining = self.max_context_tokens - used - sep_cost
+            if remaining <= header_tokens:
                 continue
-            result.append(b)
-            used += b.token_count
+            cut = self._max_body_for_header(header, b.content, remaining)
+            if cut <= 0:
+                continue
+            truncated = b.content[:cut]
+            result.append(ContextBlock(
+                citation_id=b.citation_id,
+                chunk_id=b.chunk_id,
+                source_name=b.source_name,
+                page_number=b.page_number,
+                content=truncated,
+                token_count=self._counter.count(truncated),
+                retrieval_scores=b.retrieval_scores,
+            ))
+            used += sep_cost + self._counter.count(header + truncated)
         return result
+
+    def _max_body_for_header(self, header: str, content: str, remaining: int) -> int:
+        """返回最大 cut 使 count(header + content[:cut]) <= remaining（0 表示放不下）"""
+        lo = 0
+        step = 1
+        probe = 1
+        while probe <= len(content):
+            if self._counter.count(header + content[:probe]) > remaining:
+                break
+            lo = probe
+            if probe == len(content):
+                break
+            step *= 2
+            probe = min(len(content), probe + step)
+        while lo + 1 < probe:
+            mid = (lo + probe) // 2
+            if self._counter.count(header + content[:mid]) <= remaining:
+                lo = mid
+            else:
+                probe = mid
+        return lo

@@ -1,7 +1,7 @@
 """M3-T1 + M3-T3: ContextAssembler 与引用验证"""
 
 from core.loader.base import Document
-from core.context.assembler import ContextAssembler, ContextBlock
+from core.context.assembler import ContextAssembler, ContextBlock, render_context_block
 from core.generator.citation import CitationValidator
 from core.chunker.token_counter import TokenCounter
 
@@ -146,15 +146,80 @@ def test_assembler_strict_budget_no_oversize():
 
 
 def test_assembler_skips_oversized_block_then_keeps_smaller():
-    """预算 1（真实 tiktoken）："缓"=3 token 放不下时跳过，后续 "a"=1 token 仍进入上下文"""
+    """渲染预算（真实 tiktoken）：长来源 header 的高分块放不下正文时跳过，
+    后续短 header 的低分块仍进入上下文"""
     from core.loader.base import Document
     hits = [
-        Document(content="缓", metadata={"id": "c1", "source": "a.md",
-                                        "source_name": "a.md", "score": 0.9}),
-        Document(content="a", metadata={"id": "c2", "source": "b.md",
-                                        "source_name": "b.md", "score": 0.8}),
+        Document(content="缓存穿透", metadata={"id": "c1", "source": "缓存缓存缓存",
+                                              "source_name": "缓存缓存缓存", "score": 0.9}),
+        Document(content="a", metadata={"id": "c2", "source": "x",
+                                        "source_name": "x", "score": 0.8}),
     ]
-    assembler = ContextAssembler(max_context_tokens=1)  # 真实 TokenCounter
+    counter = TokenCounter()
+    h1 = counter.count("[C1] [来源: 缓存缓存缓存]\n")
+    h2 = counter.count("[C2] [来源: x]\n")
+    assert h1 - h2 >= 2  # 长来源 header 成本更高（预算语义前提）
+    # 预算 = h1 + 1：块1 正文连一个字符都放不下（"缓"=2 token）→ 跳过，
+    # 块2 短 header 完整放得下（"a"=1 token → 保留）
+    assembler = ContextAssembler(max_context_tokens=h1 + 1)
     blocks = assembler.assemble(hits)
     assert [b.content for b in blocks] == ["a"]
-    assert sum(b.token_count for b in blocks) <= 1
+    rendered = "\n\n".join(render_context_block(b) for b in blocks)
+    assert counter.count(rendered) <= h1 + 1
+
+
+# ── G1-CTX-03A：统一渲染契约（预算按渲染后文本） ────────
+# Char3 下：header "[C1] [来源: a.md]\n" = 16 字符 = 48 token；"\n\n" = 6 token
+
+def test_render_context_block_format():
+    b = ContextBlock(citation_id="[C1]", chunk_id="c1", source_name="redis.md",
+                     page_number=None, content="缓存穿透", token_count=3)
+    assert render_context_block(b) == "[C1] [来源: redis.md]\n缓存穿透"
+
+
+def test_assembler_rendered_context_within_budget():
+    """渲染后的 context（含 header/分隔符）总 token 不超过预算"""
+    hits = [
+        Document(content="内容一" * 30, metadata={"source_name": "a.md", "score": 0.9}),
+        Document(content="内容二" * 30, metadata={"source_name": "b.md", "score": 0.8}),
+    ]
+    assembler = ContextAssembler(max_context_tokens=120, token_counter=Char3TokenCounter())
+    blocks = assembler.assemble(hits)
+    rendered = "\n\n".join(render_context_block(b) for b in blocks)
+    assert Char3TokenCounter().count(rendered) <= 120
+
+
+def test_header_and_separator_count_in_budget():
+    """引用编号、来源头与块间分隔符都计入预算（预算精确等于各组成部分）"""
+    hits = [
+        Document(content="缓", metadata={"source_name": "a.md", "score": 0.9}),
+        Document(content="a", metadata={"source_name": "b.md", "score": 0.8}),
+    ]
+    # 预算 = sep(6) + h1(48) + body(3) + h2(48) + body(3) = 108
+    assembler = ContextAssembler(max_context_tokens=108, token_counter=Char3TokenCounter())
+    blocks = assembler.assemble(hits)
+    assert len(blocks) == 2
+    assert blocks[0].content == "缓"
+    assert blocks[1].content == "a"
+    rendered = "\n\n".join(render_context_block(b) for b in blocks)
+    assert Char3TokenCounter().count(rendered) <= 108
+
+
+def test_header_preserved_when_truncated():
+    """超长块只截正文：引用与来源头保持完整，无 U+FFFD"""
+    hits = [Document(content="缓存穿透", metadata={"source_name": "a.md", "score": 0.9})]
+    assembler = ContextAssembler(max_context_tokens=48 + 3, token_counter=Char3TokenCounter())
+    blocks = assembler.assemble(hits)
+    assert len(blocks) == 1
+    assert blocks[0].content == "缓"  # 正文截到 1 字符
+    rendered = render_context_block(blocks[0])
+    assert rendered.startswith("[C1] [来源: a.md]\n")
+    assert "�" not in rendered
+
+
+def test_block_skipped_when_header_plus_char_not_fit():
+    """连完整头部+至少一个正文字符都放不下 → 跳过该块"""
+    hits = [Document(content="缓存", metadata={"source_name": "a.md", "score": 0.9})]
+    assembler = ContextAssembler(max_context_tokens=48, token_counter=Char3TokenCounter())
+    blocks = assembler.assemble(hits)
+    assert blocks == []

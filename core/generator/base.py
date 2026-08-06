@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 
 from core.loader.base import Document
-from core.chunker.token_counter import TokenCounter
+from core.context.assembler import render_context_block
 
 
 SYSTEM_PROMPT = """你是一个知识库问答助手。你的任务是基于提供的参考资料回答问题。
@@ -28,31 +28,12 @@ class BaseGenerator(ABC):
         self, query: str, context_docs: List[Document],
         max_context_tokens: int = 0,
     ) -> List[Dict[str, str]]:
-        """构建 system + user 消息，system 固定任务，user 是上下文+问题"""
-        limit = max_context_tokens or self.MAX_CONTEXT_TOKENS
-        counter = TokenCounter()
+        """构建 system + user 消息，system 固定任务，user 是上下文+问题。
 
-        parts = []
-        used = 0
-        for d in context_docs:
-            citation = getattr(d, "citation_id", "")
-            source = (
-                getattr(d, "source_name", None)
-                or d.metadata.get("source", "unknown")
-            )
-            if citation:
-                block = f"{citation} [来源: {source}]\n{d.content}"
-            else:
-                block = f"[来源: {source}]\n{d.content}"
-            block_tokens = counter.count(block)
-            if used + block_tokens > limit:
-                if used < limit:
-                    remaining = limit - used
-                    tokens = counter.encode(block)
-                    parts.append(counter.decode(tokens[:remaining]))
-                break
-            parts.append(block)
-            used += block_tokens
+        token 预算已由 ContextAssembler 按渲染文本完成，这里只拼接，
+        不二次截断、不再修改 Block 正文。
+        """
+        parts = [render_context_block(d) for d in context_docs]
 
         context = "\n\n".join(parts)
         user_content = (
