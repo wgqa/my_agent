@@ -96,17 +96,24 @@ class Pipeline:
         return BGEReranker()
 
     def _init_generator(self) -> BaseGenerator:
+        budget_kwargs = {
+            "max_total_tokens": self.config.generator_max_total_tokens,
+            "max_output_tokens": self.config.generator_max_output_tokens,
+            "message_overhead_tokens": self.config.generator_message_overhead_tokens,
+        }
         if self.config.generator_provider == "deepseek":
             return DeepSeekGenerator(
                 api_key=self.deepseek_api_key or "",
                 model=self.config.generator_model,
                 temperature=self.config.generator_temperature,
+                **budget_kwargs,
             )
         from core.generator.openai_gen import OpenAIGenerator
         return OpenAIGenerator(
             api_key=self.openai_api_key or "",
             model=self.config.generator_model,
             temperature=self.config.generator_temperature,
+            **budget_kwargs,
         )
 
     def _get_loader(self, file_path: str):
@@ -226,8 +233,10 @@ class Pipeline:
                                             "validity_rate": 1.0, "invalid_ids": []},
                 }
 
-        # 上下文组装（去重 + token 预算 + 引用编号）
-        assembler = ContextAssembler()
+        # 上下文组装（去重 + 预算 + 引用编号）：预算 = Generator 端到端
+        # Prompt 预算扣除固定成本与输出预留后的可用 Context 预算
+        budget = self.generator.available_context_tokens(question)
+        assembler = ContextAssembler(max_context_tokens=budget)
         blocks = assembler.assemble(retrieved)
 
         answer = self.generator.generate(question, [b for b in blocks])

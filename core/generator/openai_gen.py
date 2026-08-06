@@ -14,7 +14,9 @@ class OpenAIGenerator(BaseGenerator):
         temperature: float = 0.3,
         base_url: Optional[str] = None,
         timeout_seconds: float = 60.0,
+        **budget_kwargs,
     ):
+        super().__init__(**budget_kwargs)
         self.model = model
         self.temperature = temperature
         kwargs = {"api_key": api_key, "timeout": timeout_seconds}
@@ -23,13 +25,14 @@ class OpenAIGenerator(BaseGenerator):
         self.client = OpenAI(**kwargs)
 
     def generate(self, query: str, context_docs: List[Document]) -> str:
+        self.validate_budget(query, context_docs)
         messages = self._build_messages(query, context_docs)
         try:
             resp = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=800,
+                max_tokens=self.max_output_tokens,
             )
             return resp.choices[0].message.content
         except Exception as e:

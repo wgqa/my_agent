@@ -335,6 +335,9 @@ class _RecordingReranker:
 
 
 class _FakeGenerator:
+    def available_context_tokens(self, query):
+        return 3000
+
     def generate(self, question, blocks):
         return " ".join(f"[C{i}]" for i in range(1, len(blocks) + 1))
 
@@ -463,3 +466,93 @@ def test_query_rewriter_pronoun_resolved():
     result = rw.rewrite(history, "它和击穿有什么区别？")
     assert "缓存穿透" in result
     assert "击穿" in result
+
+
+# ── G1-CTX-03B：端到端 Prompt Budget（Pipeline/Config 侧） ──
+
+def _write_config(tmp_path, **generator_overrides):
+    config = {
+        "embedding": {"provider": "bge", "model": "BAAI/bge-small-zh-v1.5"},
+        "chunker": {"strategy": "fixed", "size_tokens": 100, "overlap_tokens": 10},
+        "retriever": {"strategy": "hybrid", "top_k": 3},
+        "generator": {"provider": "deepseek", "model": "deepseek-v4-flash",
+                      "temperature": 0.3},
+        "vector_store": {"path": str(tmp_path / "vs")},
+    }
+    config["generator"].update(generator_overrides)
+    config_path = tmp_path / "cfg_budget.yaml"
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.dump(config, f)
+    return config_path
+
+
+def test_config_rejects_invalid_budget_values(tmp_path):
+    """非法预算配置被拒绝（ConfigError）"""
+    from core.config import Config, ConfigError
+    bad = [
+        {"max_total_tokens": 0},
+        {"max_total_tokens": True},
+        {"max_total_tokens": 100, "max_output_tokens": 100},
+        {"max_output_tokens": 800, "max_total_tokens": 100},
+    ]
+    for overrides in bad:
+        cfg_path = _write_config(tmp_path, **overrides)
+        try:
+            Config(str(cfg_path))
+            raise AssertionError(f"应拒绝: {overrides}")
+        except ConfigError:
+            pass
+
+
+def test_config_dump_contains_budget_fields(tmp_path):
+    """Config.dump() 输出预算字段（无密钥）"""
+    from core.config import Config
+    cfg_path = _write_config(tmp_path, max_total_tokens=4096,
+                             max_output_tokens=800, message_overhead_tokens=16)
+    cfg = Config(str(cfg_path))
+    d = cfg.dump()
+    assert d["generator_max_total_tokens"] == 4096
+    assert d["generator_max_output_tokens"] == 800
+    assert d["generator_message_overhead_tokens"] == 16
+    assert "api_key" not in str(d).lower() and "sk-" not in str(d)
+
+
+def test_query_passes_generator_budget_to_assembler(tmp_path, monkeypatch):
+    """Pipeline.query 把 Generator 计算的预算传给 ContextAssembler"""
+    from core.context.assembler import ContextAssembler
+    from core.context import assembler as asm_mod
+    pipeline = _make_pipeline(tmp_path)
+
+    class FakeRetriever:
+        def retrieve(self, query, top_k=5):
+            return [Document(content="内容A", metadata={
+                "id": "a", "score": 0.99, "source_name": "x.md"})]
+
+    class FakeReranker:
+        def rerank(self, query, docs, top_k=5):
+            return docs
+
+    class FakeGen:
+        def available_context_tokens(self, query):
+            return 42
+
+        def validate_budget(self, query, blocks):
+            pass
+
+        def generate(self, query, context_docs):
+            return "答案 [C1]"
+
+    pipeline.retriever = FakeRetriever()
+    pipeline.reranker = FakeReranker()
+    pipeline.generator = FakeGen()
+
+    captured = {}
+    class SpyAssembler(ContextAssembler):
+        def __init__(self, *args, **kwargs):
+            captured["budget"] = kwargs.get("max_context_tokens")
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(asm_mod, "ContextAssembler", SpyAssembler)
+    result = pipeline.query("q")
+    assert captured["budget"] == 42
+    assert result["answer"] == "答案 [C1]"

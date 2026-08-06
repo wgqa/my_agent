@@ -88,6 +88,25 @@ class Config:
                 f"temperature 必须在 [0, 2]，当前: {self.generator_temperature}"
             )
 
+        # ── Prompt 预算（G1-CTX-03B） ────────────────────
+        for name in ("max_total_tokens", "max_output_tokens",
+                     "message_overhead_tokens"):
+            value = gen.get(name)
+            if value is None:
+                continue  # 用默认值
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ConfigError(
+                    f"generator.{name} 必须是正整数（不允许 bool），当前: {value!r}"
+                )
+        self.generator_max_total_tokens = gen.get("max_total_tokens", 4096)
+        self.generator_max_output_tokens = gen.get("max_output_tokens", 800)
+        self.generator_message_overhead_tokens = gen.get("message_overhead_tokens", 16)
+        if self.generator_max_output_tokens >= self.generator_max_total_tokens:
+            raise ConfigError(
+                f"generator.max_output_tokens ({self.generator_max_output_tokens}) "
+                f"必须 < max_total_tokens ({self.generator_max_total_tokens})"
+            )
+
         # ── vector_store ──────────────────────────────
         vs = raw.get("vector_store", {})
         self.vector_store_path = vs.get("path", "./data/vector_store")
@@ -115,5 +134,8 @@ class Config:
             "generator_provider": self.generator_provider,
             "generator_model": self.generator_model,
             "generator_temperature": self.generator_temperature,
+            "generator_max_total_tokens": self.generator_max_total_tokens,
+            "generator_max_output_tokens": self.generator_max_output_tokens,
+            "generator_message_overhead_tokens": self.generator_message_overhead_tokens,
             "vector_store_path": self.vector_store_path,
         }

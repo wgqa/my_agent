@@ -23,7 +23,9 @@ class DeepSeekGenerator(BaseGenerator):
         base_url: str = DEEPSEEK_BASE_URL,
         max_retries: int = 2,
         timeout_seconds: float = 60.0,
+        **budget_kwargs,
     ):
+        super().__init__(**budget_kwargs)
         self.model = model
         self.temperature = temperature
         self.max_retries = max_retries
@@ -36,6 +38,8 @@ class DeepSeekGenerator(BaseGenerator):
         )
 
     def generate(self, query: str, context_docs: List[Document]) -> str:
+        # 发送前防御校验：只校验不截断（预算由 ContextAssembler 完成）
+        self.validate_budget(query, context_docs)
         messages = self._build_messages(query, context_docs)
         last_error: Exception | None = None
 
@@ -45,7 +49,7 @@ class DeepSeekGenerator(BaseGenerator):
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
-                    max_tokens=800,
+                    max_tokens=self.max_output_tokens,
                 )
                 return resp.choices[0].message.content
             except AuthenticationError as e:

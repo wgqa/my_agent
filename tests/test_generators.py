@@ -1,3 +1,5 @@
+import pytest
+
 from core.loader.base import Document
 from core.generator.base import BaseGenerator
 
@@ -194,3 +196,120 @@ def test_max_tokens_set():
     gen.generate("q", [])
     kwargs = mock_create.call_args.kwargs
     assert kwargs.get("max_tokens") == 800
+
+
+# ── G1-CTX-03B：端到端 Prompt Budget ──────────────────
+
+def test_available_context_tokens_shrinks_with_longer_query():
+    """问题越长，可用 Context 预算越小"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    gen = DeepSeekGenerator(api_key="sk-test")
+    short = gen.available_context_tokens("q")
+    long = gen.available_context_tokens("q" * 500)
+    assert long < short
+    assert short > 0
+
+
+def test_available_context_tokens_counts_fixed_cost():
+    """System Prompt、包装与回答指令均计入预算（固定成本）"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.base import SYSTEM_PROMPT, build_user_content
+    from core.chunker.token_counter import TokenCounter
+    gen = DeepSeekGenerator(api_key="sk-test")
+    counter = TokenCounter()
+    fixed = (counter.count(SYSTEM_PROMPT)
+             + counter.count(build_user_content("q", ""))
+             + gen.message_overhead_tokens)
+    assert gen.available_context_tokens("q") == \
+        gen.max_total_tokens - gen.max_output_tokens - fixed
+
+
+def test_output_reserve_reduces_available():
+    """输出预留增大时，可用 Context 预算减小"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    gen1 = DeepSeekGenerator(api_key="sk-test", max_output_tokens=200)
+    gen2 = DeepSeekGenerator(api_key="sk-test", max_output_tokens=800)
+    assert gen1.available_context_tokens("q") > gen2.available_context_tokens("q")
+
+
+def test_full_input_plus_output_within_total():
+    """完整输入 + 输出预留不超过总预算"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.base import build_messages
+    from core.context.assembler import ContextBlock
+    from core.chunker.token_counter import TokenCounter
+    gen = DeepSeekGenerator(api_key="sk-test")
+    budget = gen.available_context_tokens("q")
+    blocks = [
+        ContextBlock(citation_id="[C1]", chunk_id="c1", source_name="a.md",
+                     page_number=None, content="内容" * 50, token_count=150),
+    ]
+    assert gen.validate_budget("q", blocks) is None  # 预算内不抛
+    counter = TokenCounter()
+    total_input = sum(counter.count(m["content"]) for m in build_messages("q", blocks))
+    assert total_input + gen.message_overhead_tokens + gen.max_output_tokens \
+        <= gen.max_total_tokens
+
+
+def test_budget_exhausted_raises_before_model():
+    """固定内容耗尽预算：模型调用前抛清晰异常"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.base import PromptBudgetError
+    gen = DeepSeekGenerator(api_key="sk-test", max_total_tokens=100,
+                            max_output_tokens=50)
+    with pytest.raises(PromptBudgetError):
+        gen.available_context_tokens("q" * 200)
+
+
+def test_invalid_budget_params_rejected():
+    """max_total_tokens/max_output_tokens 非法值被拒绝"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    with pytest.raises(ValueError):
+        DeepSeekGenerator(api_key="sk-test", max_total_tokens=0)
+    with pytest.raises(ValueError):
+        DeepSeekGenerator(api_key="sk-test", max_total_tokens=100,
+                          max_output_tokens=100)
+    with pytest.raises(TypeError):
+        DeepSeekGenerator(api_key="sk-test", max_output_tokens=True)
+
+
+def test_validate_budget_raises_when_over():
+    """发送前防御校验：输入+输出预留超限立即报错"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.base import PromptBudgetError
+    from core.context.assembler import ContextBlock
+    gen = DeepSeekGenerator(api_key="sk-test", max_total_tokens=200,
+                            max_output_tokens=50)
+    blocks = [
+        ContextBlock(citation_id="[C1]", chunk_id="c1", source_name="a.md",
+                     page_number=None, content="x" * 500, token_count=500),
+    ]
+    with pytest.raises(PromptBudgetError):
+        gen.validate_budget("q", blocks)
+
+
+def test_deepseek_uses_configured_max_output_tokens(monkeypatch):
+    """DeepSeek 调用使用配置的 max_output_tokens 而非硬编码"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    gen = DeepSeekGenerator(api_key="sk-test", max_output_tokens=321)
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured["max_tokens"] = kwargs["max_tokens"]
+        msg = type("M", (), {"content": "ok"})()
+        ch = type("C", (), {"message": msg})()
+        return type("R", (), {"choices": [ch]})()
+
+    monkeypatch.setattr(gen.client.chat.completions, "create", fake_create)
+    gen.generate("q", [])
+    assert captured["max_tokens"] == 321
+
+
+def test_available_context_tokens_mixed_language():
+    """中英文和 Emoji 问题均能正确计算"""
+    from core.generator.deepseek_gen import DeepSeekGenerator
+    gen = DeepSeekGenerator(api_key="sk-test")
+    for q in ["什么是缓存穿透？", "How does JVM GC work?", "缓存穿透 🎉🚀 Cache?"]:
+        avail = gen.available_context_tokens(q)
+        assert avail > 0
+        assert avail < gen.max_total_tokens
