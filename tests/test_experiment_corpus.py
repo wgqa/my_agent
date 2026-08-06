@@ -122,3 +122,32 @@ def test_sha256_matches_direct_bytes(tmp_path):
         full = (root / entry.relative_path).resolve()
         assert entry.sha256 == hashlib.sha256(full.read_bytes()).hexdigest()
         assert entry.size_bytes == full.stat().st_size
+
+
+# ── corpus_id 无歧义序列化（复审回归） ─────────────────
+
+def test_corpus_id_unambiguous_serialization():
+    """未转义分隔符碰撞：两清单旧 payload 相同，修复后 ID 必须不同"""
+    from evaluation.experiment_corpus import CorpusEntry
+    h1 = "a" * 64
+    h2 = "b" * 64
+    entries_a = [
+        CorpusEntry(relative_path="x", sha256=h1, size_bytes=1),
+        CorpusEntry(relative_path="y", sha256=h2, size_bytes=2),
+    ]
+    entries_b = [
+        CorpusEntry(relative_path=f"x:{h1}:1|y", sha256=h2, size_bytes=2),
+    ]
+    assert ExperimentCorpus._compute_id(entries_a) != ExperimentCorpus._compute_id(
+        entries_b
+    )
+
+
+def test_corpus_id_insensitive_to_entry_order_in_compute():
+    """_compute_id 内部构造顺序不影响 ID（排序后序列化）"""
+    from evaluation.experiment_corpus import CorpusEntry
+    e1 = CorpusEntry(relative_path="a", sha256="s1", size_bytes=1)
+    e2 = CorpusEntry(relative_path="b", sha256="s2", size_bytes=2)
+    assert ExperimentCorpus._compute_id([e1, e2]) == ExperimentCorpus._compute_id(
+        [e2, e1]
+    )

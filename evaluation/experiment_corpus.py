@@ -6,6 +6,7 @@
 """
 
 import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Sequence, Union
@@ -84,8 +85,23 @@ class ExperimentCorpus:
 
     @staticmethod
     def _compute_id(entries) -> str:
-        """基于排序后的 relative_path/sha256/size 生成稳定 ID"""
-        payload = "|".join(
-            f"{e.relative_path}:{e.sha256}:{e.size_bytes}" for e in entries
-        )
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
+        """无歧义结构化序列化：排序 + JSON（固定字段/固定 separators/UTF-8）。
+
+        字段分隔符拼接允许路径含 `:`/`|` 时产生 payload 碰撞（如
+        `x:h1:1|y` 与两条 `x`+`y`），JSON 转义天然消除该歧义；
+        sort_keys=True 使字典字段顺序无关，entries 先排序使输入
+        顺序无关。
+        """
+        sorted_entries = sorted(entries, key=lambda e: e.relative_path)
+        data = [
+            {
+                "relative_path": e.relative_path,
+                "sha256": e.sha256,
+                "size_bytes": e.size_bytes,
+            }
+            for e in sorted_entries
+        ]
+        payload = json.dumps(
+            data, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()[:12]
