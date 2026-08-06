@@ -164,10 +164,11 @@ class Pipeline:
                     for cid in stale:
                         self.retriever._bm25.remove_document(cid)
 
-        # 同步 BM25 稀疏索引：用 chunk 元数据 id 配对（upsert 去重后 zip 会错位）
+        # 同步 BM25 稀疏索引：用 chunk 元数据 id 配对（upsert 去重后 zip 会错位）；
+        # 传完整元数据（BM25 内部 dict() 复制），Sparse-only 命中可恢复来源
         if hasattr(self.retriever, "build_sparse_index"):
             self.retriever.build_sparse_index(
-                [(c.metadata["id"], c.content) for c in chunks]
+                [(c.metadata["id"], c.content, c.metadata) for c in chunks]
             )
 
         return {

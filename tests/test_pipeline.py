@@ -183,6 +183,66 @@ def test_delete_document_cleans_vector_store(tmp_path):
     assert pipeline.vector_store.count() == 0
 
 
+# ── G1-META-02-R1：index_file 实时入库写入 BM25 元数据 ──
+
+def test_index_file_bm25_gets_full_metadata(tmp_path):
+    """入库后不重启：BM25 条目已含 document_id 与来源字段"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "meta_doc1.txt"
+    f.write_text("缓存穿透是指查询不存在的数据。" * 20, encoding="utf-8")
+
+    result = pipeline.index_file(str(f))
+    assert result["status"] == "create"
+    bm25 = pipeline.retriever._bm25
+    assert bm25._total_docs == result["chunks"]
+    for chunk_id, meta in bm25._meta.items():
+        assert meta.get("id") == chunk_id
+        assert meta.get("document_id"), f"chunk {chunk_id} 缺 document_id"
+        assert meta.get("source_name") or meta.get("source"), \
+            f"chunk {chunk_id} 缺来源字段"
+
+
+def test_index_file_sparse_only_flows_to_assembler(tmp_path):
+    """入库后不重启：模拟 Dense 未命中、Sparse-only 命中 → assembler 来源非 unknown"""
+    from core.context.assembler import ContextAssembler
+    from core.loader.base import Document
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "meta_doc2.txt"
+    f.write_text("缓存击穿是指热点key失效。" * 20, encoding="utf-8")
+    pipeline.index_file(str(f))
+
+    bm25 = pipeline.retriever._bm25
+    chunk_id = next(iter(bm25._meta))
+    meta = bm25.get_meta(chunk_id)          # 模拟 Sparse-only 从 BM25 恢复
+    meta["id"] = chunk_id
+    doc = Document(content=bm25.get_text(chunk_id), metadata=meta)
+
+    blocks = ContextAssembler().assemble([doc])
+    assert len(blocks) == 1
+    assert blocks[0].source_name != "unknown"
+
+
+def test_index_file_update_refreshes_bm25(tmp_path):
+    """同文件更新：BM25 使用新正文新元数据，文档数不膨胀"""
+    pipeline = _make_pipeline(tmp_path)
+    f = tmp_path / "meta_doc3.txt"
+    f.write_text("旧内容一。" * 30, encoding="utf-8")
+    r1 = pipeline.index_file(str(f))
+    bm25 = pipeline.retriever._bm25
+    count_before = bm25._total_docs
+    assert count_before == r1["chunks"]
+
+    f.write_text("新内容二。" * 30, encoding="utf-8")
+    r2 = pipeline.index_file(str(f))
+    assert r2["status"] == "update"
+
+    assert bm25._total_docs == count_before, "BM25 文档数不得膨胀"
+    hashes = {meta.get("content_hash") for meta in bm25._meta.values()}
+    assert len(hashes) == 1, "更新后 BM25 只应保留新版本 content_hash"
+    for chunk_id in bm25._meta:
+        assert "新内容二" in bm25.get_text(chunk_id)
+
+
 # ── P0-3: reranker 配置接线 ──────────────────────────
 
 def test_query_wires_reranker_candidate_and_final_k(tmp_path):
