@@ -8,7 +8,7 @@
 ## 当前结论
 
 - **定位**：面向技术文档与代码的可评测 RAG Agent
-- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）完成 → **ExperimentRunner 开发中（ER-01/02 完成，ER-03 等复审）** → M4 评测（等真实语料）
+- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）完成 → **ExperimentRunner 开发中（ER-01~03 通过，ER-04 待复审）+ Gate 1 RRF 修复待复审** → M4 评测（等真实语料）
 - **测试**：全量 suite 通过（--basetemp=.tmp_pytest）
 
 ## 任务状态
@@ -44,17 +44,19 @@
 | E-04 | _rebuild_sparse_index 吞异常，"调用过"≠"重建成功" | strict 模式 fail-fast + 数量校验（见 study-notes 38） | ✅ 复审通过 |
 | ER-01 | Evaluator 用无约束 dict 配置 | ExperimentConfig 强类型模型：构造即校验 + 稳定 experiment_id（见 study-notes 39） | ✅ 复审通过 |
 | ER-02 | 实验共享同一 ChromaDB 索引 | ExperimentWorkspace 独立工作区 + 派生配置（见 study-notes 40） | ✅ 复审通过 |
-| ER-03 | Pipeline 从 YAML 构建，未接通工作区 | ExperimentRunner 最小版：workspace → 派生配置 → 独立 Pipeline + 一致性校验（见 study-notes 41） | 🔄 待复审 |
+| ER-03 | Pipeline 从 YAML 构建，未接通工作区 | ExperimentRunner 最小版：workspace → 派生配置 → 独立 Pipeline + 一致性校验（见 study-notes 41） | ✅ 复审通过 |
+| ER-04 | 实验语料不固定，指标无法复现 | ExperimentCorpus：文件清单 + 字节 SHA-256 + 稳定 corpus_id（见 study-notes 42） | 🔄 序列化修复待复审 |
+| Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | 🔄 待复审 |
 
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ **242**（ER-03，08-05）
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ **260**（Gate1，08-05）
 
 ## Git
 
 - 远端：GitHub `wgqa/my_agent`，分支 main
-- 最近验收基线：REWORK-P0-01/02/03 + E-01~E-04 + ER-01/ER-02 复审通过；ER-03（ExperimentRunner）待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
+- 最近验收基线：REWORK-P0-01/02/03 + E-01~E-04 + ER-01~ER-03 复审通过；ER-04（corpus_id 序列化修复）与 Gate1（RRF）待复审（具体 hash 以 git log 为准，本文件不维护提交哈希）
 
 ## 文档地图
 
@@ -63,6 +65,6 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-41 |
+| docs/study-notes/ | 学习笔记 00-43 |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |
