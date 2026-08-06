@@ -270,7 +270,11 @@ class Pipeline:
                 include=["documents", "metadatas"]
             )
             pairs = [
-                (all_data["metadatas"][i].get("id", ""), all_data["documents"][i])
+                (
+                    all_data["metadatas"][i].get("id", ""),
+                    all_data["documents"][i],
+                    all_data["metadatas"][i],
+                )
                 for i in range(len(all_data["ids"]))
                 if all_data["metadatas"][i].get("id")
             ]

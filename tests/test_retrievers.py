@@ -96,16 +96,20 @@ class _DenseHitsVectorStore:
 
 
 class _FakeBM25Hits:
-    """Sparse 通道可控替身：search 返回预设 [(doc_id, score)]，get_text 供补全"""
+    """Sparse 通道可控替身：search 返回预设 [(doc_id, score)]，get_text/get_meta 供补全"""
 
-    def __init__(self, hits):
+    def __init__(self, hits, metas=None):
         self._hits = list(hits)
+        self._metas = metas or {}
 
     def search(self, query, top_k=10):
         return self._hits[:top_k]
 
     def get_text(self, doc_id):
         return f"text {doc_id}"
+
+    def get_meta(self, doc_id):
+        return dict(self._metas.get(doc_id) or {})
 
 
 def _rrf_doc(doc_id, score=1.0):
@@ -186,3 +190,105 @@ def test_mmr_retriever():
     r = MMRRetriever(MockEmbedding(), MockVectorStore())
     results = r.retrieve("cat", top_k=2)
     assert len(results) == 2
+
+
+# ── G1-META-02：Sparse-only 保留完整元数据 ─────────────
+
+def _sparse_only_retriever_with_meta():
+    """Dense 通道无 id（结果不进入融合），Sparse 通道命中 c1（真实 BM25）"""
+    from core.retriever.hybrid import HybridRetriever
+    r = HybridRetriever(MockEmbedding(), MockVectorStore())
+    r.build_sparse_index([(
+        "c1", "python",
+        {
+            "id": "c1", "document_id": "doc1", "source": "a.md",
+            "source_name": "a.md", "file_path": "docs/a.md",
+            "page": 3, "page_number": 3, "chunk_index": 0,
+            "start_offset": 0, "end_offset": 10,
+        },
+    )])
+    return r
+
+
+def test_sparse_only_preserves_full_metadata():
+    """Sparse-only 命中从 BM25 恢复完整原始元数据"""
+    r = _sparse_only_retriever_with_meta()
+    docs = r.retrieve("python", top_k=5)
+    assert len(docs) == 1
+    meta = docs[0].metadata
+    assert meta["id"] == "c1"
+    assert meta["document_id"] == "doc1"
+    assert meta["source"] == "a.md"
+    assert meta["source_name"] == "a.md"
+    assert meta["file_path"] == "docs/a.md"
+    assert meta["page"] == 3
+    assert meta["page_number"] == 3
+    assert meta["chunk_index"] == 0
+    assert meta["start_offset"] == 0
+    assert meta["end_offset"] == 10
+    assert meta["sparse_score"] is not None
+    assert meta["dense_rank"] is None
+
+
+def test_sparse_only_metadata_flows_to_assembler():
+    """Sparse-only 结果进入 ContextAssembler 后来源不是 unknown"""
+    from core.context.assembler import ContextAssembler
+    r = _sparse_only_retriever_with_meta()
+    docs = r.retrieve("python", top_k=5)
+    blocks = ContextAssembler().assemble(docs)
+    assert len(blocks) == 1
+    assert blocks[0].source_name == "a.md"
+
+
+def test_dense_hit_not_overwritten_by_sparse_meta():
+    """Dense+Sparse 同时命中：以 Dense 返回的完整 Document 为主体"""
+    dense_doc = _rrf_doc("c1")
+    dense_doc.metadata["source_name"] = "dense.md"
+    dense_doc.metadata["document_id"] = "doc-dense"
+    r = _rrf_retriever([dense_doc], [("c1", 1.0)], dense_candidate_k=2)
+    r._bm25 = _FakeBM25Hits([("c1", 1.0)], metas={
+        "c1": {"source_name": "sparse.md", "document_id": "doc-sparse"},
+    })
+    docs = r.retrieve("q", top_k=5)
+    c1 = next(d for d in docs if d.metadata["id"] == "c1")
+    assert c1.metadata["source_name"] == "dense.md"
+    assert c1.metadata["document_id"] == "doc-dense"
+
+
+def test_bm25_same_id_update_replaces_text_and_meta():
+    """同 ID 重复添加：正文与元数据都被新版本替换"""
+    from core.retriever.hybrid import BM25Index
+    idx = BM25Index()
+    idx.add_document("c1", "old text", {"source": "old.md", "page": 1})
+    idx.add_document("c1", "new text", {"source": "new.md", "page": 2})
+    assert idx.get_text("c1") == "new text"
+    assert idx.get_meta("c1") == {"source": "new.md", "page": 2}
+    assert idx.doc_count == 1
+
+
+def test_bm25_save_load_keeps_metadata(tmp_path):
+    """save/load 后元数据不丢失"""
+    from core.retriever.hybrid import BM25Index
+    idx = BM25Index()
+    idx.add_document("c1", "python", {"source": "a.md", "page": 3})
+    path = tmp_path / "bm25.json"
+    idx.save(str(path))
+    loaded = BM25Index.load(str(path))
+    assert loaded.get_text("c1") == "python"
+    assert loaded.get_meta("c1") == {"source": "a.md", "page": 3}
+
+
+def test_bm25_load_old_index_without_meta_compatible(tmp_path):
+    """旧索引文件缺少 metadata 字段时兼容（get_meta 返回空）"""
+    import json
+    from core.retriever.hybrid import BM25Index
+    path = tmp_path / "old_bm25.json"
+    path.write_text(json.dumps({
+        "k1": 1.5, "b": 0.75,
+        "doc_freqs": {"c1": {"python": 1}},
+        "df": {"python": 1}, "doc_lens": {"c1": 1},
+        "texts": {"c1": "python"}, "total_docs": 1,
+    }), encoding="utf-8")
+    loaded = BM25Index.load(str(path))
+    assert loaded.get_text("c1") == "python"
+    assert loaded.get_meta("c1") == {}

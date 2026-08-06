@@ -32,17 +32,21 @@ class BM25Index:
         self._df: Dict[str, int] = {}
         self._doc_lens: Dict[str, int] = {}
         self._texts: Dict[str, str] = {}
+        self._meta: Dict[str, dict] = {}
         self._avgdl: float = 0.0
         self._total_docs: int = 0
 
-    def add_document(self, doc_id: str, text: str):
-        """添加一篇文档到索引（增量 IDF）；同一 ID 重复添加视为更新，先撤销旧统计"""
+    def add_document(self, doc_id: str, text: str, meta: dict = None):
+        """添加一篇文档到索引（增量 IDF）；同一 ID 重复添加视为更新，
+        正文与元数据都被新版本替换"""
         if doc_id in self._doc_freqs:
             self.remove_document(doc_id)
         tokens = _tokenize(text)
         self._doc_freqs[doc_id] = Counter(tokens)
         self._doc_lens[doc_id] = sum(self._doc_freqs[doc_id].values())
         self._texts[doc_id] = text
+        if meta is not None:
+            self._meta[doc_id] = dict(meta)  # 副本，防止外部修改污染索引
 
         # 增量更新 DF
         for term in self._doc_freqs[doc_id]:
@@ -64,12 +68,17 @@ class BM25Index:
         self._doc_freqs.pop(doc_id)
         self._doc_lens.pop(doc_id)
         self._texts.pop(doc_id, None)
+        self._meta.pop(doc_id, None)
         self._total_docs -= 1
         self._update_avgdl()
         self._recompute_idf()
 
     def get_text(self, doc_id: str) -> str:
         return self._texts.get(doc_id, "")
+
+    def get_meta(self, doc_id: str) -> dict:
+        """返回存储的元数据副本；无记录返回空 dict"""
+        return dict(self._meta.get(doc_id) or {})
 
     def _update_avgdl(self):
         self._avgdl = sum(self._doc_lens.values()) / max(self._total_docs, 1)
@@ -83,7 +92,8 @@ class BM25Index:
             "k1": self.k1, "b": self.b,
             "doc_freqs": {k: dict(v) for k, v in self._doc_freqs.items()},
             "df": self._df, "doc_lens": self._doc_lens,
-            "texts": self._texts, "total_docs": self._total_docs,
+            "texts": self._texts, "meta": self._meta,
+            "total_docs": self._total_docs,
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
@@ -104,6 +114,7 @@ class BM25Index:
         idx._df = data["df"]
         idx._doc_lens = data["doc_lens"]
         idx._texts = data["texts"]
+        idx._meta = data.get("meta") or {}  # 旧索引文件无 meta 字段时兼容
         idx._total_docs = data["total_docs"]
         idx._recompute_idf()
         return idx
@@ -171,10 +182,13 @@ class HybridRetriever(BaseRetriever):
         self.rrf_k = rrf_k
         self._bm25 = BM25Index()
 
-    def build_sparse_index(self, chunk_texts: List[tuple[str, str]]):
-        """批量建立 BM25 索引。chunk_texts: [(chunk_id, text), ...]"""
-        for chunk_id, text in chunk_texts:
-            self._bm25.add_document(chunk_id, text)
+    def build_sparse_index(self, chunk_texts: List[tuple]):
+        """批量建立 BM25 索引。chunk_texts: [(chunk_id, text), ...] 或
+        [(chunk_id, text, metadata), ...]（带元数据供 Sparse-only 恢复）"""
+        for item in chunk_texts:
+            chunk_id, text = item[0], item[1]
+            meta = item[2] if len(item) >= 3 else None
+            self._bm25.add_document(chunk_id, text, meta)
 
     def retrieve(self, query: str, top_k: int = 5) -> List[Document]:
         """检索：Dense Top-N → Sparse Top-N → RRF → 返回 final_k 候选"""
@@ -216,14 +230,15 @@ class HybridRetriever(BaseRetriever):
 
         # 4. 按 RRF 排序返回
         result_map = {d.metadata.get("id", ""): d for d in dense_results if d.metadata.get("id")}
-        # 对 Dense 未召回但 Sparse 命中的文档，用 BM25 存储的原文补全
+        # 对 Dense 未召回但 Sparse 命中的文档，用 BM25 存储的原文与
+        # 原始元数据补全（document_id/source/page 等），保证可追溯引用
         for chunk_id, s_score in sparse_hits:
             if chunk_id not in existing_ids:
                 text = self._bm25.get_text(chunk_id)
-                result_map[chunk_id] = Document(
-                    content=text,
-                    metadata={"id": chunk_id, "sparse_score": round(s_score, 4)},
-                )
+                meta = self._bm25.get_meta(chunk_id)
+                meta["id"] = chunk_id
+                meta["sparse_score"] = round(s_score, 4)
+                result_map[chunk_id] = Document(content=text, metadata=meta)
 
         final = []
         # 池大小取 final_k 与请求 top_k 的较大者，避免内部截断吞掉候选
