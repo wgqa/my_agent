@@ -8,6 +8,10 @@ import hashlib
 from dataclasses import asdict, dataclass
 
 VALID_CHUNK_STRATEGIES = ("fixed", "recursive", "semantic")
+# 正式实验（可复现基线）允许的策略
+STABLE_CHUNK_STRATEGIES = ("fixed", "recursive")
+# 实验性实现：保留手动学习/调试入口，但不得进入正式 ExperimentConfig
+EXPERIMENTAL_CHUNK_STRATEGIES = ("semantic",)
 VALID_RETRIEVER_STRATEGIES = ("simple", "hybrid", "mmr")
 
 
@@ -35,6 +39,12 @@ class ExperimentConfig:
             raise ValueError(
                 f"未知 chunk_strategy: {self.chunk_strategy}，"
                 f"支持 {VALID_CHUNK_STRATEGIES}"
+            )
+        if self.chunk_strategy in EXPERIMENTAL_CHUNK_STRATEGIES:
+            raise ValueError(
+                f"chunk_strategy={self.chunk_strategy} 当前是实验性实现："
+                "尚未满足原文 Span、严格预算与 Embedding 对齐契约，"
+                "不能用于正式可复现实验"
             )
         if self.retriever_strategy not in VALID_RETRIEVER_STRATEGIES:
             raise ValueError(

@@ -48,6 +48,14 @@
 | ER-04 | 实验语料不固定，指标无法复现 | ExperimentCorpus：文件清单 + 字节 SHA-256 + 稳定 corpus_id（见 study-notes 42） | 🔄 序列化修复待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | 🔄 待复审 |
 
+## Chunker 策略状态（G1-CHUNK-05B）
+
+| 策略 | 状态 | 说明 |
+|------|------|------|
+| fixed | ✅ stable baseline | 可进入正式实验（ExperimentConfig） |
+| recursive | ✅ stable baseline | 可进入正式实验（ExperimentConfig） |
+| semantic | ⚠️ experimental | 保留手动学习/调试入口；未满足原文 Span/严格预算/Embedding 对齐契约；不得用于正式 Gate 2 基线报告；ExperimentConfig 已拒绝 |
+
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）

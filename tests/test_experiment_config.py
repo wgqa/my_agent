@@ -37,6 +37,12 @@ def test_invalid_chunk_strategy_rejected():
         ExperimentConfig(chunk_strategy="graph")
 
 
+def test_semantic_strategy_rejected_as_experimental():
+    """semantic 是实验性实现：不得用于正式可复现实验"""
+    with pytest.raises(ValueError, match="实验性"):
+        ExperimentConfig(chunk_strategy="semantic")
+
+
 def test_invalid_retriever_strategy_rejected():
     with pytest.raises(ValueError, match="retriever_strategy"):
         ExperimentConfig(retriever_strategy="graph_rag")

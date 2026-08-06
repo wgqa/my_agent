@@ -606,3 +606,17 @@ def test_reranker_success_keeps_reranked_order(tmp_path):
     assert [s["source"] for s in result["sources"]] == ["y.md", "x.md"]
     # sources.score 用统一展示分数（rrf_score 优先于 score）
     assert result["sources"][1]["score"] == 0.9
+
+
+# ── G1-CHUNK-05B：普通 Config 保留 semantic 手动入口 ───
+
+def test_app_config_accepts_semantic_chunker(tmp_path):
+    """普通应用配置仍可读取 semantic（手动/学习入口兼容）"""
+    from core.config import Config
+    cfg_path = _write_config(tmp_path)
+    raw = yaml.safe_load(open(cfg_path, encoding="utf-8"))
+    raw["chunker"]["strategy"] = "semantic"
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        yaml.dump(raw, f)
+    cfg = Config(str(cfg_path))
+    assert cfg.chunker_strategy == "semantic"
