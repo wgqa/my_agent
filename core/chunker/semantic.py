@@ -7,12 +7,12 @@ from core.chunker.token_counter import TokenCounter
 
 
 class SemanticChunker(BaseChunker):
-    """基于句子 embedding 相似度变化进行语义分割，min/max 长度真实生效。
+    """基于句子 Embedding 相似度变化进行语义分割的实验性实现。
 
     ⚠️ EXPERIMENTAL（G1-CHUNK-05B）：当前是实验性实现，保留手动学习与
     调试入口，但不得用于正式 Gate 2 基线报告。已知限制：
-    - 会改变原始空白（非原文 Span 精确保持）；
-    - 长句使用 token decode 切分，可能切半字符/边界漂移；
+    - 原文 Span 不可靠（会改变原始空白，非精确保持）；
+    - 严格预算不可靠（长句使用 token decode 切分，可能切半字符/边界漂移）；
     - 切片与 Embedding 下标存在错位风险。
     正式实验请使用 fixed / recursive（ExperimentConfig 已拒绝 semantic）。
     """
