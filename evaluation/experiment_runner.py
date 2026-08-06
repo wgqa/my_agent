@@ -99,14 +99,12 @@ class ExperimentRunner:
 
         # 必须先验证全部文件，再开始第一个文件入库，避免后面文件损坏时
         # 前面文件已经被部分写入。
-        self._validate_corpus_integrity(corpus)
+        validated_paths = self._validate_corpus_integrity(corpus)
 
         file_records = []
         total_chunks = 0
-        for entry in corpus.entries:
-            result = prepared.pipeline.index_file(
-                str(corpus.corpus_root / entry.relative_path)
-            )
+        for entry, file_path in zip(corpus.entries, validated_paths):
+            result = prepared.pipeline.index_file(str(file_path))
             status = result.get("status")
             if status != "create":
                 raise RuntimeError(
@@ -163,17 +161,37 @@ class ExperimentRunner:
         return manifest
 
     @staticmethod
-    def _validate_corpus_integrity(corpus: ExperimentCorpus) -> None:
-        """入库前一次性重读全部语料原始字节并校验。
+    def _validate_corpus_integrity(corpus: ExperimentCorpus) -> tuple[Path, ...]:
+        """入库前一次性重读全部语料原始字节并校验，返回已验证的规范文件路径。
 
-        校验项：文件存在、仍是普通文件、size_bytes 一致、SHA-256 一致、
-        resolve() 后真实路径仍在 corpus_root 内。任一失败立即抛异常，
-        且不会静默重算 corpus_id。
+        corpus_root 本身是 ExperimentCorpus.build() 时 resolve 过的不可变锚点，
+        不能再次 resolve 后当作新可信根；否则整个根被替换成指向外部的
+        junction/symlink 时会把外部目标误认为可信根。
+
+        校验项：锚点仍存在、仍是目录、resolve 后没有变成与构建时不同的目标；
+        每个文件 resolve 后仍在锚点内、是普通文件、size_bytes 一致、SHA-256 一致。
+        任一失败立即抛异常，且不会静默重算 corpus_id。
         """
-        root = Path(corpus.corpus_root).resolve()
+        anchor = Path(corpus.corpus_root)
+        if not anchor.exists():
+            raise FileNotFoundError(
+                f"corpus_root 在构建后被删除或替换：{anchor}"
+            )
+        if not anchor.is_dir():
+            raise ValueError(
+                f"corpus_root 在构建后不再是目录：{anchor}"
+            )
+        resolved_anchor = anchor.resolve()
+        if resolved_anchor != anchor:
+            raise ValueError(
+                f"corpus_root 在构建后被重定向或替换（resolve 与构建时锚点不同）："
+                f"{anchor} -> {resolved_anchor}"
+            )
+
+        validated_paths = []
         for entry in corpus.entries:
-            full = (root / entry.relative_path).resolve()
-            if not full.is_relative_to(root):
+            full = (anchor / entry.relative_path).resolve()
+            if not full.is_relative_to(anchor):
                 raise ValueError(
                     f"语料路径逃逸 corpus_root（符号链接/junction 指向外部）："
                     f"{entry.relative_path}"
@@ -198,6 +216,8 @@ class ExperimentRunner:
                     f"语料文件 SHA-256 不一致：{entry.relative_path} "
                     f"期望 {entry.sha256[:12]}... 实际 {actual_sha[:12]}..."
                 )
+            validated_paths.append(full)
+        return tuple(validated_paths)
 
     @staticmethod
     def _validate_hybrid_sparse_index(

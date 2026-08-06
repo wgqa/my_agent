@@ -559,3 +559,47 @@ def test_corpus_path_escape_after_build_fails_before_index(tmp_path):
         _make_runner(tmp_path).index_corpus(prepared, corpus)
     assert pipeline.calls == []
     assert not prepared.paths.index_manifest_path.exists()
+
+
+def test_corpus_root_redirect_after_build_fails_before_index(tmp_path):
+    """G2-ER-05-R1：整个 corpus_root 在 build 后被替换成指向外部的
+    junction/symlink 时，必须在第一次 index_file() 前失败。"""
+    import shutil
+
+    content = "same bytes\n"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "a.md").write_text(content, encoding="utf-8")
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "a.md").write_text(content, encoding="utf-8")
+    corpus = ExperimentCorpus.build(root, ["a.md"])
+
+    # 删除整个 corpus_root，并替换为指向外部目录的 junction/symlink；
+    # 外部目录中放置同名、同大小、同 SHA-256 的 a.md。
+    shutil.rmtree(root)
+    _link_dir(root, outside)
+
+    config = ExperimentConfig(retriever_strategy="simple")
+    pipeline = FakeIndexPipeline(vector_count=1)
+    prepared = _prepare_experiment(tmp_path, tmp_path / "runs", config, pipeline)
+    with pytest.raises(ValueError, match="重定向|替换"):
+        _make_runner(tmp_path).index_corpus(prepared, corpus)
+    assert pipeline.calls == []
+    assert not prepared.paths.index_manifest_path.exists()
+
+
+def test_no_redirect_indexes_in_entry_order(tmp_path):
+    """G2-ER-05-R1：未发生重定向时，仍按 corpus.entries 原顺序入库。"""
+    corpus = _make_corpus(tmp_path, {"b.txt": "bbb", "a.md": "aaa"})
+    config = ExperimentConfig(retriever_strategy="simple")
+    pipeline = FakeIndexPipeline(vector_count=2)
+    prepared = _prepare_experiment(tmp_path, tmp_path / "runs", config, pipeline)
+    manifest = _make_runner(tmp_path).index_corpus(prepared, corpus)
+    assert manifest is not None
+    anchor = Path(corpus.corpus_root)
+    assert pipeline.calls == [
+        str(anchor / e.relative_path) for e in corpus.entries
+    ]
+    assert prepared.paths.index_manifest_path.is_file()
