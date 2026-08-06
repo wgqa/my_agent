@@ -202,9 +202,14 @@ class HybridRetriever(BaseRetriever):
         all_ids = set(dense_rank_map.keys()) | set(sparse_rank_map.keys())
         rrf_scores = []
         for doc_id in all_ids:
-            dense_rank = dense_rank_map.get(doc_id, self.dense_candidate_k + 1)
-            sparse_rank = sparse_rank_map.get(doc_id, self.sparse_candidate_k + 1)
-            rrf = 1.0 / (self.rrf_k + dense_rank) + 1.0 / (self.rrf_k + sparse_rank)
+            # RRF 缺席通道语义：文档只从实际命中的通道获得分数，
+            # 未命中通道贡献严格为 0（不给虚拟排名，避免单通道文档
+            # 获得另一通道的正分改变排序）
+            rrf = 0.0
+            if doc_id in dense_rank_map:
+                rrf += 1.0 / (self.rrf_k + dense_rank_map[doc_id])
+            if doc_id in sparse_rank_map:
+                rrf += 1.0 / (self.rrf_k + sparse_rank_map[doc_id])
             rrf_scores.append((doc_id, rrf))
 
         rrf_scores.sort(key=lambda x: x[1], reverse=True)
