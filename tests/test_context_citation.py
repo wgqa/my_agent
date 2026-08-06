@@ -1,7 +1,9 @@
 """M3-T1 + M3-T3: ContextAssembler 与引用验证"""
 
 from core.loader.base import Document
-from core.context.assembler import ContextAssembler, ContextBlock, render_context_block
+from core.context.assembler import (
+    ContextAssembler, ContextBlock, render_context_block, display_score,
+)
 from core.generator.citation import CitationValidator
 from core.chunker.token_counter import TokenCounter
 
@@ -38,23 +40,25 @@ class TestContextAssembler:
         assert len(blocks) == 2
         assert blocks[0].content == "相同内容"
 
-    def test_sorts_by_score_desc(self):
+    def test_keeps_input_order_not_reorders_by_score(self):
+        """保持上游输入顺序：不再按 score 或 rerank_score 重新排序"""
         hits = [
             Document(content="低分", metadata={"score": 0.3, "id": "a"}),
             Document(content="高分", metadata={"score": 0.9, "id": "b"}),
         ]
         blocks = ContextAssembler().assemble(hits)
-        assert blocks[0].content == "高分"
+        assert [b.content for b in blocks] == ["低分", "高分"]
 
-    def test_sorts_by_rerank_score_when_present(self):
-        # 有 rerank_score 时按它排，不能被稠密 score 覆盖
+    def test_keeps_input_order_with_rerank_score(self):
+        # 有 rerank_score 也不重排：顺序由 Retriever/Reranker 决定
         hits = [
             Document(content="A", metadata={"id": "a", "score": 0.9, "rerank_score": 0.2}),
             Document(content="B", metadata={"id": "b", "score": 0.1, "rerank_score": 0.8}),
         ]
         blocks = ContextAssembler().assemble(hits)
-        assert blocks[0].content == "B"
-        assert blocks[0].retrieval_scores["score"] == 0.8
+        assert [b.content for b in blocks] == ["A", "B"]
+        assert blocks[1].retrieval_scores["rerank_score"] == 0.8
+        assert display_score(blocks[1]) == 0.8
 
     def test_token_budget_truncation(self):
         hits = [
@@ -280,3 +284,95 @@ def test_truncation_mixed_text_prefix_no_replacement():
     assert "�" not in render_context_block(blocks[0])
     rendered = "\n\n".join(render_context_block(b) for b in blocks)
     assert Char3TokenCounter().count(rendered) <= 51
+
+
+# ── G1-RANK-04：排名契约（保持上游顺序，不自行排序） ──
+
+def test_hybrid_rrf_order_kept_when_dense_score_reversed():
+    """Hybrid RRF 输入顺序与 Dense score 相反：保持 RRF 输入顺序"""
+    hits = [
+        Document(content="RRF高分但Dense低分", metadata={
+            "id": "a", "score": 0.1, "rrf_score": 0.9, "dense_rank": 3,
+            "sparse_rank": 1, "final_rank": 1}),
+        Document(content="Dense高分但RRF低分", metadata={
+            "id": "b", "score": 0.9, "rrf_score": 0.2, "dense_rank": 1,
+            "sparse_rank": None, "final_rank": 2}),
+    ]
+    blocks = ContextAssembler().assemble(hits)
+    assert [b.content for b in blocks] == ["RRF高分但Dense低分", "Dense高分但RRF低分"]
+
+
+def test_sparse_only_not_pushed_to_end():
+    """Sparse-only 文档没有 Dense score 时，不得被重新推到末尾"""
+    hits = [
+        Document(content="sparse-only 结果", metadata={
+            "id": "s", "sparse_score": 0.7, "sparse_rank": 1, "final_rank": 1}),
+        Document(content="dense 结果", metadata={
+            "id": "d", "score": 0.9, "dense_rank": 1, "final_rank": 2}),
+    ]
+    blocks = ContextAssembler().assemble(hits)
+    assert [b.content for b in blocks] == ["sparse-only 结果", "dense 结果"]
+
+
+def test_mmr_order_kept_when_dense_score_reversed():
+    """MMR 输入顺序与原 Dense score 相反：保持 MMR 顺序"""
+    hits = [
+        Document(content="MMR第一名", metadata={"id": "m1", "score": 0.2, "mmr_score": 0.8}),
+        Document(content="MMR第二名", metadata={"id": "m2", "score": 0.9, "mmr_score": 0.3}),
+    ]
+    blocks = ContextAssembler().assemble(hits)
+    assert [b.content for b in blocks] == ["MMR第一名", "MMR第二名"]
+
+
+def test_dedup_keeps_first_occurrence():
+    """相同内容去重保留第一次出现（即最高上游排名）"""
+    hits = [
+        Document(content="重复内容", metadata={"id": "first", "score": 0.1, "final_rank": 1}),
+        Document(content="其他", metadata={"id": "mid", "score": 0.5, "final_rank": 2}),
+        Document(content="重复内容", metadata={"id": "later", "score": 0.9, "final_rank": 3}),
+    ]
+    blocks = ContextAssembler().assemble(hits)
+    assert [b.content for b in blocks] == ["重复内容", "其他"]
+    assert blocks[0].chunk_id == "first"
+
+
+def test_retrieval_scores_keep_all_present_fields():
+    """retrieval_scores 完整保留各阶段已有字段；缺失字段不虚构为 0"""
+    hits = [Document(content="内容", metadata={
+        "id": "c1", "score": 0.5, "distance": 0.3, "dense_score": 0.6,
+        "sparse_score": 0.7, "rrf_score": 0.8, "mmr_score": 0.9,
+        "rerank_score": 0.95, "rank": 2, "dense_rank": 3, "sparse_rank": 1,
+        "final_rank": 1})]
+    blocks = ContextAssembler().assemble(hits)
+    rs = blocks[0].retrieval_scores
+    assert rs["score"] == 0.5
+    assert rs["distance"] == 0.3
+    assert rs["dense_score"] == 0.6
+    assert rs["sparse_score"] == 0.7
+    assert rs["rrf_score"] == 0.8
+    assert rs["mmr_score"] == 0.9
+    assert rs["rerank_score"] == 0.95
+    assert rs["rank"] == 2
+    assert rs["dense_rank"] == 3
+    assert rs["sparse_rank"] == 1
+    assert rs["final_rank"] == 1
+    # 缺失字段不出现（区别于"真实 0 分"）
+    assert "score2" not in rs
+
+
+def test_display_score_priority():
+    """sources.score 统一展示分数：rerank > mmr > rrf > score"""
+    from core.context.assembler import display_score
+    base = dict(id="c1")
+    cases = [
+        ({"score": 0.1, "rrf_score": 0.4, "mmr_score": 0.5, "rerank_score": 0.9}, 0.9),
+        ({"score": 0.1, "rrf_score": 0.4, "mmr_score": 0.5}, 0.5),
+        ({"score": 0.1, "rrf_score": 0.4}, 0.4),
+        ({"score": 0.1}, 0.1),
+        ({"sparse_score": 0.7}, 0.0),  # 无展示分数候选 → 0.0
+    ]
+    for meta, expected in cases:
+        block = ContextAssembler().assemble(
+            [Document(content="x", metadata={**base, **meta})]
+        )[0]
+        assert display_score(block) == expected, f"{meta}"

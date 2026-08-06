@@ -34,6 +34,26 @@ def render_context_block(block) -> str:
     return f"[来源: {source}]\n{block.content}"
 
 
+# 各阶段可能存在的分数与排名字段（缺失的省略，不虚构为 0）
+_SCORE_FIELDS = (
+    "score", "distance", "dense_score", "sparse_score",
+    "rrf_score", "mmr_score", "rerank_score",
+)
+_RANK_FIELDS = ("rank", "dense_rank", "sparse_rank", "final_rank")
+
+
+def display_score(block) -> float:
+    """统一的最终可展示分数：rerank_score > mmr_score > rrf_score > score。
+
+    集中实现，Pipeline 与 ContextAssembler 不得各写一份。
+    """
+    for name in ("rerank_score", "mmr_score", "rrf_score", "score"):
+        value = block.retrieval_scores.get(name)
+        if value is not None:
+            return value
+    return 0.0
+
+
 class ContextAssembler:
     """把检索结果组装成带预算、去重、稳定引用的 ContextBlock 列表"""
 
@@ -48,18 +68,15 @@ class ContextAssembler:
         self._counter = token_counter or TokenCounter()
 
     def assemble(self, hits: List[Document]) -> List[ContextBlock]:
-        """输入检索结果，输出带引用编号的 ContextBlock 列表"""
-        # 1. 按检索分数排序：有 rerank_score 时优先（rerank 顺序不被稠密分数覆盖）
-        ordered = sorted(
-            hits,
-            key=lambda d: d.metadata.get("rerank_score", d.metadata.get("score", 0.0)),
-            reverse=True,
-        )
+        """输入检索结果，输出带引用编号的 ContextBlock 列表。
 
-        # 2. 去重：相同 content 只保留一个
+        排名契约：最终顺序由 Retriever/Reranker 决定，这里严格保持
+        输入 hits 顺序，不按任何分数重新排序；去重保留第一次出现。
+        """
+        # 1. 去重：相同 content 只保留第一次出现（即最高上游排名）
         seen_content = set()
         blocks = []
-        for d in ordered:
+        for d in hits:
             if d.content in seen_content:
                 continue
             seen_content.add(d.content)
@@ -73,8 +90,9 @@ class ContextAssembler:
                 content=d.content,
                 token_count=self._counter.count(d.content),
                 retrieval_scores={
-                    "score": d.metadata.get("rerank_score", d.metadata.get("score", 0.0)),
-                    "rank": d.metadata.get("final_rank", d.metadata.get("rank")),
+                    name: d.metadata[name]
+                    for name in _SCORE_FIELDS + _RANK_FIELDS
+                    if name in d.metadata
                 },
             ))
 

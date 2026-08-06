@@ -556,3 +556,53 @@ def test_query_passes_generator_budget_to_assembler(tmp_path, monkeypatch):
     result = pipeline.query("q")
     assert captured["budget"] == 42
     assert result["answer"] == "答案 [C1]"
+
+
+# ── G1-RANK-04：Pipeline 最终顺序契约 ─────────────────
+
+def _ordered_query_pipeline(tmp_path, reranker_enabled=True, reranker_fails=False):
+    pipeline = _make_pipeline(tmp_path)
+    pipeline.config.reranker_enabled = reranker_enabled
+
+    class FakeRetriever:
+        def retrieve(self, query, top_k=5):
+            return [
+                Document(content="内容A", metadata={"id": "a", "score": 0.1,
+                                                   "rrf_score": 0.9, "source_name": "x.md"}),
+                Document(content="内容B", metadata={"id": "b", "score": 0.9,
+                                                   "rrf_score": 0.2, "source_name": "y.md"}),
+            ]
+
+    class FakeReranker:
+        def rerank(self, query, docs, top_k=5):
+            if reranker_fails:
+                raise RuntimeError("reranker 挂了")
+            return list(reversed(docs))  # B 在前
+
+    pipeline.retriever = FakeRetriever()
+    pipeline.reranker = FakeReranker()
+    pipeline.generator = _FakeGenerator()
+    return pipeline
+
+
+def test_reranker_failure_keeps_retriever_order(tmp_path):
+    """Reranker 失败后：sources 保持 Retriever 返回顺序（RRF 顺序）"""
+    pipeline = _ordered_query_pipeline(tmp_path, reranker_fails=True)
+    result = pipeline.query("q")
+    assert [s["source"] for s in result["sources"]] == ["x.md", "y.md"]
+
+
+def test_reranker_disabled_keeps_rrf_order(tmp_path):
+    """reranker_enabled=False：保持 RRF 顺序"""
+    pipeline = _ordered_query_pipeline(tmp_path, reranker_enabled=False)
+    result = pipeline.query("q")
+    assert [s["source"] for s in result["sources"]] == ["x.md", "y.md"]
+
+
+def test_reranker_success_keeps_reranked_order(tmp_path):
+    """Reranker 成功时：保持 Reranker 返回顺序"""
+    pipeline = _ordered_query_pipeline(tmp_path, reranker_enabled=True)
+    result = pipeline.query("q")
+    assert [s["source"] for s in result["sources"]] == ["y.md", "x.md"]
+    # sources.score 用统一展示分数（rrf_score 优先于 score）
+    assert result["sources"][1]["score"] == 0.9
