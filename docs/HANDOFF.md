@@ -1,38 +1,41 @@
 # 交接文件（Handoff）
 
-> 生成日期：2026-08-06
-> 目的：原会话上下文过大，换新 agent 继续执行。本文件 + `docs/status.md` + 用户记忆（`C:\Users\tu me manques\.claude\projects\D-----rag----\memory\`）是完整上下文。
+> 更新：2026-08-06（HANDOFF-R1）
+> 用途：快速摘要，**不是**完整上下文来源。执行边界以当前审计任务文本为准，事实以代码、测试与 `docs/status.md` 为准。
 
-## 1. 项目概览
+## 信息优先级
 
-- **定位**：面向技术文档与代码仓库的可评测 RAG Agent（Python）
-- **目录**：`D:\学习\rag实战项目\rag-knowledge-base`（Windows 11，bash shell）
-- **阶段**：M0-M3 + P0 修复 + 评测修复 + ExperimentRunner 前三步（ER-01~04）+ **Gate 1（基础 RAG 可信状态）已全部通过**（08-06）
-- **测试**：全量 314 passed（`python -m pytest -q --basetemp=.tmp_pytest`；Windows 中文用户名环境必须加 `--basetemp=.tmp_pytest`）
-- **git 状态**：本地 HEAD `e641a0a`，工作区干净；**e641a0a 推送可能未成功**（网络间歇性失败，需 `git push` 确认）
+1. 用户当前决定
+2. 当前审计任务/返工单
+3. 代码与测试
+4. `docs/status.md`
+5. `docs/HANDOFF.md`
+6. study-notes / archive
+7. Agent 本地记忆（可选补充，不属于项目事实来源；新 Agent 不得依赖它才能继续工作）
 
-## 2. 工作流约定（重要）
+## 1. 当前状态
 
-项目由**外部审计方**驱动，循环为：
+- **Gate 1（基础 RAG 可信状态）已正式归档**（08-06）
+- **当前进入 Gate 2（可复现评测）**
+- **当前活动任务：`G2-ER-05`**——目标为 ExperimentCorpus → 独立 Pipeline 入库 → 一致性校验 → 原子 Index Manifest；暂不执行查询、评测和报告
+- 本文件只提供背景；**G2-ER-05 的修改范围与验收标准以审计任务原文为准，新 Agent 必须取得完整任务文本后才能编码**
 
-```
-审计给任务（Gate/REWORK/ER 编号 + 明确要求 + 验收测试清单）
-→ agent 按 TDD 实现（先写失败测试验证 RED，再实现验证 GREEN）
-→ 跑全量测试确认无回归
-→ git 提交推送（提交信息不带 Co-Authored-By 行！）
-→ 用户把状态发给审计方复审
-→ 复审通过给下一项 / 不通过给返工单（R1/R2...）
-```
+## 2. 工作流约定
+
+项目由外部审计方驱动：审计给任务 → Agent 实现 → 全量测试 → 提交推送 → 复审 → 通过给下一项 / 不通过给返工单（R1/R2...）。
 
 **硬性约定**：
-- **TDD**：每个任务先写失败测试（验证 RED）再实现（GREEN），禁止先写实现
-- **范围严格**：任务说"不要修改 X / 不要顺手处理其他问题"就绝对不碰；每项任务只做任务要求的改动
-- **提交信息**：**不带 `Co-Authored-By: Claude` 行**（用户明确要求，见记忆 feedback_git_author.md）
-- **学习文档**：每项任务完成后更新 `docs/study-notes/`（编号递增，现到 44）和 `docs/status.md`（实时状态表）
-- **测试命令**：`python -m pytest -q --basetemp=.tmp_pytest`
+- **TDD**：代码行为与 Bug 修复先写失败回归测试（验证 RED）再实现（GREEN）；纯文档任务不要求 RED/GREEN；不得删除或弱化测试来换取通过
+- **范围严格**：任务说"不要修改 X / 不要顺手处理其他问题"就绝对不碰
+- **提交信息**：不带 `Co-Authored-By: Claude` 行（用户要求）
+- **测试命令**：`python -m pytest -q --basetemp=.tmp_pytest`（Windows 中文用户名环境必须加 `--basetemp=.tmp_pytest`）
 - **平台兼容**：Windows 无 symlink 特权 → 测试用 `mklink /J` junction 兜底（`Path.resolve()` 会跟随）
 
-## 3. 已完成模块（全部复审通过）
+**文档更新纪律**：
+- `docs/status.md` 是实时状态来源，公开状态/契约变化时更新
+- `docs/study-notes/` 仅在**当前任务明确要求**或公开状态/契约发生变化时更新；不得为了形成学习笔记而扩大提交范围
+
+## 3. 已完成模块（Gate 1 归档）
 
 | 模块 | 状态 |
 |------|------|
@@ -52,14 +55,17 @@
 | G1-CHUNK-05B Semantic 实验性隔离（ExperimentConfig 拒绝 semantic） | ✅ |
 | G1-CLOSE-06 文档收尾 | ✅ |
 
-## 4. 下一步：Gate 2
+## 4. 后续路线（Gate 2 起）
 
-- 审计已预告：**Gate 2 = ExperimentRunner 入库功能**（把语料真正入到独立 Pipeline 的向量库，做实验隔离的完整闭环）
-- M4 评测仍等真实语料（用户提供 Spring Boot/Java/JVM/Redis/MySQL/MQ 文档 + QA 测试集）
-- 路线：评测优先 → 高级 RAG 逐变量（Query Transformation → Corrective → Agentic → GraphRAG 按需）→ 单 Agent
-- **不要做**：不要开始多 Agent；不要重写 SemanticChunker（实验性保留）；每次实验只变一个变量
+- **Gate 2**：可复现评测（当前：G2-ER-05 入库 → 原子 Index Manifest）
+- **Gate 3**：Query Decomposition + Adaptive Retrieval
+- **GraphRAG**：仅在关系型语料证明有必要时考虑
+- **Gate 4**：结构化 Tool Calling
+- **Gate 5**：Docker、CI、安全、Trace、SSE、README、报告和 Demo
+- 暂不发展复杂多 Agent
+- M4 评测语料：等待用户提供（Spring Boot/Java/JVM/Redis/MySQL/MQ 文档 + QA 测试集）
 
-## 5. 关键文件地图
+## 5. 关键文件地图（以 Git 仓库根目录为基准）
 
 ```
 core/
@@ -76,10 +82,10 @@ evaluation/
   experiment_workspace.py # ExperimentWorkspace（路径逃逸校验）
   experiment_runner.py    # prepare() 一致性校验
   experiment_corpus.py    # 语料清单 + corpus_id
-tests/                 # 314 个测试，每个模块对应 test_*.py
-docs/status.md         # 唯一实时状态表（真相来源）
-docs/study-notes/      # 学习笔记 00-44（每任务记录）
-docs/HANDOFF.md        # 本文件
+tests/                 # 全量测试，每个模块对应 test_*.py
+docs/status.md         # 唯一实时状态来源（真相来源）
+docs/study-notes/      # 学习笔记 00-44（历史记录，备查）
+docs/HANDOFF.md        # 本文件（快速摘要）
 ```
 
 ## 6. 关键陷阱清单（审计踩过的坑，避免重犯）
@@ -93,18 +99,3 @@ docs/HANDOFF.md        # 本文件
 7. **真实 tiktoken 数值**：测试用 Char3TokenCounter 时注意 ASCII 字符也是 3 token；"缓"真实 = 2 token
 8. **过时文档**：文档声称与实现不符会进返工单（G1-CLOSE-06 教训）
 9. **测试数字**：status.md 测试历史只写真实全量结果，不写预测值
-
-## 7. 用户记忆位置（新 agent 务必读取）
-
-```
-C:\Users\tu me manques\.claude\projects\D-----rag----\memory\
-  MEMORY.md            # 索引
-  session_state.md     # 完整项目状态（含 08-05/06 全部历史）
-  feedback_git_author.md  # git 提交不带 Co-Authored-By
-```
-
-## 8. 待确认事项
-
-- [ ] `git push` 确认远程与本地同步（HEAD `e641a0a`；网络间歇性失败）
-- [ ] 等待审计方复审 G1-CLOSE-06（f9937c4 + e641a0a）
-- [ ] 审计给 Gate 2 第一项任务（ExperimentRunner 入库）
