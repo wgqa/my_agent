@@ -223,3 +223,60 @@ def test_block_skipped_when_header_plus_char_not_fit():
     assembler = ContextAssembler(max_context_tokens=48, token_counter=Char3TokenCounter())
     blocks = assembler.assemble(hits)
     assert blocks == []
+
+
+# ── G1-CTX-03A-R1：预算按最终完整渲染字符串判断 ────────
+
+def test_render_without_citation_no_leading_space():
+    """无 citation_id 的 Document：`[来源: xxx]\n正文`，行首无多余空格"""
+    doc = Document(content="正文内容", metadata={"source_name": "a.md"})
+    assert render_context_block(doc) == "[来源: a.md]\n正文内容"
+
+
+class NonAdditiveCounter(TokenCounter):
+    """模拟 BPE 跨边界：joined 中 '\n' 后跟非换行字符时额外 +1 token，
+    使 'sep + 两块分别计数' 的和 < 真实拼接计数"""
+
+    def __init__(self):
+        self._enc = None
+
+    def count(self, text):
+        extra = sum(1 for i in range(len(text) - 1)
+                    if text[i] == "\n" and text[i + 1] != "\n")
+        return len(text) + extra
+
+
+def test_non_additive_counter_regression():
+    """separate 计数和看似等于预算，joined 更大：最终渲染不得超预算"""
+    counter = NonAdditiveCounter()
+    sep = "\n\n"
+    hits = [
+        Document(content="缓存", metadata={"source_name": "a.md", "score": 0.9}),
+        Document(content="穿透", metadata={"source_name": "b.md", "score": 0.8}),
+    ]
+    rendered_hits = [render_context_block(h) for h in hits]
+    # 构造预算 = sep + 两块单独渲染之和（非可加假设下的"看似够"）
+    budget = counter.count(sep) + counter.count(rendered_hits[0]) + counter.count(rendered_hits[1])
+    # 验证前提：真实拼接确实更大（sep 末尾换行与下块边界产生额外 token）
+    full = "\n\n".join(rendered_hits)
+    assert counter.count(full) > budget
+
+    assembler = ContextAssembler(max_context_tokens=budget, token_counter=counter)
+    blocks = assembler.assemble(hits)
+    rendered = "\n\n".join(render_context_block(b) for b in blocks)
+    assert counter.count(rendered) <= budget, "最终渲染文本不得超预算"
+
+
+def test_truncation_mixed_text_prefix_no_replacement():
+    """中文/英文/Emoji 混合正文：截断是原文字符前缀，无 U+FFFD，不超预算"""
+    text = ("缓存穿透 Cache 穿透击穿 🎉🚀 Emoji 混排 " * 5).strip()
+    hits = [Document(content=text, metadata={"source_name": "a.md", "score": 0.9})]
+    # 预算 = header(48) + 1 个字符(3)：正文恰好能截 1 字符
+    assembler = ContextAssembler(max_context_tokens=51, token_counter=Char3TokenCounter())
+    blocks = assembler.assemble(hits)
+    assert len(blocks) == 1
+    assert text.startswith(blocks[0].content), "截断必须是原文字符前缀"
+    assert "�" not in blocks[0].content
+    assert "�" not in render_context_block(blocks[0])
+    rendered = "\n\n".join(render_context_block(b) for b in blocks)
+    assert Char3TokenCounter().count(rendered) <= 51

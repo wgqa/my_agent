@@ -18,8 +18,9 @@ class ContextBlock:
 
 
 def render_context_block(block) -> str:
-    """统一的 ContextBlock 渲染契约：`[C1] [来源: xxx]\n正文`。
+    """统一的 ContextBlock 渲染契约。
 
+    有 citation：`[C1] [来源: xxx]\n正文`；无 citation：`[来源: xxx]\n正文`。
     ContextAssembler 与 BaseGenerator 共用，保证预算、生成、引用校验
     看到的是同一份渲染文本。兼容无 citation_id 的普通 Document。
     """
@@ -28,7 +29,9 @@ def render_context_block(block) -> str:
         getattr(block, "source_name", None)
         or block.metadata.get("source_name", block.metadata.get("source", "unknown"))
     )
-    return f"{citation} [来源: {source}]\n{block.content}"
+    if citation:
+        return f"{citation} [来源: {source}]\n{block.content}"
+    return f"[来源: {source}]\n{block.content}"
 
 
 class ContextAssembler:
@@ -102,24 +105,25 @@ class ContextAssembler:
         return kept
 
     def _truncate_to_budget(self, blocks: List[ContextBlock]) -> List[ContextBlock]:
-        """按渲染后文本预算：citation + 来源头 + 换行 + 正文 + 块间双换行。
+        """按最终完整渲染字符串的真实 token 数做预算。
 
-        header 必须完整保留，只允许安全截断正文（渲染前缀二分，
-        用真实 count(header + content[:cut]) 判断，不做 token decode）；
-        连完整头部+至少一个正文字符都放不下则跳过该块。
+        BPE token 不可跨字符串相加（study-notes 35），因此每次加入
+        Block 都基于 `"\n\n".join(render(...))` 的真实 count 判断：
+        - 完整 Block 能放下 → 直接加入；
+        - 放不下 → 只截当前正文（header 完整），判断用
+          已保留 Context + 分隔符 + header + content[:cut] 的真实 count；
+        - 连分隔符+完整 header+一个正文字符都放不下 → 跳过。
         """
-        sep = "\n\n"
-        sep_tokens = self._counter.count(sep)
         result = []
-        used = 0
         for b in blocks:
-            header = f"{b.citation_id} [来源: {b.source_name or 'unknown'}]\n"
-            header_tokens = self._counter.count(header)
-            sep_cost = sep_tokens if result else 0
-            remaining = self.max_context_tokens - used - sep_cost
-            if remaining <= header_tokens:
+            candidate = result + [b]
+            if self._counter.count(
+                "\n\n".join(render_context_block(x) for x in candidate)
+            ) <= self.max_context_tokens:
+                result.append(b)
                 continue
-            cut = self._max_body_for_header(header, b.content, remaining)
+            header = f"{b.citation_id} [来源: {b.source_name or 'unknown'}]\n"
+            cut = self._max_body_against_context(result, header, b.content)
             if cut <= 0:
                 continue
             truncated = b.content[:cut]
@@ -132,16 +136,24 @@ class ContextAssembler:
                 token_count=self._counter.count(truncated),
                 retrieval_scores=b.retrieval_scores,
             ))
-            used += sep_cost + self._counter.count(header + truncated)
         return result
 
-    def _max_body_for_header(self, header: str, content: str, remaining: int) -> int:
-        """返回最大 cut 使 count(header + content[:cut]) <= remaining（0 表示放不下）"""
+    def _max_body_against_context(
+        self, base_blocks: List[ContextBlock], header: str, content: str,
+    ) -> int:
+        """返回最大 cut 使 count(已保留 Context + sep + header + content[:cut])
+        <= max_context_tokens；0 表示连一个正文字符都放不下。"""
+        prefix = "\n\n".join(render_context_block(x) for x in base_blocks)
+        if base_blocks:
+            prefix += "\n\n"
+        prefix += header
+        if self._counter.count(prefix) >= self.max_context_tokens:
+            return 0
         lo = 0
         step = 1
         probe = 1
         while probe <= len(content):
-            if self._counter.count(header + content[:probe]) > remaining:
+            if self._counter.count(prefix + content[:probe]) > self.max_context_tokens:
                 break
             lo = probe
             if probe == len(content):
@@ -150,7 +162,7 @@ class ContextAssembler:
             probe = min(len(content), probe + step)
         while lo + 1 < probe:
             mid = (lo + probe) // 2
-            if self._counter.count(header + content[:mid]) <= remaining:
+            if self._counter.count(prefix + content[:mid]) <= self.max_context_tokens:
                 lo = mid
             else:
                 probe = mid
