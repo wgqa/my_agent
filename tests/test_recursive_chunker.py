@@ -166,3 +166,128 @@ def test_recursive_oversized_marked_for_over_budget_char():
     assert _join(chunks) == "缓存"
     assert any(c.metadata["oversized"] for c in chunks)
     assert any(not c.metadata["oversized"] for c in chunks)  # "存"=1 token 正常
+
+
+# ── G1-CHUNK-05A：普通语义段换块的真实 overlap ─────────
+# Char3 下：6 字符段 = 18 token；chunk_size=30（10 字符）、overlap=6（2 字符）
+
+def _segments_within_budget(segments, chunk_size, counter):
+    """断言每个语义段本身都不超过 chunk_size（证明走普通路径而非硬切）"""
+    for seg in segments:
+        assert counter.count(seg) <= chunk_size, f"段超限会走硬切路径: {seg!r}"
+
+
+def test_normal_switch_overlap_between_segments():
+    """三个短语义段：前两个组成一块，第三个触发普通换块，重叠真实生效"""
+    counter = Char3TokenCounter()
+    segments = ["第一段内容。", "第二段内容。", "第三段内容。"]
+    _segments_within_budget(segments, 30, counter)
+    text = "".join(segments)
+    chunker = RecursiveChunker(chunk_size=30, chunk_overlap=6,
+                               token_counter=counter)
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    assert len(chunks) >= 2
+    for prev, cur in zip(chunks, chunks[1:]):
+        ov = counter.count(
+            text[cur.metadata["char_start"]:prev.metadata["char_end"]]
+        )
+        assert 0 < ov <= 6, f"普通换块重叠 {ov} 应满足 0 < x <= 6"
+        assert cur.metadata["token_count"] <= 30
+        s, e = cur.metadata["char_start"], cur.metadata["char_end"]
+        assert text[s:e] == cur.content  # 精确子串
+
+
+def test_normal_switch_overlap_zero_joins_exact():
+    """overlap=0 时普通换块无重叠，拼接精确还原原文"""
+    counter = Char3TokenCounter()
+    segments = ["第一段内容。", "第二段内容。", "第三段内容。"]
+    _segments_within_budget(segments, 30, counter)
+    text = "".join(segments)
+    chunks = RecursiveChunker(chunk_size=30, chunk_overlap=0,
+                              token_counter=counter).chunk(
+        [Document(content=text, metadata={})]
+    )
+    for prev, cur in zip(chunks, chunks[1:]):
+        ov = counter.count(
+            text[cur.metadata["char_start"]:prev.metadata["char_end"]]
+        )
+        assert ov == 0
+    assert _join(chunks) == text
+
+
+def test_normal_switch_overlap_shrinks_near_budget():
+    """当前片段接近 chunk_size：overlap 自动缩小但块不超预算、片段不丢"""
+    counter = Char3TokenCounter()
+    segments = ["第一段内容。", "第二段内容很长。", "第三段内容。"]
+    _segments_within_budget(segments, 30, counter)
+    text = "".join(segments)
+    chunker = RecursiveChunker(chunk_size=30, chunk_overlap=6,
+                               token_counter=counter)
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    for c in chunks:
+        assert c.metadata["token_count"] <= 30
+        s, e = c.metadata["char_start"], c.metadata["char_end"]
+        assert text[s:e] == c.content
+    # 存在重叠但至少一对重叠被缩小（< 配置值）
+    ovs = [
+        counter.count(text[cur.metadata["char_start"]:prev.metadata["char_end"]])
+        for prev, cur in zip(chunks, chunks[1:])
+    ]
+    assert any(0 < ov <= 6 for ov in ovs)
+    # 段 2（9 字符 27 token）必须完整保留在某块内
+    assert "第二段内容很长。" in "".join(c.content for c in chunks)
+
+
+def test_normal_switch_consecutive_overlaps_cover_original():
+    """连续多个普通换块均有正确 overlap；去重叠区后完整覆盖原文"""
+    counter = Char3TokenCounter()
+    segments = ["第一段内容。", "第二段内容。", "第三段内容。", "第四段内容。"]
+    _segments_within_budget(segments, 30, counter)
+    text = "".join(segments)
+    chunker = RecursiveChunker(chunk_size=30, chunk_overlap=6,
+                               token_counter=counter)
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    pairs = list(zip(chunks, chunks[1:]))
+    assert len(pairs) >= 2  # 至少两个普通换块
+    for prev, cur in pairs:
+        ov = counter.count(
+            text[cur.metadata["char_start"]:prev.metadata["char_end"]]
+        )
+        assert 0 < ov <= 6
+    # 去重叠区后覆盖 [0, len(text))：取每块相对前一块的"新增区"
+    covered = 0
+    for c in chunks:
+        start = max(c.metadata["char_start"], covered)
+        covered = c.metadata["char_end"]
+        assert start <= covered
+    assert covered == len(text)
+
+
+def test_normal_switch_mixed_text_no_loss():
+    """中英文、标点、Emoji 语义段换块：不丢字、无 U+FFFD、精确子串"""
+    counter = Char3TokenCounter()
+    segments = [
+        "第一段，含标点。",
+        "A seg. OK.",
+        "🎉🚀 Emoji!",
+        "最后 ok.",
+    ]
+    _segments_within_budget(segments, 30, counter)
+    text = "".join(segments)
+    chunker = RecursiveChunker(chunk_size=30, chunk_overlap=6,
+                               token_counter=counter)
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    joined = _join(chunks)
+    assert len(chunks) >= 2
+    for c in chunks:
+        assert "�" not in c.content
+        s, e = c.metadata["char_start"], c.metadata["char_end"]
+        assert text[s:e] == c.content
+    # 重叠区不破坏覆盖：去掉重叠后仍能拼回原文
+    merged = ""
+    last_end = 0
+    for c in chunks:
+        s = c.metadata["char_start"]
+        merged += text[max(s, last_end):c.metadata["char_end"]]
+        last_end = c.metadata["char_end"]
+    assert merged == text

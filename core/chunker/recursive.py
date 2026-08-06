@@ -60,14 +60,20 @@ class RecursiveChunker(BaseChunker):
                         )
 
             # 按预算组装：完整候选文本重新计数（BPE token 不可严格相加）；
-            # 超预算时块终点 = 上一片终点（重叠区保留在前一块），起点 = 本片起点
+            # 超预算时块终点 = 上一片终点（重叠区保留在前一块）；
+            # 普通换块时新块起点向上一块末尾回退（真实 overlap，见
+            # _next_block_start），硬切已回退的 pieces 不叠加第二层
             merged = []
             acc_start = pieces[0][0]
             for i, (s, e) in enumerate(pieces):
                 if self._counter.count(text[acc_start:e]) > self.chunk_size:
                     if i > 0:
                         merged.append((acc_start, pieces[i - 1][1]))
-                    acc_start = s
+                        acc_start = self._next_block_start(
+                            text, pieces[i - 1][0], pieces[i - 1][1], s, e,
+                        )
+                    else:
+                        acc_start = s
             if acc_start < pieces[-1][1]:
                 merged.append((acc_start, pieces[-1][1]))
 
@@ -77,6 +83,32 @@ class RecursiveChunker(BaseChunker):
                 oversized = strict_end == start and end > start
                 chunked.append(self._make_chunk(doc, text, i, start, end, oversized))
         return chunked
+
+    def _next_block_start(
+        self, text: str, prev_start: int, block_end: int,
+        cur_start: int, cur_end: int,
+    ) -> int:
+        """普通换块的新块起点：向上一块末尾回退。
+
+        - 重叠 ≤ chunk_overlap（substring_start 保证 count(text[start:block_end])
+          ≤ chunk_overlap，且取最左可行点 = 重叠尽量接近配置）；
+        - 新块（含当前片）≤ chunk_size：取含当前片不超预算的最左起点
+          （substring_start(text, cur_end, chunk_size)），若完整 overlap
+          会超预算则自动缩小；
+        - 不越过上一片起点（min_start=prev_start），当前片完整保留；
+        - 对最终候选子串重新计数，不做 count(overlap)+count(piece) 相加。
+        """
+        if self.chunk_overlap <= 0:
+            return cur_start
+        lo = self._counter.substring_start(
+            text, cur_end, self.chunk_size, min_start=prev_start,
+        )
+        ov = self._counter.substring_start(
+            text, block_end, self.chunk_overlap, min_start=prev_start,
+        )
+        # max(lo, ov)：重叠不超过配置（ov 是最左可行，任何更右起点重叠更小），
+        # 同时含当前片不超预算（lo 保证）
+        return max(lo, ov)
 
     def _split_text(self, text: str, separators: List[str], depth: int) -> List[str]:
         """递归按分隔符切分文本，保留分隔符在片段末尾"""
