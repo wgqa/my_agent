@@ -40,7 +40,7 @@ class ExperimentWorkspace:
         run_id: str,
     ):
         self.base_config_path = Path(base_config_path)
-        self.workspace_root = Path(workspace_root)
+        self.workspace_root = Path(workspace_root).resolve()
         self.config = config
         self.run_id = self._validate_run_id(run_id)
 
@@ -55,7 +55,17 @@ class ExperimentWorkspace:
         return run_id
 
     def _workspace_path(self) -> Path:
-        return (self.workspace_root / self.config.experiment_id / self.run_id).resolve()
+        candidate = (
+            self.workspace_root / self.config.experiment_id / self.run_id
+        ).resolve()
+        # 真正的路径语义归属校验（不是字符串前缀）：符号链接/junction
+        # 若把路径引到 root 外，在创建任何目录之前拒绝
+        if not candidate.is_relative_to(self.workspace_root):
+            raise RuntimeError(
+                f"实验工作区路径逃逸 workspace_root（可能因符号链接指向外部）："
+                f"{candidate}"
+            )
+        return candidate
 
     def prepare(self) -> ExperimentPaths:
         ws = self._workspace_path()

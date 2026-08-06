@@ -125,10 +125,40 @@ def test_all_paths_inside_workspace_root(tmp_path):
     base = _write_base_config(tmp_path)
     ws = ExperimentWorkspace(base, tmp_path / "runs", ExperimentConfig(), "run1")
     paths = ws.prepare()
-    root = str((tmp_path / "runs").resolve())
+    root = (tmp_path / "runs").resolve()
     for p in (paths.workspace_path, paths.config_path,
               paths.vector_store_path, paths.result_path):
-        assert str(p.resolve()).startswith(root), f"{p} 不在 workspace_root 内"
+        assert p.resolve().is_relative_to(root), f"{p} 不在 workspace_root 内"
+
+
+def _link_dir(link, target):
+    """创建目录链接；Windows 无 symlink 特权时退回 junction（同样被 resolve 跟随）"""
+    import subprocess
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except (OSError, NotImplementedError):
+        pass
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip("当前平台/权限不支持目录链接")
+
+
+def test_link_escape_rejected(tmp_path):
+    """<root>/<experiment_id> 是指向外部目录的链接：prepare 必须拒绝"""
+    base = _write_base_config(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    exp_dir = tmp_path / "runs" / ExperimentConfig().experiment_id
+    exp_dir.parent.mkdir()
+    _link_dir(exp_dir, outside)
+    ws = ExperimentWorkspace(base, tmp_path / "runs", ExperimentConfig(), "run1")
+    with pytest.raises((ValueError, RuntimeError), match="逃逸|workspace_root"):
+        ws.prepare()
+    assert not (outside / "run1").exists(), "外部目录下不得创建 run_id 目录"
 
 
 def test_prepare_returns_experiment_paths_and_no_tmp_leftover(tmp_path):
