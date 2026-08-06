@@ -46,7 +46,7 @@
 | ER-02 | 实验共享同一 ChromaDB 索引 | ExperimentWorkspace 独立工作区 + 派生配置（见 study-notes 40） | ✅ 复审通过 |
 | ER-03 | Pipeline 从 YAML 构建，未接通工作区 | ExperimentRunner 最小版：workspace → 派生配置 → 独立 Pipeline + 一致性校验（见 study-notes 41） | ✅ 复审通过 |
 | ER-04 | 实验语料不固定，指标无法复现 | ExperimentCorpus：文件清单 + 字节 SHA-256 + 稳定 corpus_id（见 study-notes 42） | ✅ 复审通过 |
-| ER-05 | 语料入库缺少可复现快照（无 Index Manifest） | ExperimentRunner.index_corpus：入库前完整性校验 + 确定性入库 + Dense/BM25 一致性 + 原子 index_manifest.json | 🔧 实现完成，待复审 |
+| ER-05 | 语料入库缺少可复现快照（无 Index Manifest） | ExperimentRunner.index_corpus：入库前完整性校验 + 确定性入库 + Dense/BM25 一致性 + 原子 index_manifest.json（见 study-notes 45） | 🔧 实现完成，待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | ✅ 复审通过 |
 | G1-META-02 | Sparse-only 结果丢失原始元数据 | BM25 存元数据副本，sparse-only 命中恢复（实时入库同步） | ✅ 复审通过 |
 | G1-CTX-03A/R1 | 双模块各自截断、预算可加性假设 | 统一渲染契约 + 按最终渲染字符串真实 count 预算 | ✅ 复审通过 |
