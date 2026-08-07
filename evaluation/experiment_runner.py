@@ -453,6 +453,39 @@ class ExperimentRunner:
         result.write_json(result_path)
         return result
 
+    def run_experiment(
+        self,
+        config: ExperimentConfig,
+        run_id: str,
+        corpus: ExperimentCorpus,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> ExperimentResult:
+        """唯一高层入口：prepare -> index_corpus -> run_retrieval ->
+        compute_retrieval_metrics -> finalize_result。
+
+        只做编排，不复制任何阶段内部逻辑；原异常向外传播、不重试、
+        不清理 Workspace、不做隐式 Resume。run_id 必须由调用方显式提供。
+        """
+        if evaluation_set.corpus_id != corpus.corpus_id:
+            raise ValueError(
+                f"evaluation_set.corpus_id={evaluation_set.corpus_id!r} 与 "
+                f"corpus.corpus_id={corpus.corpus_id!r} 不一致，禁止运行实验"
+            )
+
+        prepared = self.prepare(config, run_id)
+        manifest = self.index_corpus(prepared, corpus)
+        retrieval_result = self.run_retrieval(prepared, manifest, evaluation_set)
+        metrics_result = self.compute_retrieval_metrics(
+            prepared, retrieval_result, evaluation_set
+        )
+        return self.finalize_result(
+            prepared,
+            manifest,
+            retrieval_result,
+            metrics_result,
+            evaluation_set,
+        )
+
     @staticmethod
     def _validate_experiment_binding(
         prepared: PreparedExperiment,
