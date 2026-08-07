@@ -676,3 +676,53 @@ def test_model_immutable():
         result.result_id = "other"
     with pytest.raises(dataclasses.FrozenInstanceError):
         result.mean_mrr = 0.0
+
+
+# ============================================================
+# G2-EVAL-09-R1：Retriever Strategy 四阶段闭合 + Hybrid 判定依据
+# ============================================================
+
+
+def test_manifest_retriever_strategy_mismatch_fails(tmp_path):
+    """Manifest 顶层 retriever_strategy=simple 但 config/retrieval/metrics
+    均为 hybrid 时，finalize 必须在生成 result.json 前失败。"""
+    config = ExperimentConfig()  # hybrid
+    manifest = _make_manifest(
+        config, retriever_strategy="simple", sparse_index_count=None
+    )
+    run_result = _make_run_result(config)
+    metrics_result = _make_metrics_result(
+        config, retrieval_run_id=run_result.retrieval_run_id
+    )
+    eval_set = RetrievalEvaluationSet(
+        corpus_id="corpus-001",
+        cases=tuple(_default_eval_cases()),
+        evaluation_set_id="evalset-001",
+    )
+    prepared = _prepare(tmp_path, config)
+    _write_all(prepared, manifest, run_result, metrics_result)
+    with pytest.raises(RuntimeError, match="retriever_strategy"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).finalize_result(prepared, manifest, run_result, metrics_result, eval_set)
+    assert not prepared.paths.result_path.exists()
+
+
+@pytest.mark.parametrize("file_name", [
+    "index_manifest.json",
+    "retrieval_results.json",
+    "retrieval_metrics.json",
+])
+def test_snapshot_top_level_list_fails(tmp_path, file_name):
+    """三份事实快照任一 JSON 顶层为 list 时必须拒绝且不生成 result.json。"""
+    config = ExperimentConfig()
+    objects = _default_objects(config)
+    prepared = _prepare(tmp_path, config)
+    manifest, run_result, metrics_result, eval_set = objects
+    _write_all(prepared, manifest, run_result, metrics_result)
+    (prepared.paths.workspace_path / file_name).write_text("[]", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="object"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).finalize_result(prepared, manifest, run_result, metrics_result, eval_set)
+    assert not prepared.paths.result_path.exists()

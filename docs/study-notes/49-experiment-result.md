@@ -89,3 +89,36 @@ result.json 已存在时在任何收口工作前拒绝；只有全部绑定成�
 3. **通用校验收敛重复代码**：三份快照共用
    `_validate_persisted_json_snapshot`，各自只保留业务文件名与
    不一致消息，避免三套解析逻辑漂移。
+
+## R1：Retriever Strategy 四阶段闭合 + Hybrid 判定依据（阻塞修复）
+
+原实现只验证 Retrieval / Metrics / Config 三方策略一致，未包含
+`index_manifest.retriever_strategy`；且数量校验以 Manifest 顶层字段
+决定是否执行 Hybrid sparse/vector 检查。因此可构造：
+
+```text
+Config/Retrieval/Metrics = hybrid
+Manifest 顶层 retriever_strategy = simple（config 内仍是 hybrid）
+sparse_index_count = None
+```
+
+修复后 finalize 会失败：manifest 顶层字段被篡改，无法再跳过 Hybrid
+数量校验。
+
+修复方式：
+
+```python
+strategies = (
+    index_manifest.retriever_strategy,
+    retrieval_result.retriever_strategy,
+    metrics_result.retriever_strategy,
+    config.retriever_strategy,
+)
+if len(set(strategies)) != 1:
+    raise RuntimeError("retriever_strategy 跨阶段不一致")
+```
+
+Hybrid 判定采用方案 A：数量校验显式接收已通过四阶段绑定的
+`config.retriever_strategy`，不再依赖未经绑定的 Manifest 顶层字段；
+同时保留 `index_manifest.config == config.to_dict()` 与
+`sparse_index_count == vector_store_count` 要求。

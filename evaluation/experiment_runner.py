@@ -417,6 +417,7 @@ class ExperimentRunner:
             retrieval_result,
             metrics_result,
             evaluation_set,
+            prepared.experiment_config.retriever_strategy,
         )
 
         config = prepared.experiment_config
@@ -515,11 +516,13 @@ class ExperimentRunner:
         ):
             raise RuntimeError("top_k 跨阶段不一致")
 
-        if not (
-            retrieval_result.retriever_strategy
-            == metrics_result.retriever_strategy
-            == config.retriever_strategy
-        ):
+        strategies = (
+            index_manifest.retriever_strategy,
+            retrieval_result.retriever_strategy,
+            metrics_result.retriever_strategy,
+            config.retriever_strategy,
+        )
+        if len(set(strategies)) != 1:
             raise RuntimeError("retriever_strategy 跨阶段不一致")
 
         if index_manifest.config != config.to_dict():
@@ -565,8 +568,14 @@ class ExperimentRunner:
         retrieval_result: RetrievalRunResult,
         metrics_result: RetrievalMetricsResult,
         evaluation_set: RetrievalEvaluationSet,
+        retriever_strategy: str,
     ) -> None:
-        """只验证可信快照之间的数量关系，不访问真实 Vector Store / BM25。"""
+        """只验证可信快照之间的数量关系，不访问真实 Vector Store / BM25。
+
+        retriever_strategy 来自已通过四阶段绑定校验的 ExperimentConfig；
+        Hybrid 判定以可信实验配置为准，不允许通过修改 Manifest 顶层
+        字段跳过 sparse/vector 数量校验。
+        """
         if index_manifest.file_count != len(index_manifest.files):
             raise RuntimeError(
                 f"index_manifest file_count={index_manifest.file_count} "
@@ -577,7 +586,7 @@ class ExperimentRunner:
                 f"index_manifest total_chunks={index_manifest.total_chunks} "
                 f"与 vector_store_count={index_manifest.vector_store_count} 不一致"
             )
-        if index_manifest.retriever_strategy == "hybrid":
+        if retriever_strategy == "hybrid":
             if index_manifest.sparse_index_count != index_manifest.vector_store_count:
                 raise RuntimeError(
                     f"Hybrid sparse_index_count="
