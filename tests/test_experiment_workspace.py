@@ -74,6 +74,19 @@ def test_experiment_fields_overridden(tmp_path):
     assert raw["vector_store"]["path"] == str(paths.vector_store_path)
 
 
+def test_embedding_identity_overridden_in_derived_config(tmp_path):
+    base = _write_base_config(tmp_path)
+    config = ExperimentConfig(
+        embedding_provider="openai",
+        embedding_model="text-embedding-3-small",
+    )
+    ws = ExperimentWorkspace(base, tmp_path / "runs", config, "run1")
+    paths = ws.prepare()
+    raw = yaml.safe_load(paths.config_path.read_text(encoding="utf-8"))
+    assert raw["embedding"]["provider"] == "openai"
+    assert raw["embedding"]["model"] == "text-embedding-3-small"
+
+
 def test_non_experiment_fields_preserved(tmp_path):
     base = _write_base_config(tmp_path)
     config = ExperimentConfig(chunk_size=256)

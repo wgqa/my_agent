@@ -19,6 +19,8 @@ VALID_RETRIEVER_STRATEGIES = ("simple", "hybrid", "mmr")
 class ExperimentConfig:
     """一次实验的完整参数；frozen 保证配置与 ID 不可突变"""
 
+    embedding_provider: str = "bge"
+    embedding_model: str = "BAAI/bge-small-zh-v1.5"
     chunk_strategy: str = "recursive"
     chunk_size: int = 512
     chunk_overlap: int = 64
@@ -29,6 +31,16 @@ class ExperimentConfig:
     rrf_k: float = 60.0
 
     def __post_init__(self):
+        # Embedding 身份：strict str 且非空，直接参与 experiment_id
+        for name in ("embedding_provider", "embedding_model"):
+            value = getattr(self, name)
+            if type(value) is not str:
+                raise TypeError(
+                    f"{name} 必须是 str（不允许 bool/数字/None），"
+                    f"当前类型: {type(value).__name__}"
+                )
+            if value == "":
+                raise ValueError(f"{name} 不能为空字符串")
         for name in ("chunk_strategy", "retriever_strategy"):
             value = getattr(self, name)
             if not isinstance(value, str):

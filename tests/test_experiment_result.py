@@ -323,6 +323,8 @@ def test_result_json_fields_correct(tmp_path):
     assert raw["corpus_id"] == "corpus-001"
     assert raw["evaluation_set_id"] == "evalset-001"
     assert raw["config"] == config.to_dict()
+    assert raw["config"]["embedding_provider"] == "bge"
+    assert raw["config"]["embedding_model"] == "BAAI/bge-small-zh-v1.5"
     assert raw["chunk_strategy"] == config.chunk_strategy
     assert raw["retriever_strategy"] == config.retriever_strategy
     assert raw["top_k"] == config.top_k
@@ -350,6 +352,14 @@ def test_config_matches_experiment_config(tmp_path):
     config = ExperimentConfig(chunk_strategy="fixed", top_k=8)
     result, _ = _finalize(tmp_path, config=config)
     assert result.config == config.to_dict()
+
+
+def test_manifest_config_contains_embedding_identity(tmp_path):
+    config = ExperimentConfig()
+    manifest, _, _, _ = _default_objects(config)
+    assert manifest.config["embedding_provider"] == "bge"
+    assert manifest.config["embedding_model"] == "BAAI/bge-small-zh-v1.5"
+    assert manifest.config == config.to_dict()
 
 
 @pytest.mark.parametrize("file_name", [

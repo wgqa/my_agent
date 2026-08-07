@@ -50,6 +50,8 @@ class FakeConfig:
 
     def __init__(self, config_path):
         raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+        self.embedding_provider = raw["embedding"]["provider"]
+        self.embedding_model = raw["embedding"]["model"]
         self.chunker_strategy = raw["chunker"]["strategy"]
         self.chunk_size = raw["chunker"]["size_tokens"]
         self.chunk_overlap = raw["chunker"]["overlap_tokens"]
@@ -114,6 +116,7 @@ def test_all_fields_match_succeeds(tmp_path):
 
 
 @pytest.mark.parametrize("field", [
+    "embedding_provider", "embedding_model",
     "chunker_strategy", "chunk_size", "chunk_overlap",
     "retriever_strategy", "top_k", "dense_candidate_k",
     "sparse_candidate_k", "rrf_k",
@@ -141,6 +144,28 @@ def test_vector_store_path_mismatch_fails(tmp_path):
 
     runner = ExperimentRunner(base, tmp_path / "runs", _make_factory([], mutate))
     with pytest.raises(RuntimeError, match="vector_store|不一致"):
+        runner.prepare(ExperimentConfig(), "run1")
+
+
+def test_embedding_provider_mismatch_fails(tmp_path):
+    base = _write_base_config(tmp_path)
+
+    def mutate(cfg):
+        cfg.embedding_provider = "openai"
+
+    runner = ExperimentRunner(base, tmp_path / "runs", _make_factory([], mutate))
+    with pytest.raises(RuntimeError, match="embedding_provider"):
+        runner.prepare(ExperimentConfig(), "run1")
+
+
+def test_embedding_model_mismatch_fails(tmp_path):
+    base = _write_base_config(tmp_path)
+
+    def mutate(cfg):
+        cfg.embedding_model = "other-embedding-model"
+
+    runner = ExperimentRunner(base, tmp_path / "runs", _make_factory([], mutate))
+    with pytest.raises(RuntimeError, match="embedding_model"):
         runner.prepare(ExperimentConfig(), "run1")
 
 

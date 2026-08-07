@@ -12,6 +12,8 @@ from evaluation.experiment_config import ExperimentConfig
 def test_build_config_is_frozen_baseline():
     config = cli.build_config()
     assert config == ExperimentConfig(
+        embedding_provider="bge",
+        embedding_model="BAAI/bge-small-zh-v1.5",
         chunk_strategy="recursive",
         chunk_size=512,
         chunk_overlap=64,

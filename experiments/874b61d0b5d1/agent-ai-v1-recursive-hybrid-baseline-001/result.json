@@ -1,0 +1,36 @@
+{
+  "artifacts": {
+    "index_manifest": "index_manifest.json",
+    "retrieval_metrics": "retrieval_metrics.json",
+    "retrieval_results": "retrieval_results.json"
+  },
+  "case_count": 50,
+  "chunk_strategy": "recursive",
+  "config": {
+    "chunk_overlap": 64,
+    "chunk_size": 512,
+    "chunk_strategy": "recursive",
+    "dense_candidate_k": 30,
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "embedding_provider": "bge",
+    "retriever_strategy": "hybrid",
+    "rrf_k": 60.0,
+    "sparse_candidate_k": 30,
+    "top_k": 5
+  },
+  "corpus_id": "870e5864df67",
+  "evaluation_set_id": "18c1c0470652",
+  "experiment_id": "874b61d0b5d1",
+  "file_count": 37,
+  "mean_hit_at_k": 0.92,
+  "mean_mrr": 0.7866666666666667,
+  "mean_ndcg_at_k": 0.7993602602248043,
+  "mean_recall_at_k": 0.8933333333333333,
+  "metrics_run_id": "6706bcfbde7a",
+  "result_id": "325d94294803",
+  "retrieval_run_id": "9a4a52cd9319",
+  "retriever_strategy": "hybrid",
+  "schema_version": 1,
+  "top_k": 5,
+  "total_chunks": 215
+}

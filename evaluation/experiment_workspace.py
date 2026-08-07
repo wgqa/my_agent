@@ -82,6 +82,10 @@ class ExperimentWorkspace:
             raw = yaml.safe_load(f) or {}
 
         # 覆盖实验字段（仅读基础文件，不修改它）
+        # Embedding 身份由 ExperimentConfig 决定，不能作为隐式参数
+        raw.setdefault("embedding", {})
+        raw["embedding"]["provider"] = self.config.embedding_provider
+        raw["embedding"]["model"] = self.config.embedding_model
         raw.setdefault("chunker", {})
         raw["chunker"]["strategy"] = self.config.chunk_strategy
         raw["chunker"]["size_tokens"] = self.config.chunk_size

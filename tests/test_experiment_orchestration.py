@@ -229,6 +229,8 @@ class _FakeVectorStore:
 class _FakeConfig:
     def __init__(self, config_path):
         raw = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+        self.embedding_provider = raw["embedding"]["provider"]
+        self.embedding_model = raw["embedding"]["model"]
         self.chunker_strategy = raw["chunker"]["strategy"]
         self.chunk_size = raw["chunker"]["size_tokens"]
         self.chunk_overlap = raw["chunker"]["overlap_tokens"]

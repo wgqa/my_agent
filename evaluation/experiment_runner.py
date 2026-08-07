@@ -82,6 +82,14 @@ class ExperimentRunner:
         """Pipeline 必须实际使用派生配置；不一致立即终止，不产生半成品结果"""
         cfg = pipeline.config
         checks = {
+            "embedding_provider": (
+                cfg.embedding_provider,
+                config.embedding_provider,
+            ),
+            "embedding_model": (
+                cfg.embedding_model,
+                config.embedding_model,
+            ),
             "chunker_strategy": (cfg.chunker_strategy, config.chunk_strategy),
             "chunk_size": (cfg.chunk_size, config.chunk_size),
             "chunk_overlap": (cfg.chunk_overlap, config.chunk_overlap),

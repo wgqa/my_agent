@@ -25,6 +25,8 @@ from evaluation.retrieval_evaluation_set import RetrievalEvaluationSet
 def build_config() -> ExperimentConfig:
     """G2-REAL-11 冻结参数：Recursive + Hybrid + top5（不得调参）。"""
     return ExperimentConfig(
+        embedding_provider="bge",
+        embedding_model="BAAI/bge-small-zh-v1.5",
         chunk_strategy="recursive",
         chunk_size=512,
         chunk_overlap=64,

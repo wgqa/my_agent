@@ -27,6 +27,8 @@ def test_to_dict_contains_all_fields():
         "dense_candidate_k": 40,
         "sparse_candidate_k": 20,
         "rrf_k": 60.0,
+        "embedding_provider": "bge",
+        "embedding_model": "BAAI/bge-small-zh-v1.5",
     }
 
 
@@ -84,7 +86,8 @@ def test_each_field_change_changes_id():
     base = ExperimentConfig()
     for field in ("chunk_strategy", "chunk_size", "chunk_overlap",
                   "retriever_strategy", "top_k", "dense_candidate_k",
-                  "sparse_candidate_k", "rrf_k"):
+                  "sparse_candidate_k", "rrf_k",
+                  "embedding_provider", "embedding_model"):
         kwargs = {field: _changed_value(base, field)}
         changed = ExperimentConfig(**kwargs)
         assert changed.experiment_id != base.experiment_id, f"{field} 变化后 ID 应变化"
@@ -101,6 +104,8 @@ def _changed_value(config, field):
         "dense_candidate_k": config.dense_candidate_k + 1,
         "sparse_candidate_k": config.sparse_candidate_k + 1,
         "rrf_k": config.rrf_k + 1.0,
+        "embedding_provider": "openai",
+        "embedding_model": "BAAI/bge-large-zh-v1.5",
     }
     return valid[field]
 
@@ -163,3 +168,42 @@ def test_strategy_fields_must_be_str():
         ExperimentConfig(chunk_strategy=123)
     with pytest.raises(TypeError, match="retriever_strategy"):
         ExperimentConfig(retriever_strategy=None)
+
+
+# ============================================================
+# G2-REAL-11-R1：Embedding 身份纳入 ExperimentConfig
+# ============================================================
+
+
+def test_default_embedding_identity_present():
+    config = ExperimentConfig()
+    assert config.embedding_provider == "bge"
+    assert config.embedding_model == "BAAI/bge-small-zh-v1.5"
+    d = config.to_dict()
+    assert d["embedding_provider"] == "bge"
+    assert d["embedding_model"] == "BAAI/bge-small-zh-v1.5"
+
+
+def test_embedding_model_change_changes_experiment_id():
+    a = ExperimentConfig(embedding_model="A")
+    b = ExperimentConfig(embedding_model="B")
+    assert a.experiment_id != b.experiment_id
+
+
+def test_embedding_provider_change_changes_experiment_id():
+    a = ExperimentConfig(embedding_provider="bge")
+    b = ExperimentConfig(embedding_provider="openai")
+    assert a.experiment_id != b.experiment_id
+
+
+@pytest.mark.parametrize("field", ["embedding_provider", "embedding_model"])
+@pytest.mark.parametrize("value", [123, None, True, 1.0])
+def test_embedding_fields_reject_non_string(field, value):
+    with pytest.raises(TypeError, match=field):
+        ExperimentConfig(**{field: value})
+
+
+@pytest.mark.parametrize("field", ["embedding_provider", "embedding_model"])
+def test_embedding_fields_reject_empty_string(field):
+    with pytest.raises(ValueError, match=field):
+        ExperimentConfig(**{field: ""})
