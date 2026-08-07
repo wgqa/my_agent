@@ -100,6 +100,30 @@ Workspace 路径、时间、对象地址、API Key、耗时或本次分数。
 - 全部使用 FakeRetriever / FakePipeline / 内存评测集，不加载真实模型、
   不调用网络、不调用旧 Evaluator。
 
+## R1：磁盘 Manifest 与传入对象必须完整一致（阻塞修复）
+
+原实现只检查 `index_manifest.json` 文件存在，后续绑定校验与
+`document_id → relative_path` 映射全部使用调用方传入的
+`IndexManifest` 对象——磁盘 Manifest A 与传入 Manifest B 只要顶层
+ID/数量一致，就可能用 B 的 files 映射给真实索引结果标注错误的
+relative_path。
+
+修复：`run_retrieval()` 在第一次 `retrieve()` 前读取
+`prepared.paths.index_manifest_path`（UTF-8 + `json.loads`），要求顶层
+必须是 JSON object，并与 `index_manifest.to_dict()` 做全字段结构比较
+（schema_version / experiment_id / corpus_id / chunk_strategy /
+retriever_strategy / config / corpus_entries / files / file_count /
+total_chunks / vector_store_count / sparse_index_count）。
+
+```python
+_validate_persisted_manifest(manifest_path, index_manifest)
+```
+
+任何不一致（含非法 JSON、顶层非 object、缺字段、人工修改 files 或
+sha256）都在第一次 retrieve 前失败，Retriever 调用 0 次，不生成
+`retrieval_results.json`；错误信息明确说明"传入 IndexManifest 与
+Workspace 中已落盘的 index_manifest.json 不一致"。
+
 ## 教训
 
 1. **可信映射只能有一个来源**：文件身份只能来自 Manifest 的

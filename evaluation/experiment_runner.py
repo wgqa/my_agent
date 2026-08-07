@@ -8,6 +8,7 @@ Pipeline 接通，并验证 Pipeline 实际使用了派生配置，防止实验�
 """
 
 import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Union
@@ -250,6 +251,9 @@ class ExperimentRunner:
                 f"{prepared.paths.index_manifest_path}"
             )
 
+        self._validate_persisted_manifest(
+            prepared.paths.index_manifest_path, index_manifest
+        )
         self._validate_retrieval_binding(prepared, index_manifest, evaluation_set)
         document_map = self._build_document_map(index_manifest)
 
@@ -282,6 +286,35 @@ class ExperimentRunner:
         )
         result.write_json(result_path)
         return result
+
+    @staticmethod
+    def _validate_persisted_manifest(
+        manifest_path: Path,
+        index_manifest: IndexManifest,
+    ) -> None:
+        """强制证明 Workspace 中落盘的 index_manifest.json 与传入对象是
+        同一份完整业务快照。
+
+        使用 UTF-8 + json.loads 读取磁盘内容；磁盘内容必须是 JSON object；
+        然后与 index_manifest.to_dict() 做全字段结构比较（含 config、
+        corpus_entries、files 等，而不仅是顶层 ID 与数量）。
+        """
+        try:
+            with manifest_path.open("r", encoding="utf-8") as f:
+                disk_payload = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Workspace 中已落盘的 index_manifest.json 无法解析：{exc}"
+            ) from exc
+        if not isinstance(disk_payload, dict):
+            raise RuntimeError(
+                "Workspace 中已落盘的 index_manifest.json 顶层不是 JSON object"
+            )
+        if disk_payload != index_manifest.to_dict():
+            raise RuntimeError(
+                "传入 IndexManifest 与 Workspace 中已落盘的 "
+                "index_manifest.json 不一致"
+            )
 
     @staticmethod
     def _validate_retrieval_binding(

@@ -727,3 +727,151 @@ def test_retrieval_results_path_is_dedicated(tmp_path):
     )
     assert prepared.paths.retrieval_results_path != prepared.paths.index_manifest_path
     assert prepared.paths.retrieval_results_path != prepared.paths.result_path
+
+
+# ============================================================
+# G2-EVAL-07-R1：磁盘 index_manifest.json 与传入对象完整一致
+# ============================================================
+
+
+def _tamper_disk_manifest(prepared, mutate):
+    path = prepared.paths.index_manifest_path
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    mutate(payload)
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def test_passed_manifest_mismatch_with_disk_fails_before_retrieve(tmp_path):
+    """场景 A：磁盘 Manifest A 与传入 Manifest B 的 files 映射互换，
+    其余顶层字段完全一致，修复前可绕过绑定校验。"""
+    config = ExperimentConfig()
+    disk_manifest = _make_manifest(config, "corpus-001", files=[
+        FileIndexRecord(
+            relative_path="core/pipeline.py", sha256="a" * 64, size_bytes=10,
+            document_id="d1", chunks=1, status="create",
+        ),
+        FileIndexRecord(
+            relative_path="docs/x.md", sha256="b" * 64, size_bytes=10,
+            document_id="d2", chunks=1, status="create",
+        ),
+    ])
+    passed_manifest = _make_manifest(config, "corpus-001", files=[
+        FileIndexRecord(
+            relative_path="docs/x.md", sha256="b" * 64, size_bytes=10,
+            document_id="d1", chunks=1, status="create",
+        ),
+        FileIndexRecord(
+            relative_path="core/pipeline.py", sha256="a" * 64, size_bytes=10,
+            document_id="d2", chunks=1, status="create",
+        ),
+    ])
+    assert disk_manifest.to_dict() != passed_manifest.to_dict()
+
+    retriever = FakeRetriever({
+        "query one": [{"id": "c1", "document_id": "d1", "score": 0.9}],
+    })
+    prepared = _prepare(tmp_path, config, retriever)
+    disk_manifest.write_json(prepared.paths.index_manifest_path)
+    eval_set = _make_eval_set("corpus-001", cases=(
+        RetrievalCase("q001", "query one", ("core/pipeline.py",)),
+    ))
+    with pytest.raises(RuntimeError) as excinfo:
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, passed_manifest, eval_set)
+    message = str(excinfo.value)
+    assert "传入 IndexManifest" in message
+    assert "不一致" in message
+    assert retriever.calls == []
+    assert not prepared.paths.retrieval_results_path.exists()
+
+
+def test_disk_manifest_corpus_entries_modified_fails(tmp_path):
+    config = ExperimentConfig()
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001")
+    manifest.write_json(prepared.paths.index_manifest_path)
+    _tamper_disk_manifest(prepared, lambda p: p.__setitem__(
+        "corpus_entries",
+        [{"relative_path": "tampered.md", "sha256": "x" * 64, "size_bytes": 1}],
+    ))
+    eval_set = _make_eval_set("corpus-001")
+    with pytest.raises(RuntimeError, match="传入 IndexManifest|不一致"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, manifest, eval_set)
+    assert retriever.calls == []
+    assert not prepared.paths.retrieval_results_path.exists()
+
+
+def test_disk_manifest_sha256_modified_fails(tmp_path):
+    config = ExperimentConfig()
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001")
+    manifest.write_json(prepared.paths.index_manifest_path)
+    _tamper_disk_manifest(prepared, lambda p: p["files"][0].__setitem__(
+        "sha256", "f" * 64
+    ))
+    eval_set = _make_eval_set("corpus-001")
+    with pytest.raises(RuntimeError, match="传入 IndexManifest|不一致"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, manifest, eval_set)
+    assert retriever.calls == []
+
+
+def test_disk_manifest_missing_field_fails(tmp_path):
+    config = ExperimentConfig()
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001")
+    manifest.write_json(prepared.paths.index_manifest_path)
+    _tamper_disk_manifest(prepared, lambda p: p.pop("sparse_index_count"))
+    eval_set = _make_eval_set("corpus-001")
+    with pytest.raises(RuntimeError, match="传入 IndexManifest|不一致"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, manifest, eval_set)
+    assert retriever.calls == []
+
+
+def test_disk_manifest_invalid_json_fails(tmp_path):
+    config = ExperimentConfig()
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001")
+    manifest.write_json(prepared.paths.index_manifest_path)
+    prepared.paths.index_manifest_path.write_text(
+        "{ not valid json", encoding="utf-8"
+    )
+    eval_set = _make_eval_set("corpus-001")
+    with pytest.raises(RuntimeError, match="解析|index_manifest"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, manifest, eval_set)
+    assert retriever.calls == []
+    assert not prepared.paths.retrieval_results_path.exists()
+
+
+def test_disk_manifest_top_level_list_fails(tmp_path):
+    config = ExperimentConfig()
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001")
+    manifest.write_json(prepared.paths.index_manifest_path)
+    prepared.paths.index_manifest_path.write_text("[]", encoding="utf-8")
+    eval_set = _make_eval_set("corpus-001")
+    with pytest.raises(RuntimeError, match="object"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, manifest, eval_set)
+    assert retriever.calls == []
+
+
+def test_consistent_disk_manifest_still_succeeds(tmp_path):
+    result, prepared, retriever = _run(tmp_path)
+    assert len(retriever.calls) == 2
+    assert prepared.paths.retrieval_results_path.is_file()
+    assert result.retrieval_run_id
