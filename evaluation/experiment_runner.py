@@ -16,6 +16,14 @@ from evaluation.experiment_config import ExperimentConfig
 from evaluation.experiment_corpus import ExperimentCorpus
 from evaluation.experiment_workspace import ExperimentPaths, ExperimentWorkspace
 from evaluation.index_manifest import FileIndexRecord, IndexManifest
+from evaluation.retrieval_evaluation_set import RetrievalCase, RetrievalEvaluationSet
+from evaluation.retrieval_result import (
+    RETRIEVAL_RESULT_SCHEMA_VERSION,
+    SCORE_WHITELIST,
+    RetrievalCaseResult,
+    RetrievalHit,
+    RetrievalRunResult,
+)
 
 
 @dataclass(frozen=True)
@@ -218,6 +226,188 @@ class ExperimentRunner:
                 )
             validated_paths.append(full)
         return tuple(validated_paths)
+
+    def run_retrieval(
+        self,
+        prepared: PreparedExperiment,
+        index_manifest: IndexManifest,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> RetrievalRunResult:
+        """正式检索执行：绑定校验 -> 逐 Case 直接调用 Retriever -> 原子快照。
+
+        只允许调用 retriever.retrieve(case.query, top_k=config.top_k)；
+        不调用 Pipeline.query/Generator/Reranker/旧 Evaluator/指标/报告。
+        """
+        result_path = prepared.paths.retrieval_results_path
+        if result_path.exists():
+            raise FileExistsError(
+                f"实验工作区已存在 retrieval_results.json，禁止重复运行或覆盖："
+                f"{result_path}"
+            )
+        if not prepared.paths.index_manifest_path.is_file():
+            raise FileNotFoundError(
+                f"实验工作区缺少 index_manifest.json，必须先完成正式入库："
+                f"{prepared.paths.index_manifest_path}"
+            )
+
+        self._validate_retrieval_binding(prepared, index_manifest, evaluation_set)
+        document_map = self._build_document_map(index_manifest)
+
+        config = prepared.experiment_config
+        top_k = config.top_k
+        case_results = []
+        for case in evaluation_set.cases:
+            retrieved = prepared.pipeline.retriever.retrieve(case.query, top_k=top_k)
+            case_results.append(
+                self._snapshot_case_result(case, retrieved, top_k, document_map)
+            )
+
+        run_id = RetrievalRunResult.compute_run_id(
+            schema_version=RETRIEVAL_RESULT_SCHEMA_VERSION,
+            experiment_id=config.experiment_id,
+            corpus_id=index_manifest.corpus_id,
+            evaluation_set_id=evaluation_set.evaluation_set_id,
+            retriever_strategy=config.retriever_strategy,
+            top_k=top_k,
+        )
+        result = RetrievalRunResult(
+            schema_version=RETRIEVAL_RESULT_SCHEMA_VERSION,
+            retrieval_run_id=run_id,
+            experiment_id=config.experiment_id,
+            corpus_id=index_manifest.corpus_id,
+            evaluation_set_id=evaluation_set.evaluation_set_id,
+            retriever_strategy=config.retriever_strategy,
+            top_k=top_k,
+            cases=tuple(case_results),
+        )
+        result.write_json(result_path)
+        return result
+
+    @staticmethod
+    def _validate_retrieval_binding(
+        prepared: PreparedExperiment,
+        index_manifest: IndexManifest,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> None:
+        """第一次 retrieve 前完成全部绑定校验；任一不一致立即失败。"""
+        config = prepared.experiment_config
+        checks = {
+            "experiment_id": (index_manifest.experiment_id, config.experiment_id),
+            "config": (index_manifest.config, config.to_dict()),
+            "corpus_id": (index_manifest.corpus_id, evaluation_set.corpus_id),
+            "retriever_strategy": (
+                index_manifest.retriever_strategy,
+                config.retriever_strategy,
+            ),
+            "chunk_strategy": (
+                index_manifest.chunk_strategy,
+                config.chunk_strategy,
+            ),
+        }
+        for name, (actual, expected) in checks.items():
+            if actual != expected:
+                raise RuntimeError(
+                    f"检索绑定校验失败：{name} 不一致 "
+                    f"actual={actual!r} expected={expected!r}，不能执行检索"
+                )
+        if index_manifest.file_count != len(index_manifest.files):
+            raise RuntimeError(
+                f"检索绑定校验失败：manifest file_count={index_manifest.file_count} "
+                f"与 files 数量 {len(index_manifest.files)} 不一致"
+            )
+        if index_manifest.total_chunks != index_manifest.vector_store_count:
+            raise RuntimeError(
+                f"检索绑定校验失败：total_chunks={index_manifest.total_chunks} "
+                f"与 vector_store_count={index_manifest.vector_store_count} 不一致"
+            )
+        if config.retriever_strategy == "hybrid":
+            if index_manifest.sparse_index_count != index_manifest.vector_store_count:
+                raise RuntimeError(
+                    f"检索绑定校验失败：Hybrid sparse_index_count="
+                    f"{index_manifest.sparse_index_count} 与 vector_store_count="
+                    f"{index_manifest.vector_store_count} 不一致"
+                )
+
+    @staticmethod
+    def _build_document_map(index_manifest: IndexManifest) -> dict:
+        """document_id -> relative_path 映射，只来自 index_manifest.files。"""
+        mapping = {}
+        for file_record in index_manifest.files:
+            document_id = file_record.document_id
+            if not isinstance(document_id, str) or not document_id:
+                raise RuntimeError(
+                    f"Manifest 存在空 document_id：{file_record.relative_path}"
+                )
+            previous = mapping.get(document_id)
+            if previous is not None and previous != file_record.relative_path:
+                raise RuntimeError(
+                    f"document_id={document_id!r} 映射到多个文件："
+                    f"{previous} 与 {file_record.relative_path}"
+                )
+            mapping[document_id] = file_record.relative_path
+        return mapping
+
+    @staticmethod
+    def _snapshot_case_result(
+        case: RetrievalCase,
+        retrieved,
+        top_k: int,
+        document_map: dict,
+    ) -> RetrievalCaseResult:
+        """把 Retriever 返回值立即转为不可变内存快照。
+
+        稳定策略：超过 top_k 只保留前 top_k；同一 Case 内重复 Chunk ID 拒绝。
+        """
+        hits = []
+        seen_chunk_ids = set()
+        retrieved_files = []
+        seen_files = set()
+        for rank, doc in enumerate(retrieved[:top_k], 1):
+            metadata = doc.metadata or {}
+            chunk_id = metadata.get("id")
+            document_id = metadata.get("document_id")
+            if not isinstance(chunk_id, str) or not chunk_id:
+                raise RuntimeError(
+                    f"case_id={case.case_id}：Chunk 缺失非空 metadata['id']"
+                )
+            if not isinstance(document_id, str) or not document_id:
+                raise RuntimeError(
+                    f"case_id={case.case_id}：Chunk {chunk_id!r} 缺失非空 "
+                    "metadata['document_id']"
+                )
+            if chunk_id in seen_chunk_ids:
+                raise RuntimeError(
+                    f"case_id={case.case_id}：重复 Chunk ID {chunk_id!r}"
+                )
+            seen_chunk_ids.add(chunk_id)
+            if document_id not in document_map:
+                raise RuntimeError(
+                    f"case_id={case.case_id}：未知 document_id {document_id!r}"
+                    "（不在 IndexManifest 映射中）"
+                )
+            relative_path = document_map[document_id]
+            scores = {
+                name: metadata[name]
+                for name in SCORE_WHITELIST
+                if name in metadata
+            }
+            hits.append(RetrievalHit(
+                rank=rank,
+                chunk_id=chunk_id,
+                document_id=document_id,
+                relative_path=relative_path,
+                scores=scores,
+            ))
+            if relative_path not in seen_files:
+                seen_files.add(relative_path)
+                retrieved_files.append(relative_path)
+        return RetrievalCaseResult(
+            case_id=case.case_id,
+            query=case.query,
+            relevant_files=case.relevant_files,
+            hits=tuple(hits),
+            retrieved_files=tuple(retrieved_files),
+        )
 
     @staticmethod
     def _validate_hybrid_sparse_index(

@@ -28,6 +28,7 @@ class ExperimentPaths:
     vector_store_path: Path
     result_path: Path
     index_manifest_path: Path
+    retrieval_results_path: Path
 
 
 class ExperimentWorkspace:
@@ -106,6 +107,7 @@ class ExperimentWorkspace:
             vector_store_path=vs_path,
             result_path=ws / "result.json",
             index_manifest_path=ws / "index_manifest.json",
+            retrieval_results_path=ws / "retrieval_results.json",
         )
 
     @staticmethod
