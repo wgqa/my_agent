@@ -25,6 +25,14 @@ from evaluation.retrieval_result import (
     RetrievalHit,
     RetrievalRunResult,
 )
+from evaluation.retrieval_metrics import (
+    AGGREGATION,
+    METRICS_SCHEMA_VERSION,
+    METRIC_SCOPE,
+    RELEVANCE,
+    RetrievalMetricsResult,
+    compute_case_metrics,
+)
 
 
 @dataclass(frozen=True)
@@ -287,6 +295,83 @@ class ExperimentRunner:
         result.write_json(result_path)
         return result
 
+    def compute_retrieval_metrics(
+        self,
+        prepared: PreparedExperiment,
+        retrieval_result: RetrievalRunResult,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> RetrievalMetricsResult:
+        """文档级指标：磁盘事实快照绑定 -> Case 对应 -> 不变量 -> 指标 -> 原子快照。
+
+        不重新调用 Retriever/Pipeline/Generator/Reranker/旧 Evaluator；
+        正式指标只基于 retrieved_files 与 relevant_files。
+        """
+        metrics_path = prepared.paths.retrieval_metrics_path
+        if metrics_path.exists():
+            raise FileExistsError(
+                f"实验工作区已存在 retrieval_metrics.json，禁止重复计算或覆盖："
+                f"{metrics_path}"
+            )
+        results_path = prepared.paths.retrieval_results_path
+        if not results_path.is_file():
+            raise FileNotFoundError(
+                f"实验工作区缺少 retrieval_results.json，必须先完成正式检索："
+                f"{results_path}"
+            )
+
+        self._validate_persisted_retrieval_results(results_path, retrieval_result)
+        self._validate_retrieval_metrics_binding(
+            prepared, retrieval_result, evaluation_set
+        )
+        self._validate_case_correspondence(retrieval_result, evaluation_set)
+
+        case_metrics = []
+        for run_case, eval_case in zip(
+            retrieval_result.cases, evaluation_set.cases
+        ):
+            self._validate_case_snapshot(run_case, retrieval_result.top_k)
+            case_metrics.append(compute_case_metrics(
+                case_id=run_case.case_id,
+                retrieved_files=run_case.retrieved_files,
+                relevant_files=eval_case.relevant_files,
+                top_k=retrieval_result.top_k,
+            ))
+
+        case_count = len(case_metrics)
+        means = {}
+        for name in ("hit_at_k", "recall_at_k", "mrr", "ndcg_at_k"):
+            means[name] = sum(
+                getattr(c, name) for c in case_metrics
+            ) / case_count
+
+        metrics_run_id = RetrievalMetricsResult.compute_metrics_run_id(
+            schema_version=METRICS_SCHEMA_VERSION,
+            retrieval_run_id=retrieval_result.retrieval_run_id,
+            evaluation_set_id=retrieval_result.evaluation_set_id,
+            top_k=retrieval_result.top_k,
+            metric_scope=METRIC_SCOPE,
+            relevance=RELEVANCE,
+            aggregation=AGGREGATION,
+        )
+        result = RetrievalMetricsResult(
+            schema_version=METRICS_SCHEMA_VERSION,
+            metrics_run_id=metrics_run_id,
+            experiment_id=retrieval_result.experiment_id,
+            corpus_id=retrieval_result.corpus_id,
+            evaluation_set_id=retrieval_result.evaluation_set_id,
+            retrieval_run_id=retrieval_result.retrieval_run_id,
+            retriever_strategy=retrieval_result.retriever_strategy,
+            top_k=retrieval_result.top_k,
+            case_count=case_count,
+            cases=tuple(case_metrics),
+            mean_hit_at_k=means["hit_at_k"],
+            mean_recall_at_k=means["recall_at_k"],
+            mean_mrr=means["mrr"],
+            mean_ndcg_at_k=means["ndcg_at_k"],
+        )
+        result.write_json(metrics_path)
+        return result
+
     @staticmethod
     def _validate_persisted_manifest(
         manifest_path: Path,
@@ -314,6 +399,148 @@ class ExperimentRunner:
             raise RuntimeError(
                 "传入 IndexManifest 与 Workspace 中已落盘的 "
                 "index_manifest.json 不一致"
+            )
+
+    @staticmethod
+    def _validate_persisted_retrieval_results(
+        results_path: Path,
+        retrieval_result: RetrievalRunResult,
+    ) -> None:
+        """强制证明 Workspace 中落盘的 retrieval_results.json 与传入对象
+        是同一份完整业务快照（与 Manifest 绑定原则一致）。"""
+        try:
+            with results_path.open("r", encoding="utf-8") as f:
+                disk_payload = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Workspace 中已落盘的 retrieval_results.json 无法解析：{exc}"
+            ) from exc
+        if not isinstance(disk_payload, dict):
+            raise RuntimeError(
+                "Workspace 中已落盘的 retrieval_results.json 顶层不是 JSON object"
+            )
+        if disk_payload != retrieval_result.to_dict():
+            raise RuntimeError(
+                "传入 RetrievalRunResult 与 Workspace 中已落盘的 "
+                "retrieval_results.json 不一致"
+            )
+
+    @staticmethod
+    def _validate_retrieval_metrics_binding(
+        prepared: PreparedExperiment,
+        retrieval_result: RetrievalRunResult,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> None:
+        """指标运行绑定校验，并重算 retrieval_run_id（不信任已存 ID）。"""
+        config = prepared.experiment_config
+        checks = {
+            "experiment_id": (retrieval_result.experiment_id, config.experiment_id),
+            "corpus_id": (retrieval_result.corpus_id, evaluation_set.corpus_id),
+            "evaluation_set_id": (
+                retrieval_result.evaluation_set_id,
+                evaluation_set.evaluation_set_id,
+            ),
+            "retriever_strategy": (
+                retrieval_result.retriever_strategy,
+                config.retriever_strategy,
+            ),
+            "top_k": (retrieval_result.top_k, config.top_k),
+        }
+        for name, (actual, expected) in checks.items():
+            if actual != expected:
+                raise RuntimeError(
+                    f"指标绑定校验失败：{name} 不一致 "
+                    f"actual={actual!r} expected={expected!r}"
+                )
+        recomputed = RetrievalRunResult.compute_run_id(
+            schema_version=retrieval_result.schema_version,
+            experiment_id=retrieval_result.experiment_id,
+            corpus_id=retrieval_result.corpus_id,
+            evaluation_set_id=retrieval_result.evaluation_set_id,
+            retriever_strategy=retrieval_result.retriever_strategy,
+            top_k=retrieval_result.top_k,
+        )
+        if recomputed != retrieval_result.retrieval_run_id:
+            raise RuntimeError(
+                f"指标绑定校验失败：retrieval_run_id 与绑定字段重算结果不一致 "
+                f"stored={retrieval_result.retrieval_run_id!r} "
+                f"recomputed={recomputed!r}"
+            )
+
+    @staticmethod
+    def _validate_case_correspondence(
+        retrieval_result: RetrievalRunResult,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> None:
+        """Cases 必须与 EvaluationSet 按规范顺序完整对应。"""
+        run_cases = retrieval_result.cases
+        eval_cases = evaluation_set.cases
+        if len(run_cases) != len(eval_cases):
+            raise RuntimeError(
+                f"检索结果 Case 数量 {len(run_cases)} 与 EvaluationSet "
+                f"Case 数量 {len(eval_cases)} 不一致"
+            )
+        for index, (run_case, eval_case) in enumerate(
+            zip(run_cases, eval_cases), 1
+        ):
+            if run_case.case_id != eval_case.case_id:
+                raise RuntimeError(
+                    f"第 {index} 个 Case 的 case_id 不一致："
+                    f"{run_case.case_id!r} != {eval_case.case_id!r}"
+                )
+            if run_case.query != eval_case.query:
+                raise RuntimeError(
+                    f"第 {index} 个 Case（{run_case.case_id}）的 query 不一致"
+                )
+            if run_case.relevant_files != eval_case.relevant_files:
+                raise RuntimeError(
+                    f"第 {index} 个 Case（{run_case.case_id}）的 relevant_files "
+                    "快照与 EvaluationSet 不一致"
+                )
+
+    @staticmethod
+    def _validate_case_snapshot(case_result: RetrievalCaseResult, top_k: int) -> None:
+        """重新验证单个 Case 的检索快照不变量，不信任 retrieved_files。"""
+        hits = case_result.hits
+        if len(hits) > top_k:
+            raise RuntimeError(
+                f"case_id={case_result.case_id}：hits 数量 {len(hits)} "
+                f"超过 top_k={top_k}"
+            )
+        expected_ranks = list(range(1, len(hits) + 1))
+        actual_ranks = [h.rank for h in hits]
+        if actual_ranks != expected_ranks:
+            raise RuntimeError(
+                f"case_id={case_result.case_id}：Hit rank 必须严格为 "
+                f"1..{len(hits)}，实际 {actual_ranks}"
+            )
+        seen_chunk_ids = set()
+        for hit in hits:
+            if not hit.chunk_id or not hit.document_id or not hit.relative_path:
+                raise RuntimeError(
+                    f"case_id={case_result.case_id}：Hit 的 chunk_id/"
+                    "document_id/relative_path 必须非空"
+                )
+            if hit.chunk_id in seen_chunk_ids:
+                raise RuntimeError(
+                    f"case_id={case_result.case_id}：重复 Chunk ID "
+                    f"{hit.chunk_id!r}"
+                )
+            seen_chunk_ids.add(hit.chunk_id)
+
+        expected_files = []
+        for hit in hits:
+            if hit.relative_path not in expected_files:
+                expected_files.append(hit.relative_path)
+        if tuple(expected_files) != case_result.retrieved_files:
+            raise RuntimeError(
+                f"case_id={case_result.case_id}：retrieved_files 与 hits "
+                f"首次文件顺序不一致：{case_result.retrieved_files!r} != "
+                f"{tuple(expected_files)!r}"
+            )
+        if len(set(case_result.retrieved_files)) != len(case_result.retrieved_files):
+            raise RuntimeError(
+                f"case_id={case_result.case_id}：retrieved_files 包含重复文件"
             )
 
     @staticmethod
