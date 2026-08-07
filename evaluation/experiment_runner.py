@@ -15,6 +15,11 @@ from typing import Callable, Union
 
 from evaluation.experiment_config import ExperimentConfig
 from evaluation.experiment_corpus import ExperimentCorpus
+from evaluation.experiment_result import (
+    ARTIFACT_FILES,
+    EXPERIMENT_RESULT_SCHEMA_VERSION,
+    ExperimentResult,
+)
 from evaluation.experiment_workspace import ExperimentPaths, ExperimentWorkspace
 from evaluation.index_manifest import FileIndexRecord, IndexManifest
 from evaluation.retrieval_evaluation_set import RetrievalCase, RetrievalEvaluationSet
@@ -372,6 +377,251 @@ class ExperimentRunner:
         result.write_json(metrics_path)
         return result
 
+    def finalize_result(
+        self,
+        prepared: PreparedExperiment,
+        index_manifest: IndexManifest,
+        retrieval_result: RetrievalRunResult,
+        metrics_result: RetrievalMetricsResult,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> ExperimentResult:
+        """单实验结果收口：三份落盘事实快照绑定 -> 跨阶段校验 -> 原子 result.json。
+
+        不重新调用 index_file/Retriever/Generator/指标计算/旧 Evaluator。
+        """
+        result_path = prepared.paths.result_path
+        if result_path.exists():
+            raise FileExistsError(
+                f"实验工作区已存在 result.json，禁止重复收口或覆盖："
+                f"{result_path}"
+            )
+
+        self._validate_persisted_manifest(
+            prepared.paths.index_manifest_path, index_manifest
+        )
+        self._validate_persisted_retrieval_results(
+            prepared.paths.retrieval_results_path, retrieval_result
+        )
+        self._validate_persisted_retrieval_metrics(
+            prepared.paths.retrieval_metrics_path, metrics_result
+        )
+        self._validate_experiment_binding(
+            prepared,
+            index_manifest,
+            retrieval_result,
+            metrics_result,
+            evaluation_set,
+        )
+        self._validate_experiment_quantities(
+            index_manifest,
+            retrieval_result,
+            metrics_result,
+            evaluation_set,
+        )
+
+        config = prepared.experiment_config
+        result_id = ExperimentResult.compute_result_id(
+            schema_version=EXPERIMENT_RESULT_SCHEMA_VERSION,
+            experiment_id=config.experiment_id,
+            corpus_id=index_manifest.corpus_id,
+            evaluation_set_id=evaluation_set.evaluation_set_id,
+            retrieval_run_id=retrieval_result.retrieval_run_id,
+            metrics_run_id=metrics_result.metrics_run_id,
+        )
+        result = ExperimentResult(
+            schema_version=EXPERIMENT_RESULT_SCHEMA_VERSION,
+            result_id=result_id,
+            experiment_id=config.experiment_id,
+            corpus_id=index_manifest.corpus_id,
+            evaluation_set_id=evaluation_set.evaluation_set_id,
+            retrieval_run_id=retrieval_result.retrieval_run_id,
+            metrics_run_id=metrics_result.metrics_run_id,
+            config=config.to_dict(),
+            chunk_strategy=config.chunk_strategy,
+            retriever_strategy=config.retriever_strategy,
+            top_k=config.top_k,
+            file_count=index_manifest.file_count,
+            total_chunks=index_manifest.total_chunks,
+            case_count=metrics_result.case_count,
+            mean_hit_at_k=metrics_result.mean_hit_at_k,
+            mean_recall_at_k=metrics_result.mean_recall_at_k,
+            mean_mrr=metrics_result.mean_mrr,
+            mean_ndcg_at_k=metrics_result.mean_ndcg_at_k,
+            artifacts=dict(ARTIFACT_FILES),
+        )
+        result.write_json(result_path)
+        return result
+
+    @staticmethod
+    def _validate_experiment_binding(
+        prepared: PreparedExperiment,
+        index_manifest: IndexManifest,
+        retrieval_result: RetrievalRunResult,
+        metrics_result: RetrievalMetricsResult,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> None:
+        """跨阶段绑定：ID 链、top_k、策略、Config，并重算两个 run ID。"""
+        config = prepared.experiment_config
+
+        if type(config.top_k) is not int:
+            raise RuntimeError(
+                f"ExperimentConfig.top_k 必须是严格 int，"
+                f"实际 {type(config.top_k).__name__}（{config.top_k!r}）"
+            )
+        if type(retrieval_result.top_k) is not int:
+            raise RuntimeError(
+                f"retrieval_result.top_k 必须是严格 int，"
+                f"实际 {type(retrieval_result.top_k).__name__} "
+                f"（{retrieval_result.top_k!r}）"
+            )
+        if type(metrics_result.top_k) is not int:
+            raise RuntimeError(
+                f"metrics_result.top_k 必须是严格 int，"
+                f"实际 {type(metrics_result.top_k).__name__} "
+                f"（{metrics_result.top_k!r}）"
+            )
+
+        ids = (
+            config.experiment_id,
+            index_manifest.experiment_id,
+            retrieval_result.experiment_id,
+            metrics_result.experiment_id,
+        )
+        if len(set(ids)) != 1:
+            raise RuntimeError("experiment_id 跨阶段不一致")
+
+        corpus_ids = (
+            index_manifest.corpus_id,
+            retrieval_result.corpus_id,
+            metrics_result.corpus_id,
+            evaluation_set.corpus_id,
+        )
+        if len(set(corpus_ids)) != 1:
+            raise RuntimeError("corpus_id 跨阶段不一致")
+
+        eval_set_ids = (
+            retrieval_result.evaluation_set_id,
+            metrics_result.evaluation_set_id,
+            evaluation_set.evaluation_set_id,
+        )
+        if len(set(eval_set_ids)) != 1:
+            raise RuntimeError("evaluation_set_id 跨阶段不一致")
+
+        if retrieval_result.retrieval_run_id != metrics_result.retrieval_run_id:
+            raise RuntimeError("retrieval_run_id 跨阶段不一致")
+
+        if not (
+            retrieval_result.top_k == metrics_result.top_k == config.top_k
+        ):
+            raise RuntimeError("top_k 跨阶段不一致")
+
+        if not (
+            retrieval_result.retriever_strategy
+            == metrics_result.retriever_strategy
+            == config.retriever_strategy
+        ):
+            raise RuntimeError("retriever_strategy 跨阶段不一致")
+
+        if index_manifest.config != config.to_dict():
+            raise RuntimeError("index_manifest.config 与 ExperimentConfig 不一致")
+
+        if index_manifest.chunk_strategy != config.chunk_strategy:
+            raise RuntimeError("chunk_strategy 与 ExperimentConfig 不一致")
+
+        recomputed_run_id = RetrievalRunResult.compute_run_id(
+            schema_version=retrieval_result.schema_version,
+            experiment_id=retrieval_result.experiment_id,
+            corpus_id=retrieval_result.corpus_id,
+            evaluation_set_id=retrieval_result.evaluation_set_id,
+            retriever_strategy=retrieval_result.retriever_strategy,
+            top_k=retrieval_result.top_k,
+        )
+        if recomputed_run_id != retrieval_result.retrieval_run_id:
+            raise RuntimeError(
+                "retrieval_run_id 与绑定字段重算结果不一致："
+                f"stored={retrieval_result.retrieval_run_id!r} "
+                f"recomputed={recomputed_run_id!r}"
+            )
+
+        recomputed_metrics_id = RetrievalMetricsResult.compute_metrics_run_id(
+            schema_version=metrics_result.schema_version,
+            retrieval_run_id=metrics_result.retrieval_run_id,
+            evaluation_set_id=metrics_result.evaluation_set_id,
+            top_k=metrics_result.top_k,
+            metric_scope=METRIC_SCOPE,
+            relevance=RELEVANCE,
+            aggregation=AGGREGATION,
+        )
+        if recomputed_metrics_id != metrics_result.metrics_run_id:
+            raise RuntimeError(
+                "metrics_run_id 与绑定字段重算结果不一致："
+                f"stored={metrics_result.metrics_run_id!r} "
+                f"recomputed={recomputed_metrics_id!r}"
+            )
+
+    @staticmethod
+    def _validate_experiment_quantities(
+        index_manifest: IndexManifest,
+        retrieval_result: RetrievalRunResult,
+        metrics_result: RetrievalMetricsResult,
+        evaluation_set: RetrievalEvaluationSet,
+    ) -> None:
+        """只验证可信快照之间的数量关系，不访问真实 Vector Store / BM25。"""
+        if index_manifest.file_count != len(index_manifest.files):
+            raise RuntimeError(
+                f"index_manifest file_count={index_manifest.file_count} "
+                f"与 files 数量 {len(index_manifest.files)} 不一致"
+            )
+        if index_manifest.total_chunks != index_manifest.vector_store_count:
+            raise RuntimeError(
+                f"index_manifest total_chunks={index_manifest.total_chunks} "
+                f"与 vector_store_count={index_manifest.vector_store_count} 不一致"
+            )
+        if index_manifest.retriever_strategy == "hybrid":
+            if index_manifest.sparse_index_count != index_manifest.vector_store_count:
+                raise RuntimeError(
+                    f"Hybrid sparse_index_count="
+                    f"{index_manifest.sparse_index_count} 与 vector_store_count="
+                    f"{index_manifest.vector_store_count} 不一致"
+                )
+        if metrics_result.case_count != len(metrics_result.cases):
+            raise RuntimeError(
+                f"metrics_result case_count={metrics_result.case_count} "
+                f"与 cases 数量 {len(metrics_result.cases)} 不一致"
+            )
+        if metrics_result.case_count != len(evaluation_set.cases):
+            raise RuntimeError(
+                f"metrics_result case_count={metrics_result.case_count} "
+                f"与 EvaluationSet cases 数量 {len(evaluation_set.cases)} 不一致"
+            )
+        if len(retrieval_result.cases) != len(evaluation_set.cases):
+            raise RuntimeError(
+                f"retrieval_result cases 数量 {len(retrieval_result.cases)} "
+                f"与 EvaluationSet cases 数量 {len(evaluation_set.cases)} 不一致"
+            )
+
+    @staticmethod
+    def _validate_persisted_json_snapshot(
+        snapshot_path: Path,
+        expected: dict,
+        display_name: str,
+        mismatch_message: str,
+    ) -> None:
+        """通用落盘事实快照校验：UTF-8 + 合法 JSON + 顶层 object + 全结构比较。"""
+        try:
+            with snapshot_path.open("r", encoding="utf-8") as f:
+                disk_payload = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Workspace 中已落盘的 {display_name} 无法解析：{exc}"
+            ) from exc
+        if not isinstance(disk_payload, dict):
+            raise RuntimeError(
+                f"Workspace 中已落盘的 {display_name} 顶层不是 JSON object"
+            )
+        if disk_payload != expected:
+            raise RuntimeError(mismatch_message)
+
     @staticmethod
     def _validate_persisted_manifest(
         manifest_path: Path,
@@ -384,22 +634,13 @@ class ExperimentRunner:
         然后与 index_manifest.to_dict() 做全字段结构比较（含 config、
         corpus_entries、files 等，而不仅是顶层 ID 与数量）。
         """
-        try:
-            with manifest_path.open("r", encoding="utf-8") as f:
-                disk_payload = json.load(f)
-        except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(
-                f"Workspace 中已落盘的 index_manifest.json 无法解析：{exc}"
-            ) from exc
-        if not isinstance(disk_payload, dict):
-            raise RuntimeError(
-                "Workspace 中已落盘的 index_manifest.json 顶层不是 JSON object"
-            )
-        if disk_payload != index_manifest.to_dict():
-            raise RuntimeError(
-                "传入 IndexManifest 与 Workspace 中已落盘的 "
-                "index_manifest.json 不一致"
-            )
+        ExperimentRunner._validate_persisted_json_snapshot(
+            manifest_path,
+            index_manifest.to_dict(),
+            "index_manifest.json",
+            "传入 IndexManifest 与 Workspace 中已落盘的 "
+            "index_manifest.json 不一致",
+        )
 
     @staticmethod
     def _validate_persisted_retrieval_results(
@@ -408,22 +649,28 @@ class ExperimentRunner:
     ) -> None:
         """强制证明 Workspace 中落盘的 retrieval_results.json 与传入对象
         是同一份完整业务快照（与 Manifest 绑定原则一致）。"""
-        try:
-            with results_path.open("r", encoding="utf-8") as f:
-                disk_payload = json.load(f)
-        except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(
-                f"Workspace 中已落盘的 retrieval_results.json 无法解析：{exc}"
-            ) from exc
-        if not isinstance(disk_payload, dict):
-            raise RuntimeError(
-                "Workspace 中已落盘的 retrieval_results.json 顶层不是 JSON object"
-            )
-        if disk_payload != retrieval_result.to_dict():
-            raise RuntimeError(
-                "传入 RetrievalRunResult 与 Workspace 中已落盘的 "
-                "retrieval_results.json 不一致"
-            )
+        ExperimentRunner._validate_persisted_json_snapshot(
+            results_path,
+            retrieval_result.to_dict(),
+            "retrieval_results.json",
+            "传入 RetrievalRunResult 与 Workspace 中已落盘的 "
+            "retrieval_results.json 不一致",
+        )
+
+    @staticmethod
+    def _validate_persisted_retrieval_metrics(
+        metrics_path: Path,
+        metrics_result: RetrievalMetricsResult,
+    ) -> None:
+        """强制证明 Workspace 中落盘的 retrieval_metrics.json 与传入对象
+        是同一份完整业务快照。"""
+        ExperimentRunner._validate_persisted_json_snapshot(
+            metrics_path,
+            metrics_result.to_dict(),
+            "retrieval_metrics.json",
+            "传入 RetrievalMetricsResult 与 Workspace 中已落盘的 "
+            "retrieval_metrics.json 不一致",
+        )
 
     @staticmethod
     def _validate_retrieval_metrics_binding(
