@@ -433,6 +433,17 @@ class ExperimentRunner:
     ) -> None:
         """指标运行绑定校验，并重算 retrieval_run_id（不信任已存 ID）。"""
         config = prepared.experiment_config
+        if type(retrieval_result.top_k) is not int:
+            raise RuntimeError(
+                f"指标绑定校验失败：top_k 必须是严格 int，"
+                f"实际 {type(retrieval_result.top_k).__name__} "
+                f"（{retrieval_result.top_k!r}）"
+            )
+        if type(config.top_k) is not int:
+            raise RuntimeError(
+                f"指标绑定校验失败：ExperimentConfig.top_k 必须是严格 int，"
+                f"实际 {type(config.top_k).__name__}（{config.top_k!r}）"
+            )
         checks = {
             "experiment_id": (retrieval_result.experiment_id, config.experiment_id),
             "corpus_id": (retrieval_result.corpus_id, evaluation_set.corpus_id),
@@ -508,7 +519,14 @@ class ExperimentRunner:
                 f"超过 top_k={top_k}"
             )
         expected_ranks = list(range(1, len(hits) + 1))
-        actual_ranks = [h.rank for h in hits]
+        actual_ranks = []
+        for hit in hits:
+            if type(hit.rank) is not int:
+                raise RuntimeError(
+                    f"case_id={case_result.case_id}：Hit rank 必须是严格 int，"
+                    f"实际 {type(hit.rank).__name__}（{hit.rank!r}）"
+                )
+            actual_ranks.append(hit.rank)
         if actual_ranks != expected_ranks:
             raise RuntimeError(
                 f"case_id={case_result.case_id}：Hit rank 必须严格为 "
@@ -516,10 +534,23 @@ class ExperimentRunner:
             )
         seen_chunk_ids = set()
         for hit in hits:
-            if not hit.chunk_id or not hit.document_id or not hit.relative_path:
+            if type(hit.chunk_id) is not str or hit.chunk_id == "":
                 raise RuntimeError(
-                    f"case_id={case_result.case_id}：Hit 的 chunk_id/"
-                    "document_id/relative_path 必须非空"
+                    f"case_id={case_result.case_id}：Hit chunk_id 必须是"
+                    f"非空字符串，实际 {type(hit.chunk_id).__name__} "
+                    f"（{hit.chunk_id!r}）"
+                )
+            if type(hit.document_id) is not str or hit.document_id == "":
+                raise RuntimeError(
+                    f"case_id={case_result.case_id}：Hit document_id 必须是"
+                    f"非空字符串，实际 {type(hit.document_id).__name__} "
+                    f"（{hit.document_id!r}）"
+                )
+            if type(hit.relative_path) is not str or hit.relative_path == "":
+                raise RuntimeError(
+                    f"case_id={case_result.case_id}：Hit relative_path 必须是"
+                    f"非空字符串，实际 {type(hit.relative_path).__name__} "
+                    f"（{hit.relative_path!r}）"
                 )
             if hit.chunk_id in seen_chunk_ids:
                 raise RuntimeError(
@@ -528,6 +559,12 @@ class ExperimentRunner:
                 )
             seen_chunk_ids.add(hit.chunk_id)
 
+        for path in case_result.retrieved_files:
+            if type(path) is not str or path == "":
+                raise RuntimeError(
+                    f"case_id={case_result.case_id}：retrieved_files 每项必须"
+                    f"是非空字符串，实际 {type(path).__name__}（{path!r}）"
+                )
         expected_files = []
         for hit in hits:
             if hit.relative_path not in expected_files:

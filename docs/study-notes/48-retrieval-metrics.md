@@ -95,3 +95,27 @@ Workspace 路径、实际得分、API Key、repr 或对象地址。
    两者之间的唯一可信转换是"首次出现顺序去重"。
 4. **手算测试要先写对**：MRR 依赖第一个相关文件的排名，测试用例
    的 retrieved 顺序必须与断言一致，避免"实现正确、测试期望写错"。
+
+## R1：快照二次校验收紧为"值 + 类型"（阻塞修复）
+
+原实现用 `actual_ranks == list(range(1, len(hits) + 1))` 校验 rank，
+但 Python 中 `True == 1`、`1.0 == 1`，bool/float rank 可以绕过契约；
+chunk_id/document_id/relative_path 也只检查 truthy。
+
+修复：
+
+```python
+if type(hit.rank) is not int:          # 不用 isinstance：bool 是 int 子类
+    raise RuntimeError(...)
+```
+
+- rank 必须 `type(...) is int` 且严格等于 1..len(hits)；
+- chunk_id / document_id / relative_path 必须
+  `type(...) is str and value != ""`，禁止 `str()` 静默转换；
+- `retrieved_files` 每项也必须是非空字符串（正式指标输入）；
+- `top_k` 绑定同样收紧：`type(retrieval_result.top_k) is int`，
+  拒绝 `True == 1` / `1.0 == 1` 绕过。
+
+回归测试覆盖：rank=True、rank=1.0、非字符串 chunk_id / document_id /
+relative_path / retrieved_files 项、top_k=True / top_k=1.0 全部拒绝；
+正常 rank=1 继续接受。

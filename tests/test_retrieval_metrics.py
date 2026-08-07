@@ -769,3 +769,163 @@ def test_retrieval_metrics_path_is_dedicated(tmp_path):
     )
     assert prepared.paths.retrieval_metrics_path != prepared.paths.retrieval_results_path
     assert prepared.paths.retrieval_metrics_path != prepared.paths.result_path
+
+
+# ============================================================
+# G2-EVAL-08-R1：Retrieval 快照二次校验严格值 + 类型
+# ============================================================
+
+
+def _run_single_case(tmp_path, config, run_result, eval_case):
+    prepared = _prepare(tmp_path, config)
+    _write_results(prepared, run_result)
+    eval_set = _eval_set(cases=(eval_case,))
+    return prepared, eval_set
+
+
+def test_rank_bool_rejected(tmp_path):
+    config = ExperimentConfig()
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(True, "c1", "d1", "a.md")],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases)
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    with pytest.raises(RuntimeError, match="rank"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+    assert not prepared.paths.retrieval_metrics_path.exists()
+
+
+def test_rank_float_rejected(tmp_path):
+    config = ExperimentConfig()
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(1.0, "c1", "d1", "a.md")],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases)
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    with pytest.raises(RuntimeError, match="rank"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+    assert not prepared.paths.retrieval_metrics_path.exists()
+
+
+def test_rank_valid_int_accepted(tmp_path):
+    config = ExperimentConfig()
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(1, "c1", "d1", "a.md")],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases)
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    result = ExperimentRunner(
+        tmp_path / "base_config.yaml", tmp_path / "runs"
+    ).compute_retrieval_metrics(prepared, run_result, eval_set)
+    assert result.cases[0].mrr == pytest.approx(1.0)
+
+
+def test_non_string_chunk_id_rejected(tmp_path):
+    config = ExperimentConfig()
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(1, 123, "d1", "a.md")],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases)
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    with pytest.raises(RuntimeError, match="chunk_id"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+    assert not prepared.paths.retrieval_metrics_path.exists()
+
+
+def test_non_string_document_id_rejected(tmp_path):
+    config = ExperimentConfig()
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(1, "c1", 123, "a.md")],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases)
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    with pytest.raises(RuntimeError, match="document_id"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+
+
+def test_non_string_relative_path_rejected(tmp_path):
+    config = ExperimentConfig()
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(1, "c1", "d1", 123)],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases)
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    with pytest.raises(RuntimeError, match="relative_path"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+
+
+def test_non_string_retrieved_files_item_rejected(tmp_path):
+    config = ExperimentConfig()
+    case = _case_result(
+        "q001", "query one", ("a.md",),
+        [_hit(1, "c1", "d1", "a.md")],
+    )
+    tampered = dataclasses.replace(case, retrieved_files=(123,))
+    run_result = _run_result(config=config, cases=[tampered])
+    prepared, eval_set = _run_single_case(
+        tmp_path, config, run_result, RetrievalCase("q001", "query one", ("a.md",))
+    )
+    with pytest.raises(RuntimeError, match="字符串"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+
+
+@pytest.mark.parametrize("top_k", [True, 1.0])
+def test_top_k_bool_or_float_binding_rejected(tmp_path, top_k):
+    config = ExperimentConfig(top_k=1)
+    cases = [
+        _case_result(
+            "q001", "query one", ("a.md",),
+            [_hit(1, "c1", "d1", "a.md")],
+        ),
+    ]
+    run_result = _run_result(config=config, cases=cases, top_k=top_k)
+    prepared = _prepare(tmp_path, config)
+    _write_results(prepared, run_result)
+    eval_set = _eval_set(cases=(RetrievalCase("q001", "query one", ("a.md",)),))
+    with pytest.raises(RuntimeError, match="top_k"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).compute_retrieval_metrics(prepared, run_result, eval_set)
+    assert not prepared.paths.retrieval_metrics_path.exists()
