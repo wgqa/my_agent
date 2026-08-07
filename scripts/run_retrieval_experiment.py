@@ -1,0 +1,96 @@
+"""G2-REAL-11：真实 Retrieval 实验薄执行入口。
+
+只负责：接受路径参数 -> 发现 Corpus 文件 -> 构造 ExperimentCorpus ->
+加载 RetrievalEvaluationSet -> 构造本次固定 ExperimentConfig ->
+创建 ExperimentRunner -> 调用 run_experiment() -> 打印最终事实结果。
+
+不包含新的 Retrieval / Metrics / Manifest / Gold 逻辑。
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+from evaluation.experiment_config import ExperimentConfig
+from evaluation.experiment_corpus import ExperimentCorpus
+from evaluation.experiment_runner import ExperimentRunner
+from evaluation.retrieval_evaluation_set import RetrievalEvaluationSet
+
+
+def build_config() -> ExperimentConfig:
+    """G2-REAL-11 冻结参数：Recursive + Hybrid + top5（不得调参）。"""
+    return ExperimentConfig(
+        chunk_strategy="recursive",
+        chunk_size=512,
+        chunk_overlap=64,
+        retriever_strategy="hybrid",
+        top_k=5,
+        dense_candidate_k=30,
+        sparse_candidate_k=30,
+        rrf_k=60.0,
+    )
+
+
+def discover_markdown(corpus_root: Path):
+    """递归发现全部 .md，返回相对于 Corpus Root 的 POSIX relative path"""
+    return sorted(
+        p.relative_to(corpus_root).as_posix()
+        for p in corpus_root.rglob("*.md")
+        if p.is_file()
+    )
+
+
+def run(args) -> dict:
+    corpus_root = Path(args.corpus_root)
+    corpus = ExperimentCorpus.build(corpus_root, discover_markdown(corpus_root))
+    evaluation_set = RetrievalEvaluationSet.load_jsonl(
+        Path(args.evaluation), corpus
+    )
+    config = build_config()
+    runner = ExperimentRunner(args.base_config, args.workspace_root)
+    result = runner.run_experiment(config, args.run_id, corpus, evaluation_set)
+    return {
+        "corpus_id": corpus.corpus_id,
+        "evaluation_set_id": evaluation_set.evaluation_set_id,
+        "experiment_id": config.experiment_id,
+        "retrieval_run_id": result.retrieval_run_id,
+        "metrics_run_id": result.metrics_run_id,
+        "result_id": result.result_id,
+        "file_count": result.file_count,
+        "total_chunks": result.total_chunks,
+        "case_count": result.case_count,
+        "top_k": result.top_k,
+        "mean_hit_at_k": result.mean_hit_at_k,
+        "mean_recall_at_k": result.mean_recall_at_k,
+        "mean_mrr": result.mean_mrr,
+        "mean_ndcg_at_k": result.mean_ndcg_at_k,
+        "result_json": str(
+            Path(args.workspace_root)
+            / config.experiment_id
+            / args.run_id
+            / "result.json"
+        ),
+    }
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="运行一次正式 Retrieval 实验（G2-REAL-11）"
+    )
+    parser.add_argument("--corpus-root", required=True, help="Benchmark Corpus Root")
+    parser.add_argument("--evaluation", required=True, help="Gold evaluation.jsonl")
+    parser.add_argument("--base-config", required=True, help="项目 config.yaml")
+    parser.add_argument("--workspace-root", required=True, help="实验 Workspace Root")
+    parser.add_argument("--run-id", required=True, help="显式 run_id")
+    args = parser.parse_args(argv)
+    facts = run(args)
+    print(json.dumps(facts, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
