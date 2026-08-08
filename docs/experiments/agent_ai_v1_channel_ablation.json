@@ -1,0 +1,2404 @@
+{
+  "cases": [
+    {
+      "case_id": "q001",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/Transformer架构-04-采样与工程联系.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q002",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/量化技术.md",
+          "rag/检索与生成.md",
+          "finetuning/训练与评估.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/量化技术.md",
+          "deployment/部署架构.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "deployment/量化技术.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/量化技术.md",
+          "finetuning/微调方法.md",
+          "deployment/推理框架.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q003",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/核心概念.md",
+          "rag/文档处理.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/核心概念.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "vector_db/核心概念.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/核心概念.md",
+          "vector_db/产品对比.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q004",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-02-能力发现与传输.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md",
+          "tool_calling/工具设计.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-02-能力发现与传输.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md",
+          "mcp/MCP协议-04-状态部署与测试.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "mcp/MCP协议-02-能力发现与传输.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-02-能力发现与传输.md",
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q005",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/预训练.md",
+          "finetuning/数据工程.md",
+          "llm/Transformer架构-01-Attention与基础组件.md",
+          "deployment/推理框架.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/预训练.md",
+          "llm/Transformer架构-01-Attention与基础组件.md",
+          "finetuning/数据工程.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/预训练.md",
+          "llm/Transformer架构-01-Attention与基础组件.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q006",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "llm/对齐与微调.md",
+          "post_training/后训练-03-DPO与GRPO.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-03-DPO与GRPO.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-03-DPO与GRPO.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q007",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "post_training/后训练-04-常见问题与DPO落地.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "deployment/推理框架.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "deployment/量化技术.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q008",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/Function-Calling原理.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/Function-Calling原理.md",
+          "tool_calling/工具设计.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "tool_calling/Function-Calling原理.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/Function-Calling原理.md",
+          "prompt/评估与优化.md",
+          "tool_calling/工具设计.md",
+          "deployment/部署架构.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q009",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "vector_db/核心概念.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "vector_db/核心概念.md",
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/文档处理.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "vector_db/核心概念.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q010",
+      "dense": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/文档处理.md",
+          "rag/高级RAG.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/检索与生成.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/高级RAG.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/检索与生成.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q011",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/文档处理.md",
+          "llm/对齐与微调.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/文档处理.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/文档处理.md",
+          "llm/对齐与微调.md",
+          "finetuning/数据工程.md",
+          "llm/Transformer架构-01-Attention与基础组件.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q012",
+      "dense": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "llm/对齐与微调.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "rag/检索与生成.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md",
+          "finetuning/数据工程.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "prompt/提示工程基础.md",
+          "llm/对齐与微调.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      },
+      "outcome": "hybrid_rescue",
+      "outcome_subtype": "rescues_dense",
+      "recall_regression": false,
+      "relevant_files": [
+        "prompt/提示工程基础.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md",
+          "prompt/提示工程基础.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q013",
+      "dense": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "finetuning/数据工程.md",
+          "llm/预训练.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "vector_db/产品对比.md",
+          "post_training/后训练-01-概念与偏好数据.md",
+          "deployment/部署架构.md"
+        ]
+      },
+      "outcome": "fusion_regression",
+      "outcome_subtype": "dense",
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/预训练.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "prompt/提示工程基础.md",
+          "rag/检索与生成.md",
+          "vector_db/产品对比.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q014",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "post_training/后训练-06-工程落地与评测.md",
+          "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "llm/对齐与微调.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "llm/对齐与微调.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "finetuning/训练与评估.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "finetuning/微调方法.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "llm/对齐与微调.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q015",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "prompt/提示工程高级技巧.md",
+          "finetuning/训练与评估.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/文档处理.md",
+          "prompt/提示工程高级技巧.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "prompt/提示工程基础.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q016",
+      "dense": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "finetuning/训练与评估.md",
+          "prompt/提示工程基础.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "prompt/提示工程高级技巧.md",
+          "tool_calling/工具设计.md",
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "tool_calling/Function-Calling原理.md"
+        ]
+      },
+      "outcome": "hybrid_rescue",
+      "outcome_subtype": "rescues_dense",
+      "recall_regression": false,
+      "relevant_files": [
+        "tool_calling/工具设计.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "tool_calling/工具设计.md",
+          "tool_calling/Function-Calling原理.md",
+          "prompt/提示工程高级技巧.md",
+          "mcp/MCP协议-01-基础与原语.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q017",
+      "dense": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/预训练.md",
+          "finetuning/训练与评估.md",
+          "finetuning/数据工程.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/数据工程.md",
+          "llm/预训练.md",
+          "finetuning/训练与评估.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "finetuning/数据工程.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/数据工程.md",
+          "finetuning/微调方法.md",
+          "llm/预训练.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q018",
+      "dense": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "rag/高级RAG.md",
+          "prompt/提示工程基础.md",
+          "deployment/部署架构.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/提示工程基础.md",
+          "deployment/部署架构.md",
+          "rag/高级RAG.md",
+          "rag/文档处理.md",
+          "tool_calling/Function-Calling原理.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "prompt/提示工程基础.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/提示工程基础.md",
+          "llm/预训练.md",
+          "deployment/部署架构.md",
+          "tool_calling/Function-Calling原理.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q019",
+      "dense": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "llm/预训练.md",
+          "llm/Transformer架构-01-Attention与基础组件.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "finetuning/训练与评估.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "llm/对齐与微调.md",
+          "llm/预训练.md",
+          "llm/Transformer架构-01-Attention与基础组件.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md",
+          "prompt/提示工程基础.md"
+        ]
+      },
+      "outcome": "fusion_regression",
+      "outcome_subtype": "sparse",
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/对齐与微调.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "finetuning/微调方法.md",
+          "llm/Transformer架构-01-Attention与基础组件.md",
+          "mcp/MCP协议-04-状态部署与测试.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q020",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "llm/对齐与微调.md",
+          "finetuning/训练与评估.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "llm/对齐与微调.md",
+          "post_training/后训练-03-DPO与GRPO.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md",
+          "post_training/后训练-02-RewardModel与RLHF-PPO.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q021",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "deployment/量化技术.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "mcp/MCP协议-04-状态部署与测试.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q022",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "llm/对齐与微调.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "post_training/后训练-03-DPO与GRPO.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-01-概念与偏好数据.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q023",
+      "dense": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-01-概念与偏好数据.md",
+          "llm/对齐与微调.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-04-常见问题与DPO落地.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/对齐与微调.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-01-概念与偏好数据.md",
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/对齐与微调.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/对齐与微调.md",
+          "finetuning/微调方法.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q024",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-03-结果设计与安全边界.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "llm/Transformer架构-02-位置编码与结构.md",
+          "mcp/MCP协议-02-能力发现与传输.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-01-基础与原语.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md",
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "mcp/MCP协议-03-结果设计与安全边界.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 5,
+        "hit_at_k": 1.0,
+        "mrr": 0.2,
+        "ndcg_at_k": 0.38685280723454163,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "tool_calling/Function-Calling原理.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q025",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "vector_db/核心概念.md",
+          "rag/高级RAG.md",
+          "vector_db/产品对比.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/核心概念.md",
+          "rag/检索与生成.md",
+          "vector_db/产品对比.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "vector_db/核心概念.md",
+          "vector_db/产品对比.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q026",
+      "dense": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/对齐与微调.md",
+          "finetuning/微调方法.md",
+          "post_training/后训练-06-工程落地与评测.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "llm/对齐与微调.md",
+          "deployment/量化技术.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "finetuning/微调方法.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "vector_db/产品对比.md",
+          "rag/高级RAG.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q027",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/核心概念.md",
+          "rag/高级RAG.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/核心概念.md",
+          "vector_db/产品对比.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "vector_db/核心概念.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/产品对比.md",
+          "vector_db/核心概念.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q028",
+      "dense": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "llm/预训练.md",
+          "finetuning/数据工程.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "rag/高级RAG.md",
+          "vector_db/核心概念.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q029",
+      "dense": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "finetuning/训练与评估.md",
+          "tool_calling/Function-Calling原理.md",
+          "deployment/量化技术.md",
+          "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/工具设计.md",
+          "tool_calling/Function-Calling原理.md",
+          "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+          "llm/Transformer架构-04-采样与工程联系.md"
+        ]
+      },
+      "outcome": "hybrid_rescue",
+      "outcome_subtype": "rescues_dense",
+      "recall_regression": false,
+      "relevant_files": [
+        "tool_calling/工具设计.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/工具设计.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "rag/检索与生成.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q030",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "vector_db/核心概念.md",
+          "finetuning/训练与评估.md",
+          "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "prompt/评估与优化.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "deployment/推理框架.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "vector_db/核心概念.md",
+          "prompt/评估与优化.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q031",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/文档处理.md",
+          "rag/高级RAG.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.6131471927654584,
+        "recall_at_k": 0.5,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/高级RAG.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": true,
+      "relevant_files": [
+        "rag/文档处理.md",
+        "rag/检索与生成.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.6131471927654584,
+        "recall_at_k": 0.5,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/高级RAG.md",
+          "vector_db/核心概念.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q032",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9197207891481876,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/检索与生成.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/文档处理.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/文档处理.md",
+        "rag/高级RAG.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/文档处理.md",
+          "vector_db/产品对比.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q033",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.8772153153380493,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "deployment/推理框架.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5706417189553201,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "deployment/推理框架.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "deployment/推理框架.md",
+        "rag/检索与生成.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5706417189553201,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "deployment/推理框架.md",
+          "rag/检索与生成.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q034",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9197207891481876,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "rag/高级RAG.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.6131471927654584,
+        "recall_at_k": 0.5,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "vector_db/核心概念.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": true,
+      "relevant_files": [
+        "rag/检索与生成.md",
+        "rag/高级RAG.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/高级RAG.md",
+          "vector_db/核心概念.md",
+          "finetuning/训练与评估.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q035",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.6131471927654584,
+        "recall_at_k": 0.5,
+        "retrieved_files": [
+          "tool_calling/Function-Calling原理.md",
+          "prompt/提示工程高级技巧.md",
+          "finetuning/数据工程.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/Function-Calling原理.md",
+          "tool_calling/工具设计.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "tool_calling/Function-Calling原理.md",
+        "tool_calling/工具设计.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "tool_calling/工具设计.md",
+          "tool_calling/Function-Calling原理.md",
+          "mcp/MCP协议-02-能力发现与传输.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q036",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.7039180890341347,
+        "recall_at_k": 0.6666666666666666,
+        "retrieved_files": [
+          "prompt/提示工程高级技巧.md",
+          "prompt/提示工程基础.md",
+          "tool_calling/Function-Calling原理.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.7039180890341347,
+        "recall_at_k": 0.6666666666666666,
+        "retrieved_files": [
+          "prompt/提示工程高级技巧.md",
+          "prompt/提示工程基础.md",
+          "rag/文档处理.md",
+          "rag/高级RAG.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "prompt/提示工程高级技巧.md",
+        "rag/文档处理.md",
+        "tool_calling/Function-Calling原理.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.7653606369886217,
+        "recall_at_k": 0.6666666666666666,
+        "retrieved_files": [
+          "prompt/提示工程高级技巧.md",
+          "rag/文档处理.md",
+          "llm/对齐与微调.md",
+          "llm/预训练.md",
+          "mcp/MCP协议-04-状态部署与测试.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q037",
+      "dense": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-06-工程落地与评测.md",
+          "llm/预训练.md",
+          "finetuning/微调方法.md",
+          "post_training/后训练-01-概念与偏好数据.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-06-工程落地与评测.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "finetuning/微调方法.md",
+          "finetuning/训练与评估.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "post_training/后训练-06-工程落地与评测.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-06-工程落地与评测.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q038",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "prompt/提示工程高级技巧.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "prompt/提示工程基础.md",
+          "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 0.9197207891481876,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/提示工程高级技巧.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "prompt/提示工程基础.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+        "prompt/提示工程高级技巧.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.38685280723454163,
+        "recall_at_k": 0.5,
+        "retrieved_files": [
+          "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "prompt/提示工程高级技巧.md",
+          "rag/高级RAG.md",
+          "llm/Transformer架构-04-采样与工程联系.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q039",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md",
+          "prompt/提示工程高级技巧.md",
+          "rag/文档处理.md",
+          "tool_calling/工具设计.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "tool_calling/Function-Calling原理.md",
+          "deployment/部署架构.md",
+          "tool_calling/工具设计.md",
+          "vector_db/核心概念.md"
+        ]
+      },
+      "outcome": "fusion_regression",
+      "outcome_subtype": "both",
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/产品对比.md",
+          "rag/检索与生成.md",
+          "tool_calling/工具设计.md",
+          "finetuning/数据工程.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q040",
+      "dense": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "rag/检索与生成.md",
+          "llm/预训练.md",
+          "prompt/评估与优化.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "finetuning/数据工程.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "outcome": "hybrid_rescue",
+      "outcome_subtype": "rescues_dense",
+      "recall_regression": false,
+      "relevant_files": [
+        "finetuning/数据工程.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/数据工程.md",
+          "rag/高级RAG.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q041",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/高级RAG.md",
+          "prompt/评估与优化.md",
+          "rag/检索与生成.md",
+          "vector_db/核心概念.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "rag/文档处理.md",
+          "rag/高级RAG.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/高级RAG.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/文档处理.md",
+          "rag/高级RAG.md",
+          "vector_db/核心概念.md",
+          "rag/检索与生成.md",
+          "prompt/评估与优化.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q042",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-02-能力发现与传输.md",
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md",
+          "mcp/MCP协议-01-基础与原语.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-02-能力发现与传输.md",
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "mcp/MCP协议-03-结果设计与安全边界.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "mcp/MCP协议-02-能力发现与传输.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "mcp/MCP协议-02-能力发现与传输.md",
+          "mcp/MCP协议-01-基础与原语.md",
+          "mcp/MCP协议-04-状态部署与测试.md",
+          "prompt/提示工程基础.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q043",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/产品对比.md",
+          "rag/检索与生成.md",
+          "vector_db/核心概念.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/产品对比.md",
+          "vector_db/核心概念.md",
+          "rag/检索与生成.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "vector_db/产品对比.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "vector_db/产品对比.md",
+          "vector_db/核心概念.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q044",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/预训练.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "deployment/推理框架.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/推理框架.md",
+          "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "llm/预训练.md",
+          "prompt/评估与优化.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q045",
+      "dense": {
+        "first_relevant_rank": 4,
+        "hit_at_k": 1.0,
+        "mrr": 0.25,
+        "ndcg_at_k": 0.43067655807339306,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-06-工程落地与评测.md",
+          "finetuning/训练与评估.md",
+          "llm/对齐与微调.md",
+          "prompt/评估与优化.md",
+          "post_training/后训练-04-常见问题与DPO落地.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/训练与评估.md",
+          "post_training/后训练-06-工程落地与评测.md",
+          "prompt/评估与优化.md",
+          "rag/高级RAG.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "prompt/评估与优化.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/训练与评估.md",
+          "post_training/后训练-06-工程落地与评测.md",
+          "prompt/评估与优化.md",
+          "rag/高级RAG.md",
+          "post_training/后训练-07-简历项目与面试高频题.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q046",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "llm/对齐与微调.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-03-DPO与GRPO.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-04-常见问题与DPO落地.md",
+          "post_training/后训练-03-DPO与GRPO.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q047",
+      "dense": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "finetuning/训练与评估.md",
+          "finetuning/微调方法.md",
+          "prompt/评估与优化.md",
+          "deployment/部署架构.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": null,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "ndcg_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "retrieved_files": [
+          "prompt/评估与优化.md",
+          "rag/高级RAG.md",
+          "deployment/部署架构.md",
+          "finetuning/微调方法.md",
+          "prompt/提示工程高级技巧.md"
+        ]
+      },
+      "outcome": "fusion_regression",
+      "outcome_subtype": "sparse",
+      "recall_regression": false,
+      "relevant_files": [
+        "llm/Transformer架构-04-采样与工程联系.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "llm/Transformer架构-04-采样与工程联系.md",
+          "prompt/提示工程基础.md",
+          "prompt/评估与优化.md",
+          "mcp/MCP协议-04-状态部署与测试.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q048",
+      "dense": {
+        "first_relevant_rank": 3,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "ndcg_at_k": 0.5,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-01-概念与偏好数据.md",
+          "finetuning/训练与评估.md",
+          "finetuning/微调方法.md",
+          "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+          "llm/预训练.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "post_training/后训练-01-概念与偏好数据.md",
+          "llm/对齐与微调.md",
+          "llm/预训练.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "finetuning/微调方法.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "finetuning/微调方法.md",
+          "llm/对齐与微调.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q049",
+      "dense": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "post_training/后训练-03-DPO与GRPO.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "post_training/后训练-07-简历项目与面试高频题.md",
+          "post_training/后训练-03-DPO与GRPO.md",
+          "post_training/后训练-05-RM细节与GRPO应用.md",
+          "post_training/后训练-02-RewardModel与RLHF-PPO.md"
+        ]
+      }
+    },
+    {
+      "case_id": "q050",
+      "dense": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "rag/文档处理.md"
+        ]
+      },
+      "hybrid": {
+        "first_relevant_rank": 1,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "ndcg_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "rag/检索与生成.md",
+          "deployment/部署架构.md",
+          "deployment/推理框架.md"
+        ]
+      },
+      "outcome": "all_success",
+      "outcome_subtype": null,
+      "recall_regression": false,
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "sparse": {
+        "first_relevant_rank": 2,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "ndcg_at_k": 0.6309297535714575,
+        "recall_at_k": 1.0,
+        "retrieved_files": [
+          "deployment/部署架构.md",
+          "rag/检索与生成.md",
+          "deployment/推理框架.md"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "case_count": 50,
+    "macro": {
+      "dense": {
+        "hit_at_k": 0.88,
+        "mrr": 0.7483333333333333,
+        "ndcg_at_k": 0.762380950027294,
+        "recall_at_k": 0.8633333333333333
+      },
+      "hybrid": {
+        "hit_at_k": 0.92,
+        "mrr": 0.7866666666666667,
+        "ndcg_at_k": 0.7993602602248043,
+        "recall_at_k": 0.8933333333333333
+      },
+      "sparse": {
+        "hit_at_k": 0.98,
+        "mrr": 0.7873333333333333,
+        "ndcg_at_k": 0.8206430539778612,
+        "recall_at_k": 0.9533333333333333
+      }
+    },
+    "method": "offline/counterfactual channel ablation",
+    "net_value": {
+      "hybrid_vs_dense": {
+        "loss": 2,
+        "rescue": 4
+      },
+      "hybrid_vs_sparse": {
+        "loss": 3,
+        "rescue": 0
+      }
+    },
+    "outcomes": {
+      "all_fail": 0,
+      "all_success": 42,
+      "fusion_regression": 4,
+      "hybrid_rescue": 4,
+      "recall_regression_count": 2,
+      "subtypes": {
+        "regression_both": 1,
+        "regression_dense": 1,
+        "regression_sparse": 2,
+        "rescues_both": 0,
+        "rescues_dense": 4,
+        "rescues_sparse": 0
+      }
+    },
+    "schema_version": 1,
+    "source": {
+      "baseline_retrieval_run_id": "fc228af22f55",
+      "diagnostic_id": "dfb2316d0163"
+    },
+    "top_k_chunks": 5
+  }
+}
