@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "intervention": "chunk_budget_policy: cl100k_content_v1 -> embedding_runtime_model_input_v1",
+  "corpus_id": "870e5864df67",
+  "evaluation_set_id": "18c1c0470652",
+  "file_count": 37,
+  "case_count": 50,
+  "top_k": 5,
+  "runtime_contract": {
+    "effective_embedding_max_seq_length": 512,
+    "special_token_overhead": 2,
+    "tokenizer_contract_probe_version": "v1",
+    "tokenizer_contract_fingerprint": "e8e75c158a1505f2",
+    "runtime_tokenizer_class": "BertTokenizer"
+  },
+  "chunking_observed": {
+    "total_chunks": 215,
+    "actual_content_token_max": 510,
+    "actual_model_input_token_max": 512,
+    "actual_would_truncate_count": 0,
+    "corpus_scoped_tokenizer_behavior_fingerprint": "d39634c168e74677"
+  },
+  "strategies": {
+    "dense": {
+      "historical": {
+        "experiment_id": "dc220d794578",
+        "retrieval_run_id": "bf1c0d99a952",
+        "metrics_run_id": "a5ddaecf5c2d",
+        "result_id": "c2d4ec845d9e",
+        "hit_at_5": 0.88,
+        "recall_at_5": 0.8633333333333333,
+        "mrr": 0.7483333333333333,
+        "ndcg_at_5": 0.762380950027294
+      },
+      "aligned": {
+        "experiment_id": "04fc6d2111a6",
+        "retrieval_run_id": "0c71b0f29491",
+        "metrics_run_id": "f558c0ae747d",
+        "result_id": "805658b71e76",
+        "hit_at_5": 0.84,
+        "recall_at_5": 0.84,
+        "mrr": 0.6696666666666666,
+        "ndcg_at_5": 0.7078465372188232
+      },
+      "delta_aligned_minus_historical": {
+        "hit_at_5": -0.04,
+        "recall_at_5": -0.0233333333333333,
+        "mrr": -0.0786666666666667,
+        "ndcg_at_5": -0.0545344128084708
+      },
+      "case_level": {
+        "exact_document_ranking": 3,
+        "changed_document_ranking": 47,
+        "hit_rescue": 1,
+        "hit_loss": 3,
+        "recall_improved": 2,
+        "recall_worsened": 3,
+        "recall_unchanged": 45,
+        "rescue_cases": ["q029"],
+        "loss_cases": ["q023", "q036", "q045"]
+      }
+    },
+    "bm25": {
+      "historical": {
+        "experiment_id": "dbc497c796d5",
+        "retrieval_run_id": "4af4d4e8a052",
+        "metrics_run_id": "608187a6f3ad",
+        "result_id": "acd92171966d",
+        "hit_at_5": 0.98,
+        "recall_at_5": 0.9533333333333333,
+        "mrr": 0.7873333333333333,
+        "ndcg_at_5": 0.8206430539778612
+      },
+      "aligned": {
+        "experiment_id": "b35b1102197e",
+        "retrieval_run_id": "40d2e21e3bc2",
+        "metrics_run_id": "e31e22858dde",
+        "result_id": "812d4d4e2bd2",
+        "hit_at_5": 0.98,
+        "recall_at_5": 0.9433333333333332,
+        "mrr": 0.785,
+        "ndcg_at_5": 0.8063855323597042
+      },
+      "delta_aligned_minus_historical": {
+        "hit_at_5": 0.0,
+        "recall_at_5": -0.0100000000000001,
+        "mrr": -0.0023333333333333,
+        "ndcg_at_5": -0.014257521618157
+      },
+      "case_level": {
+        "exact_document_ranking": 14,
+        "changed_document_ranking": 36,
+        "hit_rescue": 0,
+        "hit_loss": 0,
+        "recall_improved": 0,
+        "recall_worsened": 1,
+        "recall_unchanged": 49,
+        "rescue_cases": [],
+        "loss_cases": []
+      }
+    },
+    "hybrid": {
+      "historical": {
+        "experiment_id": "3c613202e1ed",
+        "retrieval_run_id": "fc228af22f55",
+        "metrics_run_id": "966ed53156e4",
+        "result_id": "e27141a2b63e",
+        "hit_at_5": 0.92,
+        "recall_at_5": 0.8933333333333333,
+        "mrr": 0.7866666666666667,
+        "ndcg_at_5": 0.7993602602248043
+      },
+      "aligned": {
+        "experiment_id": "e680cdf278b2",
+        "retrieval_run_id": "6d295e9ed5f8",
+        "metrics_run_id": "68b33512c51b",
+        "result_id": "26327c177e37",
+        "hit_at_5": 0.96,
+        "recall_at_5": 0.9333333333333332,
+        "mrr": 0.7633333333333333,
+        "ndcg_at_5": 0.7958963239236665
+      },
+      "delta_aligned_minus_historical": {
+        "hit_at_5": 0.04,
+        "recall_at_5": 0.04,
+        "mrr": -0.0233333333333334,
+        "ndcg_at_5": -0.0034639363011378
+      },
+      "case_level": {
+        "exact_document_ranking": 13,
+        "changed_document_ranking": 37,
+        "hit_rescue": 2,
+        "hit_loss": 0,
+        "recall_improved": 2,
+        "recall_worsened": 0,
+        "recall_unchanged": 48,
+        "rescue_cases": ["q039", "q047"],
+        "loss_cases": []
+      }
+    }
+  },
+  "multi_file_recall_changes": {
+    "q031": {"dense": "1.000->1.000", "bm25": "0.500->0.500", "hybrid": "0.500->0.500"},
+    "q032": {"dense": "1.000->1.000", "bm25": "1.000->1.000", "hybrid": "1.000->1.000"},
+    "q033": {"dense": "1.000->1.000", "bm25": "1.000->0.500", "hybrid": "1.000->1.000"},
+    "q034": {"dense": "1.000->1.000", "bm25": "1.000->1.000", "hybrid": "0.500->0.500"},
+    "q035": {"dense": "0.500->1.000", "bm25": "1.000->1.000", "hybrid": "1.000->1.000"},
+    "q036": {"dense": "0.667->0.000", "bm25": "0.667->0.667", "hybrid": "0.667->0.667"},
+    "q038": {"dense": "1.000->1.000", "bm25": "0.500->0.500", "hybrid": "1.000->1.000"}
+  },
+  "focus_cases": {
+    "q013": {
+      "relevant": ["llm/预训练.md"],
+      "dense": {"historical_hit": 1, "aligned_hit": 1, "first_rank": "3->4"},
+      "bm25": {"historical_hit": 0, "aligned_hit": 0},
+      "hybrid": {"historical_hit": 0, "aligned_hit": 0},
+      "change": "unchanged"
+    },
+    "q019": {
+      "relevant": ["llm/Transformer架构-03-训练推理与高效Attention.md"],
+      "dense": {"historical_hit": 0, "aligned_hit": 0},
+      "bm25": {"historical_hit": 1, "aligned_hit": 1, "first_rank": "2->3"},
+      "hybrid": {"historical_hit": 0, "aligned_hit": 0},
+      "change": "unchanged"
+    },
+    "q039": {
+      "relevant": ["rag/检索与生成.md"],
+      "dense": {"historical_hit": 1, "aligned_hit": 1, "first_rank": "1->1"},
+      "bm25": {"historical_hit": 1, "aligned_hit": 1, "first_rank": "2->2"},
+      "hybrid": {"historical_hit": 0, "aligned_hit": 1, "first_rank": "absent->3"},
+      "change": "hybrid_rescue"
+    },
+    "q047": {
+      "relevant": ["llm/Transformer架构-04-采样与工程联系.md"],
+      "dense": {"historical_hit": 0, "aligned_hit": 0},
+      "bm25": {"historical_hit": 1, "aligned_hit": 1, "first_rank": "1->1"},
+      "hybrid": {"historical_hit": 0, "aligned_hit": 1, "first_rank": "absent->2"},
+      "change": "hybrid_rescue"
+    },
+    "q031": {
+      "relevant": ["rag/文档处理.md", "rag/检索与生成.md"],
+      "dense": {"recall": "1.000->1.000"},
+      "bm25": {"recall": "0.500->0.500"},
+      "hybrid": {"recall": "0.500->0.500"},
+      "change": "unchanged"
+    },
+    "q034": {
+      "relevant": ["rag/高级RAG.md", "rag/检索与生成.md"],
+      "dense": {"recall": "1.000->1.000", "first_rank": "1->2"},
+      "bm25": {"recall": "1.000->1.000"},
+      "hybrid": {"recall": "0.500->0.500"},
+      "change": "unchanged"
+    },
+    "q036": {
+      "relevant": ["prompt/提示工程高级技巧.md", "rag/文档处理.md", "tool_calling/Function-Calling原理.md"],
+      "dense": {"historical_hit": 1, "aligned_hit": 0, "recall": "0.667->0.000"},
+      "bm25": {"recall": "0.667->0.667"},
+      "hybrid": {"recall": "0.667->0.667", "first_rank": "1->2"},
+      "change": "dense_loss"
+    }
+  },
+  "interpretation": {
+    "bm25_control": "BM25 基本不变（Hit 0.98->0.98，Recall -0.01，MRR -0.0023，nDCG -0.0143），Dense/Hybrid 明显变化：支持 embedding-input alignment 是重要机制（情况 A）；仍不能证明 truncation alone",
+    "causal_boundary": "alignment intervention effect != truncation-only causal effect",
+    "statistical_significance": "未执行显著性检验"
+  }
+}

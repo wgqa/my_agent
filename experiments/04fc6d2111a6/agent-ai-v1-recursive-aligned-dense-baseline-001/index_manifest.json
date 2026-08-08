@@ -1,0 +1,518 @@
+{
+  "actual_content_token_max": 510,
+  "actual_model_input_token_max": 512,
+  "actual_would_truncate_count": 0,
+  "chunk_strategy": "recursive",
+  "config": {
+    "chunk_budget_policy": "embedding_runtime_model_input_v1",
+    "chunk_overlap": 64,
+    "chunk_size": 512,
+    "chunk_strategy": "recursive",
+    "dense_candidate_k": 30,
+    "effective_embedding_max_seq_length": 512,
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "embedding_provider": "bge",
+    "retriever_strategy": "simple",
+    "rrf_k": 60.0,
+    "rrf_tie_breaker": "chunk_id_asc",
+    "sparse_candidate_k": 30,
+    "special_token_overhead": 2,
+    "tokenizer_contract_fingerprint": "e8e75c158a1505f2",
+    "tokenizer_contract_probe_version": "v1",
+    "top_k": 5
+  },
+  "corpus_entries": [
+    {
+      "relative_path": "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+      "sha256": "1730ec7927f89f7b1ccbd02606451c49c86e293eef61f23c696ad05c8f098c7a",
+      "size_bytes": 3632
+    },
+    {
+      "relative_path": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+      "sha256": "8dd753c2a6025b97e2d0fc2ad6d0e7a7580de5276684650580a7bb9c92360875",
+      "size_bytes": 3082
+    },
+    {
+      "relative_path": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+      "sha256": "dbdeefaf5a97140f0d2437c2582ceb45091767e16847c061aa4bacdbcbb31ac2",
+      "size_bytes": 3726
+    },
+    {
+      "relative_path": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+      "sha256": "efd1f08d70b9199ab27b5b75993f8e9fccb4e2d357742c1b9258870db1c023d4",
+      "size_bytes": 4588
+    },
+    {
+      "relative_path": "deployment/推理框架.md",
+      "sha256": "9bd4197330200f1be17f655b12b8da6cd03b4f9236df686f3b16e47135d50685",
+      "size_bytes": 12013
+    },
+    {
+      "relative_path": "deployment/部署架构.md",
+      "sha256": "ccde5a7330fad3ef371b1636213b7adb86cc7ca95512312d2bc0cce375cafd86",
+      "size_bytes": 13647
+    },
+    {
+      "relative_path": "deployment/量化技术.md",
+      "sha256": "1ab9e09028867cafba4835805eaf08175cbca24e710b96fc657b7265e3428f32",
+      "size_bytes": 9871
+    },
+    {
+      "relative_path": "finetuning/微调方法.md",
+      "sha256": "d264ee0888b835096b16660dd40b54b14ef38b6eb168949e16bee33e47b98fd4",
+      "size_bytes": 12202
+    },
+    {
+      "relative_path": "finetuning/数据工程.md",
+      "sha256": "1d45075b5ed7e7bf1627a8c0c5550938645127b742b3bb1d180afed343502338",
+      "size_bytes": 13860
+    },
+    {
+      "relative_path": "finetuning/训练与评估.md",
+      "sha256": "5148c9909eaddffc69b6901a953e661b748b8de05ef669681058b322d7a0e8cd",
+      "size_bytes": 12651
+    },
+    {
+      "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+      "sha256": "3b8fa6342acec5c68e1c59ae57e46d573ac13264b51d7f61d78edbf2764c8ddc",
+      "size_bytes": 4889
+    },
+    {
+      "relative_path": "llm/Transformer架构-02-位置编码与结构.md",
+      "sha256": "272166c22492dc2f8986e9f1c23c7320c87e7a44495717d0914fbe09ca2c706f",
+      "size_bytes": 3186
+    },
+    {
+      "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+      "sha256": "ac6307fb19cc7eb08a2b83eb05822fd37841a532b6e32caeb0623aaef39d2431",
+      "size_bytes": 2833
+    },
+    {
+      "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+      "sha256": "43e0b39c41d6ed63b91e14aa12408ef59ffd5eb11a08bd6bc4f529c05874e04e",
+      "size_bytes": 3785
+    },
+    {
+      "relative_path": "llm/对齐与微调.md",
+      "sha256": "7124bbd3e2674645ace4ff1d92af00acdda0347290745108b6a9463ec77ab4ac",
+      "size_bytes": 9504
+    },
+    {
+      "relative_path": "llm/预训练.md",
+      "sha256": "2c4584f88e21d3e063d047a22f6556676c03b47169196f26c568207e7692770a",
+      "size_bytes": 12859
+    },
+    {
+      "relative_path": "mcp/MCP协议-01-基础与原语.md",
+      "sha256": "f6d85d3ae6916299aaecd0981447fbbd96f5e368f52f584d2a0cf35712fa00e3",
+      "size_bytes": 4518
+    },
+    {
+      "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+      "sha256": "3c467d247eee16111a163c2f8e3afb5299ebbc5d266dfab30948a8e806380c27",
+      "size_bytes": 2987
+    },
+    {
+      "relative_path": "mcp/MCP协议-03-结果设计与安全边界.md",
+      "sha256": "c68f697504c5df1e503a0004b5e15fe975de93ba27cb7ad64c31a656c4391726",
+      "size_bytes": 3323
+    },
+    {
+      "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+      "sha256": "60af4356c2b48031227f26026219c1e9ecec0ee3a751e8f1b3ef8f1537ed07d2",
+      "size_bytes": 3740
+    },
+    {
+      "relative_path": "post_training/后训练-01-概念与偏好数据.md",
+      "sha256": "1ffca7d456b0a3715d937447e8d646bbd1933e987b7f3efc6f84887fc645a511",
+      "size_bytes": 3886
+    },
+    {
+      "relative_path": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+      "sha256": "b5943131dc4520a82ff8335ecf5b7a16a924d29634475c90eeaa551fba051533",
+      "size_bytes": 3844
+    },
+    {
+      "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+      "sha256": "3ac1cb5d9c95a8e5bd5286809abb299f4cdcc1b06e6549f7b93116f04cc5f303",
+      "size_bytes": 3391
+    },
+    {
+      "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+      "sha256": "05162eaed2d75488d315c86075e422cac755dfb1561ad75bd2b1f421ebcb0440",
+      "size_bytes": 5894
+    },
+    {
+      "relative_path": "post_training/后训练-05-RM细节与GRPO应用.md",
+      "sha256": "cce2628064c86938eea6c30750157ba32aeab56428b0c5bb9ccd42a6b7e30835",
+      "size_bytes": 3072
+    },
+    {
+      "relative_path": "post_training/后训练-06-工程落地与评测.md",
+      "sha256": "bb8eecbc3a8df805191727faf33bf93eaa7eeacde1e70d585f31fb0ec486e3da",
+      "size_bytes": 3399
+    },
+    {
+      "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+      "sha256": "e1053bd9f8bfe67215af9e414e7ad719d8239ba75ddfbff0bf7c916fb3055f2f",
+      "size_bytes": 5571
+    },
+    {
+      "relative_path": "prompt/提示工程基础.md",
+      "sha256": "7142bb7137a514b25cc926b7f21665eea537aaf8e94001a916767415748889d0",
+      "size_bytes": 9754
+    },
+    {
+      "relative_path": "prompt/提示工程高级技巧.md",
+      "sha256": "3ef974f10c41f9dbf0c8655efa52edbebed1827f24b9b136bda46fb5d7a19ad3",
+      "size_bytes": 11579
+    },
+    {
+      "relative_path": "prompt/评估与优化.md",
+      "sha256": "aa331874381b0e97b7ea0dc3cbf143c6290047e222e4e5d34643a3e6a6953efb",
+      "size_bytes": 9993
+    },
+    {
+      "relative_path": "rag/文档处理.md",
+      "sha256": "6742df37e757d08f7ba54d1915ca9793a64350b53b0350cee3387632d245f885",
+      "size_bytes": 10488
+    },
+    {
+      "relative_path": "rag/检索与生成.md",
+      "sha256": "912b93f732190fc065e0a204ba0a8226a979f10677d24cc89f3cdf3771ddef79",
+      "size_bytes": 11002
+    },
+    {
+      "relative_path": "rag/高级RAG.md",
+      "sha256": "30e77527b5a020aa9d6330e09adf874d2db67a44b9c6f943360e28e1f099c1e9",
+      "size_bytes": 11051
+    },
+    {
+      "relative_path": "tool_calling/Function-Calling原理.md",
+      "sha256": "3c3e575f23789097289cdafcda662269585fb51068d9d33f5d4d0aa8aa483c53",
+      "size_bytes": 11014
+    },
+    {
+      "relative_path": "tool_calling/工具设计.md",
+      "sha256": "15ad5627cd9159110acdf00fb78733e10234807682cf147fd162adb761974088",
+      "size_bytes": 9809
+    },
+    {
+      "relative_path": "vector_db/产品对比.md",
+      "sha256": "1b3aa86e2d140ae089540c57fea1ce928aad65e4f6edbc80ce8549c5e98d9bf1",
+      "size_bytes": 9045
+    },
+    {
+      "relative_path": "vector_db/核心概念.md",
+      "sha256": "449620048aa64aa69a7fa514e7d2610f647448364bb8333d241204d97b88a4d5",
+      "size_bytes": 13288
+    }
+  ],
+  "corpus_id": "870e5864df67",
+  "corpus_scoped_tokenizer_behavior_fingerprint": "d39634c168e74677",
+  "experiment_id": "04fc6d2111a6",
+  "file_count": 37,
+  "files": [
+    {
+      "chunks": 3,
+      "document_id": "cb303b97a5a1a1c3",
+      "relative_path": "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+      "sha256": "1730ec7927f89f7b1ccbd02606451c49c86e293eef61f23c696ad05c8f098c7a",
+      "size_bytes": 3632,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "e96e0011953ce96f",
+      "relative_path": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+      "sha256": "8dd753c2a6025b97e2d0fc2ad6d0e7a7580de5276684650580a7bb9c92360875",
+      "size_bytes": 3082,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "5f682889ae30c967",
+      "relative_path": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+      "sha256": "dbdeefaf5a97140f0d2437c2582ceb45091767e16847c061aa4bacdbcbb31ac2",
+      "size_bytes": 3726,
+      "status": "create"
+    },
+    {
+      "chunks": 4,
+      "document_id": "9938360d2e8b9bf8",
+      "relative_path": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+      "sha256": "efd1f08d70b9199ab27b5b75993f8e9fccb4e2d357742c1b9258870db1c023d4",
+      "size_bytes": 4588,
+      "status": "create"
+    },
+    {
+      "chunks": 9,
+      "document_id": "a7ea0f4cc58ac5be",
+      "relative_path": "deployment/推理框架.md",
+      "sha256": "9bd4197330200f1be17f655b12b8da6cd03b4f9236df686f3b16e47135d50685",
+      "size_bytes": 12013,
+      "status": "create"
+    },
+    {
+      "chunks": 10,
+      "document_id": "1094a22883135a7d",
+      "relative_path": "deployment/部署架构.md",
+      "sha256": "ccde5a7330fad3ef371b1636213b7adb86cc7ca95512312d2bc0cce375cafd86",
+      "size_bytes": 13647,
+      "status": "create"
+    },
+    {
+      "chunks": 8,
+      "document_id": "28e6ff0adda24105",
+      "relative_path": "deployment/量化技术.md",
+      "sha256": "1ab9e09028867cafba4835805eaf08175cbca24e710b96fc657b7265e3428f32",
+      "size_bytes": 9871,
+      "status": "create"
+    },
+    {
+      "chunks": 9,
+      "document_id": "a2fa4c500d30389c",
+      "relative_path": "finetuning/微调方法.md",
+      "sha256": "d264ee0888b835096b16660dd40b54b14ef38b6eb168949e16bee33e47b98fd4",
+      "size_bytes": 12202,
+      "status": "create"
+    },
+    {
+      "chunks": 10,
+      "document_id": "0b8e7ace8c50caec",
+      "relative_path": "finetuning/数据工程.md",
+      "sha256": "1d45075b5ed7e7bf1627a8c0c5550938645127b742b3bb1d180afed343502338",
+      "size_bytes": 13860,
+      "status": "create"
+    },
+    {
+      "chunks": 9,
+      "document_id": "3c11a591e8c2d851",
+      "relative_path": "finetuning/训练与评估.md",
+      "sha256": "5148c9909eaddffc69b6901a953e661b748b8de05ef669681058b322d7a0e8cd",
+      "size_bytes": 12651,
+      "status": "create"
+    },
+    {
+      "chunks": 4,
+      "document_id": "c388c364081aa999",
+      "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+      "sha256": "3b8fa6342acec5c68e1c59ae57e46d573ac13264b51d7f61d78edbf2764c8ddc",
+      "size_bytes": 4889,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "36593fd8a5440973",
+      "relative_path": "llm/Transformer架构-02-位置编码与结构.md",
+      "sha256": "272166c22492dc2f8986e9f1c23c7320c87e7a44495717d0914fbe09ca2c706f",
+      "size_bytes": 3186,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "5b8c1e7af9bd1bfe",
+      "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+      "sha256": "ac6307fb19cc7eb08a2b83eb05822fd37841a532b6e32caeb0623aaef39d2431",
+      "size_bytes": 2833,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "35e9d3b9f9f24da5",
+      "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+      "sha256": "43e0b39c41d6ed63b91e14aa12408ef59ffd5eb11a08bd6bc4f529c05874e04e",
+      "size_bytes": 3785,
+      "status": "create"
+    },
+    {
+      "chunks": 7,
+      "document_id": "50d6f867cf7f44ac",
+      "relative_path": "llm/对齐与微调.md",
+      "sha256": "7124bbd3e2674645ace4ff1d92af00acdda0347290745108b6a9463ec77ab4ac",
+      "size_bytes": 9504,
+      "status": "create"
+    },
+    {
+      "chunks": 10,
+      "document_id": "4d1d69ed088b003f",
+      "relative_path": "llm/预训练.md",
+      "sha256": "2c4584f88e21d3e063d047a22f6556676c03b47169196f26c568207e7692770a",
+      "size_bytes": 12859,
+      "status": "create"
+    },
+    {
+      "chunks": 4,
+      "document_id": "b6f50ed000b39bca",
+      "relative_path": "mcp/MCP协议-01-基础与原语.md",
+      "sha256": "f6d85d3ae6916299aaecd0981447fbbd96f5e368f52f584d2a0cf35712fa00e3",
+      "size_bytes": 4518,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "734e6444e5bb3ba0",
+      "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+      "sha256": "3c467d247eee16111a163c2f8e3afb5299ebbc5d266dfab30948a8e806380c27",
+      "size_bytes": 2987,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "aa5acc7935a8deeb",
+      "relative_path": "mcp/MCP协议-03-结果设计与安全边界.md",
+      "sha256": "c68f697504c5df1e503a0004b5e15fe975de93ba27cb7ad64c31a656c4391726",
+      "size_bytes": 3323,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "4a946d6ac3c8c2b2",
+      "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+      "sha256": "60af4356c2b48031227f26026219c1e9ecec0ee3a751e8f1b3ef8f1537ed07d2",
+      "size_bytes": 3740,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "76845213c6564bfd",
+      "relative_path": "post_training/后训练-01-概念与偏好数据.md",
+      "sha256": "1ffca7d456b0a3715d937447e8d646bbd1933e987b7f3efc6f84887fc645a511",
+      "size_bytes": 3886,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "a1033e44104ca728",
+      "relative_path": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+      "sha256": "b5943131dc4520a82ff8335ecf5b7a16a924d29634475c90eeaa551fba051533",
+      "size_bytes": 3844,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "e5f4a4551cf658b0",
+      "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+      "sha256": "3ac1cb5d9c95a8e5bd5286809abb299f4cdcc1b06e6549f7b93116f04cc5f303",
+      "size_bytes": 3391,
+      "status": "create"
+    },
+    {
+      "chunks": 5,
+      "document_id": "11c2d22bcbba2f3b",
+      "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+      "sha256": "05162eaed2d75488d315c86075e422cac755dfb1561ad75bd2b1f421ebcb0440",
+      "size_bytes": 5894,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "9736390396a7a649",
+      "relative_path": "post_training/后训练-05-RM细节与GRPO应用.md",
+      "sha256": "cce2628064c86938eea6c30750157ba32aeab56428b0c5bb9ccd42a6b7e30835",
+      "size_bytes": 3072,
+      "status": "create"
+    },
+    {
+      "chunks": 3,
+      "document_id": "9b50b11acfabf2da",
+      "relative_path": "post_training/后训练-06-工程落地与评测.md",
+      "sha256": "bb8eecbc3a8df805191727faf33bf93eaa7eeacde1e70d585f31fb0ec486e3da",
+      "size_bytes": 3399,
+      "status": "create"
+    },
+    {
+      "chunks": 4,
+      "document_id": "da36e8e873bef694",
+      "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+      "sha256": "e1053bd9f8bfe67215af9e414e7ad719d8239ba75ddfbff0bf7c916fb3055f2f",
+      "size_bytes": 5571,
+      "status": "create"
+    },
+    {
+      "chunks": 7,
+      "document_id": "52daf25593c024a3",
+      "relative_path": "prompt/提示工程基础.md",
+      "sha256": "7142bb7137a514b25cc926b7f21665eea537aaf8e94001a916767415748889d0",
+      "size_bytes": 9754,
+      "status": "create"
+    },
+    {
+      "chunks": 9,
+      "document_id": "fca1b07e02ccfa1f",
+      "relative_path": "prompt/提示工程高级技巧.md",
+      "sha256": "3ef974f10c41f9dbf0c8655efa52edbebed1827f24b9b136bda46fb5d7a19ad3",
+      "size_bytes": 11579,
+      "status": "create"
+    },
+    {
+      "chunks": 8,
+      "document_id": "5fcddd69127d9078",
+      "relative_path": "prompt/评估与优化.md",
+      "sha256": "aa331874381b0e97b7ea0dc3cbf143c6290047e222e4e5d34643a3e6a6953efb",
+      "size_bytes": 9993,
+      "status": "create"
+    },
+    {
+      "chunks": 8,
+      "document_id": "d53277e8d1dce368",
+      "relative_path": "rag/文档处理.md",
+      "sha256": "6742df37e757d08f7ba54d1915ca9793a64350b53b0350cee3387632d245f885",
+      "size_bytes": 10488,
+      "status": "create"
+    },
+    {
+      "chunks": 8,
+      "document_id": "076bfdb158a7f47a",
+      "relative_path": "rag/检索与生成.md",
+      "sha256": "912b93f732190fc065e0a204ba0a8226a979f10677d24cc89f3cdf3771ddef79",
+      "size_bytes": 11002,
+      "status": "create"
+    },
+    {
+      "chunks": 8,
+      "document_id": "b9ed7f314b155cbc",
+      "relative_path": "rag/高级RAG.md",
+      "sha256": "30e77527b5a020aa9d6330e09adf874d2db67a44b9c6f943360e28e1f099c1e9",
+      "size_bytes": 11051,
+      "status": "create"
+    },
+    {
+      "chunks": 8,
+      "document_id": "420fc785a87e73e4",
+      "relative_path": "tool_calling/Function-Calling原理.md",
+      "sha256": "3c3e575f23789097289cdafcda662269585fb51068d9d33f5d4d0aa8aa483c53",
+      "size_bytes": 11014,
+      "status": "create"
+    },
+    {
+      "chunks": 7,
+      "document_id": "fa46d9981425ca38",
+      "relative_path": "tool_calling/工具设计.md",
+      "sha256": "15ad5627cd9159110acdf00fb78733e10234807682cf147fd162adb761974088",
+      "size_bytes": 9809,
+      "status": "create"
+    },
+    {
+      "chunks": 7,
+      "document_id": "58900e3c6745e029",
+      "relative_path": "vector_db/产品对比.md",
+      "sha256": "1b3aa86e2d140ae089540c57fea1ce928aad65e4f6edbc80ce8549c5e98d9bf1",
+      "size_bytes": 9045,
+      "status": "create"
+    },
+    {
+      "chunks": 10,
+      "document_id": "263a596a15bde15e",
+      "relative_path": "vector_db/核心概念.md",
+      "sha256": "449620048aa64aa69a7fa514e7d2610f647448364bb8333d241204d97b88a4d5",
+      "size_bytes": 13288,
+      "status": "create"
+    }
+  ],
+  "retriever_strategy": "simple",
+  "schema_version": 2,
+  "sparse_index_count": null,
+  "total_chunks": 215,
+  "vector_store_count": 215
+}

@@ -1,0 +1,42 @@
+{
+  "artifacts": {
+    "index_manifest": "index_manifest.json",
+    "retrieval_metrics": "retrieval_metrics.json",
+    "retrieval_results": "retrieval_results.json"
+  },
+  "case_count": 50,
+  "chunk_strategy": "recursive",
+  "config": {
+    "chunk_budget_policy": "embedding_runtime_model_input_v1",
+    "chunk_overlap": 64,
+    "chunk_size": 512,
+    "chunk_strategy": "recursive",
+    "dense_candidate_k": 30,
+    "effective_embedding_max_seq_length": 512,
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "embedding_provider": "bge",
+    "retriever_strategy": "simple",
+    "rrf_k": 60.0,
+    "rrf_tie_breaker": "chunk_id_asc",
+    "sparse_candidate_k": 30,
+    "special_token_overhead": 2,
+    "tokenizer_contract_fingerprint": "e8e75c158a1505f2",
+    "tokenizer_contract_probe_version": "v1",
+    "top_k": 5
+  },
+  "corpus_id": "870e5864df67",
+  "evaluation_set_id": "18c1c0470652",
+  "experiment_id": "04fc6d2111a6",
+  "file_count": 37,
+  "mean_hit_at_k": 0.84,
+  "mean_mrr": 0.6696666666666666,
+  "mean_ndcg_at_k": 0.7078465372188232,
+  "mean_recall_at_k": 0.84,
+  "metrics_run_id": "f558c0ae747d",
+  "result_id": "805658b71e76",
+  "retrieval_run_id": "0c71b0f29491",
+  "retriever_strategy": "simple",
+  "schema_version": 1,
+  "top_k": 5,
+  "total_chunks": 215
+}
