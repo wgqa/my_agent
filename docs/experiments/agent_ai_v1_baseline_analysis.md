@@ -397,6 +397,15 @@ Diagnostic（`retrieval_diagnostics.json`，diagnostic_id=dfb2316d0163）
 - **状态**：supported（证据增强）
 - 事实支撑：q031 / q034 / q036 的缺失 Gold 文件都被通道检索到（q031 dense2/sparse16、q034 dense5/sparse2、q036 dense4/sparse20）却未进入 Final Top-5，与“单次检索 Top-5 无法覆盖全部子问题”一致；缺失文件与查询中未被覆盖的子问题直接对应（“证据进索引”链路、混合检索评测/融合、Tool 执行层防御）。
 
+### H5：Chunk-level RRF 可能无法聚合同一文档中落在不同 Chunk 的跨通道信号
+
+- **状态**：plausible
+- 事实支撑：58 个 Gold obligations 中 F（无共享 Gold chunk）=3 且 3/3
+  最终失败；E（有共享但最佳 chunk 不同）=27 且其中仅 2 条最终失败；
+  Final 失败 7 条中 E+F=5（71.4%）。但 E 类别 25/27 成功、F 样本仅 3，
+  且当前无 chunk-level Gold label（详见
+  `docs/experiments/agent_ai_v1_fusion_fragmentation_analysis.md`）。
+
 ---
 
 ## 8. 数据来源
