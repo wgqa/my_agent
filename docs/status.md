@@ -8,7 +8,7 @@
 ## 当前结论
 
 - **定位**：面向技术文档与代码的可评测 RAG Agent
-- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis 复审通过** → **G2-DIAG-13/R1 Hybrid Channel-Level Diagnostic：RRF tie 确定化 + canonical Baseline + 50/50 复审通过** → **G2-ANALYSIS-14 Chunk-Level Fusion Fragmentation Analysis 复审通过** → **G2-ABL-15/R1 Dense vs BM25 vs Hybrid offline channel ablation 复审通过** → **G2-ABL-16/R1 Dense-only / BM25-only Formal Strategy Confirmation 复审通过** → **G2-ABL-17 Fixed vs Recursive Chunk Strategy Formal Ablation（完成，待复审）** → M4：真实 Benchmark Baseline 已建立，进入错误分析与消融
+- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis 复审通过** → **G2-DIAG-13/R1 Hybrid Channel-Level Diagnostic：RRF tie 确定化 + canonical Baseline + 50/50 复审通过** → **G2-ANALYSIS-14 Chunk-Level Fusion Fragmentation Analysis 复审通过** → **G2-ABL-15/R1 Dense vs BM25 vs Hybrid offline channel ablation 复审通过** → **G2-ABL-16/R1 Dense-only / BM25-only Formal Strategy Confirmation 复审通过** → **G2-ABL-17/R1 Fixed vs Recursive Chunk Strategy Formal Ablation 复审通过** → **G2-DIAG-18 Chunk Budget vs BGE Tokenizer Alignment Diagnostic（完成，待复审）** → M4：真实 Benchmark Baseline 已建立，进入错误分析与消融
 - **测试**：全量 suite 通过（--basetemp=.tmp_pytest）
 
 ## 任务状态
@@ -61,7 +61,9 @@
 | ABL-15 | Dense vs BM25 vs Hybrid offline channel ablation | Dense Hit0.88/Recall0.8633/MRR0.7483/nDCG0.7624；BM25 Hit0.98/Recall0.9533/MRR0.7873/nDCG0.8206；Hybrid Hit0.92/Recall0.8933/MRR0.7867/nDCG0.7994；Hybrid vs Dense 修复4/损失2、vs BM25 修复0/损失3（R1 文档口径修正完成，见 study-notes 55） | ✅ 复审通过 |
 | ABL-16 | Dense-only / BM25-only Formal Strategy Confirmation | 新增 bm25 策略（BM25OnlyRetriever）；正式 Dense Hit0.88/Recall0.8633/MRR0.7483/nDCG0.7624、BM25 Hit0.98/Recall0.9533/MRR0.7873/nDCG0.8206；offline vs formal 宏 delta 全 0，Case-level 与 chunk-level 均 50/50（见 study-notes 56） | ✅ 复审通过 |
 | ABL-16-R1 | Runtime Retriever Binding + BM25 Sparse Integrity | _validate_pipeline 增加真实 Retriever 类型校验（simple/hybrid/bm25/mmr）；hybrid/bm25 强制 sparse_index_count==vector_store_count，simple 保持 null；未来 BM25 Manifest 将含 sparse count（见 study-notes 56） | ✅ 复审通过 |
-| ABL-17 | Fixed vs Recursive Chunk Strategy Formal Ablation | CLI 新增 --chunk-strategy；三个 Fixed 正式实验（Dense Hit0.80/Recall0.7867/MRR0.6717/nDCG0.6896、BM25 Hit0.96/Recall0.9333/MRR0.7583/nDCG0.7892、Hybrid Hit0.92/Recall0.9133/MRR0.7600/nDCG0.7915）；total_chunks 237 三者一致；Fixed BM25/Hybrid sparse integrity=237 闭合；H3 拆分为 H3a（chunk strategy materially affects retrieval，supported）/ H3b（specific boundary 削弱证据，plausible/unverified）（见 study-notes 57） | 🔧 完成，待复审 |
+| ABL-17 | Fixed vs Recursive Chunk Strategy Formal Ablation | CLI 新增 --chunk-strategy；三个 Fixed 正式实验（Dense Hit0.80/Recall0.7867/MRR0.6717/nDCG0.6896、BM25 Hit0.96/Recall0.9333/MRR0.7583/nDCG0.7892、Hybrid Hit0.92/Recall0.9133/MRR0.7600/nDCG0.7915）；total_chunks 237 三者一致；Fixed BM25/Hybrid sparse integrity=237 闭合；H3 拆分为 H3a（chunk strategy materially affects retrieval，supported）/ H3b（specific boundary 削弱证据，plausible/unverified）（见 study-notes 57） | ✅ 复审通过 |
+| ABL-17-R1 | Chunk Ablation 方法论与学习笔记口径修正 | H3 拆分为 H3a/H3b；57 号笔记修正 TokenCounter 真实实现（tiktoken cl100k_base + 字符级 fallback）、新增"512 token 到底是谁的 token"、修正 BGE pooling 表述与 overlap 经验值；伪 citation 扫描为 0；零代码/零 Artifact 修改 | ✅ 复审通过 |
+| DIAG-18 | Chunk Budget vs BGE Tokenizer Alignment Diagnostic | Recursive 215/Fixed 237 重建一致；本地 BertTokenizer max_seq_length=512；would-truncate Recursive 34/215=15.81%、Fixed 35/237=14.77%；overflow max 174/175；q013/q019/q047 Gold 无截断 chunk，q036 2/3 Gold 文件有截断风险；登记 BPE monotonicity 技术债（见 study-notes 58） | 🔧 完成，待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | ✅ 复审通过 |
 | G1-META-02 | Sparse-only 结果丢失原始元数据 | BM25 存元数据副本，sparse-only 命中恢复（实时入库同步） | ✅ 复审通过 |
 | G1-CTX-03A/R1 | 双模块各自截断、预算可加性假设 | 统一渲染契约 + 按最终渲染字符串真实 count 预算 | ✅ 复审通过 |
@@ -82,7 +84,7 @@
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ 260（Gate1 RRF）→ 266（G1-META-02）→ 269（G1-META-02-R1）→ 277（G1-CTX-03A）→ 280（G1-CTX-03A-R1）→ 292（G1-CTX-03B）→ 301（G1-RANK-04）→ 306（G1-CHUNK-05A）→ 312（G1-CHUNK-05A-R1）→ 314（G1-CHUNK-05B）→ **314**（G1-CLOSE-06 文档收尾，08-06）→ 332（G2-ER-05，08-06）→ 334（G2-ER-05-R1，08-07）→ 382（G2-EVAL-06，08-07）→ 396（G2-EVAL-06-R1，08-07）→ 435（G2-EVAL-07，08-07）→ 442（G2-EVAL-07-R1，08-07）→ 479（G2-EVAL-08，08-07）→ 488（G2-EVAL-08-R1，08-07）→ 522（G2-EVAL-09，08-07）→ 526（G2-EVAL-09-R1，08-07）→ 537（G2-EXP-10，08-07）→ 540（G2-REAL-11 CLI 与全量，08-07）→ 559（G2-REAL-11-R1，08-07）→ 574（G2-DIAG-13，08-08）→ 590（G2-DIAG-13-R1，08-08）→ 595（G2-ANALYSIS-14，08-08）→ 604（G2-ABL-15，08-08）→ 610（G2-ABL-16，08-08）→ 624（G2-ABL-16-R1，08-08）→ **625（G2-ABL-17，08-08）**
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ 260（Gate1 RRF）→ 266（G1-META-02）→ 269（G1-META-02-R1）→ 277（G1-CTX-03A）→ 280（G1-CTX-03A-R1）→ 292（G1-CTX-03B）→ 301（G1-RANK-04）→ 306（G1-CHUNK-05A）→ 312（G1-CHUNK-05A-R1）→ 314（G1-CHUNK-05B）→ **314**（G1-CLOSE-06 文档收尾，08-06）→ 332（G2-ER-05，08-06）→ 334（G2-ER-05-R1，08-07）→ 382（G2-EVAL-06，08-07）→ 396（G2-EVAL-06-R1，08-07）→ 435（G2-EVAL-07，08-07）→ 442（G2-EVAL-07-R1，08-07）→ 479（G2-EVAL-08，08-07）→ 488（G2-EVAL-08-R1，08-07）→ 522（G2-EVAL-09，08-07）→ 526（G2-EVAL-09-R1，08-07）→ 537（G2-EXP-10，08-07）→ 540（G2-REAL-11 CLI 与全量，08-07）→ 559（G2-REAL-11-R1，08-07）→ 574（G2-DIAG-13，08-08）→ 590（G2-DIAG-13-R1，08-08）→ 595（G2-ANALYSIS-14，08-08）→ 604（G2-ABL-15，08-08）→ 610（G2-ABL-16，08-08）→ 624（G2-ABL-16-R1，08-08）→ **625（G2-ABL-17，08-08）** → **635（G2-DIAG-18，08-08）**
 
 ## Git
 
@@ -96,6 +98,6 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-57 |
+| docs/study-notes/ | 学习笔记 00-58 |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |

@@ -1,0 +1,670 @@
+{
+  "chunk_budget_tokenizer": "cl100k_base",
+  "chunk_overlap": 64,
+  "chunk_size": 512,
+  "corpus_id": "870e5864df67",
+  "diagnostic_id": "b04d2dce47c9",
+  "embedding_max_seq_length": 512,
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "embedding_tokenizer": "BertTokenizer",
+  "file_count": 37,
+  "schema_version": 1,
+  "strategies": {
+    "fixed": {
+      "bge_token": {
+        "max": 687,
+        "median": 463.0,
+        "min": 57,
+        "p90": 530.4,
+        "p95": 550.4,
+        "p99": 588.7999999999997
+      },
+      "chunk_count": 237,
+      "cl100k_max": 512,
+      "cl100k_over_budget_chunks": [],
+      "cl100k_over_budget_count": 0,
+      "overflow_max": 175,
+      "overflow_median": 30.0,
+      "token_ratio": {
+        "max": 1.341796875,
+        "median": 0.919921875,
+        "p90": 1.051171875,
+        "p95": 1.0843749999999999
+      },
+      "truncated_chunks": [
+        {
+          "bge_token_count": 687,
+          "char_end": 1515,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 175,
+          "preview": "# LangChain 与 LangGraph：可恢复 Agent 工作流\n## 四、Node 与 Edge\n\n### 1. Node\n\n一个节点只承担清晰的一",
+          "relative_path": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 605,
+          "char_end": 1980,
+          "char_start": 681,
+          "chunk_index": 1,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 93,
+          "preview": "全不同的动作。\n\n---\n\n## 三、命名与描述\n\n### 1. 名称\n\n使用动作 + 对象：\n\n```text\nsearch_notes\nget_review",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 596,
+          "char_end": 3652,
+          "char_start": 1918,
+          "chunk_index": 2,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 84,
+          "preview": "horizer authorizer;\n    private final int maxRounds;\n\n    public AgentResult run",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 576,
+          "char_end": 1759,
+          "char_start": 650,
+          "chunk_index": 1,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 64,
+          "preview": "立部署的 Server。\n\n需要处理：\n\n- TLS；\n- 身份认证与授权；\n- Session/连接状态；\n- 反向代理超时与流式转发；\n- Origin/H",
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 570,
+          "char_end": 4282,
+          "char_start": 3200,
+          "chunk_index": 5,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 58,
+          "preview": "一步可查询的字段，但不伪造结果。\n~~~\n\nRAG中应区分：\n\n- 没有检索结果；\n- 检索结果不相关；\n- 资料冲突；\n- 资料能支持部分答案；\n- 用户问题",
+          "relative_path": "prompt/提示工程基础.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 568,
+          "char_end": 1126,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 511,
+          "overflow_tokens": 56,
+          "preview": "# Function Calling 原理与执行循环\n\n> 核心认识：模型只负责生成“调用哪个工具、传什么参数”的结构化建议；真正的参数校验、权限判断、执行、重",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 566,
+          "char_end": 2991,
+          "char_start": 1864,
+          "chunk_index": 3,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 54,
+          "preview": " QLoRA；\n- 量化类型和 compute dtype；\n- 是否合并 Adapter。\n\n---\n\n## 四、训练配置样例\n\n以下是实验配置应包含的信息，",
+          "relative_path": "finetuning/训练与评估.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 563,
+          "char_end": 2743,
+          "char_start": 1877,
+          "chunk_index": 2,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 51,
+          "preview": "ties\": false\n}\n```\n\n不要让模型生成数据库主键、租户 ID、权限角色和内部价格等可信字段；应用从认证上下文和数据库中补充。\n\n---\n\n## ",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 560,
+          "char_end": 878,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 48,
+          "preview": "# 向量数据库核心概念：索引、过滤与工程闭环\n\n> 目标：能解释向量从哪里来、为什么需要 ANN、HNSW/IVF 参数如何影响召回与延迟，并设计支持权限、增量",
+          "relative_path": "vector_db/核心概念.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 554,
+          "char_end": 5014,
+          "char_start": 3846,
+          "chunk_index": 6,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 42,
+          "preview": ": str\n    question: str\n    required_facts: tuple[str, ...]\n    answerable: bool",
+          "relative_path": "prompt/评估与优化.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 552,
+          "char_end": 3467,
+          "char_start": 2665,
+          "chunk_index": 3,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 40,
+          "preview": "新增薄弱点、更新草稿 | 幂等、审计，可根据场景自动执行 |\n| 外部影响 | 发消息、提交表单、调用付费 API | 执行前展示关键参数并确认 |\n| 不可逆",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 552,
+          "char_end": 5832,
+          "char_start": 4936,
+          "chunk_index": 8,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 40,
+          "preview": "\": \"JVM 类加载\", \"top_k\": 5}\n        }\n      ]\n    },\n    {\"role\": \"tool\", \"name\": ",
+          "relative_path": "finetuning/数据工程.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 550,
+          "char_end": 6393,
+          "char_start": 5451,
+          "chunk_index": 6,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 38,
+          "preview": "操作需要应用层确认，而非模型自行确认。\n\n### 3. 网络与文件\n\n- URL 工具防 SSRF：限制协议、域名/IP、重定向和响应大小；\n- 文件工具校验规",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 550,
+          "char_end": 4205,
+          "char_start": 3333,
+          "chunk_index": 5,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 38,
+          "preview": "总预算时，可按剩余时间为：\n\n- 检索；\n- Rerank；\n- 模型排队与生成；\n- 工具调用\n\n分配子截止时间。下游每一步都要知道“还剩多少时间”。\n\n##",
+          "relative_path": "deployment/部署架构.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 548,
+          "char_end": 2138,
+          "char_start": 1195,
+          "chunk_index": 2,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 36,
+          "preview": "不会犯错的专家。\n~~~\n\n角色不能让模型拥有未学过的知识，也不能保证正确。更重要的是任务、数据和验证。\n\n---\n\n## 五、约束设计\n\n### 1. 正向描",
+          "relative_path": "prompt/提示工程基础.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 543,
+          "char_end": 2872,
+          "char_start": 1740,
+          "chunk_index": 2,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 31,
+          "preview": ")             [B, H, L, L]\nScores = Scores + Mask\nWeights = Softmax(Scores)     ",
+          "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 543,
+          "char_end": 1816,
+          "char_start": 867,
+          "chunk_index": 1,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 31,
+          "preview": "- 模型对参数不确定的高风险工具。\n\n节点可在执行副作用前暂停：\n\n~~~python\nfrom langgraph.types import interrup",
+          "relative_path": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 542,
+          "char_end": 2726,
+          "char_start": 1817,
+          "chunk_index": 3,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 30,
+          "preview": " 常见偏差\n\n- 偏好长答案；\n- 偏好格式漂亮的答案；\n- 位置偏差；\n- 自我偏好；\n- 事实核验能力不足；\n- Prompt Injection 从候选答",
+          "relative_path": "prompt/评估与优化.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 541,
+          "char_end": 4412,
+          "char_start": 3561,
+          "chunk_index": 3,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 29,
+          "preview": "` 当可信身份。身份应来自已认证的服务端上下文。\n\n---\n\n## 六、工具结果协议\n\n结果应区分机器可读字段和给模型的安全摘要。\n\n```json\n{\n  \"",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "fixed"
+        },
+        {
+          "bge_token_count": 540,
+          "char_end": 841,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 28,
+          "preview": "# Agent 工具设计：契约、安全与可测试性\n\n> 前置：[`01-Function-Calling原理.md`](01-Function-Calling原理",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "fixed"
+        }
+      ],
+      "truncated_files": [
+        {
+          "relative_path": "tool_calling/工具设计.md",
+          "truncated_count": 6
+        },
+        {
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "truncated_count": 4
+        },
+        {
+          "relative_path": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "deployment/部署架构.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "prompt/提示工程基础.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "prompt/评估与优化.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "deployment/推理框架.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "finetuning/数据工程.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "finetuning/训练与评估.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "mcp/MCP协议-03-结果设计与安全边界.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "rag/高级RAG.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "vector_db/核心概念.md",
+          "truncated_count": 1
+        }
+      ],
+      "would_truncate_count": 35,
+      "would_truncate_percentage": 14.767932489451477
+    },
+    "recursive": {
+      "bge_token": {
+        "max": 686,
+        "median": 458.0,
+        "min": 22,
+        "p90": 526.0,
+        "p95": 545.3,
+        "p99": 572.86
+      },
+      "chunk_count": 215,
+      "cl100k_max": 512,
+      "cl100k_over_budget_chunks": [],
+      "cl100k_over_budget_count": 0,
+      "overflow_max": 174,
+      "overflow_median": 25.5,
+      "token_ratio": {
+        "max": 1.33984375,
+        "median": 0.91875,
+        "p90": 1.045239448051948,
+        "p95": 1.084927676361386
+      },
+      "truncated_chunks": [
+        {
+          "bge_token_count": 686,
+          "char_end": 1512,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 174,
+          "preview": "# LangChain 与 LangGraph：可恢复 Agent 工作流\n## 四、Node 与 Edge\n\n### 1. Node\n\n一个节点只承担清晰的一",
+          "relative_path": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 597,
+          "char_end": 2054,
+          "char_start": 834,
+          "chunk_index": 1,
+          "cl100k_token_count": 508,
+          "overflow_tokens": 85,
+          "preview": "helper\nprocess\ndatabase_tool\n```\n\n### 2. 描述必须说明边界\n\n不够好：\n\n```text\nSearches data.\n",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 573,
+          "char_end": 3937,
+          "char_start": 2549,
+          "chunk_index": 2,
+          "cl100k_token_count": 497,
+          "overflow_tokens": 61,
+          "preview": "toolRegistry.require(call.name());\n\n                ValidatedArguments arguments",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 572,
+          "char_end": 5763,
+          "char_start": 4754,
+          "chunk_index": 7,
+          "cl100k_token_count": 505,
+          "overflow_tokens": 60,
+          "preview": "    {\"role\": \"user\", \"content\": \"查找 JVM 笔记中的类加载内容\"},\n    {\n      \"role\": \"assist",
+          "relative_path": "finetuning/数据工程.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 563,
+          "char_end": 1121,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 508,
+          "overflow_tokens": 51,
+          "preview": "# Function Calling 原理与执行循环\n\n> 核心认识：模型只负责生成“调用哪个工具、传什么参数”的结构化建议；真正的参数校验、权限判断、执行、重",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 560,
+          "char_end": 878,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 48,
+          "preview": "# 向量数据库核心概念：索引、过滤与工程闭环\n\n> 目标：能解释向量从哪里来、为什么需要 ANN、HNSW/IVF 参数如何影响召回与延迟，并设计支持权限、增量",
+          "relative_path": "vector_db/核心概念.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 555,
+          "char_end": 4774,
+          "char_start": 3578,
+          "chunk_index": 5,
+          "cl100k_token_count": 497,
+          "overflow_tokens": 43,
+          "preview": "A/B\n\n上线前必须满足权限、安全和基础质量门槛。在线比较：\n\n```text\n任务完成率\n用户重试/改写率\n人工反馈\n会话放弃率\n延迟和成本\n故障与投诉\n``",
+          "relative_path": "prompt/评估与优化.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 555,
+          "char_end": 5282,
+          "char_start": 4206,
+          "chunk_index": 6,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 43,
+          "preview": "    r=16,\n    lora_alpha=32,\n    lora_dropout=0.05,\n    target_modules=[\"q_proj\"",
+          "relative_path": "finetuning/微调方法.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 549,
+          "char_end": 3053,
+          "char_start": 1965,
+          "chunk_index": 2,
+          "cl100k_token_count": 505,
+          "overflow_tokens": 37,
+          "preview": "3. 最小实现\n\n```python\nimport math\nimport torch\n\n\ndef scaled_dot_product_attention(\n",
+          "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 547,
+          "char_end": 2880,
+          "char_start": 2038,
+          "chunk_index": 2,
+          "cl100k_token_count": 507,
+          "overflow_tokens": 35,
+          "preview": "权限规则：用户是否有该操作权限\n风险规则：是否需要确认或禁止自动执行\n```\n\n错误返回应指向字段：\n\n```json\n{\n  \"ok\": false,\n  \"",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 546,
+          "char_end": 5994,
+          "char_start": 5182,
+          "chunk_index": 5,
+          "cl100k_token_count": 506,
+          "overflow_tokens": 34,
+          "preview": "已发起 tool_call\n工具执行状态和幂等键\nToken/时间/费用预算\n取消标记\n```\n\n服务重启后不能把“执行结果未知”的写工具直接再跑一次。应先查询",
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 545,
+          "char_end": 1803,
+          "char_start": 754,
+          "chunk_index": 1,
+          "cl100k_token_count": 475,
+          "overflow_tokens": 33,
+          "preview": "- 限流、日志和审计；\n- 多实例下的状态与路由。\n\n某些早期实现使用 HTTP + SSE 等旧传输。新项目应根据所锁定规范与 SDK 选择当前推荐方式，\n不",
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 542,
+          "char_end": 2941,
+          "char_start": 2042,
+          "chunk_index": 3,
+          "cl100k_token_count": 511,
+          "overflow_tokens": 30,
+          "preview": "Schema\n必填字段是否存在\n枚举和数值范围\n字段间业务约束\n是否出现额外字段\n语义是否正确\n```\n\n“JSON 合法”只代表语法正确，不代表业务正确。\n\n",
+          "relative_path": "prompt/评估与优化.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 542,
+          "char_end": 1775,
+          "char_start": 820,
+          "chunk_index": 1,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 30,
+          "preview": "Server 建立会话；\n- 完成初始化和能力协商；\n- 发现工具、资源和提示；\n- 发送请求、接收结果和通知；\n- 把协议对象适配给 Host。\n\n### S",
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 541,
+          "char_end": 2266,
+          "char_start": 1320,
+          "chunk_index": 2,
+          "cl100k_token_count": 511,
+          "overflow_tokens": 29,
+          "preview": "若证据不足，将status设为\"insufficient_evidence\"，\n并在missing_fields中列出缺失项。\n~~~\n\n### 2. 规则优先",
+          "relative_path": "prompt/提示工程基础.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 540,
+          "char_end": 841,
+          "char_start": 0,
+          "chunk_index": 0,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 28,
+          "preview": "# Agent 工具设计：契约、安全与可测试性\n\n> 前置：[`01-Function-Calling原理.md`](01-Function-Calling原理",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 538,
+          "char_end": 2335,
+          "char_start": 1376,
+          "chunk_index": 2,
+          "cl100k_token_count": 511,
+          "overflow_tokens": 26,
+          "preview": "- 很快下降后验证恶化：可能过大或过拟合；\n- 突然 NaN：先查学习率、异常样本和混合精度。\n\n### 3. Epoch 与 Max Steps\n\n小数据按 ",
+          "relative_path": "finetuning/训练与评估.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 537,
+          "char_end": 3684,
+          "char_start": 2872,
+          "chunk_index": 3,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 25,
+          "preview": "```text\nidempotency_key = run_id + normalized_user_intent + operation_version\n``",
+          "relative_path": "tool_calling/工具设计.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 534,
+          "char_end": 4651,
+          "char_start": 3597,
+          "chunk_index": 5,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 22,
+          "preview": "| 已有Hugging Face生产链路 | TGI，先核对版本支持 |\n| NVIDIA硬件、追求极致优化 | TensorRT-LLM |\n| CPU/边缘",
+          "relative_path": "deployment/推理框架.md",
+          "strategy": "recursive"
+        },
+        {
+          "bge_token_count": 533,
+          "char_end": 3782,
+          "char_start": 2888,
+          "chunk_index": 4,
+          "cl100k_token_count": 512,
+          "overflow_tokens": 21,
+          "preview": "| 低随机性 |\n| 事实问答 | 较低随机性 + RAG/验证 |\n| 创意写作 | 适当提高多样性 |\n| 多候选生成 | 提高多样性，再排序 |\n\n温度降",
+          "relative_path": "prompt/提示工程基础.md",
+          "strategy": "recursive"
+        }
+      ],
+      "truncated_files": [
+        {
+          "relative_path": "tool_calling/工具设计.md",
+          "truncated_count": 5
+        },
+        {
+          "relative_path": "prompt/提示工程基础.md",
+          "truncated_count": 3
+        },
+        {
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "truncated_count": 3
+        },
+        {
+          "relative_path": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "finetuning/数据工程.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "finetuning/训练与评估.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "prompt/评估与优化.md",
+          "truncated_count": 2
+        },
+        {
+          "relative_path": "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "deployment/推理框架.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "deployment/部署架构.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "finetuning/微调方法.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "rag/检索与生成.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "rag/高级RAG.md",
+          "truncated_count": 1
+        },
+        {
+          "relative_path": "vector_db/核心概念.md",
+          "truncated_count": 1
+        }
+      ],
+      "would_truncate_count": 34,
+      "would_truncate_percentage": 15.813953488372093
+    }
+  }
+}

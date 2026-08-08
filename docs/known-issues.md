@@ -53,3 +53,12 @@
 - **现象：** "的""和"等高频虚词干扰 BM25 打分
 - **原因：** 分词后没有过滤停用词
 - **优先级：** 增强级，可延后
+
+### TokenCounter
+
+#### 技术债：BPE token-count monotonicity assumption 需要单独验证
+- **位置：** `token_counter.py` `max_substring()` / `substring_start()`
+- **说明：** 二分逻辑注释假设 "BPE 编码长度随字符串增长单调非减"；
+  G2-DIAG-18 仅登记该假设，不修改算法，也不把它与 tokenizer
+  alignment 混成同一个修复；后续由单独任务决定是否需要性质测试或
+  算法调整。
