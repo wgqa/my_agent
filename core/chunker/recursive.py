@@ -79,7 +79,9 @@ class RecursiveChunker(BaseChunker):
 
             for i, (start, end) in enumerate(merged):
                 # 文本完整优先：严格预算放不下但放行单字符时标记 oversized
-                strict_end = self._counter.max_substring(text, start, self.chunk_size)
+                strict_end = self._counter.max_substring(
+                    text, start, self.chunk_size, end=end,
+                )
                 oversized = strict_end == start and end > start
                 chunked.append(self._make_chunk(doc, text, i, start, end, oversized))
         return chunked

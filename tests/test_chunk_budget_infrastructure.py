@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 from core.chunker.embedding_runtime_counter import EmbeddingRuntimeTokenCounter
+from core.chunker.fixed_size import FixedSizeChunker
 from core.chunker.recursive import RecursiveChunker
 from core.chunker.token_counter import TokenCounter
 from core.config import Config, ConfigError
@@ -23,6 +24,7 @@ from evaluation.experiment_resolver import resolve_experiment_config
 from evaluation.experiment_runner import PreparedExperiment, ExperimentRunner
 from evaluation.experiment_spec import ExperimentSpec
 from evaluation.experiment_workspace import ExperimentWorkspace
+from evaluation.index_manifest import MANIFEST_SCHEMA_VERSION, IndexManifest
 
 
 # ── fakes ───────────────────────────────────────────────────
@@ -310,6 +312,37 @@ def test_aligned_half_parsed_config_rejected():
         )
 
 
+def test_aligned_chunk_size_must_equal_runtime_max():
+    with pytest.raises(ValueError, match="chunk_size"):
+        _aligned_config(
+            FakeBGEEmbedding(),
+            ExperimentSpec(
+                chunk_budget_policy="embedding_runtime_model_input_v1",
+                chunk_size=256,
+                retriever_strategy="simple",
+            ),
+        )
+    config = _aligned_config(
+        FakeBGEEmbedding(),
+        ExperimentSpec(
+            chunk_budget_policy="embedding_runtime_model_input_v1",
+            chunk_size=512,
+            retriever_strategy="simple",
+        ),
+    )
+    assert config.chunk_size == 512
+    assert config.chunk_size == config.effective_embedding_max_seq_length
+    with pytest.raises(ValueError, match="chunk_size"):
+        ExperimentConfig(
+            chunk_budget_policy="embedding_runtime_model_input_v1",
+            chunk_size=256,
+            effective_embedding_max_seq_length=512,
+            special_token_overhead=2,
+            tokenizer_contract_probe_version="v1",
+            tokenizer_contract_fingerprint="a" * 16,
+        )
+
+
 def test_preflight_failure_leaves_zero_workspace_side_effect(tmp_path, monkeypatch):
     class BrokenEmbedding(FakeBGEEmbedding):
         def get_runtime_contract(self):
@@ -380,6 +413,36 @@ def test_pipeline_contract_mismatch_fails_before_index(tmp_path):
 
     runner = ExperimentRunner(base, tmp_path / "runs", factory)
     with pytest.raises(RuntimeError, match="runtime contract"):
+        runner.prepare(config, "run1")
+
+
+def test_same_contract_different_tokenizer_object_fails(tmp_path):
+    """同类型/同 max/同 behavior/同 fingerprint，但 Python 对象不同 → fail。"""
+    tokenizer_a = FakeRuntimeTokenizer("default")
+    tokenizer_b = FakeRuntimeTokenizer("default")
+    contract_a = rc.compute_tokenizer_contract(tokenizer_a)
+    contract_b = rc.compute_tokenizer_contract(tokenizer_b)
+    assert contract_a == contract_b  # contract 完全相同
+    assert tokenizer_a is not tokenizer_b
+
+    embedding = FakeBGEEmbedding(FakeST(tokenizer=tokenizer_a))
+    config = _aligned_config(embedding)
+    counter = EmbeddingRuntimeTokenCounter(tokenizer_b, 512)
+    base = _write_base(tmp_path)
+
+    def factory(config_path):
+        from core.retriever.simple import SimpleRetriever
+
+        cfg = LocalFakeConfig(config_path)
+        return SimpleNamespace(
+            config=cfg,
+            embedding=embedding,
+            retriever=SimpleRetriever(None, None),
+            chunker=SimpleNamespace(_counter=counter),
+        )
+
+    runner = ExperimentRunner(base, tmp_path / "runs", factory)
+    with pytest.raises(RuntimeError, match="同一个 tokenizer 对象"):
         runner.prepare(config, "run1")
 
 
@@ -517,6 +580,73 @@ def test_aligned_prepare_success_and_same_instance_counter(tmp_path):
     prepared = runner.prepare(config, "run1")
     counter = prepared.pipeline.chunker._counter
     assert counter.tokenizer is embedding.get_runtime_model()[0].tokenizer
+    assert counter.model_input_budget == config.chunk_size
+    assert counter.model_input_budget == (
+        config.effective_embedding_max_seq_length
+    )
+
+
+def test_fixed_non_monotonic_overlap_finds_true_leftmost_start():
+    """较短 suffix 超限、更长 suffix 合法：不得第一次超限就提前停止。"""
+    length_map = {
+        4: 11,   # 短 suffix 超 overlap=10
+        5: 10,   # 更长 suffix 恰好合法
+        6: 12,   # 再长又超
+        7: 9,    # 更长合法
+        71: 71,  # 第一块在 71 超 chunk_size=70
+        72: 65,  # 72 合法（非单调）
+    }
+    counter = EmbeddingRuntimeTokenCounter(
+        NonMonotonicTokenizer(length_map), 512
+    )
+    chunker = FixedSizeChunker(
+        chunk_size=70, chunk_overlap=10, token_counter=counter
+    )
+    text = "x" * 100
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    assert len(chunks) >= 2
+    first, second = chunks[0], chunks[1]
+    assert first.metadata["char_start"] == 0
+    assert first.metadata["char_end"] == 72
+    # 旧实现会在 suffix len=4 超限时停在 69；正确的最左合法 start 是 62。
+    assert second.metadata["char_start"] == 62
+    assert second.content in text
+    assert first.content in text
+    assert len(text[62:72]) == 10  # overlap 是 10 个正文 token 对应的字符窗口
+
+
+def test_recursive_long_document_safe_search_bounded_and_correct():
+    """aligned Recursive：max_substring 必须有界（不扫全文后缀）、
+    结果正确、无 encode、不死循环、chunk 全部满足预算。"""
+    counter = EmbeddingRuntimeTokenCounter(FakeRuntimeTokenizer(), 512)
+    original_max_substring = counter.max_substring
+    calls = []
+
+    def wrapped(text, start, limit, end=None, allow_oversize=False):
+        calls.append(end)
+        return original_max_substring(
+            text, start, limit, end=end, allow_oversize=allow_oversize
+        )
+
+    counter.max_substring = wrapped
+    chunker = RecursiveChunker(
+        chunk_size=counter.content_budget,
+        chunk_overlap=64,
+        token_counter=counter,
+    )
+    text = ("证据内容与代码示例 " * 400) + "\n\n" + ("x" * 2000)
+    chunks = chunker.chunk([Document(content=text, metadata={})])
+    assert chunks
+    for chunk in chunks:
+        assert counter.count_model_input(chunk.content) <= 512
+        assert chunk.content in text
+    assert calls and all(end is not None for end in calls), (
+        "aligned Recursive 的 max_substring 不得无界扫描全文后缀"
+    )
+
+
+def test_manifest_schema_version_is_two():
+    assert IndexManifest().schema_version == MANIFEST_SCHEMA_VERSION == 2
 
 
 # ── manifest / post-index observed facts ────────────────────
@@ -570,6 +700,7 @@ def test_aligned_manifest_observed_facts_and_hard_contract(tmp_path):
     raw = json.loads(
         prepared.paths.index_manifest_path.read_text(encoding="utf-8")
     )
+    assert raw["schema_version"] == 2
     assert raw["corpus_scoped_tokenizer_behavior_fingerprint"] == (
         manifest.corpus_scoped_tokenizer_behavior_fingerprint
     )

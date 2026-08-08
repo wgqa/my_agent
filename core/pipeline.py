@@ -80,9 +80,7 @@ class Pipeline:
             )
             counter = EmbeddingRuntimeTokenCounter(
                 tokenizer=self.embedding.get_runtime_tokenizer(),
-                model_input_budget=(
-                    self.config.effective_embedding_max_seq_length
-                ),
+                model_input_budget=self.config.chunk_size,
             )
             # aligned 模式下 chunk_size 表示 model input budget，
             # 实际切分预算由 counter 推导为 content_budget。

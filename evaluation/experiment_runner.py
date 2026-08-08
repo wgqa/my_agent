@@ -24,7 +24,11 @@ from evaluation.experiment_result import (
     ExperimentResult,
 )
 from evaluation.experiment_workspace import ExperimentPaths, ExperimentWorkspace
-from evaluation.index_manifest import FileIndexRecord, IndexManifest
+from evaluation.index_manifest import (
+    MANIFEST_SCHEMA_VERSION,
+    FileIndexRecord,
+    IndexManifest,
+)
 from evaluation.retrieval_evaluation_set import RetrievalCase, RetrievalEvaluationSet
 from evaluation.retrieval_result import (
     RETRIEVAL_RESULT_SCHEMA_VERSION,
@@ -193,6 +197,27 @@ class ExperimentRunner:
                     "aligned policy 要求 Pipeline.chunker 实际使用 "
                     "EmbeddingRuntimeTokenCounter，不能继续实验"
                 )
+            if counter.model_input_budget != config.chunk_size:
+                raise RuntimeError(
+                    "aligned Counter.model_input_budget 与实验 chunk_size "
+                    f"不一致：actual={counter.model_input_budget} "
+                    f"expected={config.chunk_size}，不能继续实验"
+                )
+            if config.chunk_size != config.effective_embedding_max_seq_length:
+                raise RuntimeError(
+                    "aligned v1 要求 chunk_size == "
+                    "effective_embedding_max_seq_length："
+                    f"chunk_size={config.chunk_size} "
+                    f"max={config.effective_embedding_max_seq_length}，"
+                    "不能继续实验"
+                )
+            runtime_tokenizer = embedding.get_runtime_tokenizer()
+            if counter.tokenizer is not runtime_tokenizer:
+                raise RuntimeError(
+                    "EmbeddingRuntimeTokenCounter.tokenizer 与 "
+                    "Pipeline.embedding 不是同一个 tokenizer 对象"
+                    "（contract 相同也不允许），不能继续实验"
+                )
         else:
             from core.chunker.token_counter import TokenCounter
             if not isinstance(counter, TokenCounter):
@@ -294,7 +319,7 @@ class ExperimentRunner:
 
         config = prepared.experiment_config
         manifest = IndexManifest(
-            schema_version=1,
+            schema_version=MANIFEST_SCHEMA_VERSION,
             experiment_id=config.experiment_id,
             corpus_id=corpus.corpus_id,
             chunk_strategy=config.chunk_strategy,

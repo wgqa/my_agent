@@ -514,7 +514,7 @@ def test_all_create_generates_manifest_with_expected_content(tmp_path):
     manifest_path = prepared.paths.index_manifest_path
     assert manifest_path.is_file()
     raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 1
+    assert raw["schema_version"] == 2
     assert raw["experiment_id"] == config.experiment_id
     assert raw["corpus_id"] == corpus.corpus_id
     assert raw["chunk_strategy"] == "fixed"

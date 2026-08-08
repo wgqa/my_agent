@@ -140,6 +140,14 @@ class ExperimentConfig:
                 raise ValueError(
                     f"effective_embedding_max_seq_length 必须 > 0，实际 {max_len}"
                 )
+            if self.chunk_size != max_len:
+                raise ValueError(
+                    "aligned policy（v1）要求 chunk_size == "
+                    "effective_embedding_max_seq_length："
+                    f"chunk_size={self.chunk_size} runtime_max={max_len}，"
+                    "禁止身份/预算漂移；可变 model-input budget 需要"
+                    "新版本化 policy"
+                )
             overhead = self.special_token_overhead
             if isinstance(overhead, bool) or not isinstance(overhead, int):
                 raise TypeError(

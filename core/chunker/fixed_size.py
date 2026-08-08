@@ -49,13 +49,11 @@ class FixedSizeChunker(BaseChunker):
                 # overlap 按 token 回退：从 end 往回找不超过 overlap token 的字符跨度
                 next_start = end
                 if self.chunk_overlap > 0:
-                    k = 0
-                    while k < end - start:
-                        k += 1
-                        if self._counter.count(text[end - k:end]) > self.chunk_overlap:
-                            k -= 1
-                            break
-                    next_start = max(start, end - k)
+                    # 使用 Counter 的 substring_start：对非单调 token count
+                    # 仍然正确（找到真正合法的最左 start），cl100k 语义不变。
+                    next_start = self._counter.substring_start(
+                        text, end, self.chunk_overlap, min_start=start,
+                    )
                 # 前进保护：下一轮起点必须超过当前块起点（极端 overlap 不吃光窗口）
                 start = next_start if next_start > start else end
 
