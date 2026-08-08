@@ -267,7 +267,18 @@ Level 2：原 Recursive cl100k baseline 中实际 BGE truncation
   → confirmed（实际 SentenceTransformer runtime contract）
 
 Level 3：这些 truncation 是否直接导致 retrieval failure
-  → unverified（无 chunk-level Gold / intervention-only 实验）
+  → unverified
+```
+
+Level 3 保持 unverified 的主要原因：
+
+```text
+当前 aligned intervention 同时改变 chunk boundaries /
+overlap landing / retrieval statistics 等，
+不是 truncation-only controlled intervention。
+
+chunk-level Gold / evidence-span annotation
+主要用于更进一步的具体 evidence/chunk 级因果归因。
 ```
 
 Intervention 总结（G2-ABL-21）：

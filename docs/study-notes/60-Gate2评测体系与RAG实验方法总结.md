@@ -380,8 +380,20 @@ Offline 是"如果当初只用这个通道会怎样"的反事实推导，快但�
 ### Q：相关性能不能当因果？
 
 不能。干预同时改变多个变量（boundaries/overlap/统计单位），
-相关只是共同变化；因果需要专门设计（只变一个机制的 intervention）
-和更细粒度 Gold。
+相关只是共同变化。因果分两层：
+
+```text
+Retrieval-level causal effect：
+核心是 controlled intervention，尽可能只改变目标机制；
+可以继续使用 document-level Gold 测 document-level metric effect。
+
+Evidence/chunk-level attribution：
+如果要证明某个具体 chunk/evidence 正是因 truncation 丢失，
+则需要 chunk-level Gold 或 evidence-span annotation。
+```
+
+"更细粒度 Gold"不是所有 causal inference 的必要条件，只服务于
+evidence/chunk 级归因。
 
 ### Q：负结果有什么用？
 
@@ -397,7 +409,8 @@ Benchmark 上没有带来 Dense 提升"）。科学实验的价值在于信息�
    （runtime binding）三层绑定才叫可复现。
 4. Control/Intervention、ablation、offline/formal、correlation/
    causality 是实验方法论的基本词汇。
-5. 本项目真实结论：BM25 > Hybrid > Dense（当前语料）；chunk
-   strategy 有实质影响；Hybrid 失败多为融合层问题；tokenizer
-   aligned 干预有 strategy-dependent effect，不等于 truncation
-   causal effect。
+5. 本项目真实结论：在 canonical Recursive + cl100k_content_v1
+   三策略正式对照中，BM25 > Hybrid > Dense（Hit@5 / Recall@5 /
+   nDCG@5），不是全局规律；chunk strategy 有实质影响；Hybrid
+   失败多为融合层问题；tokenizer aligned 干预有 strategy-dependent
+   effect，不等于 truncation causal effect。
