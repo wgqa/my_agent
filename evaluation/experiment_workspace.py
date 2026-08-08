@@ -30,6 +30,7 @@ class ExperimentPaths:
     index_manifest_path: Path
     retrieval_results_path: Path
     retrieval_metrics_path: Path
+    retrieval_diagnostics_path: Path
 
 
 class ExperimentWorkspace:
@@ -114,6 +115,7 @@ class ExperimentWorkspace:
             index_manifest_path=ws / "index_manifest.json",
             retrieval_results_path=ws / "retrieval_results.json",
             retrieval_metrics_path=ws / "retrieval_metrics.json",
+            retrieval_diagnostics_path=ws / "retrieval_diagnostics.json",
         )
 
     @staticmethod

@@ -30,6 +30,12 @@ from evaluation.retrieval_result import (
     RetrievalHit,
     RetrievalRunResult,
 )
+from evaluation.retrieval_diagnostics import (
+    RETRIEVAL_DIAGNOSTICS_SCHEMA_VERSION,
+    ChannelCandidate,
+    DiagnosticCase,
+    RetrievalDiagnosticSnapshot,
+)
 from evaluation.retrieval_metrics import (
     AGGREGATION,
     METRICS_SCHEMA_VERSION,
@@ -493,6 +499,216 @@ class ExperimentRunner:
             metrics_result,
             evaluation_set,
         )
+
+    def run_retrieval_diagnostics(
+        self,
+        prepared: PreparedExperiment,
+        index_manifest: IndexManifest,
+        evaluation_set: RetrievalEvaluationSet,
+        baseline_retrieval_run_id: str,
+        baseline_results_path: Union[str, Path],
+    ) -> RetrievalDiagnosticSnapshot:
+        """通道级诊断：一次检索暴露 Dense/Sparse 候选与最终命中，
+        并强制 Final Top-5 与 Baseline retrieval_results.json 完全一致。
+
+        不重新实现检索/RRF；只读取 retrieve_with_trace() 的单次执行结果，
+        通过 IndexManifest 映射 relative_path，原子写入独立诊断 Artifact。
+        """
+        diagnostic_path = prepared.paths.retrieval_diagnostics_path
+        if diagnostic_path.exists():
+            raise FileExistsError(
+                f"实验工作区已存在 retrieval_diagnostics.json，禁止重复覆盖："
+                f"{diagnostic_path}"
+            )
+
+        self._validate_persisted_manifest(
+            prepared.paths.index_manifest_path, index_manifest
+        )
+        document_map = self._build_document_map(index_manifest)
+        config = prepared.experiment_config
+
+        baseline = self._load_baseline_retrieval_results(baseline_results_path)
+        baseline_cases = {c["case_id"]: c for c in baseline.get("cases", [])}
+        if len(baseline_cases) != len(evaluation_set.cases):
+            raise RuntimeError(
+                f"Baseline retrieval_results Case 数量 {len(baseline_cases)} "
+                f"与 EvaluationSet {len(evaluation_set.cases)} 不一致"
+            )
+
+        top_k = config.top_k
+        diagnostic_cases = []
+        for case in evaluation_set.cases:
+            baseline_case = baseline_cases.get(case.case_id)
+            if baseline_case is None:
+                raise RuntimeError(
+                    f"Baseline retrieval_results 缺少 Case {case.case_id}"
+                )
+            expected_final_ids = [
+                hit["chunk_id"] for hit in baseline_case.get("hits", [])
+            ]
+            retriever = prepared.pipeline.retriever
+            if not hasattr(retriever, "retrieve_with_trace"):
+                raise RuntimeError(
+                    f"case_id={case.case_id}：Retriever 缺少 "
+                    "retrieve_with_trace() 诊断接口"
+                )
+            trace = retriever.retrieve_with_trace(case.query, top_k=top_k)
+
+            dense_candidates = self._map_channel_candidates(
+                trace["dense_candidates"],
+                document_map,
+                case.case_id,
+                "dense",
+                ("score", "distance"),
+            )
+            sparse_candidates = self._map_channel_candidates(
+                trace["sparse_candidates"],
+                document_map,
+                case.case_id,
+                "sparse",
+                ("sparse_score",),
+            )
+            final_hits = self._map_final_hits(
+                trace["final_results"], document_map, case.case_id
+            )
+
+            actual_final_ids = [h.chunk_id for h in final_hits]
+            if actual_final_ids != expected_final_ids:
+                raise RuntimeError(
+                    "diagnostic != baseline："
+                    f"case_id={case.case_id} "
+                    f"expected={expected_final_ids} actual={actual_final_ids}"
+                )
+
+            diagnostic_cases.append(DiagnosticCase(
+                case_id=case.case_id,
+                query=case.query,
+                relevant_files=case.relevant_files,
+                dense_candidates=dense_candidates,
+                sparse_candidates=sparse_candidates,
+                final_hits=final_hits,
+            ))
+
+        diagnostic_id = RetrievalDiagnosticSnapshot.compute_diagnostic_id(
+            schema_version=RETRIEVAL_DIAGNOSTICS_SCHEMA_VERSION,
+            experiment_id=config.experiment_id,
+            corpus_id=index_manifest.corpus_id,
+            evaluation_set_id=evaluation_set.evaluation_set_id,
+            baseline_retrieval_run_id=baseline_retrieval_run_id,
+            dense_candidate_k=config.dense_candidate_k,
+            sparse_candidate_k=config.sparse_candidate_k,
+        )
+        snapshot = RetrievalDiagnosticSnapshot(
+            schema_version=RETRIEVAL_DIAGNOSTICS_SCHEMA_VERSION,
+            diagnostic_id=diagnostic_id,
+            experiment_id=config.experiment_id,
+            corpus_id=index_manifest.corpus_id,
+            evaluation_set_id=evaluation_set.evaluation_set_id,
+            baseline_retrieval_run_id=baseline_retrieval_run_id,
+            dense_candidate_k=config.dense_candidate_k,
+            sparse_candidate_k=config.sparse_candidate_k,
+            cases=tuple(diagnostic_cases),
+        )
+        snapshot.write_json(diagnostic_path)
+        return snapshot
+
+    @staticmethod
+    def _load_baseline_retrieval_results(path: Union[str, Path]) -> dict:
+        """严格读取 Baseline retrieval_results.json（UTF-8 + object）"""
+        baseline_path = Path(path)
+        try:
+            with baseline_path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Baseline retrieval_results.json 无法解析：{exc}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                "Baseline retrieval_results.json 顶层不是 JSON object"
+            )
+        return payload
+
+    @staticmethod
+    def _map_channel_candidates(
+        candidates,
+        document_map: dict,
+        case_id: str,
+        channel: str,
+        score_keys: tuple,
+    ) -> tuple:
+        """把 trace 通道候选映射为可序列化 ChannelCandidate。"""
+        mapped = []
+        for item in candidates:
+            rank = item.get("rank")
+            chunk_id = item.get("chunk_id")
+            document_id = item.get("document_id")
+            if type(rank) is not int:
+                raise RuntimeError(
+                    f"case_id={case_id}：{channel} 候选 rank 必须是严格 int，"
+                    f"实际 {type(rank).__name__}（{rank!r}）"
+                )
+            if type(chunk_id) is not str or not chunk_id:
+                raise RuntimeError(
+                    f"case_id={case_id}：{channel} 候选 chunk_id 必须是非空字符串"
+                )
+            if type(document_id) is not str or not document_id:
+                raise RuntimeError(
+                    f"case_id={case_id}：{channel} 候选 document_id 必须是非空字符串"
+                )
+            if document_id not in document_map:
+                raise RuntimeError(
+                    f"case_id={case_id}：{channel} 候选未知 document_id "
+                    f"{document_id!r}（不在 IndexManifest 映射中）"
+                )
+            scores = {
+                key: item[key]
+                for key in score_keys
+                if key in item
+            }
+            mapped.append(ChannelCandidate(
+                rank=rank,
+                chunk_id=chunk_id,
+                document_id=document_id,
+                relative_path=document_map[document_id],
+                scores=scores,
+            ))
+        return tuple(mapped)
+
+    @staticmethod
+    def _map_final_hits(docs, document_map: dict, case_id: str) -> tuple:
+        """把 trace 最终 Document 映射为 ChannelCandidate（白名单分数）。"""
+        mapped = []
+        for rank, doc in enumerate(docs, 1):
+            metadata = doc.metadata or {}
+            chunk_id = metadata.get("id")
+            document_id = metadata.get("document_id")
+            if type(chunk_id) is not str or not chunk_id:
+                raise RuntimeError(
+                    f"case_id={case_id}：最终命中 chunk_id 必须是非空字符串"
+                )
+            if type(document_id) is not str or not document_id:
+                raise RuntimeError(
+                    f"case_id={case_id}：最终命中 document_id 必须是非空字符串"
+                )
+            if document_id not in document_map:
+                raise RuntimeError(
+                    f"case_id={case_id}：最终命中未知 document_id "
+                    f"{document_id!r}"
+                )
+            scores = {
+                name: metadata[name]
+                for name in SCORE_WHITELIST
+                if name in metadata
+            }
+            mapped.append(ChannelCandidate(
+                rank=rank,
+                chunk_id=chunk_id,
+                document_id=document_id,
+                relative_path=document_map[document_id],
+                scores=scores,
+            ))
+        return tuple(mapped)
 
     @staticmethod
     def _validate_experiment_binding(

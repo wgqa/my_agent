@@ -192,6 +192,60 @@ class HybridRetriever(BaseRetriever):
 
     def retrieve(self, query: str, top_k: int = 5) -> List[Document]:
         """检索：Dense Top-N → Sparse Top-N → RRF → 返回 final_k 候选"""
+        _, _, final = self._internal_retrieve(query, top_k)
+        return final
+
+    def retrieve_with_trace(self, query: str, top_k: int = 5) -> dict:
+        """诊断接口：一次检索同时暴露 Dense/Sparse 完整候选与最终结果。
+
+        与 retrieve() 共享同一次 _internal_retrieve()：不重复 embed、
+        不重复 Dense Search、不重复 BM25 Search；普通 retrieve() 语义
+        完全不变。返回：
+        {
+          "dense_candidates": [{"rank", "chunk_id", "document_id",
+                                 "score"/"distance"(实际存在才保存)}, ...],
+          "sparse_candidates": [{"rank", "chunk_id", "document_id",
+                                 "sparse_score"}, ...],
+          "final_results": [Document, ...],
+        }
+        """
+        dense_results, sparse_hits, final = self._internal_retrieve(query, top_k)
+
+        dense_candidates = []
+        for rank, doc in enumerate(dense_results, 1):
+            meta = doc.metadata or {}
+            item = {
+                "rank": rank,
+                "chunk_id": meta.get("id", ""),
+                "document_id": meta.get("document_id", ""),
+            }
+            for key in ("score", "distance"):
+                if key in meta:
+                    item[key] = meta[key]
+            dense_candidates.append(item)
+
+        sparse_candidates = []
+        for rank, (chunk_id, sparse_score) in enumerate(sparse_hits, 1):
+            meta = self._bm25.get_meta(chunk_id)
+            sparse_candidates.append({
+                "rank": rank,
+                "chunk_id": chunk_id,
+                "document_id": meta.get("document_id", ""),
+                "sparse_score": round(sparse_score, 4),
+            })
+
+        return {
+            "dense_candidates": dense_candidates,
+            "sparse_candidates": sparse_candidates,
+            "final_results": final,
+        }
+
+    def _internal_retrieve(self, query: str, top_k: int = 5):
+        """共享私有实现：一次 embed + 一次 Dense Search + 一次 BM25 Search。
+
+        返回 (dense_results, sparse_hits, final)；普通 retrieve() 与
+        retrieve_with_trace() 都从这里取数，保证诊断不会引入第二次检索。
+        """
         query_vec = self.embedding.embed_query(query)
 
         # 1. Dense 检索
@@ -250,4 +304,4 @@ class HybridRetriever(BaseRetriever):
                 doc.metadata["sparse_rank"] = sparse_rank_map.get(doc_id)
                 final.append(doc)
 
-        return final[:top_k]
+        return dense_results, sparse_hits, final[:top_k]

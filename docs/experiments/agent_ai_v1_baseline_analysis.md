@@ -281,6 +281,47 @@ snapshot。因此，当 Gold 文件没有进入最终 Top-5 时，本报告**不
 
 ---
 
+## 6.1 G2-DIAG-13 诊断验证结果（未通过 50/50 exact match）
+
+G2-DIAG-13 实现了 `HybridRetriever.retrieve_with_trace()` 与独立的
+`retrieval_diagnostics.json` Schema，并在独立诊断 Workspace 上对同一
+冻结 Baseline 做了两次真实验证：
+
+1. 独立重建诊断索引：q004 与 Baseline 不一致；
+2. 复用 Baseline 自身向量索引：q004 **仍**不一致（同一处 rank 2/3
+   互换），排除“索引重建差异”。
+
+### 根因（已取证）
+
+q004 最终命中中有两个 chunk 的 RRF 分数完全相等：
+
+```text
+14a53c160cd874ff9c9e1c171edd63e3：dense_rank=2、sparse_rank=8
+  rrf = 1/(60+2) + 1/(60+8) = 0.0308349...  （保存值 0.030835）
+542761507c0d1f99eb7944cff41db3c0：dense_rank=8、sparse_rank=2
+  rrf = 1/(60+8) + 1/(60+2) = 0.0308349...  （保存值 0.030835）
+```
+
+`HybridRetriever` 用 `all_ids`（Python `set`）迭代生成 `rrf_scores`，
+`sort()` 为稳定排序，因此平局相对顺序 = set 迭代顺序，随进程
+`PYTHONHASHSEED` 变化：
+
+- 同一进程内连续 3 次 `retrieve()` 顺序一致，且与 Baseline 一致；
+- 另一个进程（诊断 CLI 运行）中同一查询顺序互换。
+
+### 结论
+
+```text
+diagnostic != baseline（q004）
+```
+
+按验收纪律，该诊断**不得**被用于解释 Baseline；H1-H4 的证据等级保持
+G2-ANALYSIS-12 原状（channel 证据仍未取得）。这是既有 RRF 平局顺序
+缺失稳定 tie-break 契约的可复现性缺口，修复需要修改 RRF 排序行为，
+属于本任务禁止范围，留待后续任务决策。
+
+---
+
 ## 7. 下一步实验假设（只提出，不执行）
 
 ### H1：失败主要来自 Dense / BM25 都偏向语义邻居
