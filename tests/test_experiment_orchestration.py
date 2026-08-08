@@ -239,6 +239,7 @@ class _FakeConfig:
         self.dense_candidate_k = raw["retriever"]["dense_candidate_k"]
         self.sparse_candidate_k = raw["retriever"]["sparse_candidate_k"]
         self.rrf_k = raw["retriever"]["rrf_k"]
+        self.rrf_tie_breaker = raw["retriever"]["rrf_tie_breaker"]
         self.vector_store_path = raw["vector_store"]["path"]
 
 
@@ -246,6 +247,7 @@ class _FakeRetriever:
     def __init__(self, results, bm25_count):
         self._results = results
         self._bm25 = _FakeBM25(bm25_count)
+        self.rrf_tie_breaker = "chunk_id_asc"
 
     def retrieve(self, query, top_k=5):
         return [_FakeDoc(m) for m in self._results[query]]

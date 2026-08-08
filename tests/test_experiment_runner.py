@@ -3,6 +3,7 @@
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -60,12 +61,16 @@ class FakeConfig:
         self.dense_candidate_k = raw["retriever"]["dense_candidate_k"]
         self.sparse_candidate_k = raw["retriever"]["sparse_candidate_k"]
         self.rrf_k = raw["retriever"]["rrf_k"]
+        self.rrf_tie_breaker = raw["retriever"]["rrf_tie_breaker"]
         self.vector_store_path = raw["vector_store"]["path"]
 
 
 class FakePipeline:
     def __init__(self, config):
         self.config = config
+        self.retriever = SimpleNamespace(
+            rrf_tie_breaker=config.rrf_tie_breaker
+        )
 
 
 def _make_factory(recorder, mutate=None):
@@ -119,7 +124,7 @@ def test_all_fields_match_succeeds(tmp_path):
     "embedding_provider", "embedding_model",
     "chunker_strategy", "chunk_size", "chunk_overlap",
     "retriever_strategy", "top_k", "dense_candidate_k",
-    "sparse_candidate_k", "rrf_k",
+    "sparse_candidate_k", "rrf_k", "rrf_tie_breaker",
 ])
 def test_any_field_mismatch_fails(tmp_path, field):
     base = _write_base_config(tmp_path)
@@ -166,6 +171,20 @@ def test_embedding_model_mismatch_fails(tmp_path):
 
     runner = ExperimentRunner(base, tmp_path / "runs", _make_factory([], mutate))
     with pytest.raises(RuntimeError, match="embedding_model"):
+        runner.prepare(ExperimentConfig(), "run1")
+
+
+def test_hybrid_retriever_tie_breaker_mismatch_fails(tmp_path):
+    base = _write_base_config(tmp_path)
+
+    def factory(config_path):
+        cfg = FakeConfig(config_path)
+        pipeline = FakePipeline(cfg)
+        pipeline.retriever.rrf_tie_breaker = "other"
+        return pipeline
+
+    runner = ExperimentRunner(base, tmp_path / "runs", factory)
+    with pytest.raises(RuntimeError, match="HybridRetriever.rrf_tie_breaker"):
         runner.prepare(ExperimentConfig(), "run1")
 
 

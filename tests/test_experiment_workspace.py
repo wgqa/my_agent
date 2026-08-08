@@ -87,6 +87,15 @@ def test_embedding_identity_overridden_in_derived_config(tmp_path):
     assert raw["embedding"]["model"] == "text-embedding-3-small"
 
 
+def test_rrf_tie_breaker_written_in_derived_config(tmp_path):
+    base = _write_base_config(tmp_path)
+    config = ExperimentConfig()
+    ws = ExperimentWorkspace(base, tmp_path / "runs", config, "run1")
+    paths = ws.prepare()
+    raw = yaml.safe_load(paths.config_path.read_text(encoding="utf-8"))
+    assert raw["retriever"]["rrf_tie_breaker"] == "chunk_id_asc"
+
+
 def test_non_experiment_fields_preserved(tmp_path):
     base = _write_base_config(tmp_path)
     config = ExperimentConfig(chunk_size=256)

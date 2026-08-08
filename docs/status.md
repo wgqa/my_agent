@@ -8,7 +8,7 @@
 ## 当前结论
 
 - **定位**：面向技术文档与代码的可评测 RAG Agent
-- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis 复审通过** → **G2-DIAG-13 Hybrid Channel-Level Diagnostic 实现完成，50/50 验证受阻（q004 RRF 平局顺序跨进程不稳定）** → M4：真实 Benchmark Baseline 已建立，进入错误分析与消融
+- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis 复审通过** → **G2-DIAG-13/R1 Hybrid Channel-Level Diagnostic：RRF tie 确定化后 canonical Baseline 建立，50/50 exact match 通过（待复审）** → M4：真实 Benchmark Baseline 已建立，进入错误分析与消融
 - **测试**：全量 suite 通过（--basetemp=.tmp_pytest）
 
 ## 任务状态
@@ -55,7 +55,8 @@
 | REAL-11 | 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding） | Recursive + Hybrid + top5：file_count=37、total_chunks=215、case_count=50；experiment_id=b8e4bdb3b942、result_id=8a08132354cc；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360 | ✅ 复审通过 |
 | REAL-11-R1 | Embedding Identity 纳入正式实验身份并重跑 | ExperimentConfig 新增 embedding_provider/embedding_model；experiment_id=874b61d0b5d1、result_id=325d94294803；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360（与第一次完全一致） | ✅ 复审通过 |
 | ANALYSIS-12 | 第一次真实 Baseline Retrieval Error Analysis | 4 个 Hit@5=0（q013/q019/q039/q047）+ 3 个 Recall<1（q031/q034/q036）事实分析；提出 H1-H4 实验假设（见 docs/experiments/agent_ai_v1_baseline_analysis.md、study-notes 51） | ✅ 复审通过 |
-| DIAG-13 | Hybrid Dense/BM25 Channel-Level Diagnostic Snapshot | retrieve_with_trace + retrieval_diagnostics.json 已实现（574 测试通过）；真实 50/50 验证未通过：q004 两个最终命中 RRF 分数完全相等，平局顺序随进程 hash seed 变化（见 study-notes 52） | 🔧 实现完成，验证受阻，待复审 |
+| DIAG-13 | Hybrid Dense/BM25 Channel-Level Diagnostic Snapshot | retrieve_with_trace + retrieval_diagnostics.json 已实现；修复前 50/50 验证受阻（RRF 平局顺序跨进程不稳定，见 study-notes 52） | 🔧 实现完成（R1 后验证通过），待复审 |
+| DIAG-13-R1 | RRF Deterministic Tie-Break + 实验身份绑定 | RRF 契约改为 rrf DESC + chunk_id ASC；rrf_tie_breaker 进入 ExperimentConfig/实验身份；canonical Baseline experiment_id=3c613202e1ed；diagnostic 50/50 exact match（见 study-notes 53） | 🔧 实现完成，验证通过，待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | ✅ 复审通过 |
 | G1-META-02 | Sparse-only 结果丢失原始元数据 | BM25 存元数据副本，sparse-only 命中恢复（实时入库同步） | ✅ 复审通过 |
 | G1-CTX-03A/R1 | 双模块各自截断、预算可加性假设 | 统一渲染契约 + 按最终渲染字符串真实 count 预算 | ✅ 复审通过 |
@@ -76,7 +77,7 @@
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ 260（Gate1 RRF）→ 266（G1-META-02）→ 269（G1-META-02-R1）→ 277（G1-CTX-03A）→ 280（G1-CTX-03A-R1）→ 292（G1-CTX-03B）→ 301（G1-RANK-04）→ 306（G1-CHUNK-05A）→ 312（G1-CHUNK-05A-R1）→ 314（G1-CHUNK-05B）→ **314**（G1-CLOSE-06 文档收尾，08-06）→ 332（G2-ER-05，08-06）→ 334（G2-ER-05-R1，08-07）→ 382（G2-EVAL-06，08-07）→ 396（G2-EVAL-06-R1，08-07）→ 435（G2-EVAL-07，08-07）→ 442（G2-EVAL-07-R1，08-07）→ 479（G2-EVAL-08，08-07）→ 488（G2-EVAL-08-R1，08-07）→ 522（G2-EVAL-09，08-07）→ 526（G2-EVAL-09-R1，08-07）→ 537（G2-EXP-10，08-07）→ 540（G2-REAL-11 CLI 与全量，08-07）→ 559（G2-REAL-11-R1，08-07）→ 574（G2-DIAG-13，08-08）
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ 260（Gate1 RRF）→ 266（G1-META-02）→ 269（G1-META-02-R1）→ 277（G1-CTX-03A）→ 280（G1-CTX-03A-R1）→ 292（G1-CTX-03B）→ 301（G1-RANK-04）→ 306（G1-CHUNK-05A）→ 312（G1-CHUNK-05A-R1）→ 314（G1-CHUNK-05B）→ **314**（G1-CLOSE-06 文档收尾，08-06）→ 332（G2-ER-05，08-06）→ 334（G2-ER-05-R1，08-07）→ 382（G2-EVAL-06，08-07）→ 396（G2-EVAL-06-R1，08-07）→ 435（G2-EVAL-07，08-07）→ 442（G2-EVAL-07-R1，08-07）→ 479（G2-EVAL-08，08-07）→ 488（G2-EVAL-08-R1，08-07）→ 522（G2-EVAL-09，08-07）→ 526（G2-EVAL-09-R1，08-07）→ 537（G2-EXP-10，08-07）→ 540（G2-REAL-11 CLI 与全量，08-07）→ 559（G2-REAL-11-R1，08-07）→ 574（G2-DIAG-13，08-08）→ 590（G2-DIAG-13-R1，08-08）
 
 ## Git
 
@@ -90,6 +91,6 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-51 |
+| docs/study-notes/ | 学习笔记 00-53 |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |

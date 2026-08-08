@@ -27,6 +27,7 @@ def test_to_dict_contains_all_fields():
         "dense_candidate_k": 40,
         "sparse_candidate_k": 20,
         "rrf_k": 60.0,
+        "rrf_tie_breaker": "chunk_id_asc",
         "embedding_provider": "bge",
         "embedding_model": "BAAI/bge-small-zh-v1.5",
     }
@@ -207,3 +208,36 @@ def test_embedding_fields_reject_non_string(field, value):
 def test_embedding_fields_reject_empty_string(field):
     with pytest.raises(ValueError, match=field):
         ExperimentConfig(**{field: ""})
+
+
+def test_default_rrf_tie_breaker_is_chunk_id_asc():
+    config = ExperimentConfig()
+    assert config.rrf_tie_breaker == "chunk_id_asc"
+    assert config.to_dict()["rrf_tie_breaker"] == "chunk_id_asc"
+
+
+@pytest.mark.parametrize("value", [123, None, True, 1.0])
+def test_rrf_tie_breaker_rejects_non_string(value):
+    with pytest.raises(TypeError, match="rrf_tie_breaker"):
+        ExperimentConfig(rrf_tie_breaker=value)
+
+
+def test_rrf_tie_breaker_rejects_empty_string():
+    with pytest.raises(TypeError, match="rrf_tie_breaker"):
+        ExperimentConfig(rrf_tie_breaker="")
+
+
+def test_rrf_tie_breaker_rejects_unknown_value():
+    with pytest.raises(ValueError, match="rrf_tie_breaker"):
+        ExperimentConfig(rrf_tie_breaker="dense_rank_asc")
+
+
+def test_rrf_tie_breaker_enters_experiment_id(monkeypatch):
+    import evaluation.experiment_config as ec
+
+    monkeypatch.setattr(
+        ec, "VALID_RRF_TIE_BREAKERS", ("chunk_id_asc", "dense_rank_asc")
+    )
+    a = ExperimentConfig(rrf_tie_breaker="chunk_id_asc")
+    b = ExperimentConfig(rrf_tie_breaker="dense_rank_asc")
+    assert a.experiment_id != b.experiment_id

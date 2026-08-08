@@ -97,6 +97,7 @@ class ExperimentWorkspace:
         raw["retriever"]["dense_candidate_k"] = self.config.dense_candidate_k
         raw["retriever"]["sparse_candidate_k"] = self.config.sparse_candidate_k
         raw["retriever"]["rrf_k"] = self.config.rrf_k
+        raw["retriever"]["rrf_tie_breaker"] = self.config.rrf_tie_breaker
 
         # 向量库路径指向工作区内（绝对路径），杜绝共享旧索引
         vs_path = (ws / "vector_store").resolve()

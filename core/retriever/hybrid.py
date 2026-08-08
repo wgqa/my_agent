@@ -13,6 +13,8 @@ try:
 except ImportError:
     jieba = None
 
+VALID_RRF_TIE_BREAKERS = ("chunk_id_asc",)
+
 
 def _tokenize(text: str) -> List[str]:
     """中文友好的分词：优先 jieba，降级到 split"""
@@ -173,6 +175,7 @@ class HybridRetriever(BaseRetriever):
         sparse_candidate_k: int = 30,
         final_k: int = 20,
         rrf_k: float = 60.0,
+        rrf_tie_breaker: str = "chunk_id_asc",
     ):
         self.embedding = embedding
         self.vector_store = vector_store
@@ -180,6 +183,17 @@ class HybridRetriever(BaseRetriever):
         self.sparse_candidate_k = sparse_candidate_k
         self.final_k = final_k
         self.rrf_k = rrf_k
+        if type(rrf_tie_breaker) is not str or rrf_tie_breaker == "":
+            raise TypeError(
+                "rrf_tie_breaker 必须是非空字符串，"
+                f"实际 {type(rrf_tie_breaker).__name__}（{rrf_tie_breaker!r}）"
+            )
+        if rrf_tie_breaker not in VALID_RRF_TIE_BREAKERS:
+            raise ValueError(
+                f"未知 rrf_tie_breaker: {rrf_tie_breaker}，"
+                f"支持 {VALID_RRF_TIE_BREAKERS}"
+            )
+        self.rrf_tie_breaker = rrf_tie_breaker
         self._bm25 = BM25Index()
 
     def build_sparse_index(self, chunk_texts: List[tuple]):
@@ -280,7 +294,7 @@ class HybridRetriever(BaseRetriever):
                 rrf += 1.0 / (self.rrf_k + sparse_rank_map[doc_id])
             rrf_scores.append((doc_id, rrf))
 
-        rrf_scores.sort(key=lambda x: x[1], reverse=True)
+        rrf_scores = self._sort_rrf_scores(rrf_scores)
 
         # 4. 按 RRF 排序返回
         result_map = {d.metadata.get("id", ""): d for d in dense_results if d.metadata.get("id")}
@@ -305,3 +319,12 @@ class HybridRetriever(BaseRetriever):
                 final.append(doc)
 
         return dense_results, sparse_hits, final[:top_k]
+
+    @staticmethod
+    def _sort_rrf_scores(rrf_scores):
+        """正式 RRF 排序契约：rrf_score DESC，chunk_id ASC。
+
+        排序基于完整 float（不先 round）；chunk_id 只用于完全同分时的
+        canonical ordering，不代表更高相关性。
+        """
+        return sorted(rrf_scores, key=lambda item: (-item[1], item[0]))

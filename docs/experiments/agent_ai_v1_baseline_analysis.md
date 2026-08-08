@@ -281,7 +281,7 @@ snapshot。因此，当 Gold 文件没有进入最终 Top-5 时，本报告**不
 
 ---
 
-## 6.1 G2-DIAG-13 诊断验证结果（未通过 50/50 exact match）
+## 6.1 G2-DIAG-13 修复前验证结果（历史事实：未通过 50/50）
 
 G2-DIAG-13 实现了 `HybridRetriever.retrieve_with_trace()` 与独立的
 `retrieval_diagnostics.json` Schema，并在独立诊断 Workspace 上对同一
@@ -320,34 +320,92 @@ G2-ANALYSIS-12 原状（channel 证据仍未取得）。这是既有 RRF 平局�
 缺失稳定 tie-break 契约的可复现性缺口，修复需要修改 RRF 排序行为，
 属于本任务禁止范围，留待后续任务决策。
 
+## 6.2 G2-DIAG-13-R1 验证通过（50/50 exact match）
+
+G2-DIAG-13-R1 将 RRF 排序契约改为 `rrf_score DESC, chunk_id ASC`
+（`rrf_tie_breaker=chunk_id_asc` 进入 ExperimentConfig/实验身份），
+重新建立 canonical Baseline：
+
+```text
+experiment_id     = 3c613202e1ed
+corpus_id         = 870e5864df67
+evaluation_set_id = 18c1c0470652
+retrieval_run_id  = fc228af22f55
+metrics_run_id    = 966ed53156e4
+result_id         = e27141a2b63e
+```
+
+Diagnostic（`retrieval_diagnostics.json`，diagnostic_id=dfb2316d0163）
+绑定新 `retrieval_run_id`，Final Top-5 逐 Case 比较：
+
+```text
+50 / 50 exact match
+```
+
+### 7 个重点 Case 的通道事实
+
+| case_id | Gold 文件 | Dense Top-30 | Sparse Top-30 | Final Top-5 |
+|---------|-----------|--------------|---------------|-------------|
+| q013 | llm/预训练.md | present rank 3 | present rank 10 | absent |
+| q019 | llm/Transformer架构-03-训练推理与高效Attention.md | absent | present rank 2 | absent |
+| q039 | rag/检索与生成.md | present rank 1 | present rank 2 | absent |
+| q047 | llm/Transformer架构-04-采样与工程联系.md | present rank 15 | present rank 1 | absent |
+| q031 | rag/文档处理.md | present rank 2 | present rank 16 | absent |
+| q034 | rag/高级RAG.md | present rank 5 | present rank 2 | absent |
+| q036 | tool_calling/Function-Calling原理.md | present rank 4 | present rank 20 | absent |
+
+（q031/q034/q036 各自另一个 Gold 文件仍在 Final Top-5 中，见报告第 5 节。）
+
+### H1-H4 证据更新
+
+- **H1（两路通道都偏向语义邻居）**：**未获支持作为主因**。7 个缺失
+  Gold 中 6 个至少进入一个通道候选，5 个双通道命中（仅 q019 的 Gold
+  不在 Dense Top-30）。"最终 Top-5 被语义邻居占据"仍是可观察事实，
+  但通道本身大多成功召回了 Gold。
+- **H2（正确文档进入候选但 RRF 后掉出 Top-5）**：**supported**。
+  q013/q039/q047/q031/q034/q036 的缺失 Gold 均在通道候选内（多数双
+  通道命中）却未进入 Final Top-5；q019 至少进入了 Sparse Top-30。
+- **H3（Chunk 边界削弱 Gold 证据）**：仍为 plausible / currently
+  unverified。q047 的 Gold 在 Dense rank 15、Sparse rank 1，说明证据
+  存在但融合后掉出；这不能证明 Chunk 是原因。
+- **H4（Multi-file Query 单次检索只覆盖部分子问题）**：**supported**
+  （证据增强）。q031/q034/q036 缺失的 Gold 文件都被通道检索到，但
+  Final Top-5 容量/融合导致丢失，与"单次检索无法覆盖全部子问题"
+  一致。
+
 ---
 
 ## 7. 下一步实验假设（只提出，不执行）
 
 ### H1：失败主要来自 Dense / BM25 都偏向语义邻居
 
-- **状态**：plausible / currently unverified（通道层）
-- 事实支撑：4 个全失败 Case 的最终 Top-5 全部是语义邻近文档；但没有通道候选快照，无法证明两个通道都偏向邻居。
+- **状态**：未获支持作为主因（channel 诊断后）
+- 事实支撑：7 个缺失 Gold 中 6 个至少进入一个通道候选、5 个双通道命中；仅 q019 的 Gold 不在 Dense Top-30。最终 Top-5 被语义邻居占据仍是事实，但“两个通道都偏向邻居”不能解释大多数缺失。
 
 ### H2：正确文档进入某一通道候选，但 RRF 融合后排名丢失
 
-- **状态**：currently unverified
-- 现有 Artifact 只保存最终 Top-5 Hit 的 dense/sparse rank，无法判断“候选命中但 RRF 丢失”是否发生。
+- **状态**：supported（channel 诊断后）
+- 事实支撑：q013/q039/q047/q031/q034/q036 的缺失 Gold 均在 Dense/Sparse Top-30 内（多数双通道命中）却未进入 Final Top-5；q019 至少进入 Sparse Top-30（rank 2）。
 
 ### H3：Chunk 边界让 Gold 文档中的目标证据表达被削弱
 
 - **状态**：plausible / currently unverified
-- q019 的 Gold 与 rank 3 命中文档同标题同系列，存在分块/标题表达干扰的可能性；其余 Case 需要 chunk-level 检查才能验证。
+- q019 的 Gold 与同系列同标题文档存在分块/标题表达干扰的可能性；q047 的 Gold 在 Dense rank 15 / Sparse rank 1，说明证据存在但融合后掉出，不能据此证明 Chunk 是原因；需要 chunk-level 检查。
 
 ### H4：Multi-file Query 在单次 Retrieval 下天然只覆盖部分子问题
 
-- **状态**：supported
-- 事实支撑：q031 / q034 / q036 均为多 Gold 文件查询，Top-5 各命中 1 个（q036 命中 2/3），缺失文件与查询中未被覆盖的子问题直接对应（“证据进索引”链路、混合检索评测/融合、Tool 执行层防御）。
+- **状态**：supported（证据增强）
+- 事实支撑：q031 / q034 / q036 的缺失 Gold 文件都被通道检索到（q031 dense2/sparse16、q034 dense5/sparse2、q036 dense4/sparse20）却未进入 Final Top-5，与“单次检索 Top-5 无法覆盖全部子问题”一致；缺失文件与查询中未被覆盖的子问题直接对应（“证据进索引”链路、混合检索评测/融合、Tool 执行层防御）。
 
 ---
 
 ## 8. 数据来源
 
+- `experiments/3c613202e1ed/agent-ai-v1-recursive-hybrid-baseline-001/result.json`（canonical）
+- `experiments/3c613202e1ed/agent-ai-v1-recursive-hybrid-baseline-001/index_manifest.json`（canonical）
+- `experiments/3c613202e1ed/agent-ai-v1-recursive-hybrid-baseline-001/retrieval_results.json`（canonical）
+- `experiments/3c613202e1ed/agent-ai-v1-recursive-hybrid-baseline-001/retrieval_metrics.json`（canonical）
+- `experiments/3c613202e1ed/agent-ai-v1-recursive-hybrid-baseline-001-diagnostics/retrieval_diagnostics.json`
 - `experiments/874b61d0b5d1/agent-ai-v1-recursive-hybrid-baseline-001/result.json`
 - `experiments/874b61d0b5d1/agent-ai-v1-recursive-hybrid-baseline-001/index_manifest.json`
 - `experiments/874b61d0b5d1/agent-ai-v1-recursive-hybrid-baseline-001/retrieval_results.json`

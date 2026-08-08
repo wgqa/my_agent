@@ -63,6 +63,20 @@ class Config:
         self.dense_candidate_k = ret.get("dense_candidate_k", 30)
         self.sparse_candidate_k = ret.get("sparse_candidate_k", 30)
         self.rrf_k = ret.get("rrf_k", 60.0)
+        self.rrf_tie_breaker = ret.get("rrf_tie_breaker", "chunk_id_asc")
+        if (
+            type(self.rrf_tie_breaker) is not str
+            or self.rrf_tie_breaker == ""
+        ):
+            raise ConfigError(
+                f"retriever.rrf_tie_breaker 必须是非空字符串，"
+                f"当前: {self.rrf_tie_breaker!r}"
+            )
+        if self.rrf_tie_breaker != "chunk_id_asc":
+            raise ConfigError(
+                f"未知 retriever.rrf_tie_breaker: {self.rrf_tie_breaker}，"
+                "当前只支持 chunk_id_asc"
+            )
 
         # ── reranker ──────────────────────────────────
         rrk = raw.get("reranker", {})
@@ -128,6 +142,7 @@ class Config:
             "dense_candidate_k": self.dense_candidate_k,
             "sparse_candidate_k": self.sparse_candidate_k,
             "rrf_k": self.rrf_k,
+            "rrf_tie_breaker": self.rrf_tie_breaker,
             "reranker_enabled": self.reranker_enabled,
             "reranker_candidate_k": self.reranker_candidate_k,
             "reranker_final_k": self.reranker_final_k,

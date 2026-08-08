@@ -13,6 +13,7 @@ STABLE_CHUNK_STRATEGIES = ("fixed", "recursive")
 # 实验性实现：保留手动学习/调试入口，但不得进入正式 ExperimentConfig
 EXPERIMENTAL_CHUNK_STRATEGIES = ("semantic",)
 VALID_RETRIEVER_STRATEGIES = ("simple", "hybrid", "mmr")
+VALID_RRF_TIE_BREAKERS = ("chunk_id_asc",)
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class ExperimentConfig:
     dense_candidate_k: int = 30
     sparse_candidate_k: int = 30
     rrf_k: float = 60.0
+    rrf_tie_breaker: str = "chunk_id_asc"
 
     def __post_init__(self):
         # Embedding 身份：strict str 且非空，直接参与 experiment_id
@@ -89,6 +91,18 @@ class ExperimentConfig:
         if rrf <= 0:
             raise ValueError(f"rrf_k 必须 > 0，当前: {rrf}")
         object.__setattr__(self, "rrf_k", float(rrf))
+
+        tie_breaker = self.rrf_tie_breaker
+        if type(tie_breaker) is not str or tie_breaker == "":
+            raise TypeError(
+                "rrf_tie_breaker 必须是非空字符串，"
+                f"实际 {type(tie_breaker).__name__}（{tie_breaker!r}）"
+            )
+        if tie_breaker not in VALID_RRF_TIE_BREAKERS:
+            raise ValueError(
+                f"未知 rrf_tie_breaker: {tie_breaker}，"
+                f"支持 {VALID_RRF_TIE_BREAKERS}"
+            )
 
     def to_dict(self) -> dict:
         """字段序固定（dataclass 声明序），与 dict 插入顺序无关"""

@@ -88,6 +88,7 @@ class Pipeline:
                 sparse_candidate_k=self.config.sparse_candidate_k,
                 final_k=self.config.top_k,
                 rrf_k=self.config.rrf_k,
+                rrf_tie_breaker=self.config.rrf_tie_breaker,
             )
         from core.retriever.mmr import MMRRetriever
         return MMRRetriever(self.embedding, self.vector_store)

@@ -325,6 +325,7 @@ def test_result_json_fields_correct(tmp_path):
     assert raw["config"] == config.to_dict()
     assert raw["config"]["embedding_provider"] == "bge"
     assert raw["config"]["embedding_model"] == "BAAI/bge-small-zh-v1.5"
+    assert raw["config"]["rrf_tie_breaker"] == "chunk_id_asc"
     assert raw["chunk_strategy"] == config.chunk_strategy
     assert raw["retriever_strategy"] == config.retriever_strategy
     assert raw["top_k"] == config.top_k
@@ -359,6 +360,7 @@ def test_manifest_config_contains_embedding_identity(tmp_path):
     manifest, _, _, _ = _default_objects(config)
     assert manifest.config["embedding_provider"] == "bge"
     assert manifest.config["embedding_model"] == "BAAI/bge-small-zh-v1.5"
+    assert manifest.config["rrf_tie_breaker"] == "chunk_id_asc"
     assert manifest.config == config.to_dict()
 
 

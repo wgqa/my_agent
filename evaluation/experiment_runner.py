@@ -104,12 +104,28 @@ class ExperimentRunner:
             "dense_candidate_k": (cfg.dense_candidate_k, config.dense_candidate_k),
             "sparse_candidate_k": (cfg.sparse_candidate_k, config.sparse_candidate_k),
             "rrf_k": (cfg.rrf_k, config.rrf_k),
+            "rrf_tie_breaker": (
+                cfg.rrf_tie_breaker,
+                config.rrf_tie_breaker,
+            ),
         }
         for name, (actual, expected) in checks.items():
             if actual != expected:
                 raise RuntimeError(
                     f"Pipeline 配置 {name} 与实验配置不一致："
                     f"actual={actual!r} expected={expected!r}，不能继续实验"
+                )
+        if config.retriever_strategy == "hybrid":
+            actual_breaker = getattr(
+                getattr(pipeline, "retriever", None),
+                "rrf_tie_breaker",
+                None,
+            )
+            if actual_breaker != config.rrf_tie_breaker:
+                raise RuntimeError(
+                    "HybridRetriever.rrf_tie_breaker 与实验配置不一致："
+                    f"actual={actual_breaker!r} expected={config.rrf_tie_breaker!r}，"
+                    "不能继续实验"
                 )
         vs_actual = Path(cfg.vector_store_path).resolve()
         if vs_actual != paths.vector_store_path.resolve():

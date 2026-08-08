@@ -22,6 +22,7 @@ def test_build_config_is_frozen_baseline():
         dense_candidate_k=30,
         sparse_candidate_k=30,
         rrf_k=60.0,
+        rrf_tie_breaker="chunk_id_asc",
     )
 
 
