@@ -1,9 +1,12 @@
-# BGE-Aligned Chunk Budget Intervention Contract（G2-DESIGN-19 / R1）
+# BGE-Aligned Chunk Budget Intervention Contract（G2-DESIGN-19 / R1 / R2）
 
 > 设计文档，只定义契约，不包含实现代码。
 > R1 收口：拆分两种 tokenizer fingerprint、正式化 chunk budget
 > policy 身份、单一模型实例绑定、monotonicity 正式决策流程、
 > corpus-scoped fingerprint 的真实重算事实源。
+> R2 收口：解决 `tokenizer_contract_fingerprint` 进入
+> ExperimentConfig → experiment_id 的 bootstrap 生命周期，
+> 引入 Preflight Runtime Contract Resolution。
 
 ## 1. 背景事实（已确认）
 
@@ -488,3 +491,392 @@ Level C：严格因果归因（需 BM25 control + Case-level +
 本任务只交付设计。Counter / BGEEmbedding 窄接口 / Pipeline 接线 /
 ExperimentConfig / IndexManifest / 正式实验与 59 号学习笔记均属于
 后续独立任务。
+
+---
+
+# R2：Runtime Contract Preflight 与 Final Experiment Identity Bootstrap
+
+## 18. 需要解决的循环依赖
+
+`tokenizer_contract_fingerprint` 必须进入 `ExperimentConfig →
+experiment_id`，但现有生命周期是：
+
+```text
+ExperimentConfig
+→ experiment_id
+→ ExperimentWorkspace
+→ derived config.yaml
+→ Pipeline
+→ SentenceTransformer runtime
+```
+
+如果等到 Pipeline 创建后才第一次得到 fingerprint，就会出现
+"experiment_id 依赖 runtime，runtime 又依赖 Workspace/experiment_id"
+的循环。R2 引入 Preflight，把 runtime contract 解析提前到
+experiment_id 之前。
+
+## 19. 正式引入 Preflight Runtime Contract Resolution
+
+```text
+ExperimentSpec / ExperimentConfigDraft
+        ↓
+Runtime Contract Resolver（Preflight）
+        ↓
+Resolved ExperimentConfig（Final / frozen）
+        ↓
+experiment_id
+        ↓
+ExperimentWorkspace
+        ↓
+Pipeline
+```
+
+### 19.1 Unresolved / User-declared experiment inputs
+
+用户声明阶段，**还没有正式 experiment_id**：
+
+```text
+embedding_provider
+embedding_model
+chunk_strategy
+chunk_size
+chunk_overlap
+chunk_budget_policy
+retriever_strategy
+top_k
+candidate_k
+rrf_k / rrf_tie_breaker ...
+```
+
+### 19.2 Runtime-derived identity fields
+
+当 `chunk_budget_policy = embedding_runtime_model_input_v1` 时，
+Preflight 必须本地解析：
+
+```text
+effective_embedding_max_seq_length
+special_token_overhead
+tokenizer_contract_probe_version
+tokenizer_contract_fingerprint
+```
+
+### 19.3 Final / Resolved ExperimentConfig
+
+只有上述 runtime identity 解析完成后，才能构造正式（冻结）
+`ExperimentConfig`，随后才允许访问 `experiment_id`。
+
+## 20. 严格生命周期（写死顺序）
+
+```text
+1. 构造 ExperimentSpec / Draft
+2. Runtime Contract Preflight
+3. 构造 frozen Final ExperimentConfig
+4. 计算 experiment_id
+5. ExperimentWorkspace.prepare()
+6. 生成 derived config.yaml
+7. 创建正式 Pipeline
+8. prepare runtime binding validation
+9. index_corpus
+10. retrieval / metrics / result
+```
+
+禁止：
+
+```text
+先创建 provisional workspace
+→ 再补 fingerprint
+→ 再改变 experiment_id
+```
+
+禁止 provisional experiment_id。正式 Workspace 路径从一开始就是：
+
+```text
+<workspace_root>/<final experiment_id>/<run_id>
+```
+
+## 21. Preflight 如何取得 Runtime Contract
+
+Preflight 允许创建**只用于 identity resolution** 的本地
+`BGEEmbedding / SentenceTransformer runtime contract instance`：
+
+```text
+local_files_only=True
+不执行 encode()
+不建 Vector Store
+不建 Pipeline
+不写 Workspace
+不访问网络
+```
+
+它只读取：
+
+```text
+SentenceTransformer.max_seq_length
+runtime tokenizer
+num_special_tokens_to_add(pair=False)
+canonical probe input_ids
+```
+
+计算：
+
+```text
+tokenizer_contract_fingerprint
+```
+
+## 22. Preflight 实例与正式 Pipeline 实例的关系
+
+### 22.1 不要求 Python object identity 相同
+
+Preflight SentenceTransformer 与正式 Pipeline SentenceTransformer
+可以是两个独立对象；否则 experiment_id bootstrap 会被迫依赖
+Workspace 后的 Pipeline，形成循环。
+
+### 22.2 但要求 behavior contract 完全相同
+
+正式 Pipeline 创建后，`ExperimentRunner._validate_pipeline()` 必须
+重新从：
+
+```text
+Pipeline.embedding
+→ 真正将用于 encode() 的 SentenceTransformer
+```
+
+计算：
+
+```text
+effective_embedding_max_seq_length
+special_token_overhead
+tokenizer_contract_probe_version
+tokenizer_contract_fingerprint
+```
+
+并与 Final ExperimentConfig 完全比较；任一不同：
+
+```text
+prepare fail-fast
+不得 index
+```
+
+因此：
+
+```text
+Preflight          = declared runtime identity
+Pipeline validation = effective runtime identity
+二者必须相等
+```
+
+## 23. Counter 的"同一实例"契约仍然保留
+
+不要误解成 Counter 可以使用 Preflight tokenizer。正式：
+
+```text
+EmbeddingRuntimeTokenCounter
+必须使用：
+  正式 Pipeline.embedding
+  → BGEEmbedding
+  → 正式 SentenceTransformer self._model
+  → runtime tokenizer
+```
+
+即 Counter 与真正 `encode()` 使用**同一个模型实例**。
+
+禁止 Counter 使用 Preflight SentenceTransformer：
+
+```text
+Preflight ST
+→ contract identity only
+
+Formal Pipeline ST
+├→ Counter tokenizer
+└→ encode()
+```
+
+prepare 验证二者行为契约一致（第 22.2 节）。
+
+## 24. cl100k 旧路径不需要 Runtime Preflight
+
+```text
+chunk_budget_policy = cl100k_content_v1
+→ runtime-derived chunk-budget identity fields 使用
+  明确 canonical sentinel / policy-defined fixed values
+→ 不需要 tokenizer Runtime Preflight
+```
+
+例如固定记录：
+
+```text
+effective_embedding_max_seq_length = null（该 policy 不消费）
+special_token_overhead = 0
+tokenizer_contract_probe_version = null
+tokenizer_contract_fingerprint = null / policy sentinel
+```
+
+重点：
+
+```text
+只有 embedding_runtime_model_input_v1 需要 BGE runtime preflight
+```
+
+不要给旧路径引入不必要的模型加载依赖。新字段加入 ExperimentConfig
+后会自然产生新的 experiment_id；旧 Artifact 不补字段、不重写。
+
+## 25. Single Source of Truth
+
+canonical probe suite 的定义只能有一个事实源，禁止 CLI /
+ExperimentRunner / BGEEmbedding 各写一套。设计指定共享模块，例如
+概念上：
+
+```text
+core/embeddings/runtime_contract.py
+```
+
+提供：
+
+```text
+TOKENIZER_CONTRACT_PROBE_VERSION
+TOKENIZER_CONTRACT_PROBES
+
+compute_tokenizer_contract(runtime_tokenizer, model)
+```
+
+Preflight 与 formal Pipeline validation 调用同一实现，不复制
+fingerprint 数学。
+
+## 26. Runner / CLI API 责任边界
+
+不要要求每个 CLI 调用者自己算 fingerprint。设计建议唯一高层解析
+入口，例如概念上：
+
+```text
+ExperimentRunner.resolve_config(spec)
+或
+resolve_experiment_config(spec)
+```
+
+职责：
+
+```text
+user-declared spec
+→ runtime preflight
+→ Final ExperimentConfig
+```
+
+随后 `run_experiment()` 只接受 Final / Resolved ExperimentConfig。
+如果命名需要适配当前架构可以调整，但必须只有一个正式 resolver。
+
+## 27. Preflight 失败语义
+
+以下任一 Preflight 失败：
+
+```text
+本地 BGE 模型不存在
+SentenceTransformer 无法加载
+runtime tokenizer 不存在
+max_seq_length 非法
+special_token_overhead 非法
+probe fingerprint 无法计算
+```
+
+必须：
+
+```text
+在 ExperimentWorkspace 创建前失败
+```
+
+不得留下：
+
+```text
+experiment workspace
+derived config.yaml
+vector store
+Manifest
+```
+
+## 28. prepare 二次验证不是重复浪费
+
+```text
+Preflight resolution
+→ 用于决定 experiment identity
+
+Formal Pipeline validation
+→ 防止声明身份与实际执行行为漂移
+```
+
+即使看起来加载了两次 Runtime Contract，职责不同。这与
+"declared config vs effective runtime behavior"是同一原则。
+
+后续如需优化双模型加载成本，可以做共享缓存；本阶段 correctness
+优先。
+
+## 29. 最终正式流程（完整架构图）
+
+```text
+ExperimentSpec
+      ↓
+Runtime Contract Resolver（Preflight，只读 runtime contract）
+      ↓
+Final ExperimentConfig（frozen，含 policy / max / contract fingerprint）
+      ↓
+experiment_id
+      ↓
+ExperimentWorkspace
+      ↓
+derived config
+      ↓
+Formal Pipeline
+      ↓
+runtime contract re-validation（declared == effective，否则 fail-fast）
+      ↓
+EmbeddingRuntimeTokenCounter（同一正式模型实例）
+      ↓
+Chunking
+      ↓
+Index
+      ↓
+corpus-scoped tokenizer behavior fingerprint（从 vector store 重算）
+      ↓
+Manifest
+      ↓
+Retrieval
+      ↓
+Metrics
+      ↓
+Result
+```
+
+## 30. R2 完成条件回答
+
+1. **fingerprint 在 experiment_id 之前如何获得**
+   Runtime Contract Preflight 在构造 Final ExperimentConfig 之前，
+   用本地只读的 SentenceTransformer contract instance
+   （local_files_only、不 encode）读取 max_seq_length / tokenizer /
+   special overhead / canonical probe input_ids，算出
+   tokenizer_contract_fingerprint，再构造 frozen config 并计算
+   experiment_id。
+2. **为什么不会形成 Workspace/Pipeline 循环**
+   runtime contract 在 Workspace 与 Pipeline 之前通过独立 Preflight
+   解析；experiment_id 只依赖该 resolved contract，不依赖
+   Workspace/Pipeline 的创建结果。
+3. **Preflight 与 Formal Pipeline 是否要求同一 Python 对象**
+   不要求。允许两个独立 SentenceTransformer 对象；要求 behavior
+   contract（max / overhead / probe version / fingerprint）完全一致，
+   由 _validate_pipeline 重算比对，fail-fast。
+4. **为什么 Formal Counter 仍必须和 encode 使用同一模型实例**
+   Counter 决定 chunk boundaries，encode 决定实际输入表示；两者若用
+   不同 tokenizer 行为，切出的"合规 chunk"可能与真正进入模型的序列
+   不一致。因此 Counter 必须取正式 Pipeline.embedding 的同一个
+   self._model tokenizer；Preflight 实例只服务身份解析。
+5. **谁是唯一 resolver**
+   唯一高层入口（概念上 ExperimentRunner.resolve_config(spec) /
+   resolve_experiment_config(spec)），负责 user-declared spec →
+   preflight → Final ExperimentConfig；probe suite 与 fingerprint
+   数学只存在于共享 runtime_contract 模块，禁止分叉实现。
+6. **Preflight 失败为什么不会留下 Workspace**
+   失败发生在生命周期第 2 步，Workspace 创建（第 5 步）之前；
+   失败路径直接抛出，不创建任何 workspace / config.yaml / vector
+   store / Manifest。
+7. **cl100k 旧路径为什么不需要额外加载 BGE**
+   cl100k_content_v1 的 runtime-derived identity 字段使用 canonical
+   sentinel / policy 固定值，不消费 runtime contract；只有
+   embedding_runtime_model_input_v1 需要 Preflight，因此旧路径不
+   引入模型加载依赖。
