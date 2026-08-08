@@ -54,7 +54,7 @@
 | EXP-10 | 缺少唯一高层实验入口 | ExperimentRunner.run_experiment：prepare → index_corpus → run_retrieval → compute_retrieval_metrics → finalize_result 固定顺序编排（见 study-notes 50） | ✅ 复审通过 |
 | REAL-11 | 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding） | Recursive + Hybrid + top5：file_count=37、total_chunks=215、case_count=50；experiment_id=b8e4bdb3b942、result_id=8a08132354cc；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360 | ✅ 复审通过 |
 | REAL-11-R1 | Embedding Identity 纳入正式实验身份并重跑 | ExperimentConfig 新增 embedding_provider/embedding_model；experiment_id=874b61d0b5d1、result_id=325d94294803；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360（与第一次完全一致） | ✅ 复审通过 |
-| ANALYSIS-12 | 第一次真实 Baseline Retrieval Error Analysis | 4 个 Hit@5=0（q013/q019/q039/q047）+ 3 个 Recall<1（q031/q034/q036）事实分析；提出 H1-H4 实验假设（见 docs/experiments/agent_ai_v1_baseline_analysis.md） | 🔧 完成，待复审 |
+| ANALYSIS-12 | 第一次真实 Baseline Retrieval Error Analysis | 4 个 Hit@5=0（q013/q019/q039/q047）+ 3 个 Recall<1（q031/q034/q036）事实分析；提出 H1-H4 实验假设（见 docs/experiments/agent_ai_v1_baseline_analysis.md、study-notes 51） | 🔧 完成，待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | ✅ 复审通过 |
 | G1-META-02 | Sparse-only 结果丢失原始元数据 | BM25 存元数据副本，sparse-only 命中恢复（实时入库同步） | ✅ 复审通过 |
 | G1-CTX-03A/R1 | 双模块各自截断、预算可加性假设 | 统一渲染契约 + 按最终渲染字符串真实 count 预算 | ✅ 复审通过 |
