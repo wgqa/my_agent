@@ -22,17 +22,24 @@ from evaluation.experiment_runner import ExperimentRunner
 from evaluation.retrieval_evaluation_set import RetrievalEvaluationSet
 
 
-def build_config(retriever_strategy: str = "hybrid") -> ExperimentConfig:
-    """冻结参数：Recursive + top5（不得调参）；strategy 可选 hybrid/simple/bm25。"""
+def build_config(
+    retriever_strategy: str = "hybrid",
+    chunk_strategy: str = "recursive",
+) -> ExperimentConfig:
+    """冻结参数：512/64 + top5（不得调参）；支持 fixed/recursive 与 simple/hybrid/bm25。"""
     if retriever_strategy not in ("simple", "hybrid", "bm25"):
         raise ValueError(
             f"未知 retriever_strategy: {retriever_strategy}，"
             "CLI 只允许 simple/hybrid/bm25"
         )
+    if chunk_strategy not in ("fixed", "recursive"):
+        raise ValueError(
+            f"未知 chunk_strategy: {chunk_strategy}，CLI 只允许 fixed/recursive"
+        )
     return ExperimentConfig(
         embedding_provider="bge",
         embedding_model="BAAI/bge-small-zh-v1.5",
-        chunk_strategy="recursive",
+        chunk_strategy=chunk_strategy,
         chunk_size=512,
         chunk_overlap=64,
         retriever_strategy=retriever_strategy,
@@ -59,7 +66,7 @@ def run(args) -> dict:
     evaluation_set = RetrievalEvaluationSet.load_jsonl(
         Path(args.evaluation), corpus
     )
-    config = build_config(args.retriever_strategy)
+    config = build_config(args.retriever_strategy, args.chunk_strategy)
     runner = ExperimentRunner(args.base_config, args.workspace_root)
     result = runner.run_experiment(config, args.run_id, corpus, evaluation_set)
     return {
@@ -99,6 +106,11 @@ def main(argv=None):
         "--retriever-strategy", default="hybrid",
         choices=["simple", "hybrid", "bm25"],
         help="正式实验策略：simple=Dense-only，bm25=BM25-only，hybrid=RRF 融合",
+    )
+    parser.add_argument(
+        "--chunk-strategy", default="recursive",
+        choices=["fixed", "recursive"],
+        help="分块策略：fixed=固定 token 窗口，recursive=语义边界优先",
     )
     args = parser.parse_args(argv)
     facts = run(args)

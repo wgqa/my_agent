@@ -1,0 +1,517 @@
+{
+  "case_count": 50,
+  "cases": [
+    {
+      "case_id": "q001",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q002",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 1
+    },
+    {
+      "case_id": "q003",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 2
+    },
+    {
+      "case_id": "q004",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q005",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q006",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q007",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q008",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 2
+    },
+    {
+      "case_id": "q009",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 2
+    },
+    {
+      "case_id": "q010",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 1
+    },
+    {
+      "case_id": "q011",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q012",
+      "first_relevant_rank": null,
+      "hit_at_k": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q013",
+      "first_relevant_rank": null,
+      "hit_at_k": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q014",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q015",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q016",
+      "first_relevant_rank": null,
+      "hit_at_k": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q017",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q018",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q019",
+      "first_relevant_rank": null,
+      "hit_at_k": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
+      "recall_at_k": 0.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q020",
+      "first_relevant_rank": 3,
+      "hit_at_k": 1.0,
+      "mrr": 0.3333333333333333,
+      "ndcg_at_k": 0.5,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q021",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q022",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q023",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q024",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q025",
+      "first_relevant_rank": 3,
+      "hit_at_k": 1.0,
+      "mrr": 0.3333333333333333,
+      "ndcg_at_k": 0.5,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q026",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q027",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 1
+    },
+    {
+      "case_id": "q028",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q029",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q030",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q031",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.9197207891481876,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 2,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q032",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 2,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q033",
+      "first_relevant_rank": 3,
+      "hit_at_k": 1.0,
+      "mrr": 0.3333333333333333,
+      "ndcg_at_k": 0.5706417189553201,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 2,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q034",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.9197207891481876,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 2,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q035",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 2,
+      "retrieved_file_count": 2
+    },
+    {
+      "case_id": "q036",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.7039180890341347,
+      "recall_at_k": 0.6666666666666666,
+      "relevant_file_count": 3,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q037",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q038",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 0.9197207891481876,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 2,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q039",
+      "first_relevant_rank": 4,
+      "hit_at_k": 1.0,
+      "mrr": 0.25,
+      "ndcg_at_k": 0.43067655807339306,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q040",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 2
+    },
+    {
+      "case_id": "q041",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q042",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q043",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 2
+    },
+    {
+      "case_id": "q044",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q045",
+      "first_relevant_rank": 4,
+      "hit_at_k": 1.0,
+      "mrr": 0.25,
+      "ndcg_at_k": 0.43067655807339306,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q046",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q047",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 5
+    },
+    {
+      "case_id": "q048",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 4
+    },
+    {
+      "case_id": "q049",
+      "first_relevant_rank": 2,
+      "hit_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.6309297535714575,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 3
+    },
+    {
+      "case_id": "q050",
+      "first_relevant_rank": 1,
+      "hit_at_k": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "relevant_file_count": 1,
+      "retrieved_file_count": 2
+    }
+  ],
+  "corpus_id": "870e5864df67",
+  "evaluation_set_id": "18c1c0470652",
+  "experiment_id": "0baf05e91fca",
+  "mean_hit_at_k": 0.92,
+  "mean_mrr": 0.76,
+  "mean_ndcg_at_k": 0.7914688614744785,
+  "mean_recall_at_k": 0.9133333333333333,
+  "metrics_run_id": "71325768a942",
+  "retrieval_run_id": "f90997ad1065",
+  "retriever_strategy": "hybrid",
+  "schema_version": 1,
+  "top_k": 5
+}

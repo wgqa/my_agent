@@ -156,7 +156,7 @@ def test_rebuild_strict_raises_on_build_failure():
     """VectorStore 有数据但构建失败：严格模式抛异常，信息说明评测终止"""
     pipeline = _FakePipeline(retriever=_FakeHybridRetriever(fail_build=True),
                              vector_data=VECTOR_DATA)
-    with pytest.raises(RuntimeError, match="Hybrid 评测已终止"):
+    with pytest.raises(RuntimeError, match="Sparse retrieval 评测已终止"):
         pipeline._rebuild_sparse_index(strict=True)
 
 
@@ -194,6 +194,6 @@ def test_evaluator_strict_mode_aborts_before_retrieve():
     pipeline = _FakePipeline(retriever=_FakeHybridRetriever(fail_build=True),
                              vector_data=VECTOR_DATA)
     evaluator = Evaluator(pipeline, [QAPair("q", ["hit1"])])
-    with pytest.raises(RuntimeError, match="Hybrid 评测已终止"):
+    with pytest.raises(RuntimeError, match="Sparse retrieval 评测已终止"):
         evaluator.run({"top_k": [3]})
     assert pipeline.retriever.called is False

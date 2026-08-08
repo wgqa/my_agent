@@ -38,6 +38,17 @@ def test_build_config_supports_formal_strategies():
         cli.build_config("graph_rag")
 
 
+def test_build_config_supports_chunk_strategies():
+    fixed = cli.build_config("hybrid", "fixed")
+    assert fixed.chunk_strategy == "fixed"
+    assert fixed.chunk_size == 512
+    assert fixed.chunk_overlap == 64
+    recursive = cli.build_config("hybrid", "recursive")
+    assert recursive.chunk_strategy == "recursive"
+    with pytest.raises(ValueError, match="未知 chunk_strategy"):
+        cli.build_config("hybrid", "semantic")
+
+
 def test_cli_run_calls_existing_chain_in_order(tmp_path, monkeypatch):
     calls = []
     corpus = SimpleNamespace(corpus_id="corpus-1")
@@ -87,6 +98,7 @@ def test_cli_run_calls_existing_chain_in_order(tmp_path, monkeypatch):
         workspace_root=str(tmp_path / "runs"),
         run_id="agent-ai-v1-recursive-hybrid-baseline-001",
         retriever_strategy="hybrid",
+        chunk_strategy="recursive",
     )
     facts = cli.run(args)
 

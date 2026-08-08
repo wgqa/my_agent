@@ -1,0 +1,2988 @@
+{
+  "cases": [
+    {
+      "case_id": "q001",
+      "hits": [
+        {
+          "chunk_id": "ea1de0d02a7d6ea402858aee43927245",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 1,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 21.2194
+          }
+        },
+        {
+          "chunk_id": "d6a529344247273bbc9c3f970e2bbc19",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 2,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 18.4264
+          }
+        },
+        {
+          "chunk_id": "262ce5939ec0eaaa6b06438aeb75a8fb",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 3,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 18.2842
+          }
+        },
+        {
+          "chunk_id": "ca715728f5f89122de7786448c373cc6",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 4,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 16.8529
+          }
+        },
+        {
+          "chunk_id": "808679617543c4b336ade842588f8902",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 5,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 16.3248
+          }
+        }
+      ],
+      "query": "KV Cache 为什么能显著加快 Decode 阶段的生成速度？",
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "retrieved_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md",
+        "deployment/推理框架.md",
+        "llm/Transformer架构-04-采样与工程联系.md"
+      ]
+    },
+    {
+      "case_id": "q002",
+      "hits": [
+        {
+          "chunk_id": "8c8e76f4d05e51331dceeb7bf465b895",
+          "document_id": "28e6ff0adda24105",
+          "rank": 1,
+          "relative_path": "deployment/量化技术.md",
+          "scores": {
+            "sparse_score": 22.9397
+          }
+        },
+        {
+          "chunk_id": "8375a1634fc04751ef80ea0a97b9c7c9",
+          "document_id": "28e6ff0adda24105",
+          "rank": 2,
+          "relative_path": "deployment/量化技术.md",
+          "scores": {
+            "sparse_score": 21.5247
+          }
+        },
+        {
+          "chunk_id": "3896f1a18a110fcc8bf71501f112152a",
+          "document_id": "28e6ff0adda24105",
+          "rank": 3,
+          "relative_path": "deployment/量化技术.md",
+          "scores": {
+            "sparse_score": 18.9963
+          }
+        },
+        {
+          "chunk_id": "85a2c598c0e116ec2f2ef64763dc012f",
+          "document_id": "28e6ff0adda24105",
+          "rank": 4,
+          "relative_path": "deployment/量化技术.md",
+          "scores": {
+            "sparse_score": 18.9133
+          }
+        },
+        {
+          "chunk_id": "1e0a20909e9e2bdb6935df26d35bebe6",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 5,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 17.9252
+          }
+        }
+      ],
+      "query": "为什么量化后模型文件变小、权重显存下降，服务的吞吐却不一定会提高？",
+      "relevant_files": [
+        "deployment/量化技术.md"
+      ],
+      "retrieved_files": [
+        "deployment/量化技术.md",
+        "finetuning/微调方法.md"
+      ]
+    },
+    {
+      "case_id": "q003",
+      "hits": [
+        {
+          "chunk_id": "f2d8588336174508edba9b95db22ca24",
+          "document_id": "263a596a15bde15e",
+          "rank": 1,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 32.7803
+          }
+        },
+        {
+          "chunk_id": "de3838e03db0bf79588eed91c5d4f6c7",
+          "document_id": "263a596a15bde15e",
+          "rank": 2,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 24.0467
+          }
+        },
+        {
+          "chunk_id": "de9bc1d29e687d1018d9b97f8a11f337",
+          "document_id": "58900e3c6745e029",
+          "rank": 3,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 23.0129
+          }
+        },
+        {
+          "chunk_id": "4d7d73bf314292a350e698ee45401f3e",
+          "document_id": "58900e3c6745e029",
+          "rank": 4,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 21.607
+          }
+        },
+        {
+          "chunk_id": "57f3ba5e22c0b16a5b28b8c519f7b504",
+          "document_id": "263a596a15bde15e",
+          "rank": 5,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 18.0154
+          }
+        }
+      ],
+      "query": "HNSW 这种多层图索引为什么能在大规模向量上兼顾低延迟与较高召回？",
+      "relevant_files": [
+        "vector_db/核心概念.md"
+      ],
+      "retrieved_files": [
+        "vector_db/核心概念.md",
+        "vector_db/产品对比.md"
+      ]
+    },
+    {
+      "case_id": "q004",
+      "hits": [
+        {
+          "chunk_id": "3f88a73411fc2c440c67e85e8ab0f943",
+          "document_id": "734e6444e5bb3ba0",
+          "rank": 1,
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "scores": {
+            "sparse_score": 34.0711
+          }
+        },
+        {
+          "chunk_id": "5358edd63668b49792dc2eb265273254",
+          "document_id": "4a946d6ac3c8c2b2",
+          "rank": 2,
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "scores": {
+            "sparse_score": 29.0283
+          }
+        },
+        {
+          "chunk_id": "04a92c7a25707c9b9666c56af49b88d1",
+          "document_id": "b6f50ed000b39bca",
+          "rank": 3,
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "scores": {
+            "sparse_score": 24.811
+          }
+        },
+        {
+          "chunk_id": "fb08a8f7a34054ebacf40dc4d1e4a091",
+          "document_id": "aa5acc7935a8deeb",
+          "rank": 4,
+          "relative_path": "mcp/MCP协议-03-结果设计与安全边界.md",
+          "scores": {
+            "sparse_score": 17.7151
+          }
+        },
+        {
+          "chunk_id": "00971b34beb02af6d4de4ad39b816e45",
+          "document_id": "4a946d6ac3c8c2b2",
+          "rank": 5,
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "scores": {
+            "sparse_score": 17.657
+          }
+        }
+      ],
+      "query": "通过标准输入输出（stdio）与本地 MCP Server 通信时，为什么服务端的普通日志不能打印到标准输出？",
+      "relevant_files": [
+        "mcp/MCP协议-02-能力发现与传输.md"
+      ],
+      "retrieved_files": [
+        "mcp/MCP协议-02-能力发现与传输.md",
+        "mcp/MCP协议-04-状态部署与测试.md",
+        "mcp/MCP协议-01-基础与原语.md",
+        "mcp/MCP协议-03-结果设计与安全边界.md"
+      ]
+    },
+    {
+      "case_id": "q005",
+      "hits": [
+        {
+          "chunk_id": "ea1de0d02a7d6ea402858aee43927245",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 1,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 40.9696
+          }
+        },
+        {
+          "chunk_id": "d59e943415c5a8f1158991aa647e6974",
+          "document_id": "4d1d69ed088b003f",
+          "rank": 2,
+          "relative_path": "llm/预训练.md",
+          "scores": {
+            "sparse_score": 25.9755
+          }
+        },
+        {
+          "chunk_id": "6c59fbe1b1eab974c9e996b3b7c1f77c",
+          "document_id": "c388c364081aa999",
+          "rank": 3,
+          "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+          "scores": {
+            "sparse_score": 24.9428
+          }
+        },
+        {
+          "chunk_id": "05f0a1ee8aaac8e137722c8b9cef3425",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 4,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 24.8954
+          }
+        },
+        {
+          "chunk_id": "078ecf8fcfbe5458a67f1cdb78463c55",
+          "document_id": "4d1d69ed088b003f",
+          "rank": 5,
+          "relative_path": "llm/预训练.md",
+          "scores": {
+            "sparse_score": 24.4912
+          }
+        }
+      ],
+      "query": "训练时为什么可以同时计算整段序列所有位置的下一个 Token，而推理生成时只能逐 Token 进行？",
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "retrieved_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md",
+        "llm/预训练.md",
+        "llm/Transformer架构-01-Attention与基础组件.md",
+        "finetuning/数据工程.md"
+      ]
+    },
+    {
+      "case_id": "q006",
+      "hits": [
+        {
+          "chunk_id": "5b2f958c202cb463163655d0282ffa9a",
+          "document_id": "da36e8e873bef694",
+          "rank": 1,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 35.762
+          }
+        },
+        {
+          "chunk_id": "9e9bf92dfe4411f234055081f2e5ed80",
+          "document_id": "11c2d22bcbba2f3b",
+          "rank": 2,
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "scores": {
+            "sparse_score": 34.1381
+          }
+        },
+        {
+          "chunk_id": "41501ac1bc0f850fb2b1fd2cf218ad24",
+          "document_id": "11c2d22bcbba2f3b",
+          "rank": 3,
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "scores": {
+            "sparse_score": 32.4371
+          }
+        },
+        {
+          "chunk_id": "abfe0898a98fb2ad9fc400b63f8dd9b5",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 4,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 26.4005
+          }
+        },
+        {
+          "chunk_id": "0ba1fcb9b60df8d2858e654f08e98afc",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 5,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 20.8996
+          }
+        }
+      ],
+      "query": "在标准 DPO 训练中，为什么通常会保留一个冻结的 reference model 来约束 policy model？",
+      "relevant_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ],
+      "retrieved_files": [
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "post_training/后训练-04-常见问题与DPO落地.md",
+        "post_training/后训练-03-DPO与GRPO.md"
+      ]
+    },
+    {
+      "case_id": "q007",
+      "hits": [
+        {
+          "chunk_id": "262ce5939ec0eaaa6b06438aeb75a8fb",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 1,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 33.4663
+          }
+        },
+        {
+          "chunk_id": "ea1de0d02a7d6ea402858aee43927245",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 2,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 31.1417
+          }
+        },
+        {
+          "chunk_id": "d6a529344247273bbc9c3f970e2bbc19",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 3,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 28.0441
+          }
+        },
+        {
+          "chunk_id": "ca715728f5f89122de7786448c373cc6",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 4,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 27.3147
+          }
+        },
+        {
+          "chunk_id": "8375a1634fc04751ef80ea0a97b9c7c9",
+          "document_id": "28e6ff0adda24105",
+          "rank": 5,
+          "relative_path": "deployment/量化技术.md",
+          "scores": {
+            "sparse_score": 25.044
+          }
+        }
+      ],
+      "query": "Prefill 和 Decode 两个阶段的计算瓶颈分别是什么？为什么说 Decode 更偏内存带宽？",
+      "relevant_files": [
+        "deployment/推理框架.md"
+      ],
+      "retrieved_files": [
+        "deployment/推理框架.md",
+        "llm/Transformer架构-03-训练推理与高效Attention.md",
+        "llm/Transformer架构-04-采样与工程联系.md",
+        "deployment/量化技术.md"
+      ]
+    },
+    {
+      "case_id": "q008",
+      "hits": [
+        {
+          "chunk_id": "5de5d74cc91a39703ddf299312ff2700",
+          "document_id": "420fc785a87e73e4",
+          "rank": 1,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 30.6718
+          }
+        },
+        {
+          "chunk_id": "26d59c45137fedd7a734de096bc95f0e",
+          "document_id": "420fc785a87e73e4",
+          "rank": 2,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 21.9724
+          }
+        },
+        {
+          "chunk_id": "67127944b03be4ed3c4eb3a605236a7b",
+          "document_id": "fa46d9981425ca38",
+          "rank": 3,
+          "relative_path": "tool_calling/工具设计.md",
+          "scores": {
+            "sparse_score": 18.9402
+          }
+        },
+        {
+          "chunk_id": "e85efca7a967f328b5256f7611f85862",
+          "document_id": "1094a22883135a7d",
+          "rank": 4,
+          "relative_path": "deployment/部署架构.md",
+          "scores": {
+            "sparse_score": 17.1822
+          }
+        },
+        {
+          "chunk_id": "2811833a0962463965885ea2cd5001c3",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 5,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 16.6468
+          }
+        }
+      ],
+      "query": "一次请求里同时调用多个工具时，为什么每个工具结果都必须带上原始 call_id？",
+      "relevant_files": [
+        "tool_calling/Function-Calling原理.md"
+      ],
+      "retrieved_files": [
+        "tool_calling/Function-Calling原理.md",
+        "tool_calling/工具设计.md",
+        "deployment/部署架构.md",
+        "rag/检索与生成.md"
+      ]
+    },
+    {
+      "case_id": "q009",
+      "hits": [
+        {
+          "chunk_id": "d8451644f6c76f0dc6e9e2e58dd1d421",
+          "document_id": "263a596a15bde15e",
+          "rank": 1,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 19.333
+          }
+        },
+        {
+          "chunk_id": "c1c79deab804afb16a4a9e205c07fa4a",
+          "document_id": "d53277e8d1dce368",
+          "rank": 2,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 19.2714
+          }
+        },
+        {
+          "chunk_id": "021a42a60e00f692334cb7bc5ff5eb1a",
+          "document_id": "d53277e8d1dce368",
+          "rank": 3,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 17.7921
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 4,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 17.2328
+          }
+        },
+        {
+          "chunk_id": "8888296c506705c5283593454d4c20fc",
+          "document_id": "58900e3c6745e029",
+          "rank": 5,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 14.9283
+          }
+        }
+      ],
+      "query": "如果换用了新的 Embedding 模型，旧索引为什么通常要重建而不是原地混用？",
+      "relevant_files": [
+        "rag/文档处理.md"
+      ],
+      "retrieved_files": [
+        "vector_db/核心概念.md",
+        "rag/文档处理.md",
+        "vector_db/产品对比.md"
+      ]
+    },
+    {
+      "case_id": "q010",
+      "hits": [
+        {
+          "chunk_id": "828a338ef3d6a07e1f566fb64bb9314d",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 1,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 29.5842
+          }
+        },
+        {
+          "chunk_id": "fcd94604844a729c814ff56d1106df20",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 2,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 23.2272
+          }
+        },
+        {
+          "chunk_id": "f94f70aec4223e1bcdcdaa1799819b28",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 3,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 20.2989
+          }
+        },
+        {
+          "chunk_id": "eada04f5d3fd3e8fbd6328313296bde5",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 4,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 19.9413
+          }
+        },
+        {
+          "chunk_id": "da1917bfebf8e8dd5e610ea41db35048",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 5,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 19.6862
+          }
+        }
+      ],
+      "query": "RAG 检索评测中，为什么同一内容的重叠 Chunk 不能算作多个独立命中的正确证据？",
+      "relevant_files": [
+        "rag/高级RAG.md"
+      ],
+      "retrieved_files": [
+        "rag/高级RAG.md",
+        "rag/检索与生成.md"
+      ]
+    },
+    {
+      "case_id": "q011",
+      "hits": [
+        {
+          "chunk_id": "b3f6af8857831b14ee1e7fd91bd98180",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 1,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 15.3329
+          }
+        },
+        {
+          "chunk_id": "f94f70aec4223e1bcdcdaa1799819b28",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 2,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 15.0649
+          }
+        },
+        {
+          "chunk_id": "f52444f1e03eddceb8340a3d7b0fd2a7",
+          "document_id": "d53277e8d1dce368",
+          "rank": 3,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 12.2649
+          }
+        },
+        {
+          "chunk_id": "722eabde7357346393d0d16f23c3a1ca",
+          "document_id": "d53277e8d1dce368",
+          "rank": 4,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 11.6095
+          }
+        },
+        {
+          "chunk_id": "750d9baccbe1ea6219801334660a5b77",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 5,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 11.5585
+          }
+        }
+      ],
+      "query": "为什么把相邻文本块重复一部分（overlap）并不是越多越好？",
+      "relevant_files": [
+        "rag/文档处理.md"
+      ],
+      "retrieved_files": [
+        "finetuning/训练与评估.md",
+        "rag/高级RAG.md",
+        "rag/文档处理.md",
+        "llm/对齐与微调.md"
+      ]
+    },
+    {
+      "case_id": "q012",
+      "hits": [
+        {
+          "chunk_id": "2a6eb6e1df70e466867e9e9ea655387b",
+          "document_id": "5fcddd69127d9078",
+          "rank": 1,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 15.5275
+          }
+        },
+        {
+          "chunk_id": "ad84332dd4f310e7885bb58ddbed7a9f",
+          "document_id": "9736390396a7a649",
+          "rank": 2,
+          "relative_path": "post_training/后训练-05-RM细节与GRPO应用.md",
+          "scores": {
+            "sparse_score": 15.4804
+          }
+        },
+        {
+          "chunk_id": "67c6206021872458bd7363d6c94bb9df",
+          "document_id": "52daf25593c024a3",
+          "rank": 3,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 14.1295
+          }
+        },
+        {
+          "chunk_id": "656cf7c6cb0b34769a2f7aff699c4924",
+          "document_id": "52daf25593c024a3",
+          "rank": 4,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 13.3966
+          }
+        },
+        {
+          "chunk_id": "f4f0c529640e2cd35e0f4bdd0ef181b2",
+          "document_id": "5fcddd69127d9078",
+          "rank": 5,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 13.1973
+          }
+        }
+      ],
+      "query": "为什么只给模型模糊的质量要求，通常不如明确输出格式、边界条件和成功标准有效？",
+      "relevant_files": [
+        "prompt/提示工程基础.md"
+      ],
+      "retrieved_files": [
+        "prompt/评估与优化.md",
+        "post_training/后训练-05-RM细节与GRPO应用.md",
+        "prompt/提示工程基础.md"
+      ]
+    },
+    {
+      "case_id": "q013",
+      "hits": [
+        {
+          "chunk_id": "eada04f5d3fd3e8fbd6328313296bde5",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 1,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 17.7402
+          }
+        },
+        {
+          "chunk_id": "5b2f958c202cb463163655d0282ffa9a",
+          "document_id": "da36e8e873bef694",
+          "rank": 2,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 16.2821
+          }
+        },
+        {
+          "chunk_id": "656cf7c6cb0b34769a2f7aff699c4924",
+          "document_id": "52daf25593c024a3",
+          "rank": 3,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 16.044
+          }
+        },
+        {
+          "chunk_id": "87a7033f6fa911e955acb87ac3e2dd2a",
+          "document_id": "9938360d2e8b9bf8",
+          "rank": 4,
+          "relative_path": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "scores": {
+            "sparse_score": 15.9349
+          }
+        },
+        {
+          "chunk_id": "828a338ef3d6a07e1f566fb64bb9314d",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 5,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 15.8056
+          }
+        }
+      ],
+      "query": "模型并没有真的去查数据库，它回答里那些知识是从哪来的？为什么不能当最新事实用？",
+      "relevant_files": [
+        "llm/预训练.md"
+      ],
+      "retrieved_files": [
+        "rag/高级RAG.md",
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "prompt/提示工程基础.md",
+        "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md"
+      ]
+    },
+    {
+      "case_id": "q014",
+      "hits": [
+        {
+          "chunk_id": "9404dd2b35cd0f799cf843448da61c6f",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 1,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 21.5173
+          }
+        },
+        {
+          "chunk_id": "4a84663f238b637a7ab4c211852c9888",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 2,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 20.7983
+          }
+        },
+        {
+          "chunk_id": "5836913d3d8f792e76d1abad4bb78df5",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 3,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 20.2379
+          }
+        },
+        {
+          "chunk_id": "d10791eda7a985fc9aca4877129c6cec",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 4,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 18.5959
+          }
+        },
+        {
+          "chunk_id": "0ec9db6f0cb8564c89313e6450c20727",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 5,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 18.3345
+          }
+        }
+      ],
+      "query": "当业务知识频繁变化时，为什么通常应该把知识放到外部检索层，而不是靠小规模 LoRA 反复更新模型？",
+      "relevant_files": [
+        "finetuning/微调方法.md"
+      ],
+      "retrieved_files": [
+        "finetuning/微调方法.md",
+        "finetuning/训练与评估.md",
+        "llm/对齐与微调.md"
+      ]
+    },
+    {
+      "case_id": "q015",
+      "hits": [
+        {
+          "chunk_id": "cd60cdbbe56063bec7e1b25b44bcbe4a",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 1,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 27.997
+          }
+        },
+        {
+          "chunk_id": "8a1c1e7c090bc7d3b86bb019a48d8883",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 2,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 26.1017
+          }
+        },
+        {
+          "chunk_id": "33875d055549e9ed41abe4efaad0bdc1",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 3,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 25.6182
+          }
+        },
+        {
+          "chunk_id": "0747d4b180500528d5f2598ce9a78d00",
+          "document_id": "52daf25593c024a3",
+          "rank": 4,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 20.5989
+          }
+        },
+        {
+          "chunk_id": "1ee2a50f3a4c9fd41c310f6311e8576b",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 5,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 20.0214
+          }
+        }
+      ],
+      "query": "为什么长上下文中的关键证据需要优先排序并放在更显著的位置，而不能简单把所有检索结果按原顺序塞进去？",
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "retrieved_files": [
+        "rag/检索与生成.md",
+        "llm/Transformer架构-04-采样与工程联系.md",
+        "prompt/提示工程基础.md",
+        "prompt/提示工程高级技巧.md"
+      ]
+    },
+    {
+      "case_id": "q016",
+      "hits": [
+        {
+          "chunk_id": "4112563d73cc2575ddce69df07ea5fa9",
+          "document_id": "5fcddd69127d9078",
+          "rank": 1,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 21.324
+          }
+        },
+        {
+          "chunk_id": "476a485e9047cd33a540a2019ed9240e",
+          "document_id": "420fc785a87e73e4",
+          "rank": 2,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 20.2926
+          }
+        },
+        {
+          "chunk_id": "f600e56bea29cfe6aa745763fc2a88ec",
+          "document_id": "fa46d9981425ca38",
+          "rank": 3,
+          "relative_path": "tool_calling/工具设计.md",
+          "scores": {
+            "sparse_score": 19.2738
+          }
+        },
+        {
+          "chunk_id": "97e10cfa970372a05ffe82d0aa69a73a",
+          "document_id": "263a596a15bde15e",
+          "rank": 4,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 14.9665
+          }
+        },
+        {
+          "chunk_id": "04a92c7a25707c9b9666c56af49b88d1",
+          "document_id": "b6f50ed000b39bca",
+          "rank": 5,
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "scores": {
+            "sparse_score": 14.7212
+          }
+        }
+      ],
+      "query": "为什么把工具参数设计得『越死』（枚举、范围、禁止额外字段）模型越不容易填错？",
+      "relevant_files": [
+        "tool_calling/工具设计.md"
+      ],
+      "retrieved_files": [
+        "prompt/评估与优化.md",
+        "tool_calling/Function-Calling原理.md",
+        "tool_calling/工具设计.md",
+        "vector_db/核心概念.md",
+        "mcp/MCP协议-01-基础与原语.md"
+      ]
+    },
+    {
+      "case_id": "q017",
+      "hits": [
+        {
+          "chunk_id": "05f0a1ee8aaac8e137722c8b9cef3425",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 1,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 32.7465
+          }
+        },
+        {
+          "chunk_id": "c365ada1b4e7493bf72366e4973784ef",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 2,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 25.3403
+          }
+        },
+        {
+          "chunk_id": "eb7e85761eab0fc13acb0e15b9cc5874",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 3,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 23.7643
+          }
+        },
+        {
+          "chunk_id": "24fb9aba8db3afd360e314f018bedd67",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 4,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 23.4536
+          }
+        },
+        {
+          "chunk_id": "935fa3af2960a06112de48d302dddae3",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 5,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 23.1403
+          }
+        }
+      ],
+      "query": "为什么 SFT 训练前必须逐个检查 Token、Label 和 Loss Mask 的对应关系，而不能只看训练 Loss 是否下降？",
+      "relevant_files": [
+        "finetuning/数据工程.md"
+      ],
+      "retrieved_files": [
+        "finetuning/数据工程.md",
+        "finetuning/训练与评估.md"
+      ]
+    },
+    {
+      "case_id": "q018",
+      "hits": [
+        {
+          "chunk_id": "656cf7c6cb0b34769a2f7aff699c4924",
+          "document_id": "52daf25593c024a3",
+          "rank": 1,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 32.836
+          }
+        },
+        {
+          "chunk_id": "8f76e7563e262b11bce8d5657a29c8fd",
+          "document_id": "52daf25593c024a3",
+          "rank": 2,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 23.7736
+          }
+        },
+        {
+          "chunk_id": "5de5d74cc91a39703ddf299312ff2700",
+          "document_id": "420fc785a87e73e4",
+          "rank": 3,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 20.5433
+          }
+        },
+        {
+          "chunk_id": "67c6206021872458bd7363d6c94bb9df",
+          "document_id": "52daf25593c024a3",
+          "rank": 4,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 18.3705
+          }
+        },
+        {
+          "chunk_id": "d59e943415c5a8f1158991aa647e6974",
+          "document_id": "4d1d69ed088b003f",
+          "rank": 5,
+          "relative_path": "llm/预训练.md",
+          "scores": {
+            "sparse_score": 17.7247
+          }
+        }
+      ],
+      "query": "如果下游程序必须稳定消费模型的结构化结果，为什么仅靠自然语言要求某种输出格式不可靠？应用侧还需要哪些保障？",
+      "relevant_files": [
+        "prompt/提示工程基础.md"
+      ],
+      "retrieved_files": [
+        "prompt/提示工程基础.md",
+        "tool_calling/Function-Calling原理.md",
+        "llm/预训练.md"
+      ]
+    },
+    {
+      "case_id": "q019",
+      "hits": [
+        {
+          "chunk_id": "9404dd2b35cd0f799cf843448da61c6f",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 1,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 15.63
+          }
+        },
+        {
+          "chunk_id": "ea1de0d02a7d6ea402858aee43927245",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 2,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 15.5482
+          }
+        },
+        {
+          "chunk_id": "ca715728f5f89122de7786448c373cc6",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 3,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 14.3916
+          }
+        },
+        {
+          "chunk_id": "6c59fbe1b1eab974c9e996b3b7c1f77c",
+          "document_id": "c388c364081aa999",
+          "rank": 4,
+          "relative_path": "llm/Transformer架构-01-Attention与基础组件.md",
+          "scores": {
+            "sparse_score": 14.28
+          }
+        },
+        {
+          "chunk_id": "3a2f6e1a508a6f8f65f74b91d3afb40d",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 5,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 13.894
+          }
+        }
+      ],
+      "query": "同一个模型，为什么训练时能一口气算完整段话的损失，生成时却只能一个字一个字地往外蹦？",
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "retrieved_files": [
+        "finetuning/微调方法.md",
+        "llm/Transformer架构-03-训练推理与高效Attention.md",
+        "llm/Transformer架构-04-采样与工程联系.md",
+        "llm/Transformer架构-01-Attention与基础组件.md",
+        "llm/对齐与微调.md"
+      ]
+    },
+    {
+      "case_id": "q020",
+      "hits": [
+        {
+          "chunk_id": "af4fa8f62a0c72ae1329b686d1202ba9",
+          "document_id": "da36e8e873bef694",
+          "rank": 1,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 28.4698
+          }
+        },
+        {
+          "chunk_id": "bb763f18f9769deffa564c599d596063",
+          "document_id": "11c2d22bcbba2f3b",
+          "rank": 2,
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "scores": {
+            "sparse_score": 23.979
+          }
+        },
+        {
+          "chunk_id": "29785c2a901105f60cf4f9c7eff64ebd",
+          "document_id": "9736390396a7a649",
+          "rank": 3,
+          "relative_path": "post_training/后训练-05-RM细节与GRPO应用.md",
+          "scores": {
+            "sparse_score": 19.7219
+          }
+        },
+        {
+          "chunk_id": "5c2ddc0a5cb207843569ad9c581e2eae",
+          "document_id": "da36e8e873bef694",
+          "rank": 4,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 15.9919
+          }
+        },
+        {
+          "chunk_id": "98d256e00210f38d46bfa366cd69774d",
+          "document_id": "9736390396a7a649",
+          "rank": 5,
+          "relative_path": "post_training/后训练-05-RM细节与GRPO应用.md",
+          "scores": {
+            "sparse_score": 15.6217
+          }
+        }
+      ],
+      "query": "给模型看那种『差到离谱』的 rejected 答案，为什么反而学不到细粒度的偏好？",
+      "relevant_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ],
+      "retrieved_files": [
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "post_training/后训练-04-常见问题与DPO落地.md",
+        "post_training/后训练-05-RM细节与GRPO应用.md"
+      ]
+    },
+    {
+      "case_id": "q021",
+      "hits": [
+        {
+          "chunk_id": "d6a529344247273bbc9c3f970e2bbc19",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 1,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 29.1535
+          }
+        },
+        {
+          "chunk_id": "ca715728f5f89122de7786448c373cc6",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 2,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 26.8251
+          }
+        },
+        {
+          "chunk_id": "8b1dd41db3329e34350d0269c201720f",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 3,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 21.4672
+          }
+        },
+        {
+          "chunk_id": "c1c79deab804afb16a4a9e205c07fa4a",
+          "document_id": "d53277e8d1dce368",
+          "rank": 4,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 18.8514
+          }
+        },
+        {
+          "chunk_id": "f15b3d0af14c78d477f8f4a6fa9b2e4c",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 5,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 18.6522
+          }
+        }
+      ],
+      "query": "FlashAttention 和 PagedAttention 都经常出现在大模型推理优化中，它们分别解决什么瓶颈，为什么不能互相替代？",
+      "relevant_files": [
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ],
+      "retrieved_files": [
+        "deployment/推理框架.md",
+        "llm/Transformer架构-04-采样与工程联系.md",
+        "llm/Transformer架构-03-训练推理与高效Attention.md",
+        "rag/文档处理.md"
+      ]
+    },
+    {
+      "case_id": "q022",
+      "hits": [
+        {
+          "chunk_id": "5b2f958c202cb463163655d0282ffa9a",
+          "document_id": "da36e8e873bef694",
+          "rank": 1,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 25.6955
+          }
+        },
+        {
+          "chunk_id": "6d54fbc916e4eac966fe81d7cf7afe5c",
+          "document_id": "76845213c6564bfd",
+          "rank": 2,
+          "relative_path": "post_training/后训练-01-概念与偏好数据.md",
+          "scores": {
+            "sparse_score": 23.8751
+          }
+        },
+        {
+          "chunk_id": "0ba1fcb9b60df8d2858e654f08e98afc",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 3,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 23.7503
+          }
+        },
+        {
+          "chunk_id": "64ad13d1fe5a13b4921d661e628f8602",
+          "document_id": "a1033e44104ca728",
+          "rank": 4,
+          "relative_path": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+          "scores": {
+            "sparse_score": 21.9621
+          }
+        },
+        {
+          "chunk_id": "5c2ddc0a5cb207843569ad9c581e2eae",
+          "document_id": "da36e8e873bef694",
+          "rank": 5,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 21.4922
+          }
+        }
+      ],
+      "query": "如果不想单独训练奖励模型，DPO 与传统 RLHF 流程在优化方式上有什么本质差别？",
+      "relevant_files": [
+        "post_training/后训练-03-DPO与GRPO.md"
+      ],
+      "retrieved_files": [
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "post_training/后训练-01-概念与偏好数据.md",
+        "post_training/后训练-03-DPO与GRPO.md",
+        "post_training/后训练-02-RewardModel与RLHF-PPO.md"
+      ]
+    },
+    {
+      "case_id": "q023",
+      "hits": [
+        {
+          "chunk_id": "750d9baccbe1ea6219801334660a5b77",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 1,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 24.3309
+          }
+        },
+        {
+          "chunk_id": "d10791eda7a985fc9aca4877129c6cec",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 2,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 23.2183
+          }
+        },
+        {
+          "chunk_id": "924855b1c2fecb658714b566a6ae3f03",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 3,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 22.3327
+          }
+        },
+        {
+          "chunk_id": "0ba1fcb9b60df8d2858e654f08e98afc",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 4,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 21.7754
+          }
+        },
+        {
+          "chunk_id": "5c2ddc0a5cb207843569ad9c581e2eae",
+          "document_id": "da36e8e873bef694",
+          "rank": 5,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 19.5188
+          }
+        }
+      ],
+      "query": "SFT 和偏好优化（DPO）解决的是同一种问题吗？各自擅长和局限在哪？",
+      "relevant_files": [
+        "llm/对齐与微调.md"
+      ],
+      "retrieved_files": [
+        "llm/对齐与微调.md",
+        "finetuning/微调方法.md",
+        "post_training/后训练-03-DPO与GRPO.md",
+        "post_training/后训练-07-简历项目与面试高频题.md"
+      ]
+    },
+    {
+      "case_id": "q024",
+      "hits": [
+        {
+          "chunk_id": "3caaeab5b5369d059b13e123e140a8aa",
+          "document_id": "420fc785a87e73e4",
+          "rank": 1,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 23.5031
+          }
+        },
+        {
+          "chunk_id": "5358edd63668b49792dc2eb265273254",
+          "document_id": "4a946d6ac3c8c2b2",
+          "rank": 2,
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "scores": {
+            "sparse_score": 23.4793
+          }
+        },
+        {
+          "chunk_id": "04a92c7a25707c9b9666c56af49b88d1",
+          "document_id": "b6f50ed000b39bca",
+          "rank": 3,
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "scores": {
+            "sparse_score": 21.1701
+          }
+        },
+        {
+          "chunk_id": "fb08a8f7a34054ebacf40dc4d1e4a091",
+          "document_id": "aa5acc7935a8deeb",
+          "rank": 4,
+          "relative_path": "mcp/MCP协议-03-结果设计与安全边界.md",
+          "scores": {
+            "sparse_score": 18.1961
+          }
+        },
+        {
+          "chunk_id": "ca715728f5f89122de7786448c373cc6",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 5,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 17.4226
+          }
+        }
+      ],
+      "query": "MCP 和 Function Calling 是替代关系吗？它们分别在链路中承担什么角色？",
+      "relevant_files": [
+        "mcp/MCP协议-03-结果设计与安全边界.md"
+      ],
+      "retrieved_files": [
+        "tool_calling/Function-Calling原理.md",
+        "mcp/MCP协议-04-状态部署与测试.md",
+        "mcp/MCP协议-01-基础与原语.md",
+        "mcp/MCP协议-03-结果设计与安全边界.md",
+        "llm/Transformer架构-04-采样与工程联系.md"
+      ]
+    },
+    {
+      "case_id": "q025",
+      "hits": [
+        {
+          "chunk_id": "04213270da4708f1721d487e42240077",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 1,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 31.4675
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 2,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 26.823
+          }
+        },
+        {
+          "chunk_id": "84272154925d6a0d963a3d4321d16cc5",
+          "document_id": "58900e3c6745e029",
+          "rank": 3,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 22.563
+          }
+        },
+        {
+          "chunk_id": "4d7d73bf314292a350e698ee45401f3e",
+          "document_id": "58900e3c6745e029",
+          "rank": 4,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 22.0271
+          }
+        },
+        {
+          "chunk_id": "e37e8243c377a7178b3b10a4536fe99a",
+          "document_id": "58900e3c6745e029",
+          "rank": 5,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 18.7024
+          }
+        }
+      ],
+      "query": "BM25 关键词检索和向量检索各自的短板是什么？为什么混合检索通常更稳？",
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "retrieved_files": [
+        "rag/检索与生成.md",
+        "vector_db/核心概念.md",
+        "vector_db/产品对比.md"
+      ]
+    },
+    {
+      "case_id": "q026",
+      "hits": [
+        {
+          "chunk_id": "9404dd2b35cd0f799cf843448da61c6f",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 1,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 19.8591
+          }
+        },
+        {
+          "chunk_id": "d10791eda7a985fc9aca4877129c6cec",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 2,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 19.8324
+          }
+        },
+        {
+          "chunk_id": "1e0a20909e9e2bdb6935df26d35bebe6",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 3,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 17.7992
+          }
+        },
+        {
+          "chunk_id": "5358edd63668b49792dc2eb265273254",
+          "document_id": "4a946d6ac3c8c2b2",
+          "rank": 4,
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "scores": {
+            "sparse_score": 16.9948
+          }
+        },
+        {
+          "chunk_id": "84272154925d6a0d963a3d4321d16cc5",
+          "document_id": "58900e3c6745e029",
+          "rank": 5,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 16.747
+          }
+        }
+      ],
+      "query": "LoRA 和 QLoRA 解决的是同一个问题吗？主要差别在哪里？",
+      "relevant_files": [
+        "finetuning/微调方法.md"
+      ],
+      "retrieved_files": [
+        "finetuning/微调方法.md",
+        "llm/对齐与微调.md",
+        "mcp/MCP协议-04-状态部署与测试.md",
+        "vector_db/产品对比.md"
+      ]
+    },
+    {
+      "case_id": "q027",
+      "hits": [
+        {
+          "chunk_id": "4d7d73bf314292a350e698ee45401f3e",
+          "document_id": "58900e3c6745e029",
+          "rank": 1,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 24.1171
+          }
+        },
+        {
+          "chunk_id": "f2d8588336174508edba9b95db22ca24",
+          "document_id": "263a596a15bde15e",
+          "rank": 2,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 18.172
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 3,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 16.6418
+          }
+        },
+        {
+          "chunk_id": "e37e8243c377a7178b3b10a4536fe99a",
+          "document_id": "58900e3c6745e029",
+          "rank": 4,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 15.6233
+          }
+        },
+        {
+          "chunk_id": "c1c79deab804afb16a4a9e205c07fa4a",
+          "document_id": "d53277e8d1dce368",
+          "rank": 5,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 14.7738
+          }
+        }
+      ],
+      "query": "IVF 和 HNSW 都是近似近邻索引，在什么条件下会优先选哪一种？",
+      "relevant_files": [
+        "vector_db/核心概念.md"
+      ],
+      "retrieved_files": [
+        "vector_db/产品对比.md",
+        "vector_db/核心概念.md",
+        "rag/文档处理.md"
+      ]
+    },
+    {
+      "case_id": "q028",
+      "hits": [
+        {
+          "chunk_id": "87a7033f6fa911e955acb87ac3e2dd2a",
+          "document_id": "9938360d2e8b9bf8",
+          "rank": 1,
+          "relative_path": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "scores": {
+            "sparse_score": 22.1357
+          }
+        },
+        {
+          "chunk_id": "ac6fbda51b91aa604aa19870ad66ab59",
+          "document_id": "cb303b97a5a1a1c3",
+          "rank": 2,
+          "relative_path": "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+          "scores": {
+            "sparse_score": 18.4412
+          }
+        },
+        {
+          "chunk_id": "b20a20f2f478112ce0ec5daed6ef9474",
+          "document_id": "5f682889ae30c967",
+          "rank": 3,
+          "relative_path": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+          "scores": {
+            "sparse_score": 15.4944
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 4,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 15.2625
+          }
+        },
+        {
+          "chunk_id": "eada04f5d3fd3e8fbd6328313296bde5",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 5,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 15.1315
+          }
+        }
+      ],
+      "query": "LangGraph 的 Checkpoint 与业务数据库里的持久化是一回事吗？",
+      "relevant_files": [
+        "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md"
+      ],
+      "retrieved_files": [
+        "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+        "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+        "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+        "vector_db/核心概念.md",
+        "rag/高级RAG.md"
+      ]
+    },
+    {
+      "case_id": "q029",
+      "hits": [
+        {
+          "chunk_id": "d865e4725012ebbfb7c4629cc866fbbd",
+          "document_id": "fa46d9981425ca38",
+          "rank": 1,
+          "relative_path": "tool_calling/工具设计.md",
+          "scores": {
+            "sparse_score": 39.9302
+          }
+        },
+        {
+          "chunk_id": "2139f9e7158e098026eff82dcf3567c2",
+          "document_id": "fa46d9981425ca38",
+          "rank": 2,
+          "relative_path": "tool_calling/工具设计.md",
+          "scores": {
+            "sparse_score": 26.1792
+          }
+        },
+        {
+          "chunk_id": "04a92c7a25707c9b9666c56af49b88d1",
+          "document_id": "b6f50ed000b39bca",
+          "rank": 3,
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "scores": {
+            "sparse_score": 25.685
+          }
+        },
+        {
+          "chunk_id": "2811833a0962463965885ea2cd5001c3",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 4,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 20.5146
+          }
+        },
+        {
+          "chunk_id": "3caaeab5b5369d059b13e123e140a8aa",
+          "document_id": "420fc785a87e73e4",
+          "rank": 5,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 19.0749
+          }
+        }
+      ],
+      "query": "工具粒度太粗（万能 action+payload）和太细（一个操作拆成 4 个函数）分别会带来什么问题？",
+      "relevant_files": [
+        "tool_calling/工具设计.md"
+      ],
+      "retrieved_files": [
+        "tool_calling/工具设计.md",
+        "mcp/MCP协议-01-基础与原语.md",
+        "rag/检索与生成.md",
+        "tool_calling/Function-Calling原理.md"
+      ]
+    },
+    {
+      "case_id": "q030",
+      "hits": [
+        {
+          "chunk_id": "f15b3d0af14c78d477f8f4a6fa9b2e4c",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 1,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 31.2661
+          }
+        },
+        {
+          "chunk_id": "262ce5939ec0eaaa6b06438aeb75a8fb",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 2,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 22.624
+          }
+        },
+        {
+          "chunk_id": "d6a529344247273bbc9c3f970e2bbc19",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 3,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 19.7817
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 4,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 11.8016
+          }
+        },
+        {
+          "chunk_id": "2a6eb6e1df70e466867e9e9ea655387b",
+          "document_id": "5fcddd69127d9078",
+          "rank": 5,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 11.4191
+          }
+        }
+      ],
+      "query": "Continuous Batching 相比传统『等整批请求结束』的静态批处理，核心区别是什么？",
+      "relevant_files": [
+        "deployment/推理框架.md"
+      ],
+      "retrieved_files": [
+        "deployment/推理框架.md",
+        "vector_db/核心概念.md",
+        "prompt/评估与优化.md"
+      ]
+    },
+    {
+      "case_id": "q031",
+      "hits": [
+        {
+          "chunk_id": "253d0b8adf726a7580b03d63d20a60b8",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 1,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 29.5014
+          }
+        },
+        {
+          "chunk_id": "eada04f5d3fd3e8fbd6328313296bde5",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 2,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 23.8318
+          }
+        },
+        {
+          "chunk_id": "8a1c1e7c090bc7d3b86bb019a48d8883",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 3,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 23.3006
+          }
+        },
+        {
+          "chunk_id": "828a338ef3d6a07e1f566fb64bb9314d",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 4,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 21.7682
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 5,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 19.0295
+          }
+        }
+      ],
+      "query": "从笔记文件到用户看到带引用的回答，『证据进索引』和『证据进上下文』分别由 RAG 的哪条链路负责？",
+      "relevant_files": [
+        "rag/文档处理.md",
+        "rag/检索与生成.md"
+      ],
+      "retrieved_files": [
+        "rag/检索与生成.md",
+        "rag/高级RAG.md",
+        "vector_db/核心概念.md"
+      ]
+    },
+    {
+      "case_id": "q032",
+      "hits": [
+        {
+          "chunk_id": "f94f70aec4223e1bcdcdaa1799819b28",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 1,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 36.8615
+          }
+        },
+        {
+          "chunk_id": "04213270da4708f1721d487e42240077",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 2,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 29.2396
+          }
+        },
+        {
+          "chunk_id": "eada04f5d3fd3e8fbd6328313296bde5",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 3,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 27.2588
+          }
+        },
+        {
+          "chunk_id": "722eabde7357346393d0d16f23c3a1ca",
+          "document_id": "d53277e8d1dce368",
+          "rank": 4,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 26.3926
+          }
+        },
+        {
+          "chunk_id": "4001eae4ff9875382080748c79a22d5f",
+          "document_id": "d53277e8d1dce368",
+          "rank": 5,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 25.9787
+          }
+        }
+      ],
+      "query": "RAG 最终回答错误时，如何按顺序排查问题出在数据/索引、检索还是生成环节？如果问题定位在分块环节，一般从哪些分块策略参数入手调整？",
+      "relevant_files": [
+        "rag/文档处理.md",
+        "rag/高级RAG.md"
+      ],
+      "retrieved_files": [
+        "rag/高级RAG.md",
+        "rag/检索与生成.md",
+        "rag/文档处理.md"
+      ]
+    },
+    {
+      "case_id": "q033",
+      "hits": [
+        {
+          "chunk_id": "33875d055549e9ed41abe4efaad0bdc1",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 1,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 32.45
+          }
+        },
+        {
+          "chunk_id": "ea1de0d02a7d6ea402858aee43927245",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 2,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 29.5579
+          }
+        },
+        {
+          "chunk_id": "262ce5939ec0eaaa6b06438aeb75a8fb",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 3,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 28.1112
+          }
+        },
+        {
+          "chunk_id": "cd60cdbbe56063bec7e1b25b44bcbe4a",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 4,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 25.9906
+          }
+        },
+        {
+          "chunk_id": "1ee2a50f3a4c9fd41c310f6311e8576b",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 5,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 24.2883
+          }
+        }
+      ],
+      "query": "RAG 把更多检索证据塞进 Prompt 后，为什么既会挤占可用于其他内容和输出的上下文 Token 预算，又会增加推理阶段的 KV Cache 和 Prefill 压力？",
+      "relevant_files": [
+        "deployment/推理框架.md",
+        "rag/检索与生成.md"
+      ],
+      "retrieved_files": [
+        "llm/Transformer架构-04-采样与工程联系.md",
+        "llm/Transformer架构-03-训练推理与高效Attention.md",
+        "deployment/推理框架.md",
+        "rag/检索与生成.md",
+        "prompt/提示工程高级技巧.md"
+      ]
+    },
+    {
+      "case_id": "q034",
+      "hits": [
+        {
+          "chunk_id": "04213270da4708f1721d487e42240077",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 1,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 52.4103
+          }
+        },
+        {
+          "chunk_id": "f94f70aec4223e1bcdcdaa1799819b28",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 2,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 36.313
+          }
+        },
+        {
+          "chunk_id": "f9d5b68ad3bbcbe578eb2f39f97167d3",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 3,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 35.2818
+          }
+        },
+        {
+          "chunk_id": "eb7e85761eab0fc13acb0e15b9cc5874",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 4,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 30.1205
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 5,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 27.889
+          }
+        }
+      ],
+      "query": "想用实验证明『加 BM25 混合检索』有效，需要固定哪些变量、比较哪些指标？混合检索的两路候选分数实际是如何融合的？",
+      "relevant_files": [
+        "rag/检索与生成.md",
+        "rag/高级RAG.md"
+      ],
+      "retrieved_files": [
+        "rag/检索与生成.md",
+        "rag/高级RAG.md",
+        "finetuning/训练与评估.md",
+        "vector_db/核心概念.md"
+      ]
+    },
+    {
+      "case_id": "q035",
+      "hits": [
+        {
+          "chunk_id": "d865e4725012ebbfb7c4629cc866fbbd",
+          "document_id": "fa46d9981425ca38",
+          "rank": 1,
+          "relative_path": "tool_calling/工具设计.md",
+          "scores": {
+            "sparse_score": 39.5033
+          }
+        },
+        {
+          "chunk_id": "5be79dde870b20faf127c350c6235066",
+          "document_id": "fa46d9981425ca38",
+          "rank": 2,
+          "relative_path": "tool_calling/工具设计.md",
+          "scores": {
+            "sparse_score": 30.2553
+          }
+        },
+        {
+          "chunk_id": "3caaeab5b5369d059b13e123e140a8aa",
+          "document_id": "420fc785a87e73e4",
+          "rank": 3,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 25.7925
+          }
+        },
+        {
+          "chunk_id": "3f88a73411fc2c440c67e85e8ab0f943",
+          "document_id": "734e6444e5bb3ba0",
+          "rank": 4,
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "scores": {
+            "sparse_score": 24.4551
+          }
+        },
+        {
+          "chunk_id": "701727aaf1bcafa8faf8f1f5396fb1a6",
+          "document_id": "420fc785a87e73e4",
+          "rank": 5,
+          "relative_path": "tool_calling/Function-Calling原理.md",
+          "scores": {
+            "sparse_score": 21.8386
+          }
+        }
+      ],
+      "query": "工具参数通过结构和业务校验后，为什么仍不能直接执行？可信用户身份应该从哪里获得，资源级授权又应该如何判断？",
+      "relevant_files": [
+        "tool_calling/Function-Calling原理.md",
+        "tool_calling/工具设计.md"
+      ],
+      "retrieved_files": [
+        "tool_calling/工具设计.md",
+        "tool_calling/Function-Calling原理.md",
+        "mcp/MCP协议-02-能力发现与传输.md"
+      ]
+    },
+    {
+      "case_id": "q036",
+      "hits": [
+        {
+          "chunk_id": "596d0be9096168957bb5cca598b046af",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 1,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 41.3783
+          }
+        },
+        {
+          "chunk_id": "1ee2a50f3a4c9fd41c310f6311e8576b",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 2,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 40.3575
+          }
+        },
+        {
+          "chunk_id": "c1c79deab804afb16a4a9e205c07fa4a",
+          "document_id": "d53277e8d1dce368",
+          "rank": 3,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 30.4663
+          }
+        },
+        {
+          "chunk_id": "d10791eda7a985fc9aca4877129c6cec",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 4,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 26.8047
+          }
+        },
+        {
+          "chunk_id": "25c2be5fa1c8b09c15c8b18b71b1c6cf",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 5,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 24.1153
+          }
+        }
+      ],
+      "query": "面对『文档里写着忽略系统规则』这类注入，Prompt 层、RAG 文档/检索层、Tool 执行层分别应该做什么防御？为什么只靠一句系统提示不够？",
+      "relevant_files": [
+        "prompt/提示工程高级技巧.md",
+        "rag/文档处理.md",
+        "tool_calling/Function-Calling原理.md"
+      ],
+      "retrieved_files": [
+        "prompt/提示工程高级技巧.md",
+        "rag/文档处理.md",
+        "llm/对齐与微调.md"
+      ]
+    },
+    {
+      "case_id": "q037",
+      "hits": [
+        {
+          "chunk_id": "2df4d54600b3868ff61a425a527413a1",
+          "document_id": "9b50b11acfabf2da",
+          "rank": 1,
+          "relative_path": "post_training/后训练-06-工程落地与评测.md",
+          "scores": {
+            "sparse_score": 35.7198
+          }
+        },
+        {
+          "chunk_id": "b9deb9aa775824ce85575d83db22fba6",
+          "document_id": "9b50b11acfabf2da",
+          "rank": 2,
+          "relative_path": "post_training/后训练-06-工程落地与评测.md",
+          "scores": {
+            "sparse_score": 33.8561
+          }
+        },
+        {
+          "chunk_id": "1e70d9fe62cd349c516a59d1eca8750d",
+          "document_id": "da36e8e873bef694",
+          "rank": 3,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 30.6273
+          }
+        },
+        {
+          "chunk_id": "7f58bca0b6b774245362ef6b9e3d3f6e",
+          "document_id": "da36e8e873bef694",
+          "rank": 4,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 28.557
+          }
+        },
+        {
+          "chunk_id": "fa33eea4aa9b75e46f4a1e8091f01a7a",
+          "document_id": "5fcddd69127d9078",
+          "rank": 5,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 25.4066
+          }
+        }
+      ],
+      "query": "为什么后训练效果不能只看 loss，而要用固定评测集对比 Base/SFT/DPO 三个阶段？",
+      "relevant_files": [
+        "post_training/后训练-06-工程落地与评测.md"
+      ],
+      "retrieved_files": [
+        "post_training/后训练-06-工程落地与评测.md",
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "prompt/评估与优化.md"
+      ]
+    },
+    {
+      "case_id": "q038",
+      "hits": [
+        {
+          "chunk_id": "1ee2a50f3a4c9fd41c310f6311e8576b",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 1,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 15.7769
+          }
+        },
+        {
+          "chunk_id": "596d0be9096168957bb5cca598b046af",
+          "document_id": "fca1b07e02ccfa1f",
+          "rank": 2,
+          "relative_path": "prompt/提示工程高级技巧.md",
+          "scores": {
+            "sparse_score": 13.9625
+          }
+        },
+        {
+          "chunk_id": "562f5609801633461a364355895d37ad",
+          "document_id": "9938360d2e8b9bf8",
+          "rank": 3,
+          "relative_path": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "scores": {
+            "sparse_score": 13.8443
+          }
+        },
+        {
+          "chunk_id": "63ca401905a38475472844b5ba6353dd",
+          "document_id": "5fcddd69127d9078",
+          "rank": 4,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 13.4422
+          }
+        },
+        {
+          "chunk_id": "87a7033f6fa911e955acb87ac3e2dd2a",
+          "document_id": "9938360d2e8b9bf8",
+          "rank": 5,
+          "relative_path": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "scores": {
+            "sparse_score": 12.6371
+          }
+        }
+      ],
+      "query": "Prompt Chaining 和用 LangGraph 画状态图，工程上解决的是同一类问题吗？",
+      "relevant_files": [
+        "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+        "prompt/提示工程高级技巧.md"
+      ],
+      "retrieved_files": [
+        "prompt/提示工程高级技巧.md",
+        "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+        "prompt/评估与优化.md"
+      ]
+    },
+    {
+      "case_id": "q039",
+      "hits": [
+        {
+          "chunk_id": "df84aa7a57783b1b999f65f30b84dd0f",
+          "document_id": "d53277e8d1dce368",
+          "rank": 1,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 23.8161
+          }
+        },
+        {
+          "chunk_id": "253d0b8adf726a7580b03d63d20a60b8",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 2,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 23.586
+          }
+        },
+        {
+          "chunk_id": "f9d5b68ad3bbcbe578eb2f39f97167d3",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 3,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 22.3672
+          }
+        },
+        {
+          "chunk_id": "8888296c506705c5283593454d4c20fc",
+          "document_id": "58900e3c6745e029",
+          "rank": 4,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 21.9745
+          }
+        },
+        {
+          "chunk_id": "04213270da4708f1721d487e42240077",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 5,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 21.0088
+          }
+        }
+      ],
+      "query": "为什么不能先检索出用户无权访问的文档，再要求模型保证不泄露？这类权限过滤应该在哪个阶段完成？",
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "retrieved_files": [
+        "rag/文档处理.md",
+        "rag/检索与生成.md",
+        "vector_db/产品对比.md"
+      ]
+    },
+    {
+      "case_id": "q040",
+      "hits": [
+        {
+          "chunk_id": "e6a7c321409c1f7a1cefc0ff10e065df",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 1,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 41.3789
+          }
+        },
+        {
+          "chunk_id": "24fb9aba8db3afd360e314f018bedd67",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 2,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 36.8639
+          }
+        },
+        {
+          "chunk_id": "ed4d395fdf6c7f0d4a2dba1f63848492",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 3,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 25.533
+          }
+        },
+        {
+          "chunk_id": "ca7eb2ed96630a79eea9825b71c836ee",
+          "document_id": "0b8e7ace8c50caec",
+          "rank": 4,
+          "relative_path": "finetuning/数据工程.md",
+          "scores": {
+            "sparse_score": 19.921
+          }
+        },
+        {
+          "chunk_id": "f94f70aec4223e1bcdcdaa1799819b28",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 5,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 19.88
+          }
+        }
+      ],
+      "query": "为什么不能先为同一文档生成大量改写样本，再随机分到 train/valid/test？更稳妥的切分原则是什么？",
+      "relevant_files": [
+        "finetuning/数据工程.md"
+      ],
+      "retrieved_files": [
+        "finetuning/数据工程.md",
+        "rag/高级RAG.md"
+      ]
+    },
+    {
+      "case_id": "q041",
+      "hits": [
+        {
+          "chunk_id": "63ca401905a38475472844b5ba6353dd",
+          "document_id": "5fcddd69127d9078",
+          "rank": 1,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 14.4848
+          }
+        },
+        {
+          "chunk_id": "c1c79deab804afb16a4a9e205c07fa4a",
+          "document_id": "d53277e8d1dce368",
+          "rank": 2,
+          "relative_path": "rag/文档处理.md",
+          "scores": {
+            "sparse_score": 14.25
+          }
+        },
+        {
+          "chunk_id": "0f922f849e8656c205d53791be94ad2b",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 3,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 13.7854
+          }
+        },
+        {
+          "chunk_id": "27a99bcbb838b20a7c6622c88bbccf89",
+          "document_id": "263a596a15bde15e",
+          "rank": 4,
+          "relative_path": "vector_db/核心概念.md",
+          "scores": {
+            "sparse_score": 12.7865
+          }
+        },
+        {
+          "chunk_id": "67c6206021872458bd7363d6c94bb9df",
+          "document_id": "52daf25593c024a3",
+          "rank": 5,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 12.6126
+          }
+        }
+      ],
+      "query": "为什么 RAG 的召回问题不能只靠改 Prompt 修复？",
+      "relevant_files": [
+        "rag/高级RAG.md"
+      ],
+      "retrieved_files": [
+        "prompt/评估与优化.md",
+        "rag/文档处理.md",
+        "rag/高级RAG.md",
+        "vector_db/核心概念.md",
+        "prompt/提示工程基础.md"
+      ]
+    },
+    {
+      "case_id": "q042",
+      "hits": [
+        {
+          "chunk_id": "3f88a73411fc2c440c67e85e8ab0f943",
+          "document_id": "734e6444e5bb3ba0",
+          "rank": 1,
+          "relative_path": "mcp/MCP协议-02-能力发现与传输.md",
+          "scores": {
+            "sparse_score": 44.8351
+          }
+        },
+        {
+          "chunk_id": "04a92c7a25707c9b9666c56af49b88d1",
+          "document_id": "b6f50ed000b39bca",
+          "rank": 2,
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "scores": {
+            "sparse_score": 37.7698
+          }
+        },
+        {
+          "chunk_id": "5358edd63668b49792dc2eb265273254",
+          "document_id": "4a946d6ac3c8c2b2",
+          "rank": 3,
+          "relative_path": "mcp/MCP协议-04-状态部署与测试.md",
+          "scores": {
+            "sparse_score": 31.4189
+          }
+        },
+        {
+          "chunk_id": "13bbd3dd40950a78b6884d66e354c05c",
+          "document_id": "b6f50ed000b39bca",
+          "rank": 4,
+          "relative_path": "mcp/MCP协议-01-基础与原语.md",
+          "scores": {
+            "sparse_score": 28.8105
+          }
+        },
+        {
+          "chunk_id": "656cf7c6cb0b34769a2f7aff699c4924",
+          "document_id": "52daf25593c024a3",
+          "rank": 5,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 27.8098
+          }
+        }
+      ],
+      "query": "在一个安全的 MCP 工具调用链里，为什么 Host 侧的用户上下文和全局策略检查不能替代 Server 侧的输入、真实资源和业务权限校验？",
+      "relevant_files": [
+        "mcp/MCP协议-02-能力发现与传输.md"
+      ],
+      "retrieved_files": [
+        "mcp/MCP协议-02-能力发现与传输.md",
+        "mcp/MCP协议-01-基础与原语.md",
+        "mcp/MCP协议-04-状态部署与测试.md",
+        "prompt/提示工程基础.md"
+      ]
+    },
+    {
+      "case_id": "q043",
+      "hits": [
+        {
+          "chunk_id": "84272154925d6a0d963a3d4321d16cc5",
+          "document_id": "58900e3c6745e029",
+          "rank": 1,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 35.2697
+          }
+        },
+        {
+          "chunk_id": "fa35360608ae725961c8faca79154174",
+          "document_id": "58900e3c6745e029",
+          "rank": 2,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 29.6212
+          }
+        },
+        {
+          "chunk_id": "8888296c506705c5283593454d4c20fc",
+          "document_id": "58900e3c6745e029",
+          "rank": 3,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 27.2693
+          }
+        },
+        {
+          "chunk_id": "c5d110f6abb2008d03b83b2ef3bed3db",
+          "document_id": "58900e3c6745e029",
+          "rank": 4,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 26.9814
+          }
+        },
+        {
+          "chunk_id": "de9bc1d29e687d1018d9b97f8a11f337",
+          "document_id": "58900e3c6745e029",
+          "rank": 5,
+          "relative_path": "vector_db/产品对比.md",
+          "scores": {
+            "sparse_score": 18.5364
+          }
+        }
+      ],
+      "query": "为什么对比两个向量库方案时，必须用同一套数据、同一 metric、相同过滤条件和并发？",
+      "relevant_files": [
+        "vector_db/产品对比.md"
+      ],
+      "retrieved_files": [
+        "vector_db/产品对比.md"
+      ]
+    },
+    {
+      "case_id": "q044",
+      "hits": [
+        {
+          "chunk_id": "808679617543c4b336ade842588f8902",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 1,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 39.7213
+          }
+        },
+        {
+          "chunk_id": "fc3f879a8b936426401f61d67679f546",
+          "document_id": "4d1d69ed088b003f",
+          "rank": 2,
+          "relative_path": "llm/预训练.md",
+          "scores": {
+            "sparse_score": 14.8136
+          }
+        },
+        {
+          "chunk_id": "ea1de0d02a7d6ea402858aee43927245",
+          "document_id": "5b8c1e7af9bd1bfe",
+          "rank": 3,
+          "relative_path": "llm/Transformer架构-03-训练推理与高效Attention.md",
+          "scores": {
+            "sparse_score": 14.8013
+          }
+        },
+        {
+          "chunk_id": "d59e943415c5a8f1158991aa647e6974",
+          "document_id": "4d1d69ed088b003f",
+          "rank": 4,
+          "relative_path": "llm/预训练.md",
+          "scores": {
+            "sparse_score": 13.784
+          }
+        },
+        {
+          "chunk_id": "262ce5939ec0eaaa6b06438aeb75a8fb",
+          "document_id": "a7ea0f4cc58ac5be",
+          "rank": 5,
+          "relative_path": "deployment/推理框架.md",
+          "scores": {
+            "sparse_score": 13.726
+          }
+        }
+      ],
+      "query": "为什么报告推理性能时，『每秒 1000 Token』必须说明是输入、输出还是二者合计？",
+      "relevant_files": [
+        "deployment/推理框架.md"
+      ],
+      "retrieved_files": [
+        "deployment/推理框架.md",
+        "llm/预训练.md",
+        "llm/Transformer架构-03-训练推理与高效Attention.md"
+      ]
+    },
+    {
+      "case_id": "q045",
+      "hits": [
+        {
+          "chunk_id": "eb7e85761eab0fc13acb0e15b9cc5874",
+          "document_id": "3c11a591e8c2d851",
+          "rank": 1,
+          "relative_path": "finetuning/训练与评估.md",
+          "scores": {
+            "sparse_score": 33.5857
+          }
+        },
+        {
+          "chunk_id": "2df4d54600b3868ff61a425a527413a1",
+          "document_id": "9b50b11acfabf2da",
+          "rank": 2,
+          "relative_path": "post_training/后训练-06-工程落地与评测.md",
+          "scores": {
+            "sparse_score": 29.861
+          }
+        },
+        {
+          "chunk_id": "9dfcba46320d022d7c13e27680516741",
+          "document_id": "b9ed7f314b155cbc",
+          "rank": 3,
+          "relative_path": "rag/高级RAG.md",
+          "scores": {
+            "sparse_score": 29.5756
+          }
+        },
+        {
+          "chunk_id": "af4fa8f62a0c72ae1329b686d1202ba9",
+          "document_id": "da36e8e873bef694",
+          "rank": 4,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 29.5511
+          }
+        },
+        {
+          "chunk_id": "1e70d9fe62cd349c516a59d1eca8750d",
+          "document_id": "da36e8e873bef694",
+          "rank": 5,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 26.1588
+          }
+        }
+      ],
+      "query": "为什么 LLM-as-Judge 容易偏好更长、格式更漂亮的回答？评测时怎么缓解这种偏差？",
+      "relevant_files": [
+        "prompt/评估与优化.md"
+      ],
+      "retrieved_files": [
+        "finetuning/训练与评估.md",
+        "post_training/后训练-06-工程落地与评测.md",
+        "rag/高级RAG.md",
+        "post_training/后训练-07-简历项目与面试高频题.md"
+      ]
+    },
+    {
+      "case_id": "q046",
+      "hits": [
+        {
+          "chunk_id": "41501ac1bc0f850fb2b1fd2cf218ad24",
+          "document_id": "11c2d22bcbba2f3b",
+          "rank": 1,
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "scores": {
+            "sparse_score": 49.4385
+          }
+        },
+        {
+          "chunk_id": "5b2f958c202cb463163655d0282ffa9a",
+          "document_id": "da36e8e873bef694",
+          "rank": 2,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 46.499
+          }
+        },
+        {
+          "chunk_id": "9e9bf92dfe4411f234055081f2e5ed80",
+          "document_id": "11c2d22bcbba2f3b",
+          "rank": 3,
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "scores": {
+            "sparse_score": 35.3353
+          }
+        },
+        {
+          "chunk_id": "0ba1fcb9b60df8d2858e654f08e98afc",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 4,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 27.5474
+          }
+        },
+        {
+          "chunk_id": "abfe0898a98fb2ad9fc400b63f8dd9b5",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 5,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 24.6613
+          }
+        }
+      ],
+      "query": "在标准 DPO 中，为什么 beta 较小时通常会允许 policy model 更明显地偏离 reference model，并因此增加过优化风险？",
+      "relevant_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ],
+      "retrieved_files": [
+        "post_training/后训练-04-常见问题与DPO落地.md",
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "post_training/后训练-03-DPO与GRPO.md"
+      ]
+    },
+    {
+      "case_id": "q047",
+      "hits": [
+        {
+          "chunk_id": "ca715728f5f89122de7786448c373cc6",
+          "document_id": "35e9d3b9f9f24da5",
+          "rank": 1,
+          "relative_path": "llm/Transformer架构-04-采样与工程联系.md",
+          "scores": {
+            "sparse_score": 15.4224
+          }
+        },
+        {
+          "chunk_id": "656cf7c6cb0b34769a2f7aff699c4924",
+          "document_id": "52daf25593c024a3",
+          "rank": 2,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 13.8002
+          }
+        },
+        {
+          "chunk_id": "63ca401905a38475472844b5ba6353dd",
+          "document_id": "5fcddd69127d9078",
+          "rank": 3,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 11.4923
+          }
+        },
+        {
+          "chunk_id": "67c6206021872458bd7363d6c94bb9df",
+          "document_id": "52daf25593c024a3",
+          "rank": 4,
+          "relative_path": "prompt/提示工程基础.md",
+          "scores": {
+            "sparse_score": 10.5283
+          }
+        },
+        {
+          "chunk_id": "fa33eea4aa9b75e46f4a1e8091f01a7a",
+          "document_id": "5fcddd69127d9078",
+          "rank": 5,
+          "relative_path": "prompt/评估与优化.md",
+          "scores": {
+            "sparse_score": 10.2416
+          }
+        }
+      ],
+      "query": "为什么把生成温度调低并不能从根本上消除幻觉？",
+      "relevant_files": [
+        "llm/Transformer架构-04-采样与工程联系.md"
+      ],
+      "retrieved_files": [
+        "llm/Transformer架构-04-采样与工程联系.md",
+        "prompt/提示工程基础.md",
+        "prompt/评估与优化.md"
+      ]
+    },
+    {
+      "case_id": "q048",
+      "hits": [
+        {
+          "chunk_id": "47f1f2ebc9042cd3fea4bc6f789e5fcd",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 1,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 26.5112
+          }
+        },
+        {
+          "chunk_id": "9404dd2b35cd0f799cf843448da61c6f",
+          "document_id": "a2fa4c500d30389c",
+          "rank": 2,
+          "relative_path": "finetuning/微调方法.md",
+          "scores": {
+            "sparse_score": 20.9745
+          }
+        },
+        {
+          "chunk_id": "36c0048f2cc17d1e5bc8e43c0051c560",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 3,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 17.4906
+          }
+        },
+        {
+          "chunk_id": "d10791eda7a985fc9aca4877129c6cec",
+          "document_id": "50d6f867cf7f44ac",
+          "rank": 4,
+          "relative_path": "llm/对齐与微调.md",
+          "scores": {
+            "sparse_score": 17.1643
+          }
+        },
+        {
+          "chunk_id": "41501ac1bc0f850fb2b1fd2cf218ad24",
+          "document_id": "11c2d22bcbba2f3b",
+          "rank": 5,
+          "relative_path": "post_training/后训练-04-常见问题与DPO落地.md",
+          "scores": {
+            "sparse_score": 17.0121
+          }
+        }
+      ],
+      "query": "为什么小规模 SFT 往往只学会了格式和风格，知识能力却没有明显提升？",
+      "relevant_files": [
+        "finetuning/微调方法.md"
+      ],
+      "retrieved_files": [
+        "finetuning/微调方法.md",
+        "llm/对齐与微调.md",
+        "post_training/后训练-04-常见问题与DPO落地.md"
+      ]
+    },
+    {
+      "case_id": "q049",
+      "hits": [
+        {
+          "chunk_id": "1e70d9fe62cd349c516a59d1eca8750d",
+          "document_id": "da36e8e873bef694",
+          "rank": 1,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 57.5187
+          }
+        },
+        {
+          "chunk_id": "abfe0898a98fb2ad9fc400b63f8dd9b5",
+          "document_id": "e5f4a4551cf658b0",
+          "rank": 2,
+          "relative_path": "post_training/后训练-03-DPO与GRPO.md",
+          "scores": {
+            "sparse_score": 55.8543
+          }
+        },
+        {
+          "chunk_id": "5b2f958c202cb463163655d0282ffa9a",
+          "document_id": "da36e8e873bef694",
+          "rank": 3,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 42.4884
+          }
+        },
+        {
+          "chunk_id": "ad84332dd4f310e7885bb58ddbed7a9f",
+          "document_id": "9736390396a7a649",
+          "rank": 4,
+          "relative_path": "post_training/后训练-05-RM细节与GRPO应用.md",
+          "scores": {
+            "sparse_score": 41.4997
+          }
+        },
+        {
+          "chunk_id": "af4fa8f62a0c72ae1329b686d1202ba9",
+          "document_id": "da36e8e873bef694",
+          "rank": 5,
+          "relative_path": "post_training/后训练-07-简历项目与面试高频题.md",
+          "scores": {
+            "sparse_score": 37.3424
+          }
+        }
+      ],
+      "query": "GRPO 为什么要用同一 prompt 下多条回答的组内 reward 来构造相对 advantage，而不是直接拿每条回答的原始 reward 做更新？这种设计和不单独训练 critic 有什么关系？",
+      "relevant_files": [
+        "post_training/后训练-03-DPO与GRPO.md"
+      ],
+      "retrieved_files": [
+        "post_training/后训练-07-简历项目与面试高频题.md",
+        "post_training/后训练-03-DPO与GRPO.md",
+        "post_training/后训练-05-RM细节与GRPO应用.md"
+      ]
+    },
+    {
+      "case_id": "q050",
+      "hits": [
+        {
+          "chunk_id": "d8bf77daeb16f3949cdec819597eca05",
+          "document_id": "1094a22883135a7d",
+          "rank": 1,
+          "relative_path": "deployment/部署架构.md",
+          "scores": {
+            "sparse_score": 24.8136
+          }
+        },
+        {
+          "chunk_id": "bd1f97eb68de85b10fe16abb4f961e6a",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 2,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 24.2238
+          }
+        },
+        {
+          "chunk_id": "5abca52257ab329ef8130b0c4aaf9d45",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 3,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 21.2609
+          }
+        },
+        {
+          "chunk_id": "2fe645f993a523e195899932bac2c4ba",
+          "document_id": "1094a22883135a7d",
+          "rank": 4,
+          "relative_path": "deployment/部署架构.md",
+          "scores": {
+            "sparse_score": 20.8457
+          }
+        },
+        {
+          "chunk_id": "04213270da4708f1721d487e42240077",
+          "document_id": "076bfdb158a7f47a",
+          "rank": 5,
+          "relative_path": "rag/检索与生成.md",
+          "scores": {
+            "sparse_score": 20.7028
+          }
+        }
+      ],
+      "query": "为什么缓存 RAG 的最终回答时，缓存键必须包含权限范围和模型/索引版本？",
+      "relevant_files": [
+        "rag/检索与生成.md"
+      ],
+      "retrieved_files": [
+        "deployment/部署架构.md",
+        "rag/检索与生成.md"
+      ]
+    }
+  ],
+  "corpus_id": "870e5864df67",
+  "evaluation_set_id": "18c1c0470652",
+  "experiment_id": "9f5572b49b9d",
+  "retrieval_run_id": "fdd56004f4fb",
+  "retriever_strategy": "bm25",
+  "schema_version": 1,
+  "top_k": 5
+}
