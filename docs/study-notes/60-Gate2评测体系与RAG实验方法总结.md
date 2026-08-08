@@ -247,8 +247,19 @@ Recall improved / worsened
 multi-document Recall 单独看
 ```
 
-本项目 q013/q019/q039/q047（Hybrid Hit 失败）与
-q031/q034/q036（multi-doc 不完整）作为 Gate 3 固定 inspection set。
+本项目按 Gate 3 reference provenance 分组固定 inspection set：
+
+```text
+Primary BM25 regression cases：
+  q013（Hit failure）、q031 / q036 / q038（multi-doc Recall 不完整）
+
+Hybrid-control cases：
+  q019 / q039 / q047（Hybrid Hit 失败）、q034（Hybrid multi-doc
+  Recall 不完整，BM25 primary 下 Recall=1.0）
+
+Overlap（两组都有真实意义）：
+  q031 / q036
+```
 
 ## 14. 为什么不能看一个指标涨了就讲故事
 

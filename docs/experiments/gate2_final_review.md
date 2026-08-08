@@ -307,26 +307,43 @@ truncation-only causal effect
 
 ## 9. Gate 2 失败 Case Freeze
 
-后续 Gate 3 regression / qualitative inspection set（不改变 Gold）：
+后续 Gate 3 regression / qualitative inspection set（不改变 Gold）。
+按 Gate 3 reference contract（BM25 primary + Hybrid control）分组，
+每个 case 标注 provenance：
+
+### A. Primary BM25 regression cases
+
+用于判断 Gate 3 相对主 baseline（dbc497c796d5）是否改善：
 
 ```text
-q013 / q019 / q039 / q047：原 canonical Hybrid Hit failures
-q031 / q034 / q036：multi-document incomplete recall cases
+q013：BM25 primary Hit failure（Recall@5=0.0）
+q031：BM25 primary multi-document incomplete recall = 0.5
+q036：BM25 primary multi-document incomplete recall = 0.666667
+q038：BM25 primary multi-document incomplete recall = 0.5
 ```
 
-Gate 2 当前状态：
+### B. Hybrid-control diagnostic/regression cases
+
+用于观察 Adaptive Retrieval / fusion / channel routing 行为：
 
 ```text
-q013：Hybrid 0（Dense cl100k hit / BM25 miss / aligned 后仍 Hybrid 0）
 q019：Hybrid 0（BM25-only hit，RRF 未保留进 Top-5）
+q034：canonical Hybrid Recall 0.5（BM25 primary Recall=1.0，
+      不是 BM25 primary failure）
 q039：canonical Hybrid 0；Fixed Hybrid 1；aligned Hybrid 1（rescue）
 q047：canonical Hybrid 0；Fixed Hybrid 1；aligned Hybrid 1（rescue）
-q031：canonical Hybrid Recall 0.5（缺 rag/文档处理.md）
-q034：canonical Hybrid Recall 0.5（缺 rag/高级RAG.md）
-q036：canonical Hybrid Recall 0.667（缺 Function-Calling原理.md）
 ```
 
-不再做新诊断。
+### Overlap cases（两个 reference 都有真实意义）
+
+```text
+q031：BM25 primary Recall 0.5；canonical Hybrid Recall 0.5
+q036：BM25 primary Recall 0.667；canonical Hybrid Recall 0.667
+```
+
+这些 case 同时属于两组，不强行互斥。
+
+不再做新诊断；所有数字来自现有冻结 Artifact。
 
 ## 10. Gate 3 Evaluation Contract
 
@@ -342,6 +359,18 @@ nDCG@5
 Query Decomposition 必须重点看 multi-document Recall。Gate 3 可以
 新增 Agent-specific metrics，但不得丢掉 Gate 2 retrieval metrics，
 否则前后不可比较。
+
+失败 Case 的用途区分：
+
+```text
+BM25 primary regression cases（q013/q031/q036/q038）：
+  用于判断 Gate 3 相对主 baseline 是否改善
+  （Hit 与 multi-document Recall）；
+
+Hybrid control cases（q019/q034/q039/q047，及 overlap 的 q031/q036）：
+  用于观察 Adaptive Retrieval / fusion / channel routing 行为，
+  不作为主 baseline 的改善判据。
+```
 
 ## 11. 数据来源
 

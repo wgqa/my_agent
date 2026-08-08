@@ -132,43 +132,82 @@
     "basis": "highest Hit@5 (0.98), Recall@5 (0.953333), nDCG@5 (0.820643) among the six original Fixed/Recursive x Retriever experiments and the three aligned intervention experiments",
     "scope": "current 37 documents, current 50-case Gold, Top-5 chunk retrieval, document-level metrics"
   },
-  "known_failure_cases": [
-    {
-      "case_id": "q013",
-      "type": "canonical_hybrid_hit_failure",
-      "note": "Hybrid 0 in canonical cl100k Hybrid; Dense cl100k hits but BM25 misses"
-    },
-    {
-      "case_id": "q019",
-      "type": "canonical_hybrid_hit_failure",
-      "note": "Hybrid 0; BM25-only hits at rank 2 but RRF does not keep Gold in Top-5"
-    },
-    {
-      "case_id": "q039",
-      "type": "canonical_hybrid_hit_failure",
-      "note": "canonical Hybrid 0; Fixed Hybrid 1; aligned Hybrid 1 (rescue); fusion mechanism unresolved"
-    },
-    {
-      "case_id": "q047",
-      "type": "canonical_hybrid_hit_failure",
-      "note": "canonical Hybrid 0; Fixed Hybrid 1; aligned Hybrid 1 (rescue); fusion mechanism unresolved"
-    },
-    {
-      "case_id": "q031",
-      "type": "multi_document_incomplete_recall",
-      "note": "canonical Hybrid Recall 0.5; missing rag/文档处理.md"
-    },
-    {
-      "case_id": "q034",
-      "type": "multi_document_incomplete_recall",
-      "note": "canonical Hybrid Recall 0.5; missing rag/高级RAG.md"
-    },
-    {
-      "case_id": "q036",
-      "type": "multi_document_incomplete_recall",
-      "note": "canonical Hybrid Recall 0.667; missing tool_calling/Function-Calling原理.md"
-    }
-  ],
+  "known_failure_cases": {
+    "primary_bm25_regression_cases": [
+      {
+        "case_id": "q013",
+        "reference": "bm25_primary",
+        "provenance": "dbc497c796d5 (Recursive + cl100k BM25 primary reference)",
+        "failure_type": "hit_failure",
+        "artifact_supported_facts": "BM25 primary Recall@5=0.0 / Hit@5=0 (Gold llm/预训练.md not in Top-5 document ranking)"
+      },
+      {
+        "case_id": "q031",
+        "reference": "bm25_primary",
+        "provenance": "dbc497c796d5",
+        "failure_type": "multi_document_incomplete_recall",
+        "artifact_supported_facts": "BM25 primary Recall@5=0.5 (1/2 Gold documents retrieved)"
+      },
+      {
+        "case_id": "q036",
+        "reference": "bm25_primary",
+        "provenance": "dbc497c796d5",
+        "failure_type": "multi_document_incomplete_recall",
+        "artifact_supported_facts": "BM25 primary Recall@5=0.6666667 (2/3 Gold documents retrieved)"
+      },
+      {
+        "case_id": "q038",
+        "reference": "bm25_primary",
+        "provenance": "dbc497c796d5",
+        "failure_type": "multi_document_incomplete_recall",
+        "artifact_supported_facts": "BM25 primary Recall@5=0.5 (1/2 Gold documents retrieved)"
+      }
+    ],
+    "hybrid_control_cases": [
+      {
+        "case_id": "q019",
+        "reference": "hybrid_control",
+        "provenance": "3c613202e1ed (canonical Recursive + cl100k Hybrid control)",
+        "failure_type": "hybrid_hit_failure",
+        "artifact_supported_facts": "canonical Hybrid Hit@5=0; BM25-only hits at rank 2 but RRF does not keep Gold in Top-5"
+      },
+      {
+        "case_id": "q034",
+        "reference": "hybrid_control",
+        "provenance": "3c613202e1ed",
+        "failure_type": "multi_document_incomplete_recall",
+        "artifact_supported_facts": "canonical Hybrid Recall@5=0.5 (missing rag/高级RAG.md); NOT a BM25 primary failure - BM25 primary Recall@5=1.0"
+      },
+      {
+        "case_id": "q039",
+        "reference": "hybrid_control",
+        "provenance": "3c613202e1ed",
+        "failure_type": "hybrid_hit_failure",
+        "artifact_supported_facts": "canonical Hybrid Hit@5=0; aligned Hybrid rescue Hit@5=1; fusion mechanism unresolved"
+      },
+      {
+        "case_id": "q047",
+        "reference": "hybrid_control",
+        "provenance": "3c613202e1ed",
+        "failure_type": "hybrid_hit_failure",
+        "artifact_supported_facts": "canonical Hybrid Hit@5=0; aligned Hybrid rescue Hit@5=1; fusion mechanism unresolved"
+      }
+    ],
+    "overlap_cases": [
+      {
+        "case_id": "q031",
+        "provenance": ["bm25_primary", "hybrid_control"],
+        "failure_type": "multi_document_incomplete_recall",
+        "artifact_supported_facts": "BM25 primary Recall@5=0.5 (dbc497c796d5); canonical Hybrid Recall@5=0.5 (3c613202e1ed)"
+      },
+      {
+        "case_id": "q036",
+        "provenance": ["bm25_primary", "hybrid_control"],
+        "failure_type": "multi_document_incomplete_recall",
+        "artifact_supported_facts": "BM25 primary Recall@5=0.6666667 (dbc497c796d5); canonical Hybrid Recall@5=0.6666667 (3c613202e1ed)"
+      }
+    ]
+  },
   "confirmed_findings": [
     "RRF deterministic tie-break contract: rrf_score DESC -> chunk_id ASC (enters experiment identity)",
     "runtime retriever binding: declared strategy must match actual retriever type (isinstance)",
