@@ -5,7 +5,12 @@
 （BAAI/bge-small-zh-v1.5）的长度差异，判断是否存在"Chunker 判定未超
 512 但 BGE tokenizer 超过 512"的 would-truncate 工程边界。
 
-本脚本不调用 BGEEmbedding.embed() / SentenceTransformer.encode() /
+G2-DIAG-18-R1：长度契约绑定实际 SentenceTransformer 运行时——使用
+与 core/embeddings/bge_emb.py 一致的本地模型加载方式读取
+model.max_seq_length 与首个 Transformer module 的真实 tokenizer，
+不做任何 encode()。
+
+本脚本不调用 SentenceTransformer.encode() / BGEEmbedding.embed() /
 Chroma / BM25 / Retriever / ExperimentRunner，不计算 Retrieval
 Metrics，不修改任何正式实验 Artifact。
 """
@@ -275,6 +280,8 @@ def compute_diagnostic_id(
     chunk_size: int,
     chunk_overlap: int,
     chunk_counts: Dict[str, int],
+    runtime_embedding_tokenizer: str,
+    effective_embedding_max_seq_length: int,
 ) -> str:
     payload = json.dumps(
         {
@@ -284,6 +291,10 @@ def compute_diagnostic_id(
             "chunk_budget_tokenizer": TOKEN_BUDGET_TOKENIZER,
             "chunk_size": chunk_size,
             "chunk_overlap": chunk_overlap,
+            "runtime_embedding_tokenizer": runtime_embedding_tokenizer,
+            "effective_embedding_max_seq_length": (
+                effective_embedding_max_seq_length
+            ),
             "strategy_chunk_counts": chunk_counts,
         },
         sort_keys=True,
@@ -313,8 +324,7 @@ def validate_payload(payload) -> dict:
 def build_payload(
     corpus: ExperimentCorpus,
     token_counter: TokenCounter,
-    embedding_tokenizer_name: str,
-    embedding_max_seq_length: int,
+    runtime_contract: dict,
     strategy_stats: Dict[str, dict],
 ) -> dict:
     counts = {
@@ -329,13 +339,29 @@ def build_payload(
             CHUNK_SIZE,
             CHUNK_OVERLAP,
             counts,
+            runtime_contract["runtime_tokenizer_class"],
+            runtime_contract["effective_embedding_max_seq_length"],
         ),
         "corpus_id": corpus.corpus_id,
         "file_count": len(corpus.entries),
         "embedding_model": EMBEDDING_MODEL,
         "chunk_budget_tokenizer": token_counter.name,
-        "embedding_tokenizer": embedding_tokenizer_name,
-        "embedding_max_seq_length": embedding_max_seq_length,
+        "sentence_transformer_class": (
+            runtime_contract["sentence_transformer_class"]
+        ),
+        "sentence_transformer_max_seq_length": (
+            runtime_contract["sentence_transformer_max_seq_length"]
+        ),
+        "embedding_tokenizer": runtime_contract["runtime_tokenizer_class"],
+        "runtime_tokenizer_class": (
+            runtime_contract["runtime_tokenizer_class"]
+        ),
+        "runtime_tokenizer_model_max_length": (
+            runtime_contract["runtime_tokenizer_model_max_length"]
+        ),
+        "effective_embedding_max_seq_length": (
+            runtime_contract["effective_embedding_max_seq_length"]
+        ),
         "chunk_size": CHUNK_SIZE,
         "chunk_overlap": CHUNK_OVERLAP,
         "strategies": {
@@ -346,20 +372,52 @@ def build_payload(
     return validate_payload(payload)
 
 
-def load_bge_tokenizer():
-    from transformers import AutoTokenizer
+def read_runtime_contract(model) -> dict:
+    """从实际 SentenceTransformer 对象读取运行时输入长度契约。
 
-    tokenizer = AutoTokenizer.from_pretrained(
+    effective max 来自 model.max_seq_length（正式 encode 路径的真实
+    截断上限），并验证首个 Transformer module 的 tokenizer 与
+    model_max_length 一致。只读配置，不调用 encode()。
+    """
+    max_len = model.max_seq_length
+    if max_len != EXPECTED_MAX_SEQ_LENGTH:
+        raise RuntimeError(
+            f"SentenceTransformer.max_seq_length={max_len}，"
+            f"与预期 {EXPECTED_MAX_SEQ_LENGTH} 不一致，停止诊断"
+        )
+    first = model[0]
+    tokenizer = getattr(first, "tokenizer", None)
+    if tokenizer is None:
+        raise RuntimeError(
+            "SentenceTransformer 首个 Transformer module 没有 "
+            "实际 tokenizer，停止诊断"
+        )
+    runtime_max = int(tokenizer.model_max_length)
+    if runtime_max != max_len:
+        raise RuntimeError(
+            f"runtime tokenizer.model_max_length={runtime_max} 与 "
+            f"SentenceTransformer.max_seq_length={max_len} 不一致，"
+            "停止诊断"
+        )
+    return {
+        "sentence_transformer_class": type(model).__name__,
+        "sentence_transformer_max_seq_length": max_len,
+        "runtime_tokenizer_class": type(tokenizer).__name__,
+        "runtime_tokenizer_model_max_length": runtime_max,
+        "effective_embedding_max_seq_length": max_len,
+        "tokenizer": tokenizer,
+    }
+
+
+def load_runtime_embedding_contract() -> dict:
+    """使用与 core/embeddings/bge_emb.py 一致的本地模型加载方式。"""
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer(
         EMBEDDING_MODEL,
         local_files_only=True,
     )
-    max_len = int(tokenizer.model_max_length)
-    if max_len != EXPECTED_MAX_SEQ_LENGTH:
-        raise RuntimeError(
-            f"本地 BGE tokenizer model_max_length={max_len}，"
-            f"与预期 {EXPECTED_MAX_SEQ_LENGTH} 不一致，停止诊断"
-        )
-    return tokenizer, max_len
+    return read_runtime_contract(model)
 
 
 def main(argv=None):
@@ -389,7 +447,9 @@ def main(argv=None):
             f"TokenCounter 实际 tokenizer={token_counter.name!r}，"
             f"预期 {TOKEN_BUDGET_TOKENIZER}，停止诊断"
         )
-    tokenizer, max_len = load_bge_tokenizer()
+    runtime_contract = load_runtime_embedding_contract()
+    tokenizer = runtime_contract["tokenizer"]
+    max_len = runtime_contract["effective_embedding_max_seq_length"]
 
     strategy_stats = {}
     for strategy in ("recursive", "fixed"):
@@ -406,8 +466,7 @@ def main(argv=None):
     payload = build_payload(
         corpus,
         token_counter,
-        type(tokenizer).__name__,
-        max_len,
+        runtime_contract,
         strategy_stats,
     )
     output_path = Path(args.output)

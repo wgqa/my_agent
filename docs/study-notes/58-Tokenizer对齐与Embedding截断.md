@@ -132,9 +132,12 @@ TokenCounter 说：这段文本 = 512 cl100k token，OK，不出块
 本项目 G2-DIAG-18 实测：
 
 ```text
-Recursive：34 / 215 = 15.81% chunk 会截断
-Fixed：    35 / 237 = 14.77% chunk 会截断
+Recursive：57 / 215 = 26.51% chunk 会截断（R1 运行时口径）
+Fixed：    71 / 237 = 29.96% chunk 会截断（R1 运行时口径）
 ```
+
+注：主体诊断用独立 AutoTokenizer 得到 34/35，R1 改为实际
+SentenceTransformer 运行时的 tokenizer 后为 57/71（原因见 12.1）。
 
 ## 9. 为什么不能发现问题后直接换 tokenizer
 
@@ -191,29 +194,108 @@ ExperimentConfig 与 experiment_id，用正式实验对比。
 ## 12. 本项目真实统计结果
 
 ```text
-Recursive（215 chunks）：
+Recursive（215 chunks，R1 运行时口径）：
   cl100k max = 512（无 over-budget）
-  BGE: median 458 / p90 526 / p95 545.3 / p99 572.86 / max 686
-  would-truncate: 34（15.81%）
-  overflow: max 174 / 超长中位数 25.5
+  Runtime BGE: median 484 / p90 551.6 / p95 565.9 / p99 617.94 / max 707
+  would-truncate: 57（26.51%）
+  overflow: max 195 / 超长中位数 32.0
 
-Fixed（237 chunks）：
+Fixed（237 chunks，R1 运行时口径）：
   cl100k max = 512（无 over-budget）
-  BGE: median 463 / p90 530.4 / p95 550.4 / p99 588.8 / max 687
-  would-truncate: 35（14.77%）
-  overflow: max 175 / 超长中位数 30.0
+  Runtime BGE: median 489 / p90 551.4 / p95 569.6 / p99 617.4 / max 708
+  would-truncate: 71（29.96%）
+  overflow: max 196 / 超长中位数 28.0
 ```
 
-重点 Case 的描述性关联：
+Runtime 契约：`SentenceTransformer.max_seq_length = 512`、
+runtime tokenizer `model_max_length = 512`、类型 BertTokenizer。
+重点 Case 的描述性关联（R1 口径，每个数字为 Recursive / Fixed 的超长
+chunk 数）：
 
 ```text
-q013 / q019 / q047：Gold 文件没有任何截断 chunk
-q039 / q031 / q034：部分 Gold 文件有 1 个截断 chunk
-q036：3 个 Gold 文件中 2 个有截断 chunk
-      （提示工程高级技巧 2/2、Function-Calling原理 3/4）
+q013（预训练.md）：1 / 1
+q019（Transformer架构-03）：1 / 1
+q039（检索与生成.md）：1 / 1
+q047（Transformer架构-04）：2 / 2
+q031：文档处理.md 2/2、检索与生成.md 1/1
+q034：高级RAG.md 2/5、检索与生成.md 1/1
+q036：提示工程高级技巧.md 3/3、文档处理.md 2/2、
+      Function-Calling原理.md 4/5
 ```
 
 只能说明"存在截断风险"，不能证明"某个 Case 就是截断导致失败"。
+
+### 12.1 tokenizer.model_max_length vs SentenceTransformer.max_seq_length
+
+这是 G2-DIAG-18-R1 最重要的新增知识点。
+
+#### 两个概念
+
+```text
+tokenizer.model_max_length：
+transformers tokenizer 自己的属性，表示"这个 tokenizer 认为
+模型最多能接受多长输入"。
+
+SentenceTransformer.max_seq_length：
+真正执行 Embedding 的 SentenceTransformer 暴露的输入长度上限，
+来自其第一个 Transformer module；超过该值的输入会被截断。
+```
+
+在本项目中两者最终都是 512：
+
+```text
+模型加载时 tokenizer.model_max_length 会被
+min(tokenizer.model_max_length, config.max_position_embeddings)
+封顶；
+SentenceTransformer.max_seq_length 直接读取该值。
+```
+
+#### 为什么两者可能不同
+
+理论上存在不一致场景：
+
+- SentenceTransformer 的 module 配置可以单独设置
+  `max_seq_length`（训练/推理脚本可以覆盖）；
+- tokenizer 的 `model_max_length` 只反映 tokenizer 侧配置；
+- 真正截断发生在 SentenceTransformer encode 的数据整理阶段，
+  以 `SentenceTransformer.max_seq_length` 为准。
+
+#### 为什么只检查 tokenizer.model_max_length 还不够
+
+面试核心答案：
+
+```text
+真正执行 Embedding 的是 SentenceTransformer；
+实验必须绑定 effective runtime contract，
+而不能只验证某个底层配置文件看起来是什么。
+```
+
+这和之前"declared config vs effective runtime behavior"是同一思想：
+
+```text
+ExperimentConfig 写 bm25 但实际 Retriever 是 SimpleRetriever
+→ 实验身份撒谎；
+
+诊断只读 AutoTokenizer.model_max_length 但实际 encode 用
+SentenceTransformer 的 tokenizer/max_seq_length
+→ 诊断事实可能撒谎。
+```
+
+#### 本项目 R1 的实际发现
+
+独立 `AutoTokenizer.from_pretrained("BAAI/bge-small-zh-v1.5")` 与
+实际 `SentenceTransformer(...)[0].tokenizer` 都是 BertTokenizer、
+`model_max_length=512`，但 token 计数不同：
+
+```text
+sentence-transformers 给 runtime tokenizer 增加了
+Lowercase() normalizer：
+Sequence([Lowercase(), BertNormalizer(...)])
+```
+
+实测 `"import React from 'react'"`：standalone 10 tokens、
+runtime 11 tokens。因此 would-truncate 从 34/35 变为 57/71，
+说明"同一个模型名"下独立 AutoTokenizer 可能低估实际输入长度。
 
 ## 13. 面试追问
 
@@ -249,11 +331,20 @@ tokenizer 下长度不同；BGE 计数还包含 [CLS]/[SEP]。
 
 所以只能做风险分析，不能直接断言因果。
 
-### Q6：既然有 15% chunk 超长，为什么不能直接换 tokenizer？
+### Q6：既然有 26.5%/30% chunk 超长，为什么不能直接换 tokenizer？
 
 因为换 tokenizer 会改变所有 chunk boundaries 和下游检索统计单位，
 是新的实验变量，必须通过正式实验 + 新 experiment_id 验证，不能当作
 "修 bug"。
+
+### Q6.5：为什么只检查 tokenizer.model_max_length 还不够？
+
+因为真正执行 Embedding 的是 SentenceTransformer，截断发生在它的
+encode 数据整理阶段，以 `SentenceTransformer.max_seq_length` 为有效
+上限。即使底层 tokenizer 属性看起来正确，运行时可能还有额外配置
+（例如本项目 sentence-transformers 给 tokenizer 加了 Lowercase
+normalizer，导致 token 数与独立 AutoTokenizer 不同）。所以诊断/实验
+必须绑定 effective runtime contract，而不是只读某个底层配置文件。
 
 ### Q7：如何证明一个失败是截断导致的？
 
@@ -280,12 +371,17 @@ overflow_tokens 分布
 1. "512 token"必须带 tokenizer 定语；cl100k 预算与 BGE 输入上限不是
    同一把尺子。
 2. 判断截断要用包含特殊 token 的最终输入长度。
-3. 本 Benchmark 约 15% 的 chunk 存在 would-truncate 风险，集中在中英
-   混排 + 代码/JSON/表格密集文档，最大溢出约 174-175 token。
+3. 本 Benchmark 按实际 SentenceTransformer 运行时口径，约 26.5%
+   （Recursive）/ 30%（Fixed）的 chunk 存在 would-truncate 风险，
+   集中在中英混排 + 代码/JSON/表格密集文档，最大溢出约 195-196
+   token；独立 AutoTokenizer 会低估（34/35），必须以运行时契约为准。
 4. 风险 ≠ 因果：没有 chunk-level Gold 与 intervention 前，不能断言
    "q036 就是截断失败"。
 5. 换 chunk budget tokenizer 等于换实验变量，必须进入实验身份并做
    正式对比，不能当修复直接改。
+6. 检查长度契约要绑定 effective runtime（SentenceTransformer 的
+   max_seq_length 与它真正使用的 tokenizer），不能只读底层
+   tokenizer 配置。
 
-> 本次 50 Case Benchmark 能支持"当前配置存在约 15% 截断风险"这个
+> 本次 50 Case Benchmark 能支持"当前配置存在约 26.5%-30% 截断风险"这个
 > 工程观察，但不能单独证明"截断是当前检索失败的主要原因"。

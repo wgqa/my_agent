@@ -1,8 +1,8 @@
 # Chunk Budget vs BGE Tokenizer Alignment Diagnostic（G2-DIAG-18）
 
 > 只读诊断：不修改 Chunker / Embedding / Corpus / Gold，不重新运行
-> Retrieval 实验。数据来自冻结 Benchmark Corpus 重新构造的 Chunk
-> 与本地 BGE tokenizer 长度统计。
+> Retrieval 实验。G2-DIAG-18-R1 将长度契约绑定实际
+> SentenceTransformer 运行时（非独立 AutoTokenizer）。
 
 ## 1. 为什么会有两套 tokenizer
 
@@ -27,10 +27,10 @@ cl100k_base（tiktoken，BPE）与 BERT 系 tokenizer（WordPiece/BERT
 词表）使用不同分词算法、不同词表：
 
 - 同一个中英混排文本，两套 tokenizer 的 token 数不同；
-- 本项目实测 token 数比值（BGE/cl100k）：
-  - Recursive：median 0.9188、p90 1.0452、p95 1.0849、max 1.3398；
-  - Fixed：median 0.9199、p90 1.0512、p95 1.0844、max 1.3418。
-- 即部分 chunk 在 BGE 下比 cl100k 多出最多约 34% 的 token。
+- 本项目实测 token 数比值（Runtime BGE/cl100k，R1 口径）：
+  - Recursive：median 0.9685、p90 1.0927、p95 1.1407、max 1.3809；
+  - Fixed：median 0.9691、p90 1.0943、p95 1.1444、max 1.3828。
+- 即部分 chunk 在 BGE 下比 cl100k 多出最多约 38% 的 token。
 
 注意：BGE 计数包含特殊 token（[CLS]/[SEP]），因此该比值不是严格的
 "纯 tokenizer 压缩率"定义，只用于直观展示两套 tokenizer 的长度差异。
@@ -55,15 +55,40 @@ chunk_size = 512
   逐文件重建 Chunk；
 - 硬校验：Recursive == 215、Fixed == 237，与正式实验完全一致；
 - cl100k 计数使用项目真实 `TokenCounter()`（实际 name=cl100k_base）；
-- BGE 计数使用
-  `AutoTokenizer.from_pretrained("BAAI/bge-small-zh-v1.5",
-  local_files_only=True)`，`add_special_tokens=True`、
-  `truncation=False`；
-- `would_truncate = bge_token_count > 512`；
-- `overflow_tokens = max(0, bge_token_count - 512)`；
+- BGE 计数使用 **实际 SentenceTransformer 运行时的 tokenizer**
+  （G2-DIAG-18-R1）：
+  ```text
+  SentenceTransformer("BAAI/bge-small-zh-v1.5", local_files_only=True)
+  → model.max_seq_length（正式 encode 路径的截断上限）
+  → model[0].tokenizer（真正执行 encode 的 tokenizer）
+  ```
+  `add_special_tokens=True`、`truncation=False` 计算未截断长度；
+- 运行时验证：`SentenceTransformer.max_seq_length == 512`，
+  runtime tokenizer `model_max_length == 512`，两者相等；
+  `effective_embedding_max_seq_length = 512`；
+- `would_truncate = bge_token_count > effective_embedding_max_seq_length`；
+- `overflow_tokens = max(0, bge_token_count - effective_max)`；
 - 百分位使用固定线性插值方法（与 numpy linear 一致），有测试覆盖；
-- 本脚本不调用 Embedding encode / Chroma / BM25 / Retriever /
-  ExperimentRunner。
+- 本脚本不调用 `SentenceTransformer.encode()` / Chroma / BM25 /
+  Retriever / ExperimentRunner。
+
+### R1 与主体诊断的数字差异及原因
+
+DIAG-18 主体使用独立 `AutoTokenizer.from_pretrained(...)`，当时
+Recursive 34 / Fixed 35 个 would-truncate。R1 改用实际运行时 tokenizer
+后为 Recursive 57 / Fixed 71。原因：
+
+```text
+sentence-transformers 加载 BGE 时修改了 tokenizer 的 normalizer：
+Sequence([Lowercase(), BertNormalizer(clean_text=True,
+handle_chinese_chars=True, strip_accents=None, lowercase=False)])
+```
+
+即运行时 tokenizer 额外启用了 Lowercase 归一化，独立 AutoTokenizer
+没有；英文/代码中的大小写 token 在运行时被小写化后重新切分，token 数
+不同（实测同一字符串 `"import React from 'react'"`：standalone 10
+tokens、runtime 11 tokens）。因此主体诊断低估了实际 Embedding 路径的
+输入长度，R1 统计以运行时契约为准，如实保存并解释差异。
 
 ## 5. Recursive 统计（215 Chunks）
 
@@ -71,24 +96,24 @@ chunk_size = 512
 cl100k max                        = 512
 cl100k over-budget count          = 0（无 Chunker correctness blocker）
 
-BGE token（含特殊 token）：
+Runtime BGE token（含特殊 token）：
   min      = 22
-  median   = 458.0
-  p90      = 526.0
-  p95      = 545.3
-  p99      = 572.86
-  max      = 686
+  median   = 484.0
+  p90      = 551.6
+  p95      = 565.9
+  p99      = 617.94
+  max      = 707
 
-would_truncate count              = 34
-would_truncate percentage         = 15.81%
-overflow max                      = 174
-overflow median（仅超长 chunk）   = 25.5
+would_truncate count              = 57
+would_truncate percentage         = 26.51%
+overflow max                      = 195
+overflow median（仅超长 chunk）   = 32.0
 
-token ratio（BGE/cl100k）：
-  median = 0.91875
-  p90    = 1.04524
-  p95    = 1.08493
-  max    = 1.33984
+token ratio（Runtime BGE/cl100k）：
+  median = 0.96853
+  p90    = 1.09270
+  p95    = 1.14069
+  max    = 1.38086
 ```
 
 ## 6. Fixed 统计（237 Chunks）
@@ -97,24 +122,24 @@ token ratio（BGE/cl100k）：
 cl100k max                        = 512
 cl100k over-budget count          = 0（无 Chunker correctness blocker）
 
-BGE token（含特殊 token）：
-  min      = 57
-  median   = 463.0
-  p90      = 530.4
-  p95      = 550.4
-  p99      = 588.8
-  max      = 687
+Runtime BGE token（含特殊 token）：
+  min      = 58
+  median   = 489.0
+  p90      = 551.4
+  p95      = 569.6
+  p99      = 617.4
+  max      = 708
 
-would_truncate count              = 35
-would_truncate percentage         = 14.77%
-overflow max                      = 175
-overflow median（仅超长 chunk）   = 30.0
+would_truncate count              = 71
+would_truncate percentage         = 29.96%
+overflow max                      = 196
+overflow median（仅超长 chunk）   = 28.0
 
-token ratio（BGE/cl100k）：
-  median = 0.91992
-  p90    = 1.05117
-  p95    = 1.08437
-  max    = 1.34180
+token ratio（Runtime BGE/cl100k）：
+  median = 0.96914
+  p90    = 1.09435
+  p95    = 1.14436
+  max    = 1.38281
 ```
 
 ## 7. 是否真实存在 would-truncate Chunk
@@ -122,55 +147,61 @@ token ratio（BGE/cl100k）：
 是，且比例不低：
 
 ```text
-Recursive：34 / 215 = 15.81%
-Fixed：    35 / 237 = 14.77%
+Recursive：57 / 215 = 26.51%（运行时口径）
+Fixed：    71 / 237 = 29.96%（运行时口径）
 ```
 
-两套策略的 chunk 边界不同，但超长比例接近，说明这是
+两套策略的 chunk 边界不同，但超长比例都在 1/4 以上，说明这是
 "cl100k 预算与 BGE 输入上限不匹配"的系统性工程边界，不是某一策略
-特有的偶然现象。
+特有的偶然现象。主体诊断（独立 AutoTokenizer）为 34/215 与 35/237，
+低估了实际运行时输入长度，详见第 4 节差异说明。
 
 ## 8. 严重程度
 
-- 最大 overflow：Recursive 174 / Fixed 175；
-- 超长 chunk 的 overflow 中位数：Recursive 25.5 / Fixed 30.0，即
-  大多数超长 chunk 只超 25-30 个 token；
-- 超过 100 token 的极端超长只有个别 chunk（两策略下都是
+- 最大 overflow：Recursive 195 / Fixed 196；
+- 超长 chunk 的 overflow 中位数：Recursive 32.0 / Fixed 28.0，即
+  大多数超长 chunk 只超 28-32 个 token；
+- 超过 100 token 的极端超长：Recursive 3 个、Fixed 4 个；最大的是
   `agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md`
-  的 chunk 0：cl100k 512，BGE 686/687）。
+  chunk 0（cl100k 512，Runtime BGE 707/708，overflow 195/196），
+  Fixed 下 `tool_calling/Function-Calling原理.md` chunk 2 达 184。
 - 超长集中在包含代码块、JSON、表格、长列表的中英混排文档。
 
 ## 9. 超长 Chunk 集中的文档
 
-Recursive（21 个文件至少 1 个超长 chunk）：
+Recursive（28 个文件至少 1 个超长 chunk）：
 
 ```text
 tool_calling/工具设计.md            5
-prompt/提示工程基础.md             3
-tool_calling/Function-Calling原理.md 3
-LangChain-LangGraph-03-Checkpoint   2
-finetuning/数据工程.md              2
-finetuning/训练与评估.md            2
-prompt/提示工程高级技巧.md          2
-prompt/评估与优化.md                2
-其余 13 个文件各 1
+prompt/提示工程基础.md             4
+tool_calling/Function-Calling原理.md 4
+finetuning/数据工程.md              3
+finetuning/训练与评估.md            3
+llm/Transformer架构-01             3
+prompt/提示工程高级技巧.md          3
+prompt/评估与优化.md                3
+vector_db/核心概念.md               3
+其余 20 个文件各 1-2
 ```
 
-Fixed（19 个文件至少 1 个超长 chunk）：
+Fixed（32 个文件至少 1 个超长 chunk）：
 
 ```text
 tool_calling/工具设计.md            6
-tool_calling/Function-Calling原理.md 4
-LangChain-LangGraph-02/03          各 2
-deployment/部署架构.md              2
-llm/Transformer架构-01             2
-mcp/MCP协议-01                     2
-prompt/提示工程基础/高级技巧/评估与优化 各 2
-其余 9 个文件各 1
+rag/高级RAG.md                      5
+tool_calling/Function-Calling原理.md 5
+deployment/推理框架.md              3
+deployment/部署架构.md              3
+finetuning/训练与评估.md            3
+llm/Transformer架构-01             3
+prompt/提示工程基础/高级技巧/评估与优化 各 3
+vector_db/核心概念.md               3
+其余 24 个文件各 1-2
 ```
 
 模式一致：工具设计、Function Calling、Prompt 工程、部署与评估类文档
-（代码/JSON/表格密集）是超长高发区。
+（代码/JSON/表格密集）是超长高发区；R1 运行时口径下覆盖文件更广
+（Recursive 28 / Fixed 32 个文件）。
 
 ## 10. 与 7 个重点 Case 的描述性关联
 
@@ -179,54 +210,56 @@ prompt/提示工程基础/高级技巧/评估与优化 各 2
 
 ```text
 q013（llm/预训练.md）
-  Recursive：0 个超长 chunk；Fixed：0 个超长 chunk
-  → Gold 文件无截断风险，截断不能解释该失败
+  Recursive：1 个超长 chunk；Fixed：1 个超长 chunk
 
 q019（llm/Transformer架构-03-训练推理与高效Attention.md）
-  Recursive：0；Fixed：0
-  → Gold 文件无截断风险
+  Recursive：1；Fixed：1
 
 q039（rag/检索与生成.md）
-  Recursive：1；Fixed：0
-  → 仅 Recursive 下该 Gold 文件存在 1 个截断风险 chunk
+  Recursive：1；Fixed：1
 
 q047（llm/Transformer架构-04-采样与工程联系.md）
-  Recursive：0；Fixed：0
-  → Gold 文件无截断风险
+  Recursive：2；Fixed：2
 
 q031（rag/文档处理.md, rag/检索与生成.md）
-  文档处理.md：0/0；检索与生成.md：Recursive 1 / Fixed 0
+  文档处理.md：Recursive 2 / Fixed 2；检索与生成.md：1/1
 
 q034（rag/高级RAG.md, rag/检索与生成.md）
-  高级RAG.md：Recursive 1 / Fixed 1；检索与生成.md：1/0
+  高级RAG.md：Recursive 2 / Fixed 5；检索与生成.md：1/1
 
 q036（提示工程高级技巧.md, rag/文档处理.md,
       tool_calling/Function-Calling原理.md）
-  提示工程高级技巧.md：2/2；文档处理.md：0/0；
-  Function-Calling原理.md：3/4
-  → 3 个 Gold 文件中 2 个存在截断风险，其中
-    Function-Calling原理.md 风险最高（Recursive 3、Fixed 4）
+  提示工程高级技巧.md：3/3；文档处理.md：2/2；
+  Function-Calling原理.md：4/5
+  → 3 个 Gold 文件全部存在截断风险，
+    Function-Calling原理.md 风险最高（Recursive 4、Fixed 5）
 ```
 
 ## 11. 当前能够支持的结论
 
-1. **两套 tokenizer 计数不可互换**：BGE/cl100k 比值中位数约 0.92、
-   p95 约 1.08、最大约 1.34，长度关系因文本而异；
-2. **would-truncate 工程边界真实存在**：两策略均有约 15% 的 chunk
-   在 cl100k 预算内但超过 BGE 512 输入上限；
+1. **两套 tokenizer 计数不可互换**：Runtime BGE/cl100k 比值中位数约
+   0.97、p95 约 1.14、最大约 1.38，长度关系因文本而异；
+2. **would-truncate 工程边界真实存在**：两策略分别有 26.51% /
+   29.96% 的 chunk 在 cl100k 预算内但超过 effective runtime max
+   （512）；
 3. **这不是 Chunker correctness blocker**：所有 chunk 的 cl100k
    计数均 ≤ 512，无 oversized chunk；
 4. **超长有集中模式**：代码/JSON/表格密集的中英混排文档风险最高；
-5. **截断风险不能解释全部重点失败 Case**：q013/q019/q047 的 Gold
-   文件没有截断 chunk；q039/q031/q034/q036 的部分 Gold 文件存在
-   截断风险 chunk，q036 最突出。
+5. **Level 1（tokenizer length mismatch）已直接证明**：cl100k count
+   ≠ BGE count，且不能互换；
+6. **Level 2（actual runtime truncation）已确认**：
+   `SentenceTransformer.max_seq_length = 512`，其属性文档明确
+   "Longer inputs will be truncated"；当前超 512 的 chunk 就是正式
+   BGEEmbedding.encode 路径实际会发生输入截断的 chunk。7 个重点 Case
+   的 Gold 文件现在全部存在 1-5 个截断风险 chunk，q036 最突出。
 
 ## 12. 当前不能支持的结论
 
 1. **"q036（或 q039 等）就是因截断失败"**：没有 chunk-level Gold
-   label，也没有 intervention experiment；
-2. **"would-truncate 一定导致实际性能下降"**：BGE 是否在推理时截断、
-   截断后是否改变最终表示，需要模型侧实验验证；
+   label，也没有 intervention experiment（Level 3 causality 仍
+   currently unverified）；
+2. **"would-truncate 一定导致实际性能下降"**：即使确认会发生截断，
+   截断是否影响最终向量/检索结果，仍需 intervention 实验验证；
 3. **"换 TokenCounter 一定会变好"**：换 tokenizer 会同时改变 chunk
    boundaries、total_chunks、overlap、Dense、BM25、Hybrid，属于新的
    正式实验变量，本轮不执行。
@@ -246,9 +279,10 @@ would-truncate 比例会显著下降，但 chunk 边界/总数/检索结果都�
 
 ## 14. 分析 Artifact 与脚本
 
-- Artifact：[agent_ai_v1_tokenizer_alignment.json](D:\学习\rag实战项目\rag-knowledge-base\docs\experiments\agent_ai_v1_tokenizer_alignment.json)
-  （diagnostic_id=b04d2dce47c9，schema_version=1，无绝对路径）；
-- 脚本：[analyze_tokenizer_alignment.py](D:\学习\rag实战项目\rag-knowledge-base\scripts\analyze_tokenizer_alignment.py)
+- Artifact：[agent_ai_v1_tokenizer_alignment.json](./agent_ai_v1_tokenizer_alignment.json)
+  （diagnostic_id=51e18bf2cff6，schema_version=1，无绝对路径；
+  R1 起绑定 runtime tokenizer 与 effective max）；
+- 脚本：[analyze_tokenizer_alignment.py](../../scripts/analyze_tokenizer_alignment.py)
   （只读，不调用 Embedding/VectorStore/BM25/Retriever/Runner）；
 - 百分位方法：线性插值（与 numpy.percentile linear 一致），测试覆盖。
 

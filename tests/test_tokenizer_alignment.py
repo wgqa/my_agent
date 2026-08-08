@@ -27,6 +27,20 @@ class FakeCounter:
         return self._map.get(text, len(text))
 
 
+class FakeModule:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+
+class FakeRuntimeModel:
+    def __init__(self, max_len=512, tokenizer=None):
+        self.max_seq_length = max_len
+        self._first = FakeModule(tokenizer)
+
+    def __getitem__(self, index):
+        return self._first
+
+
 def _record(relative_path, content, chunk_index=0, start=0, end=None,
             oversized=False):
     doc = Document(
@@ -90,6 +104,11 @@ def test_artifact_contains_no_absolute_path():
     tok = FakeTokenizer(specials=2)
     counter = FakeCounter()
     stats = ta.analyze_records("recursive", records, counter, tok, 512)
+    runtime_tok = FakeTokenizer(specials=2)
+    runtime_tok.model_max_length = 512
+    runtime_contract = ta.read_runtime_contract(
+        FakeRuntimeModel(max_len=512, tokenizer=runtime_tok)
+    )
     payload = ta.build_payload(
         corpus=type(
             "Corpus",
@@ -97,8 +116,7 @@ def test_artifact_contains_no_absolute_path():
             {"corpus_id": "abc123", "entries": (object(), object())},
         )(),
         token_counter=type("Counter", (), {"name": "cl100k_base"})(),
-        embedding_tokenizer_name="BertTokenizer",
-        embedding_max_seq_length=512,
+        runtime_contract=runtime_contract,
         strategy_stats={
             "recursive": stats,
             "fixed": stats,
@@ -107,6 +125,9 @@ def test_artifact_contains_no_absolute_path():
     text = json.dumps(payload, ensure_ascii=False)
     assert "D:" not in text
     assert "\\" not in text
+    assert payload["sentence_transformer_max_seq_length"] == 512
+    assert payload["effective_embedding_max_seq_length"] == 512
+    assert payload["runtime_tokenizer_model_max_length"] == 512
 
 
 def test_validate_payload_rejects_invalid_top_level():
@@ -137,7 +158,6 @@ def test_script_does_not_import_forbidden_modules():
         elif isinstance(node, ast.ImportFrom):
             imported.add(node.module or "")
     for forbidden in (
-        "sentence_transformers",
         "chromadb",
         "evaluation.experiment_runner",
         "core.retriever",
@@ -182,3 +202,56 @@ def test_analyze_records_stats_and_truncation_ranking():
         {"relative_path": "llm/a.md", "truncated_count": 1},
         {"relative_path": "llm/c.md", "truncated_count": 1},
     ]
+
+
+def test_runtime_contract_effective_max_from_runtime_model():
+    tokenizer = FakeTokenizer(specials=2)
+    tokenizer.model_max_length = 512
+    contract = ta.read_runtime_contract(
+        FakeRuntimeModel(max_len=512, tokenizer=tokenizer)
+    )
+    assert contract["sentence_transformer_class"] == "FakeRuntimeModel"
+    assert contract["sentence_transformer_max_seq_length"] == 512
+    assert contract["runtime_tokenizer_class"] == "FakeTokenizer"
+    assert contract["runtime_tokenizer_model_max_length"] == 512
+    assert contract["effective_embedding_max_seq_length"] == 512
+    assert contract["tokenizer"] is tokenizer
+
+
+def test_runtime_contract_fails_fast_when_max_mismatch():
+    tokenizer = FakeTokenizer(specials=2)
+    tokenizer.model_max_length = 512
+    with pytest.raises(RuntimeError, match="不一致"):
+        ta.read_runtime_contract(
+            FakeRuntimeModel(max_len=511, tokenizer=tokenizer)
+        )
+    tokenizer.model_max_length = 511
+    with pytest.raises(RuntimeError, match="不一致"):
+        ta.read_runtime_contract(
+            FakeRuntimeModel(max_len=512, tokenizer=tokenizer)
+        )
+
+
+def test_runtime_contract_fails_fast_without_actual_tokenizer():
+    with pytest.raises(RuntimeError, match="没有"):
+        ta.read_runtime_contract(FakeRuntimeModel(max_len=512, tokenizer=None))
+
+
+def test_diagnostic_id_binds_max_length_and_tokenizer_identity():
+    base = dict(
+        corpus_id="870e5864df67",
+        embedding_model="BAAI/bge-small-zh-v1.5",
+        chunk_size=512,
+        chunk_overlap=64,
+        chunk_counts={"recursive": 215, "fixed": 237},
+        runtime_embedding_tokenizer="BertTokenizer",
+        effective_embedding_max_seq_length=512,
+    )
+    id_a = ta.compute_diagnostic_id(**base)
+    assert id_a == ta.compute_diagnostic_id(**base)
+    assert id_a != ta.compute_diagnostic_id(
+        **{**base, "effective_embedding_max_seq_length": 513}
+    )
+    assert id_a != ta.compute_diagnostic_id(
+        **{**base, "runtime_embedding_tokenizer": "BertTokenizerFast"}
+    )
