@@ -147,8 +147,9 @@ Hybrid           2                 0                48
 方向性说明：
 
 - Dense 是主要受损路径：Hit −4（3 loss / 1 rescue），MRR/nDCG 下降；
-- BM25 几乎不动：Hit 0 rescue / 0 loss，仅 q033 的 multi-file Recall
-  从 1.0 降到 0.5；
+- BM25 aggregate metrics 较稳定：Hit 0 rescue / 0 loss，仅 q033 的
+  multi-file Recall 从 1.0 降到 0.5；但其 document ranking 36/50
+  发生变化（详见第 9 节）；
 - Hybrid 是主要受益路径：Hit +4（q039/q047 rescue，0 loss），
   Recall +0.04，但 MRR/nDCG 微降（排名位置变化）。
 
@@ -201,32 +202,55 @@ q036（提示工程高级技巧.md, rag/文档处理.md, Function-Calling原理.
 就修复失败"；chunk boundary 同时改变是更可能的解释，需要
 Case-level 与 channel-level 证据。
 
+### q039 / q047 的 Fusion 解释仍开放
+
+```text
+q039：Dense Gold doc rank 1 -> 1
+      BM25 Gold doc rank 2 -> 2
+      Hybrid: absent -> rank 3
+
+q047：Dense: miss -> miss
+      BM25 Gold doc rank 1 -> 1
+      Hybrid: absent -> rank 2
+```
+
+因此不能把两个 Hybrid rescue 简化为"Dense aligned 后变好，所以
+Hybrid 被 rescue"：q039 的 Dense/BM25 单通道本来就命中，q047 的
+Dense 仍 miss 而 BM25 一直命中，document-level 证据不支持该故事。
+更合理的开放假设包括 chunk-level channel ranks、chunk identity、
+cross-channel overlap、RRF fusion geometry——但本任务不跑新的
+channel diagnostic，**mechanism currently unresolved**，Gate 2
+不为此继续深挖。
+
 ## 9. BM25 Control 的解释
 
 ```text
 BM25: Hit 0.98 -> 0.98（0 rescue / 0 loss）
       Recall -0.01（仅 q033 multi-file）
       MRR -0.0023 / nDCG -0.0143（排名微调）
+
+同时：
+BM25 exact document ranking：
+  14 / 50 相同
+  36 / 50 发生变化
 ```
 
-属于任务定义的 **情况 A**：
+因此不能写"BM25 基本不变 → chunk-boundary / lexical mechanism 较弱
+→ 支持 embedding-input alignment 是重要机制"。这个推断过强。
+
+准确表述：
 
 ```text
-Dense / Hybrid 明显变化
-BM25 基本不变
-→ 更支持 embedding-input alignment 是变化的重要机制
+BM25 的 Gold-level aggregate metrics 较稳定，
+但其 document ranking 仍有 36/50 Case 发生变化。
+
+因此 chunk-budget intervention 对 BM25 retrieval behavior
+同样产生了广泛影响，只是这些 ranking 变化多数没有跨越当前
+Gold metric 的命中/Recall 边界。
 ```
 
-但仍不能证明 truncation alone：
-
-```text
-alignment intervention effect != truncation-only causal effect
-```
-
-因为 chunk boundaries / overlap landing / Dense 表示单位同时改变；
-BM25 统计只在小幅变化，说明词面统计层面的共同机制较弱，而变化
-集中在 Dense 依赖路径（Dense 变差、Hybrid 通过 Dense+BM25 融合
-获得 q039/q047 rescue）。
+这不能单独把 Dense/Hybrid 变化归因到 embedding-input alignment；
+general chunk-boundary / lexical pathway 是否变化仍然开放。
 
 ## 10. 当前能够 / 不能支持的结论
 
@@ -236,25 +260,40 @@ BM25 统计只在小幅变化，说明词面统计层面的共同机制较弱，
 1. 干预成功：would-truncate 57/215 -> 0（正式 Manifest observed facts）；
 2. 三套 aligned 实验 chunking observed facts 完全一致（215 chunks、
    content max 510、model-input max 512、corpus-scoped fp 相同）；
-3. 在 50 Case 上，Dense 指标下降、BM25 基本不变、Hybrid Hit/Recall
-   上升但 MRR/nDCG 微降；
-4. BM25 control 支持 embedding-input alignment 是重要机制（情况 A）；
-5. 相同 total_chunks=215 不代表相同 chunk boundaries（文档 ranking
-   变化 Dense 47/50、BM25 36/50、Hybrid 37/50）。
+3. aligned intervention 对三种 strategy 的 retrieval behavior 都产生
+   了实质影响（文档 ranking 变化 Dense 47/50、BM25 36/50、
+   Hybrid 37/50）；
+4. Gold-level performance impact 在当前 Benchmark 上具有
+   strategy-dependent pattern：
+   Dense 整体变差；BM25 aggregate metrics 较稳定；Hybrid Hit/Recall
+   提升、MRR/nDCG 略降；
+5. 因为 BM25 ranking 本身 36/50 发生变化，不能说 general
+   chunk-boundary / lexical pathway 基本没变；
+6. 当前证据只能说 Dense/Hybrid 的 Gold-level metric changes 更明显，
+   不能据此证明 embedding-input alignment 是主导机制；
+7. 相同 total_chunks=215 不代表相同 chunk boundaries。
 ```
 
 不能支持：
 
 ```text
-1. "Dense 提升/下降完全由 truncation 造成"（无 truncation-only
+1. "Dense/Hybrid 变化主要由 Dense input 导致"；
+2. "embedding-input alignment 是重要/主导机制"；
+3. "词面统计共同机制较弱"；
+4. "Dense 提升/下降完全由 truncation 造成"（无 truncation-only
    intervention，chunk boundaries 同时改变）；
-2. "消除截断一定改善 Retrieval"（当前 Dense 反而下降，Hybrid 改善）；
-3. 任何统计显著性结论（未做显著性检验）。
+5. "消除截断一定改善 Retrieval"（当前 Dense 反而下降，Hybrid 改善）；
+6. 任何统计显著性结论（未做显著性检验）。
+```
+
+```text
+alignment intervention effect != truncation-only causal effect
 ```
 
 ## 11. 负/混合结果说明
 
-本实验不是单边"变好"：Dense 下降、Hybrid 改善、BM25 基本不变。
+本实验不是单边"变好"：Dense 下降、Hybrid 改善、BM25 aggregate
+metrics 基本不变（但其 ranking 36/50 变化）。
 这是完全有效的干预结果：它证明 aligned chunk-budget 会实质改变
 检索行为，且变化方向因策略而异；不调整任何参数。
 

@@ -115,7 +115,23 @@ encode 实际收到：B 数出 520 → 截断
 ```
 
 对 BPE/WordPiece 不一定成立：某段文本加一个字符可能触发重新合并，
-token 数反而变少。真实反例：
+token 数反而变少。这里要区分三层：
+
+```text
+A. 理论风险：
+token count 不应未经验证假设满足二分所需单调性；
+
+B. synthetic regression（构造的反例，来自 FakeCounter / regression
+   测试契约，不是真实 BGE Corpus 观测）：
+   count(prefix 100) = 509
+   count(prefix 101) = 513
+   count(prefix 102) = 510   ← 更长的反而合法
+
+C. 当前真实 BGE Corpus：
+本任务没有声称已经观察到该具体非单调序列。
+```
+
+在 synthetic 反例下：
 
 ```text
 count(prefix 100) = 509
@@ -167,7 +183,8 @@ Hybrid nDCG      0.7994      0.7959        -0.0035
 
 ```text
 Dense 变差（Hit -4，q023/q036/q045 loss）
-BM25 基本不变（0 rescue / 0 loss）
+BM25 aggregate metrics 较稳定（0 rescue / 0 loss），
+    但 document ranking 36/50 发生变化
 Hybrid 改善（q039/q047 rescue，0 loss）
 ```
 
@@ -185,12 +202,18 @@ truncation-only causal effect
 换 budget tokenizer 会同时改变 chunk boundaries、
 overlap landing、BM25 词项统计、Dense 表示单位、RRF 候选。
 
-若 BM25 也大幅变化 → 共同机制是 chunk boundary/词面统计；
-若 BM25 基本不变 → 变化更可能来自 Dense 输入侧（alignment）。
+BM25 不依赖 Dense embedding，但仍依赖相同的 chunk boundaries：
+它是"是否只有 Dense 输入侧变化"的观察窗口，
+不能单独把 Dense/Hybrid 变化归因到 embedding-input alignment。
 ```
 
-本次：BM25 几乎不动（仅 q033 multi-file Recall -1），Dense/Hybrid
-明显变化 → 支持 embedding-input alignment 是重要机制（情况 A）。
+本次：BM25 的 Gold-level aggregate metrics 较稳定
+（Hit 0.98 -> 0.98、Recall -0.01），但其 document ranking 36/50
+发生变化。因此 chunk-budget intervention 对 BM25 retrieval behavior
+同样产生了广泛影响，只是这些 ranking 变化多数没有跨越当前 Gold
+metric 的命中/Recall 边界；不能据此证明 embedding-input alignment
+是主导机制，general chunk-boundary / lexical pathway 是否变化仍然
+开放。
 
 仍不能证明"truncation alone"：
 
@@ -241,11 +264,20 @@ model input 上限 512 包含 2 个 special tokens（运行时读取），所以
 
 ### Q：为什么还要跑 BM25？
 
-BM25 是 control：换 budget tokenizer 会同时改变 chunk boundaries
-和词面统计。如果 BM25 也大幅变化，说明变化不只在 Dense 输入侧；
-如果 BM25 基本不变（本次结果），则更支持 embedding-input
-alignment 是重要机制。它帮助区分 general chunk-boundary effect
-与 Dense-input-specific effect。
+BM25 是 control：它不依赖 Dense embedding，但仍依赖相同 chunk
+boundaries。
+
+本次结果：
+
+```text
+aggregate Gold metrics 较稳定
+但 ranking 36/50 改变
+```
+
+因此它告诉我们：chunk intervention 确实广泛改变了 lexical
+retrieval behavior，只是多数变化没有反映成当前 Gold-level metric
+变化。它不能单独把 Dense/Hybrid 变化归因到 embedding-input
+alignment。
 
 ### Q：如果 Dense 提升能否说是截断造成的？
 
@@ -282,10 +314,14 @@ corpus-scoped fingerprint：正式 vector store 实际 chunks 的
    （corpus-scoped fingerprint）三层必须分开且互相绑定。
 4. Counter 与 encode 必须共用同一 tokenizer 对象；non-monotonic
    token count 需要 correctness-safe 搜索。
-5. 正式干预结果：Dense 下降、BM25 基本不变、Hybrid 改善；
+5. 正式干预结果：Dense 下降、BM25 aggregate metrics 较稳定（但
+   36/50 ranking 变化）、Hybrid Hit/Recall 改善；三种 strategy 的
+   retrieval behavior 都实质改变；
    alignment intervention effect ≠ truncation-only causal effect；
    混合结果与负结果同样是有效实验结果。
 
 > 本次 50 Case Benchmark 支持"aligned chunk-budget 会实质改变检索
-> 行为、且变化集中在 Dense 依赖路径"这个结论；不能单独证明
+> 行为（三种 strategy 的 ranking 都大量变化）、Gold-level 影响呈现
+> strategy-dependent pattern"这个结论；不能据此证明
+> "embedding-input alignment 是主导机制"，也不能单独证明
 > "消除截断必然提升检索"或"Dense 下降就是截断消失造成的"。

@@ -200,7 +200,9 @@
     }
   },
   "interpretation": {
-    "bm25_control": "BM25 基本不变（Hit 0.98->0.98，Recall -0.01，MRR -0.0023，nDCG -0.0143），Dense/Hybrid 明显变化：支持 embedding-input alignment 是重要机制（情况 A）；仍不能证明 truncation alone",
+    "bm25_control": "BM25 aggregate Gold metrics 较稳定（Hit 0.98->0.98，Recall -0.01，MRR -0.0023，nDCG -0.0143），但 36/50 document rankings 发生变化；因此 control 不支持把 general chunk-boundary effect 视为很弱，只能说明 Gold-level performance impact 在策略间不同",
+    "mechanism_attribution": "current evidence insufficient to attribute Dense/Hybrid changes primarily to embedding-input alignment; chunk-boundary and fusion effects remain plausible",
+    "fusion_mechanism_q039_q047": "mechanism currently unresolved；document-level 证据不支持 'Dense aligned 后变好所以 Hybrid 被 rescue'（q039 Dense/BM25 单通道本就命中、q047 Dense 仍 miss 而 BM25 一直命中）；开放假设：chunk-level channel ranks / chunk identity / cross-channel overlap / RRF fusion geometry",
     "causal_boundary": "alignment intervention effect != truncation-only causal effect",
     "statistical_significance": "未执行显著性检验"
   }
