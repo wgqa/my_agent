@@ -58,7 +58,7 @@
 | DIAG-13 | Hybrid Dense/BM25 Channel-Level Diagnostic Snapshot | retrieve_with_trace + retrieval_diagnostics.json 已实现；修复前 50/50 验证受阻（RRF 平局顺序跨进程不稳定，见 study-notes 52） | ✅ 复审通过 |
 | DIAG-13-R1 | RRF Deterministic Tie-Break + 实验身份绑定 | RRF 契约改为 rrf DESC + chunk_id ASC；rrf_tie_breaker 进入 ExperimentConfig/实验身份；canonical Baseline experiment_id=3c613202e1ed；diagnostic 50/50 exact match（见 study-notes 53） | ✅ 复审通过 |
 | ANALYSIS-14 | Chunk-Level Fusion Fragmentation Analysis | 58 个 Gold obligations：A=0/B=0/C=1/D=27/E=27/F=3；Final 失败 7 条中 E+F=5、F=3；q039 确认 same-document/different-chunk（见 study-notes 54） | ✅ 复审通过 |
-| ABL-15 | Dense vs BM25 vs Hybrid offline channel ablation | Dense Hit0.88/Recall0.8633/MRR0.7483/nDCG0.7624；BM25 Hit0.98/Recall0.9533/MRR0.7873/nDCG0.8206；Hybrid Hit0.92/Recall0.8933/MRR0.7867/nDCG0.7994；Hybrid vs Dense 修复4/损失2、vs BM25 修复0/损失3（见 study-notes 55） | 🔧 完成，待复审 |
+| ABL-15 | Dense vs BM25 vs Hybrid offline channel ablation | Dense Hit0.88/Recall0.8633/MRR0.7483/nDCG0.7624；BM25 Hit0.98/Recall0.9533/MRR0.7873/nDCG0.8206；Hybrid Hit0.92/Recall0.8933/MRR0.7867/nDCG0.7994；Hybrid vs Dense 修复4/损失2、vs BM25 修复0/损失3（R1 文档口径修正完成，见 study-notes 55） | 🔧 完成，待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | ✅ 复审通过 |
 | G1-META-02 | Sparse-only 结果丢失原始元数据 | BM25 存元数据副本，sparse-only 命中恢复（实时入库同步） | ✅ 复审通过 |
 | G1-CTX-03A/R1 | 双模块各自截断、预算可加性假设 | 统一渲染契约 + 按最终渲染字符串真实 count 预算 | ✅ 复审通过 |
