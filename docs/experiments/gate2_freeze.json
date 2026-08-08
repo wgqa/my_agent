@@ -1,6 +1,6 @@
 {
   "gate": 2,
-  "status": "pending final closure review",
+  "status": "closed/frozen (Gate 2 reviewer accepted, G2-FINAL-CLOSE)",
   "corpus_id": "870e5864df67",
   "evaluation_set_id": "18c1c0470652",
   "file_count": 37,

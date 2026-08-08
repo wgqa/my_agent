@@ -15,18 +15,19 @@
 ## 1. 当前状态
 
 - **Gate 1（基础 RAG 可信状态）= CLOSED**（08-06 正式归档）
-- **Gate 2（可复现评测）= pending final closure review**
-  - 全部 Gate 2 任务已完成；G2-CLOSE-22 已产出证据冻结，等待复审
+- **Gate 2（可复现评测）= CLOSED / FROZEN**
+  - G2-CLOSE-22 / R1 / R2 / R3 / R4 已独立复审通过（G2-FINAL-CLOSE）
   - 证据索引：
     - `docs/experiments/gate2_final_review.md`
     - `docs/experiments/gate2_freeze.json`
     - `docs/study-notes/60-Gate2评测体系与RAG实验方法总结.md`
-- **next = Gate 3：Query Decomposition / Adaptive Retrieval**
+- **next = Gate 3：Query Decomposition / Adaptive Retrieval（尚未实现）**
   - 冻结 retrieval reference：
     - Primary：Recursive + cl100k_content_v1 + BM25 + top5
       （experiment_id=dbc497c796d5, result_id=acd92171966d）
     - Hybrid control：3c613202e1ed / e27141a2b63e
-  - 未经 Gate 2 closure 复审通过，不得自行开始 Gate 3
+  - Gate 2 已正式冻结；Gate 3 尚未实现，下一技术任务进入
+    Query Decomposition / Adaptive Retrieval（不得虚构已实现）
 
 ## 2. 工作流约定
 
