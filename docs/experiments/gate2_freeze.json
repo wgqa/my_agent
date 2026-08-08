@@ -174,7 +174,7 @@
     "runtime retriever binding: declared strategy must match actual retriever type (isinstance)",
     "sparse integrity: BM25 doc_count == vector_store_count == total_chunks for hybrid/bm25",
     "offline vs formal parity: Dense and BM25 50/50 document+chunk exact match, metrics delta 0",
-    "C1: on current benchmark BM25 > Hybrid > Dense on Hit/Recall/nDCG",
+    "C1: in the canonical Recursive + cl100k_content_v1 three-strategy formal comparison, BM25 > Hybrid > Dense on Hit@5/Recall@5/nDCG@5 (scoped to current 37 documents, 50-case Gold, Top-5 chunk retrieval, document-level metrics; NOT a global rule across all chunk policy/strategy combinations - e.g. Fixed + cl100k Hybrid nDCG 0.791469 > BM25 nDCG 0.789203)",
     "C2: chunk strategy materially affects retrieval; Recursive overall better than Fixed on current benchmark",
     "C5: multi-document query incompleteness is a real problem",
     "tokenizer Level 1: cl100k budget vs BGE runtime tokenizer mismatch (confirmed)",

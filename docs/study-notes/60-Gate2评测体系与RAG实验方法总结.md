@@ -194,8 +194,27 @@ ranking），本项目 Dense/BM25 均为 50/50 exact match、delta=0。
 ```
 
 相关不等于因果，因为干预同时改变了 chunk boundaries / overlap /
-BM25 统计 / Dense 表示单位。要证明截断因果，需要
-"只移除截断、不改变边界"的 intervention 和 chunk-level Gold。
+BM25 统计 / Dense 表示单位。这里要区分两层：
+
+```text
+Retrieval-level causal effect：
+  验证"消除 truncation 是否导致 document-level retrieval metric
+  改变"——核心需要尽可能只改变 truncation mechanism、保持 chunk
+  boundaries / query / Gold / retrieval settings 不变的 controlled
+  intervention；可以用 document-level Gold 测量。
+
+Evidence/chunk-level causal attribution：
+  进一步证明"某个具体失败 Case / 某个 chunk / 某段关键 evidence
+  正是由于 truncation 被删除"——需要 chunk-level Gold 或
+  evidence-span annotation。
+```
+
+两个问题不能混成一个。Gate 2 当前结论保持不变：
+
+```text
+BGE truncation directly causes retrieval failure
+→ unverified
+```
 
 ## 12. Negative Result 为什么有价值
 
@@ -328,10 +347,29 @@ tokenizer 对象）。
 ### Q：什么是 control？为什么 BM25 是 control？
 
 Control 是保持不变的对照。BM25 不依赖 Dense embedding，但依赖相同
-chunk boundaries：如果干预后 BM25 的 Gold metrics 也大幅变化，说明
-共同机制在 chunk 层；如果 BM25 稳定（本项目 Hit 0.98→0.98，但
-ranking 36/50 变化），说明影响主要在 Dense 依赖路径——但仍不能
-直接归因 embedding-input alignment。
+chunk boundaries。
+
+冻结事实：
+
+```text
+BM25 Hit 0.98 -> 0.98
+aggregate metrics 较稳定
+
+但 document ranking 36 / 50 改变
+```
+
+正确解释：
+
+```text
+BM25 control 说明 chunk-budget intervention 同样广泛改变 lexical
+retrieval behavior；
+只是这些 ranking 变化多数没有转化成当前 Gold-level aggregate
+metric 的大幅变化。
+
+因此当前只能说：performance impact is strategy-dependent。
+不能从 BM25 aggregate 稳定推出"变化主要位于 Dense 路径"，
+也不能据此证明 embedding-input alignment 是主导机制。
+```
 
 ### Q：为什么 offline ablation 不能代替正式实验？
 

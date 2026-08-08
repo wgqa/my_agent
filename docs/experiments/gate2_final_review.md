@@ -119,6 +119,14 @@ Aligned Hybrid 0.96   0.933333    0.795896
 Rec Dense     0.88    0.863333    0.762381
 ```
 
+补充说明（已由现有 Artifact 校验）：
+
+```text
+Rec BM25 Hit@5 = 0.98 为当前核心实验矩阵并列最高（Aligned BM25 同为
+0.98）；
+Recall@5 / MRR / nDCG@5 为当前核心实验矩阵最高。
+```
+
 边界限定：
 
 ```text
@@ -210,14 +218,19 @@ Case parity（Dense/BM25 均为 50/50）通过后才可采信。
 
 ### C1
 
-当前 Benchmark：
+在 canonical Recursive + cl100k_content_v1 三策略正式对照中：
 
 ```text
 BM25 > Hybrid > Dense
 ```
 
-在 Hit / Recall / nDCG 上成立（限定当前 37 文档 / 50-case /
-Top-5 语料）。
+在 Hit@5 / Recall@5 / nDCG@5 上成立。作用域限定为：当前 37 文档、
+当前 50-case Gold、Top-5 chunk retrieval、document-level 指标。
+
+注意：C1 不是所有 chunk policy / strategy 组合的全局规律。例如
+Fixed + cl100k 下 Hybrid nDCG（0.7914688615）高于 BM25
+（0.7892026423），因此该排序只对 canonical Recursive + cl100k
+三策略对照成立。
 
 ### C2
 
