@@ -253,32 +253,35 @@ fragmentation 代表 Case（Recursive 下 Dense rank1 与 Sparse rank2 落在
 RRF 结果；但不能据此断言某个具体边界是失败原因（仍无 chunk-level Gold
 label）。
 
-## 10. H3 证据更新
+## 10. H3 证据更新（拆分 H3a / H3b）
 
-原 H3：
+原 H3 是机制/因果假设：
 
-> Chunk 边界让 Gold 文档中的目标证据表达被削弱（plausible /
-> currently unverified）
+> Chunk 边界让 Gold 文档中的目标证据表达被削弱。
 
-更新为：
+ABL-17 只能证明"切换 Fixed / Recursive 会实质改变 Retrieval
+outcome"，不能证明原机制命题。为避免通过改写假设来升级证据，本任务
+把 H3 拆成两个命题，分别给出状态。
 
-> **supported：chunk strategy materially affects retrieval**
-> （在当前 50 Case Benchmark 上）
-> **仍 unverified：specific boundary causality**
+### H3a：Chunk strategy materially affects retrieval outcome
 
-事实支撑（本任务正式实验）：
+- **状态**：supported（当前 50 Case Benchmark）
+- 证据（本任务正式实验）：
+  - 同 512/64 预算下仅切换 Fixed/Recursive，Dense 有 6/50 个 Case
+    的 Hit 状态翻转（5 个 regression、1 个 rescue），BM25 1/50，
+    Hybrid 4/50（2 个 rescue、2 个 regression）；
+  - 文档级 ranking 完全一致的比例很低（Dense 3/50、BM25 14/50、
+    Hybrid 10/50），说明候选组合被系统性改变。
 
-- 同 512/64 预算下仅切换 Fixed/Recursive，Dense 有 6/50 个 Case 的
-  Hit 状态翻转（5 个 regression、1 个 rescue），BM25 1/50，Hybrid
-  4/50（2 个 rescue、2 个 regression）；
-- 文档级 ranking 完全一致的比例很低（Dense 3/50、BM25 14/50、
-  Hybrid 10/50），说明候选组合被系统性改变；
-- Fixed Hybrid 在 q039 / q047 由失败变成功，Fixed Dense 在 q013 /
-  q020 / q030 / q037 / q041 由成功变失败，方向并不一致——不存在
-  "Recursive 一定更好" 的简单规律；
-- 由于 Gold 是 document-level 且没有 chunk-level Gold label，我们只能
-  说 chunk strategy 改变了 retrieval outcome，不能宣称"某个具体 chunk
-  boundary 就是失败原因"。
+### H3b（原机制假设）：特定 chunk boundary 会削弱目标证据的可检索表达
+
+- **状态**：plausible / currently unverified
+- 说明：Fixed Hybrid 在 q039 / q047 由失败变成功，Fixed Dense 在
+  q013 / q020 / q030 / q037 / q041 由成功变失败，方向并不一致——
+  不存在 "Recursive 一定更好" 的简单规律；由于 Gold 是
+  document-level 且没有 chunk-level Gold label，我们只能说 chunk
+  strategy 改变了 retrieval outcome，不能宣称"某个具体 chunk
+  boundary 削弱了目标证据"。
 
 H1/H2/H4/H5 在本任务中没有直接证据升级（本任务不产生新的
 channel-level diagnostic），保持 G2-ABL-15 后状态不变。

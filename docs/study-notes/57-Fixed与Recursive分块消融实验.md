@@ -11,8 +11,9 @@ RAG 的实际检索单位通常是"文本片段"，而不是整篇文档。原�
 
 - 一篇文档可能有几千到几万 token，整体 Embedding 后：
   - 向量只有一个，无法定位"哪一段"回答 Query；
-  - 长文本的平均语义会稀释局部关键信息（Attention 聚合后，
-    局部强证据被大量无关内容"平均"掉）；
+  - 将较长文本压缩为单个向量时，局部证据不一定能在最终表示中保持
+    足够辨识度；此外，如果输入超过 Embedding 模型的最大序列长度，
+    还可能发生截断；
   - 上下文窗口有限，最终喂给 LLM 的也不能是整篇文档。
 - 分成 chunk 后：
   - 每个 chunk 是独立检索单元，可以返回"第几个片段"；
@@ -26,16 +27,63 @@ RAG 的实际检索单位通常是"文本片段"，而不是整篇文档。原�
 
 本项目 `chunk_size=512` 指的是 **token budget**，不是字符数。
 
-TokenCounter 先对原文做 token 统计（本项目对中文用字符估算，英文用
-空格分词，详见 study-notes 28/35/36），chunk 组装时以 token 预算为准：
+TokenCounter 默认尝试使用 tiktoken 的 cl100k_base：
+
+```text
+count(text) = len(cl100k_base.encode(text))
+```
+
+只有环境中没有 tiktoken 时，才退化为字符级 fallback（1 个 Python
+字符计作 1 个预算单位）。TokenCounter 只负责预算判断；原始字符串仍是
+事实来源，Chunker 最终在字符 span 上切原文精确子串（不以 token 为
+单位截断原文，详见 study-notes 28/35/36）。chunk 组装时以 token
+预算为准：
 
 - 达到预算就换块；
 - 换块时按 overlap 回退若干 token；
-- 输出文本仍是原文的精确子串（不以 token 为单位截断原文，token 只做
-  预算计算）。
+- 输出文本仍是原文的精确子串（token 只做预算计算）。
 
 所以 `chunk_size=512` 的意思更准确说是"每个 chunk 大约占 512 token
 的预算"，而不是"512 个字符"。
+
+### 2.1 “512 token 到底是谁的 token？”
+
+本项目存在两套 token 概念，不能混为一谈：
+
+```text
+Chunk budget tokenizer：
+TokenCounter 默认使用 tiktoken 的 cl100k_base
+
+Embedding model：
+BAAI/bge-small-zh-v1.5（SentenceTransformer 加载）
+底层是 BERT 类 tokenizer
+model max_seq_length = 512
+```
+
+因此：
+
+```text
+chunk_size = 512
+表示 ≤ 512 个 TokenCounter / cl100k_base token
+```
+
+不等价于：
+
+```text
+≤ 512 个 BGE tokenizer token
+```
+
+不同 tokenizer 的 token 数不能假设一一对应。因此理论上存在：
+
+```text
+Chunker 判定未超 512
+但 BGE tokenizer 统计超过模型 max_seq_length
+→ Embedding 侧可能发生截断
+```
+
+注意：本任务没有做真实 chunk 的 BGE-token 统计，这是当前待验证的
+工程边界，不能声称本 Benchmark 已经发生大量截断；也不因此修改任何
+ABL-17 指标。
 
 ## 3. overlap 是什么
 
@@ -312,8 +360,9 @@ chunk size 是 trade-off，不是单调最优。
 ### Q3：overlap 为什么不能无限大？
 
 overlap 越大，索引重复内容越多，检索候选重复度高，Top-K 有效容量被
-稀释，成本上升；收益（边界上下文保留）有上限。工程上通常取 chunk size
-的 10%–20% 左右。
+稀释，成本上升；收益（边界上下文保留）有上限。10%–20% 可以作为一些
+项目中的经验起始范围，但不是标准答案；最终应根据语料、模型和
+Retrieval Benchmark 实验决定。
 
 ### Q4：为什么换 Chunker 后 BM25 也会变化？
 

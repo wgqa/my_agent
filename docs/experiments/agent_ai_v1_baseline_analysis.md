@@ -365,13 +365,14 @@ Diagnostic（`retrieval_diagnostics.json`，diagnostic_id=dfb2316d0163）
 - **H2（正确文档进入候选但 RRF 后掉出 Top-5）**：**supported**。
   q013/q039/q047/q031/q034/q036 的缺失 Gold 均在通道候选内（多数双
   通道命中）却未进入 Final Top-5；q019 至少进入了 Sparse Top-30。
-- **H3（Chunk 边界削弱 Gold 证据）**：**supported that chunk strategy
-  materially affects retrieval（G2-ABL-17）**；specific boundary
-  causality 仍 unverified。同 512/64 预算下仅切换 Fixed/Recursive，
-  Dense 6/50 个 Case 的 Hit 翻转（5 regression / 1 rescue）、BM25
-  1/50、Hybrid 4/50（2 rescue / 2 regression）；Fixed Hybrid 在
-  q039/q047 由失败变成功，Fixed Dense 在 q013/q020/q030/q037/q041
-  由成功变失败，方向不一致，不能宣称某个具体边界是失败原因。
+- **H3a（chunk strategy materially affects retrieval）**：
+  **supported（G2-ABL-17）**。同 512/64 预算下仅切换
+  Fixed/Recursive，Dense 6/50 个 Case 的 Hit 翻转（5 regression /
+  1 rescue）、BM25 1/50、Hybrid 4/50（2 rescue / 2 regression）。
+- **H3b（原机制假设：特定 chunk boundary 削弱目标证据表达）**：
+  plausible / currently unverified。方向不一致（Fixed Hybrid 在
+  q039/q047 变成功，Fixed Dense 在 q013/q020/q030/q037/q041
+  变失败），不能宣称某个具体边界是失败原因。
 - **H4（Multi-file Query 单次检索只覆盖部分子问题）**：**supported**
   （证据增强）。q031/q034/q036 缺失的 Gold 文件都被通道检索到，但
   Final Top-5 容量/融合导致丢失，与"单次检索无法覆盖全部子问题"
@@ -391,19 +392,22 @@ Diagnostic（`retrieval_diagnostics.json`，diagnostic_id=dfb2316d0163）
 - **状态**：supported（channel 诊断后）
 - 事实支撑：q013/q039/q047/q031/q034/q036 的缺失 Gold 均在 Dense/Sparse Top-30 内（多数双通道命中）却未进入 Final Top-5；q019 至少进入 Sparse Top-30（rank 2）。
 
-### H3：Chunk 边界让 Gold 文档中的目标证据表达被削弱
+### H3a：Chunk strategy materially affects retrieval outcome
 
-- **状态**：supported that chunk strategy materially affects
-  retrieval（G2-ABL-17）；specific boundary causality 仍 unverified
-- 正式实验事实：同 512/64 预算下仅切换 Fixed/Recursive，
-  Dense 6/50 个 Case 的 Hit 翻转（q040 rescue；q013/q020/q030/q037/
-  q041 regression），BM25 1/50（q045 regression），Hybrid 4/50
+- **状态**：supported（G2-ABL-17，当前 50 Case Benchmark）
+- 正式实验事实：同 512/64 预算下仅切换 Fixed/Recursive，Dense
+  6/50 个 Case 的 Hit 翻转（q040 rescue；q013/q020/q030/q037/q041
+  regression），BM25 1/50（q045 regression），Hybrid 4/50
   （q039/q047 rescue；q012/q016 regression）；文档级 ranking 完全
-  一致比例 Dense 3/50、BM25 14/50、Hybrid 10/50。方向不一致（Fixed
-  Hybrid 在 q039/q047 变成功，Fixed Dense 在 5 个 Case 变失败），
-  因此只支持"chunk strategy materially affects retrieval"，不能
-  宣称某个具体 chunk boundary 是失败原因；需要 chunk-level Gold label
-  才能验证具体边界因果。
+  一致比例 Dense 3/50、BM25 14/50、Hybrid 10/50。
+
+### H3b（原机制假设）：特定 chunk boundary 会削弱目标证据的可检索表达
+
+- **状态**：plausible / currently unverified
+- 说明：Fixed Hybrid 在 q039/q047 变成功、Fixed Dense 在 5 个 Case
+  变失败，方向不一致；只能证明"chunk strategy materially affects
+  retrieval"，不能宣称某个具体 chunk boundary 是失败原因；需要
+  chunk-level Gold label 才能验证具体边界因果。
 
 ### H4：Multi-file Query 在单次 Retrieval 下天然只覆盖部分子问题
 
