@@ -8,7 +8,7 @@
 ## 当前结论
 
 - **定位**：面向技术文档与代码的可评测 RAG Agent
-- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）已运行（待复审）** → M4 评测（等真实语料）
+- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis（完成，待复审）** → M4：真实 Benchmark Baseline 已建立，进入错误分析与消融
 - **测试**：全量 suite 通过（--basetemp=.tmp_pytest）
 
 ## 任务状态
@@ -22,7 +22,7 @@
 | REWORK-P0-01 | ✅ | 08-05 复审通过 | Hybrid 候选链路 |
 | REWORK-P0-02 | ✅ | 08-05 复审通过 | BM25 统计膨胀 + ID 错位 |
 | REWORK-P0-03 | ✅ | 08-05 R2 复审通过 | TokenCounter/Chunker 静默丢字 + 严格预算 + 真实 overlap |
-| M4 评测与消融 | ⬜ | 需要真实语料 + QA 测试集 | — |
+| M4 评测与消融 | ⬜ | 真实 Benchmark Baseline 已建立，进入错误分析与消融 | — |
 | M5/M6 | ⏭ | 计划跳过大部分，仅做 Docker | — |
 | Agent（结构化 Tool） | ⬜ | M4 之后 | — |
 
@@ -51,10 +51,10 @@
 | EVAL-07 | 缺少正式检索执行与原始结果快照 | ExperimentRunner.run_retrieval：绑定校验 + 逐 Case 检索 + document_id→relative_path 映射 + 原子 retrieval_results.json（见 study-notes 47） | ✅ 复审通过 |
 | EVAL-08 | 缺少文档级指标与原子指标快照 | ExperimentRunner.compute_retrieval_metrics：磁盘事实快照绑定 + Case 不变量 + Hit@K/Recall/MRR/nDCG + 宏平均 + 原子 retrieval_metrics.json（见 study-notes 48） | ✅ 复审通过 |
 | EVAL-09 | 缺少单实验结果收口 | ExperimentRunner.finalize_result：三份落盘事实快照绑定 + 跨阶段 ID/数量校验 + 稳定 ExperimentResult + 原子 result.json（见 study-notes 49） | ✅ 复审通过 |
-| EXP-10 | 缺少唯一高层实验入口 | ExperimentRunner.run_experiment：prepare → index_corpus → run_retrieval → compute_retrieval_metrics → finalize_result 固定顺序编排（见 study-notes 50） | 🔧 实现完成，待复审 |
 | EXP-10 | 缺少唯一高层实验入口 | ExperimentRunner.run_experiment：prepare → index_corpus → run_retrieval → compute_retrieval_metrics → finalize_result 固定顺序编排（见 study-notes 50） | ✅ 复审通过 |
-| REAL-11 | 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding） | Recursive + Hybrid + top5：file_count=37、total_chunks=215、case_count=50；experiment_id=b8e4bdb3b942、result_id=8a08132354cc；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360 | 🔧 已运行，待复审 |
-| REAL-11-R1 | Embedding Identity 纳入正式实验身份并重跑 | ExperimentConfig 新增 embedding_provider/embedding_model；experiment_id=874b61d0b5d1、result_id=325d94294803；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360（与第一次完全一致） | 🔧 已运行，待复审 |
+| REAL-11 | 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding） | Recursive + Hybrid + top5：file_count=37、total_chunks=215、case_count=50；experiment_id=b8e4bdb3b942、result_id=8a08132354cc；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360 | ✅ 复审通过 |
+| REAL-11-R1 | Embedding Identity 纳入正式实验身份并重跑 | ExperimentConfig 新增 embedding_provider/embedding_model；experiment_id=874b61d0b5d1、result_id=325d94294803；Hit@5=0.92、Recall@5=0.893333、MRR=0.786667、nDCG@5=0.799360（与第一次完全一致） | ✅ 复审通过 |
+| ANALYSIS-12 | 第一次真实 Baseline Retrieval Error Analysis | 4 个 Hit@5=0（q013/q019/q039/q047）+ 3 个 Recall<1（q031/q034/q036）事实分析；提出 H1-H4 实验假设（见 docs/experiments/agent_ai_v1_baseline_analysis.md） | 🔧 完成，待复审 |
 | Gate1 | RRF 给缺席通道虚拟排名，单通道文档获得另一通道正分 | 未命中通道贡献严格为 0（见 study-notes 43） | ✅ 复审通过 |
 | G1-META-02 | Sparse-only 结果丢失原始元数据 | BM25 存元数据副本，sparse-only 命中恢复（实时入库同步） | ✅ 复审通过 |
 | G1-CTX-03A/R1 | 双模块各自截断、预算可加性假设 | 统一渲染契约 + 按最终渲染字符串真实 count 预算 | ✅ 复审通过 |
