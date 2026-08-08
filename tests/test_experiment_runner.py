@@ -55,6 +55,21 @@ class FakeConfig:
         self.chunker_strategy = raw["chunker"]["strategy"]
         self.chunk_size = raw["chunker"]["size_tokens"]
         self.chunk_overlap = raw["chunker"]["overlap_tokens"]
+        self.chunk_budget_policy = raw["chunker"].get(
+            "budget_policy", "cl100k_content_v1"
+        )
+        self.effective_embedding_max_seq_length = raw["chunker"].get(
+            "effective_embedding_max_seq_length"
+        )
+        self.special_token_overhead = raw["chunker"].get(
+            "special_token_overhead"
+        )
+        self.tokenizer_contract_probe_version = raw["chunker"].get(
+            "tokenizer_contract_probe_version"
+        )
+        self.tokenizer_contract_fingerprint = raw["chunker"].get(
+            "tokenizer_contract_fingerprint"
+        )
         self.retriever_strategy = raw["retriever"]["strategy"]
         self.top_k = raw["retriever"]["top_k"]
         self.dense_candidate_k = raw["retriever"]["dense_candidate_k"]
@@ -83,6 +98,18 @@ class FakePipeline:
     def __init__(self, config):
         self.config = config
         self.retriever = _make_real_retriever(config.retriever_strategy)
+        from core.chunker.fixed_size import FixedSizeChunker
+        from core.chunker.recursive import RecursiveChunker
+        if config.chunker_strategy == "fixed":
+            self.chunker = FixedSizeChunker(
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap,
+            )
+        else:
+            self.chunker = RecursiveChunker(
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap,
+            )
 
 
 def _make_factory(recorder, mutate=None):
@@ -137,6 +164,7 @@ def test_all_fields_match_succeeds(tmp_path):
     "chunker_strategy", "chunk_size", "chunk_overlap",
     "retriever_strategy", "top_k", "dense_candidate_k",
     "sparse_candidate_k", "rrf_k", "rrf_tie_breaker",
+    "chunk_budget_policy",
 ])
 def test_any_field_mismatch_fails(tmp_path, field):
     base = _write_base_config(tmp_path)

@@ -13,7 +13,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Union
 
-from evaluation.experiment_config import ExperimentConfig
+from evaluation.experiment_config import (
+    EMBEDDING_RUNTIME_POLICY,
+    ExperimentConfig,
+)
 from evaluation.experiment_corpus import ExperimentCorpus
 from evaluation.experiment_result import (
     ARTIFACT_FILES,
@@ -69,6 +72,12 @@ class ExperimentRunner:
         self._pipeline_factory = pipeline_factory or self._default_pipeline_factory
 
     @staticmethod
+    def resolve_config(spec) -> ExperimentConfig:
+        """唯一高层解析入口：ExperimentSpec → Final ExperimentConfig。"""
+        from evaluation.experiment_resolver import resolve_experiment_config
+        return resolve_experiment_config(spec)
+
+    @staticmethod
     def _default_pipeline_factory(config_path: Path):
         from core.pipeline import Pipeline
         return Pipeline(str(config_path))
@@ -115,6 +124,7 @@ class ExperimentRunner:
                     f"Pipeline 配置 {name} 与实验配置不一致："
                     f"actual={actual!r} expected={expected!r}，不能继续实验"
                 )
+        self._validate_chunk_budget_policy(pipeline, config)
         self._validate_retriever_runtime_type(pipeline, config)
         if config.retriever_strategy == "hybrid":
             actual_breaker = getattr(
@@ -135,6 +145,64 @@ class ExperimentRunner:
                 f"actual={vs_actual} expected={paths.vector_store_path}，"
                 "不能继续实验"
             )
+
+    def _validate_chunk_budget_policy(self, pipeline, config: ExperimentConfig):
+        cfg = pipeline.config
+        if getattr(cfg, "chunk_budget_policy", None) != config.chunk_budget_policy:
+            raise RuntimeError(
+                "Pipeline chunk_budget_policy 与实验配置不一致："
+                f"actual={getattr(cfg, 'chunk_budget_policy', None)!r} "
+                f"expected={config.chunk_budget_policy!r}，不能继续实验"
+            )
+        counter = getattr(getattr(pipeline, "chunker", None), "_counter", None)
+        if config.chunk_budget_policy == EMBEDDING_RUNTIME_POLICY:
+            for name in (
+                "effective_embedding_max_seq_length",
+                "special_token_overhead",
+                "tokenizer_contract_probe_version",
+                "tokenizer_contract_fingerprint",
+            ):
+                if getattr(cfg, name, None) != getattr(config, name):
+                    raise RuntimeError(
+                        f"Pipeline 配置 {name} 与实验配置不一致："
+                        f"actual={getattr(cfg, name, None)!r} "
+                        f"expected={getattr(config, name)!r}，不能继续实验"
+                    )
+            embedding = getattr(pipeline, "embedding", None)
+            get_contract = getattr(embedding, "get_runtime_contract", None)
+            if get_contract is None:
+                raise RuntimeError(
+                    "aligned policy 要求 Pipeline.embedding 支持 "
+                    "get_runtime_contract()，不能继续实验"
+                )
+            actual_contract = get_contract()
+            for name in (
+                "effective_embedding_max_seq_length",
+                "special_token_overhead",
+                "tokenizer_contract_probe_version",
+                "tokenizer_contract_fingerprint",
+            ):
+                if actual_contract[name] != getattr(config, name):
+                    raise RuntimeError(
+                        f"Pipeline runtime contract {name} 与实验配置不一致："
+                        f"actual={actual_contract[name]!r} "
+                        f"expected={getattr(config, name)!r}，不能继续实验"
+                    )
+            if getattr(counter, "policy", None) != EMBEDDING_RUNTIME_POLICY:
+                raise RuntimeError(
+                    "aligned policy 要求 Pipeline.chunker 实际使用 "
+                    "EmbeddingRuntimeTokenCounter，不能继续实验"
+                )
+        else:
+            from core.chunker.token_counter import TokenCounter
+            if not isinstance(counter, TokenCounter):
+                actual_name = (
+                    type(counter).__name__ if counter is not None else "None"
+                )
+                raise RuntimeError(
+                    "cl100k policy 要求 Pipeline.chunker 实际使用 "
+                    f"TokenCounter，实际 {actual_name}，不能继续实验"
+                )
 
     @staticmethod
     def _validate_retriever_runtime_type(pipeline, config: ExperimentConfig) -> None:
@@ -218,6 +286,12 @@ class ExperimentRunner:
                 prepared.experiment_config.retriever_strategy,
             )
 
+        observed = None
+        if prepared.experiment_config.chunk_budget_policy == EMBEDDING_RUNTIME_POLICY:
+            observed = self._compute_aligned_observed_facts(
+                prepared, vector_store_count, total_chunks
+            )
+
         config = prepared.experiment_config
         manifest = IndexManifest(
             schema_version=1,
@@ -239,9 +313,89 @@ class ExperimentRunner:
             total_chunks=total_chunks,
             vector_store_count=vector_store_count,
             sparse_index_count=sparse_index_count,
+            corpus_scoped_tokenizer_behavior_fingerprint=(
+                observed["corpus_scoped_tokenizer_behavior_fingerprint"]
+                if observed else None
+            ),
+            actual_content_token_max=(
+                observed["actual_content_token_max"] if observed else None
+            ),
+            actual_model_input_token_max=(
+                observed["actual_model_input_token_max"] if observed else None
+            ),
+            actual_would_truncate_count=(
+                observed["actual_would_truncate_count"] if observed else None
+            ),
         )
         manifest.write_json(manifest_path)
         return manifest
+
+    def _compute_aligned_observed_facts(
+        self,
+        prepared: PreparedExperiment,
+        vector_store_count: int,
+        total_chunks: int,
+    ) -> dict:
+        """从正式 vector store 已入库 chunks 计算 post-index observed facts。
+
+        aligned success hard contract：
+          actual_would_truncate_count == 0
+          actual_model_input_token_max <= effective_embedding_max_seq_length
+        任一不满足 → 抛异常，不得生成成功 Manifest。
+        """
+        get_all = getattr(prepared.pipeline.vector_store, "get_all_indexed", None)
+        if get_all is None:
+            raise RuntimeError(
+                "aligned policy 需要正式 vector store 支持 "
+                "get_all_indexed()"
+            )
+        chunks = get_all()
+        if len(chunks) != vector_store_count or len(chunks) != total_chunks:
+            raise RuntimeError(
+                f"post-index observed chunk count={len(chunks)} 与 "
+                f"vector_store_count={vector_store_count} / "
+                f"total_chunks={total_chunks} 不一致，不得生成成功 Manifest"
+            )
+        counter = getattr(
+            getattr(prepared.pipeline, "chunker", None), "_counter", None
+        )
+        if getattr(counter, "policy", None) != EMBEDDING_RUNTIME_POLICY:
+            raise RuntimeError(
+                "aligned post-index facts 需要 Chunker 使用 "
+                "EmbeddingRuntimeTokenCounter"
+            )
+        from core.embeddings.runtime_contract import (
+            compute_corpus_scoped_fingerprint,
+        )
+
+        fingerprint = compute_corpus_scoped_fingerprint(
+            chunks, counter.tokenizer
+        )
+        max_content = 0
+        max_model = 0
+        would_truncate = 0
+        effective_max = prepared.experiment_config.effective_embedding_max_seq_length
+        for chunk in chunks:
+            content = counter.count(chunk["content"])
+            model = counter.count_model_input(chunk["content"])
+            max_content = max(max_content, content)
+            max_model = max(max_model, model)
+            if model > effective_max:
+                would_truncate += 1
+        if would_truncate != 0 or max_model > effective_max:
+            raise RuntimeError(
+                "aligned intervention failed："
+                f"actual_would_truncate_count={would_truncate} "
+                f"actual_model_input_token_max={max_model} > "
+                f"effective_embedding_max_seq_length={effective_max}；"
+                "不得生成成功 Manifest"
+            )
+        return {
+            "corpus_scoped_tokenizer_behavior_fingerprint": fingerprint,
+            "actual_content_token_max": max_content,
+            "actual_model_input_token_max": max_model,
+            "actual_would_truncate_count": would_truncate,
+        }
 
     @staticmethod
     def _validate_corpus_integrity(corpus: ExperimentCorpus) -> tuple[Path, ...]:

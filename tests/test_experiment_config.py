@@ -28,6 +28,11 @@ def test_to_dict_contains_all_fields():
         "sparse_candidate_k": 20,
         "rrf_k": 60.0,
         "rrf_tie_breaker": "chunk_id_asc",
+        "chunk_budget_policy": "cl100k_content_v1",
+        "effective_embedding_max_seq_length": None,
+        "special_token_overhead": None,
+        "tokenizer_contract_probe_version": None,
+        "tokenizer_contract_fingerprint": None,
         "embedding_provider": "bge",
         "embedding_model": "BAAI/bge-small-zh-v1.5",
     }

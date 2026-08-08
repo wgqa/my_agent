@@ -12,6 +12,21 @@ class BGEEmbedding(BaseEmbedding):
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(self.model_name, local_files_only=True)
 
+    def get_runtime_model(self):
+        """返回正式 encode() 使用的同一个 SentenceTransformer 实例。"""
+        self._lazy_load()
+        return self._model
+
+    def get_runtime_tokenizer(self):
+        """返回正式模型实例的 tokenizer（与 encode 同一来源）。"""
+        return self.get_runtime_model()[0].tokenizer
+
+    def get_runtime_contract(self) -> dict:
+        """读取运行时 contract（max/overhead/probe/fingerprint），不 encode。"""
+        from core.embeddings.runtime_contract import compute_tokenizer_contract
+        model = self.get_runtime_model()
+        return compute_tokenizer_contract(model[0].tokenizer, model=model)
+
     def embed(self, texts: List[str]) -> List[List[float]]:
         self._lazy_load()
         return self._model.encode(texts, normalize_embeddings=True).tolist()

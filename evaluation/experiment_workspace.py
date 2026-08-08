@@ -91,6 +91,19 @@ class ExperimentWorkspace:
         raw["chunker"]["strategy"] = self.config.chunk_strategy
         raw["chunker"]["size_tokens"] = self.config.chunk_size
         raw["chunker"]["overlap_tokens"] = self.config.chunk_overlap
+        raw["chunker"]["budget_policy"] = self.config.chunk_budget_policy
+        raw["chunker"]["effective_embedding_max_seq_length"] = (
+            self.config.effective_embedding_max_seq_length
+        )
+        raw["chunker"]["special_token_overhead"] = (
+            self.config.special_token_overhead
+        )
+        raw["chunker"]["tokenizer_contract_probe_version"] = (
+            self.config.tokenizer_contract_probe_version
+        )
+        raw["chunker"]["tokenizer_contract_fingerprint"] = (
+            self.config.tokenizer_contract_fingerprint
+        )
         raw.setdefault("retriever", {})
         raw["retriever"]["strategy"] = self.config.retriever_strategy
         raw["retriever"]["top_k"] = self.config.top_k

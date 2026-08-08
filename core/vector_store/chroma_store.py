@@ -137,3 +137,15 @@ class ChromaStore(BaseVectorStore):
                 "metadata": data["metadatas"][i] if data["metadatas"] else {},
             })
         return out
+
+    def get_all_indexed(self) -> List[dict]:
+        """读取全部已入库 chunks（正式 post-index observed facts 数据源）。"""
+        data = self.collection.get(include=["documents", "metadatas"])
+        out = []
+        for i in range(len(data["ids"])):
+            out.append({
+                "id": data["ids"][i],
+                "content": data["documents"][i],
+                "metadata": data["metadatas"][i] if data["metadatas"] else {},
+            })
+        return out

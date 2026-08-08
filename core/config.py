@@ -14,6 +14,11 @@ _VALID_STRATEGIES = {
     "chunker": ("fixed", "recursive", "semantic"),
     "retriever": ("simple", "hybrid", "mmr", "bm25"),
 }
+_VALID_CHUNK_BUDGET_POLICIES = (
+    "cl100k_content_v1",
+    "embedding_runtime_model_input_v1",
+)
+_FINGERPRINT_HEX = frozenset("0123456789abcdef")
 
 
 class Config:
@@ -50,6 +55,57 @@ class Config:
             raise ConfigError(
                 f"chunk_overlap ({self.chunk_overlap}) 不能 >= chunk_size ({self.chunk_size})"
             )
+
+        # ── chunk budget policy（G2-IMPL-20）──────────────────
+        policy = chk.get("budget_policy", "cl100k_content_v1")
+        if policy not in _VALID_CHUNK_BUDGET_POLICIES:
+            raise ConfigError(
+                f"未知 chunker.budget_policy: {policy}，"
+                f"支持 {_VALID_CHUNK_BUDGET_POLICIES}"
+            )
+        self.chunk_budget_policy = policy
+        if policy == "embedding_runtime_model_input_v1":
+            max_len = chk.get("effective_embedding_max_seq_length")
+            if isinstance(max_len, bool) or not isinstance(max_len, int) or max_len <= 0:
+                raise ConfigError(
+                    "aligned policy 要求 chunker.effective_embedding_"
+                    f"max_seq_length 是正整数，实际 {max_len!r}"
+                )
+            overhead = chk.get("special_token_overhead")
+            if (
+                isinstance(overhead, bool)
+                or not isinstance(overhead, int)
+                or not 0 <= overhead < max_len
+            ):
+                raise ConfigError(
+                    f"aligned policy 要求 chunker.special_token_overhead "
+                    f"满足 0 <= value < {max_len}，实际 {overhead!r}"
+                )
+            probe_version = chk.get("tokenizer_contract_probe_version")
+            if type(probe_version) is not str or probe_version == "":
+                raise ConfigError(
+                    "aligned policy 要求 chunker.tokenizer_contract_"
+                    "probe_version 是非空字符串"
+                )
+            fingerprint = chk.get("tokenizer_contract_fingerprint")
+            if (
+                type(fingerprint) is not str
+                or len(fingerprint) != 16
+                or any(c not in _FINGERPRINT_HEX for c in fingerprint)
+            ):
+                raise ConfigError(
+                    "aligned policy 要求 chunker.tokenizer_contract_"
+                    "fingerprint 是 16 位 hex 字符串"
+                )
+            self.effective_embedding_max_seq_length = max_len
+            self.special_token_overhead = overhead
+            self.tokenizer_contract_probe_version = probe_version
+            self.tokenizer_contract_fingerprint = fingerprint
+        else:
+            self.effective_embedding_max_seq_length = None
+            self.special_token_overhead = None
+            self.tokenizer_contract_probe_version = None
+            self.tokenizer_contract_fingerprint = None
 
         # ── retriever ─────────────────────────────────
         ret = raw.get("retriever", {})
@@ -137,6 +193,17 @@ class Config:
             "chunker_strategy": self.chunker_strategy,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
+            "chunk_budget_policy": self.chunk_budget_policy,
+            "effective_embedding_max_seq_length": (
+                self.effective_embedding_max_seq_length
+            ),
+            "special_token_overhead": self.special_token_overhead,
+            "tokenizer_contract_probe_version": (
+                self.tokenizer_contract_probe_version
+            ),
+            "tokenizer_contract_fingerprint": (
+                self.tokenizer_contract_fingerprint
+            ),
             "retriever_strategy": self.retriever_strategy,
             "top_k": self.top_k,
             "dense_candidate_k": self.dense_candidate_k,

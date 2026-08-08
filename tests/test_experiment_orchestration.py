@@ -235,6 +235,21 @@ class _FakeConfig:
         self.chunker_strategy = raw["chunker"]["strategy"]
         self.chunk_size = raw["chunker"]["size_tokens"]
         self.chunk_overlap = raw["chunker"]["overlap_tokens"]
+        self.chunk_budget_policy = raw["chunker"].get(
+            "budget_policy", "cl100k_content_v1"
+        )
+        self.effective_embedding_max_seq_length = raw["chunker"].get(
+            "effective_embedding_max_seq_length"
+        )
+        self.special_token_overhead = raw["chunker"].get(
+            "special_token_overhead"
+        )
+        self.tokenizer_contract_probe_version = raw["chunker"].get(
+            "tokenizer_contract_probe_version"
+        )
+        self.tokenizer_contract_fingerprint = raw["chunker"].get(
+            "tokenizer_contract_fingerprint"
+        )
         self.retriever_strategy = raw["retriever"]["strategy"]
         self.top_k = raw["retriever"]["top_k"]
         self.dense_candidate_k = raw["retriever"]["dense_candidate_k"]
@@ -260,6 +275,11 @@ class _FakePipeline:
         self.config = _FakeConfig(config_path)
         self.retriever = retriever
         self.vector_store = _FakeVectorStore(vector_count)
+        from core.chunker.recursive import RecursiveChunker
+        self.chunker = RecursiveChunker(
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap,
+        )
 
     def index_file(self, path):
         return {

@@ -16,17 +16,25 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from evaluation.experiment_config import ExperimentConfig
 from evaluation.experiment_corpus import ExperimentCorpus
+from evaluation.experiment_config import ExperimentConfig
 from evaluation.experiment_runner import ExperimentRunner
+from evaluation.experiment_resolver import resolve_experiment_config
+from evaluation.experiment_spec import ExperimentSpec
 from evaluation.retrieval_evaluation_set import RetrievalEvaluationSet
 
 
 def build_config(
     retriever_strategy: str = "hybrid",
     chunk_strategy: str = "recursive",
+    chunk_budget_policy: str = "cl100k_content_v1",
 ) -> ExperimentConfig:
-    """冻结参数：512/64 + top5（不得调参）；支持 fixed/recursive 与 simple/hybrid/bm25。"""
+    """冻结参数：512/64 + top5（不得调参）；支持 fixed/recursive、
+    simple/hybrid/bm25 与 chunk budget policy。
+
+    走唯一 resolver：ExperimentSpec → resolve_experiment_config →
+    Final ExperimentConfig。CLI 不自行实现 runtime fingerprint。
+    """
     if retriever_strategy not in ("simple", "hybrid", "bm25"):
         raise ValueError(
             f"未知 retriever_strategy: {retriever_strategy}，"
@@ -36,12 +44,21 @@ def build_config(
         raise ValueError(
             f"未知 chunk_strategy: {chunk_strategy}，CLI 只允许 fixed/recursive"
         )
-    return ExperimentConfig(
+    if chunk_budget_policy not in (
+        "cl100k_content_v1",
+        "embedding_runtime_model_input_v1",
+    ):
+        raise ValueError(
+            f"未知 chunk_budget_policy: {chunk_budget_policy}，"
+            "CLI 只允许 cl100k_content_v1 / embedding_runtime_model_input_v1"
+        )
+    spec = ExperimentSpec(
         embedding_provider="bge",
         embedding_model="BAAI/bge-small-zh-v1.5",
         chunk_strategy=chunk_strategy,
         chunk_size=512,
         chunk_overlap=64,
+        chunk_budget_policy=chunk_budget_policy,
         retriever_strategy=retriever_strategy,
         top_k=5,
         dense_candidate_k=30,
@@ -49,6 +66,7 @@ def build_config(
         rrf_k=60.0,
         rrf_tie_breaker="chunk_id_asc",
     )
+    return resolve_experiment_config(spec)
 
 
 def discover_markdown(corpus_root: Path):
@@ -66,7 +84,11 @@ def run(args) -> dict:
     evaluation_set = RetrievalEvaluationSet.load_jsonl(
         Path(args.evaluation), corpus
     )
-    config = build_config(args.retriever_strategy, args.chunk_strategy)
+    config = build_config(
+        args.retriever_strategy,
+        args.chunk_strategy,
+        args.chunk_budget_policy,
+    )
     runner = ExperimentRunner(args.base_config, args.workspace_root)
     result = runner.run_experiment(config, args.run_id, corpus, evaluation_set)
     return {
@@ -111,6 +133,12 @@ def main(argv=None):
         "--chunk-strategy", default="recursive",
         choices=["fixed", "recursive"],
         help="分块策略：fixed=固定 token 窗口，recursive=语义边界优先",
+    )
+    parser.add_argument(
+        "--chunk-budget-policy", default="cl100k_content_v1",
+        choices=["cl100k_content_v1", "embedding_runtime_model_input_v1"],
+        help="Chunk 预算策略：cl100k_content_v1=旧 cl100k；"
+             "embedding_runtime_model_input_v1=BGE-aligned",
     )
     args = parser.parse_args(argv)
     facts = run(args)

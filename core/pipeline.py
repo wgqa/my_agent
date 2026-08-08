@@ -66,7 +66,34 @@ class Pipeline:
         return ChromaStore(path=self.config.vector_store_path)
 
     def _init_chunker(self) -> BaseChunker:
+        counter = None
+        chunk_size = self.config.chunk_size
+        if self.config.chunk_budget_policy == "embedding_runtime_model_input_v1":
+            if not hasattr(self.embedding, "get_runtime_tokenizer"):
+                raise ValueError(
+                    "embedding_runtime_model_input_v1 需要支持 "
+                    "get_runtime_tokenizer() 的 Embedding（当前 "
+                    f"{type(self.embedding).__name__}）"
+                )
+            from core.chunker.embedding_runtime_counter import (
+                EmbeddingRuntimeTokenCounter,
+            )
+            counter = EmbeddingRuntimeTokenCounter(
+                tokenizer=self.embedding.get_runtime_tokenizer(),
+                model_input_budget=(
+                    self.config.effective_embedding_max_seq_length
+                ),
+            )
+            # aligned 模式下 chunk_size 表示 model input budget，
+            # 实际切分预算由 counter 推导为 content_budget。
+            chunk_size = counter.content_budget
         if self.config.chunker_strategy == "fixed":
+            if counter is not None:
+                return FixedSizeChunker(
+                    chunk_size=chunk_size,
+                    chunk_overlap=self.config.chunk_overlap,
+                    token_counter=counter,
+                )
             return FixedSizeChunker(
                 chunk_size=self.config.chunk_size,
                 chunk_overlap=self.config.chunk_overlap,
@@ -74,6 +101,12 @@ class Pipeline:
         elif self.config.chunker_strategy == "semantic":
             from core.chunker.semantic import SemanticChunker
             return SemanticChunker(embedding_fn=self.embedding.embed)
+        if counter is not None:
+            return RecursiveChunker(
+                chunk_size=chunk_size,
+                chunk_overlap=self.config.chunk_overlap,
+                token_counter=counter,
+            )
         return RecursiveChunker(
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap,

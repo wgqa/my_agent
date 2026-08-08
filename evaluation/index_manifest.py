@@ -45,6 +45,10 @@ class IndexManifest:
     total_chunks: int = 0
     vector_store_count: int = 0
     sparse_index_count: Optional[int] = None
+    corpus_scoped_tokenizer_behavior_fingerprint: Optional[str] = None
+    actual_content_token_max: Optional[int] = None
+    actual_model_input_token_max: Optional[int] = None
+    actual_would_truncate_count: Optional[int] = None
 
     def to_dict(self) -> dict:
         """固定字段顺序的纯 dict；tuple 转 list，保证 JSON 可序列化"""
@@ -61,6 +65,12 @@ class IndexManifest:
             "total_chunks": self.total_chunks,
             "vector_store_count": self.vector_store_count,
             "sparse_index_count": self.sparse_index_count,
+            "corpus_scoped_tokenizer_behavior_fingerprint": (
+                self.corpus_scoped_tokenizer_behavior_fingerprint
+            ),
+            "actual_content_token_max": self.actual_content_token_max,
+            "actual_model_input_token_max": self.actual_model_input_token_max,
+            "actual_would_truncate_count": self.actual_would_truncate_count,
         }
 
     def to_json(self) -> str:

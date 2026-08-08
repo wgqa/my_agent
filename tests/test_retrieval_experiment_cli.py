@@ -99,6 +99,7 @@ def test_cli_run_calls_existing_chain_in_order(tmp_path, monkeypatch):
         run_id="agent-ai-v1-recursive-hybrid-baseline-001",
         retriever_strategy="hybrid",
         chunk_strategy="recursive",
+        chunk_budget_policy="cl100k_content_v1",
     )
     facts = cli.run(args)
 
