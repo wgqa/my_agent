@@ -1,0 +1,197 @@
+{
+  "gate": 2,
+  "status": "pending final closure review",
+  "corpus_id": "870e5864df67",
+  "evaluation_set_id": "18c1c0470652",
+  "file_count": 37,
+  "case_count": 50,
+  "single_document_case_count": 43,
+  "multi_document_case_count": 7,
+  "gold_document_obligation_count": 58,
+  "top_k": 5,
+  "primary_retrieval_reference": {
+    "chunk_strategy": "recursive",
+    "chunk_budget_policy": "cl100k_content_v1",
+    "retriever_strategy": "bm25",
+    "top_k": 5,
+    "sparse_candidate_k": 30,
+    "experiment_id": "dbc497c796d5",
+    "result_id": "acd92171966d"
+  },
+  "hybrid_reference": {
+    "chunk_strategy": "recursive",
+    "chunk_budget_policy": "cl100k_content_v1",
+    "retriever_strategy": "hybrid",
+    "top_k": 5,
+    "experiment_id": "3c613202e1ed",
+    "result_id": "e27141a2b63e"
+  },
+  "canonical_metric_definitions": {
+    "scope": "document-level, Top-5 chunks -> first-hit dedup document ranking",
+    "hit_at_5": "1 if any relevant document in top-5 document ranking else 0",
+    "recall_at_5": "unique retrieved relevant documents / total relevant documents",
+    "mrr": "reciprocal rank of first relevant document",
+    "ndcg_at_5": "document-level binary relevance, standard logarithmic discount, ideal = min(5, |relevant|)"
+  },
+  "key_experiments": {
+    "recursive_cl100k_dense": {
+      "experiment_id": "dc220d794578",
+      "result_id": "c2d4ec845d9e",
+      "metrics": {
+        "hit_at_5": 0.88,
+        "recall_at_5": 0.8633333333,
+        "mrr": 0.7483333333,
+        "ndcg_at_5": 0.7623809500
+      }
+    },
+    "recursive_cl100k_bm25": {
+      "experiment_id": "dbc497c796d5",
+      "result_id": "acd92171966d",
+      "metrics": {
+        "hit_at_5": 0.98,
+        "recall_at_5": 0.9533333333,
+        "mrr": 0.7873333333,
+        "ndcg_at_5": 0.8206430540
+      }
+    },
+    "recursive_cl100k_hybrid": {
+      "experiment_id": "3c613202e1ed",
+      "result_id": "e27141a2b63e",
+      "metrics": {
+        "hit_at_5": 0.92,
+        "recall_at_5": 0.8933333333,
+        "mrr": 0.7866666667,
+        "ndcg_at_5": 0.7993602602
+      }
+    },
+    "fixed_cl100k_dense": {
+      "experiment_id": "5bc53c69a412",
+      "result_id": "fe78ad8da137",
+      "metrics": {
+        "hit_at_5": 0.80,
+        "recall_at_5": 0.7866666667,
+        "mrr": 0.6716666667,
+        "ndcg_at_5": 0.6896493982
+      }
+    },
+    "fixed_cl100k_bm25": {
+      "experiment_id": "9f5572b49b9d",
+      "result_id": "9d0e33ed6970",
+      "metrics": {
+        "hit_at_5": 0.96,
+        "recall_at_5": 0.9333333333,
+        "mrr": 0.7583333333,
+        "ndcg_at_5": 0.7892026423
+      }
+    },
+    "fixed_cl100k_hybrid": {
+      "experiment_id": "0baf05e91fca",
+      "result_id": "63508f04407c",
+      "metrics": {
+        "hit_at_5": 0.92,
+        "recall_at_5": 0.9133333333,
+        "mrr": 0.7600000000,
+        "ndcg_at_5": 0.7914688615
+      }
+    },
+    "recursive_aligned_dense": {
+      "experiment_id": "04fc6d2111a6",
+      "result_id": "805658b71e76",
+      "metrics": {
+        "hit_at_5": 0.84,
+        "recall_at_5": 0.8400000000,
+        "mrr": 0.6696666667,
+        "ndcg_at_5": 0.7078465372
+      }
+    },
+    "recursive_aligned_bm25": {
+      "experiment_id": "b35b1102197e",
+      "result_id": "812d4d4e2bd2",
+      "metrics": {
+        "hit_at_5": 0.98,
+        "recall_at_5": 0.9433333333,
+        "mrr": 0.7850000000,
+        "ndcg_at_5": 0.8063855324
+      }
+    },
+    "recursive_aligned_hybrid": {
+      "experiment_id": "e680cdf278b2",
+      "result_id": "26327c177e37",
+      "metrics": {
+        "hit_at_5": 0.96,
+        "recall_at_5": 0.9333333333,
+        "mrr": 0.7633333333,
+        "ndcg_at_5": 0.7958963239
+      }
+    }
+  },
+  "benchmark_winner": {
+    "combination": "Recursive + BM25 + cl100k_content_v1",
+    "experiment_id": "dbc497c796d5",
+    "result_id": "acd92171966d",
+    "basis": "highest Hit@5 (0.98), Recall@5 (0.953333), nDCG@5 (0.820643) among the six original Fixed/Recursive x Retriever experiments and the three aligned intervention experiments",
+    "scope": "current 37 documents, current 50-case Gold, Top-5 chunk retrieval, document-level metrics"
+  },
+  "known_failure_cases": [
+    {
+      "case_id": "q013",
+      "type": "canonical_hybrid_hit_failure",
+      "note": "Hybrid 0 in canonical cl100k Hybrid; Dense cl100k hits but BM25 misses"
+    },
+    {
+      "case_id": "q019",
+      "type": "canonical_hybrid_hit_failure",
+      "note": "Hybrid 0; BM25-only hits at rank 2 but RRF does not keep Gold in Top-5"
+    },
+    {
+      "case_id": "q039",
+      "type": "canonical_hybrid_hit_failure",
+      "note": "canonical Hybrid 0; Fixed Hybrid 1; aligned Hybrid 1 (rescue); fusion mechanism unresolved"
+    },
+    {
+      "case_id": "q047",
+      "type": "canonical_hybrid_hit_failure",
+      "note": "canonical Hybrid 0; Fixed Hybrid 1; aligned Hybrid 1 (rescue); fusion mechanism unresolved"
+    },
+    {
+      "case_id": "q031",
+      "type": "multi_document_incomplete_recall",
+      "note": "canonical Hybrid Recall 0.5; missing rag/文档处理.md"
+    },
+    {
+      "case_id": "q034",
+      "type": "multi_document_incomplete_recall",
+      "note": "canonical Hybrid Recall 0.5; missing rag/高级RAG.md"
+    },
+    {
+      "case_id": "q036",
+      "type": "multi_document_incomplete_recall",
+      "note": "canonical Hybrid Recall 0.667; missing tool_calling/Function-Calling原理.md"
+    }
+  ],
+  "confirmed_findings": [
+    "RRF deterministic tie-break contract: rrf_score DESC -> chunk_id ASC (enters experiment identity)",
+    "runtime retriever binding: declared strategy must match actual retriever type (isinstance)",
+    "sparse integrity: BM25 doc_count == vector_store_count == total_chunks for hybrid/bm25",
+    "offline vs formal parity: Dense and BM25 50/50 document+chunk exact match, metrics delta 0",
+    "C1: on current benchmark BM25 > Hybrid > Dense on Hit/Recall/nDCG",
+    "C2: chunk strategy materially affects retrieval; Recursive overall better than Fixed on current benchmark",
+    "C5: multi-document query incompleteness is a real problem",
+    "tokenizer Level 1: cl100k budget vs BGE runtime tokenizer mismatch (confirmed)",
+    "tokenizer Level 2: 57/215 = 26.51% Recursive cl100k chunks would truncate under actual BGE runtime (confirmed)",
+    "aligned intervention success: would-truncate 57/215 -> 0/215 with max model input 512",
+    "aligned intervention has strategy-dependent effect: Dense down, BM25 aggregate stable, Hybrid Hit/Recall up; rankings change broadly (Dense 47/50, BM25 36/50, Hybrid 37/50)"
+  ],
+  "plausible_findings": [
+    "C4: chunk-level RRF fragmentation (same Gold document hit in different chunks across channels) is a plausible failure mechanism; unverified without chunk-level Gold",
+    "H3a: chunk strategy materially affects retrieval (supported); H3b: specific chunk boundary weakens evidence (plausible/unverified)",
+    "alignment intervention effect may involve chunk-boundary and fusion changes beyond truncation removal"
+  ],
+  "unverified_causal_claims": [
+    "specific chunk boundary causes retrieval failure",
+    "BGE truncation directly causes retrieval failure (Level 3)",
+    "aligned Dense/Hybrid changes are primarily caused by embedding-input alignment",
+    "q039/q047 Hybrid rescue mechanism (chunk-level ranks / chunk identity / cross-channel overlap / RRF fusion geometry) - currently unresolved",
+    "Query Decomposition will fix multi-document incompleteness"
+  ]
+}
