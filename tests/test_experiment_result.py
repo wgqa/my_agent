@@ -567,6 +567,47 @@ def test_hybrid_sparse_count_mismatch_fails(tmp_path):
         ).finalize_result(prepared, manifest, run_result, metrics_result, eval_set)
 
 
+def test_bm25_sparse_count_consistent_finalize(tmp_path):
+    config = ExperimentConfig(retriever_strategy="bm25")
+    manifest = _make_manifest(config, sparse_index_count=3)
+    run_result = _make_run_result(config)
+    metrics_result = _make_metrics_result(
+        config, retrieval_run_id=run_result.retrieval_run_id
+    )
+    eval_set = RetrievalEvaluationSet(
+        corpus_id="corpus-001",
+        cases=tuple(_default_eval_cases()),
+        evaluation_set_id="evalset-001",
+    )
+    prepared = _prepare(tmp_path, config)
+    _write_all(prepared, manifest, run_result, metrics_result)
+    result = ExperimentRunner(
+        tmp_path / "base_config.yaml", tmp_path / "runs"
+    ).finalize_result(prepared, manifest, run_result, metrics_result, eval_set)
+    assert result.result_id
+
+
+def test_bm25_sparse_count_mismatch_fails(tmp_path):
+    config = ExperimentConfig(retriever_strategy="bm25")
+    manifest = _make_manifest(config, sparse_index_count=2)
+    run_result = _make_run_result(config)
+    metrics_result = _make_metrics_result(
+        config, retrieval_run_id=run_result.retrieval_run_id
+    )
+    eval_set = RetrievalEvaluationSet(
+        corpus_id="corpus-001",
+        cases=tuple(_default_eval_cases()),
+        evaluation_set_id="evalset-001",
+    )
+    prepared = _prepare(tmp_path, config)
+    _write_all(prepared, manifest, run_result, metrics_result)
+    with pytest.raises(RuntimeError, match="sparse_index_count"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).finalize_result(prepared, manifest, run_result, metrics_result, eval_set)
+    assert not prepared.paths.result_path.exists()
+
+
 def test_case_count_mismatch_fails(tmp_path):
     config = ExperimentConfig()
     manifest, run_result, metrics_result, eval_set = _default_objects(config)

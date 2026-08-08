@@ -155,3 +155,14 @@ Dense-only 最低
 - CLI `--retriever-strategy`（simple/hybrid/bm25）。
 
 这是正式确认所需的最小实现，不涉及任何参数优化。
+
+## 审计说明（G2-ABL-16-R1）
+
+- ABL-16 原始 BM25 Manifest（`experiments/dbc497c796d5/`）的
+  `sparse_index_count` 为 null，属于历史执行事实，**未修改**；
+- 性能结果由于 formal/offline 在 document ranking 与 chunk_id 两个
+  粒度均为 50/50 exact match，得到独立行为验证；
+- R1 已修复未来 BM25 formal run 的 sparse integrity contract：
+  `hybrid / bm25 → sparse_index_count == vector_store_count`，
+  `simple → sparse_index_count = null`；
+- 本报告所有指标保持不变，未重跑、未覆盖任何历史 Artifact。

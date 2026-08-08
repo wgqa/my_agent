@@ -3,7 +3,6 @@
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -65,12 +64,25 @@ class FakeConfig:
         self.vector_store_path = raw["vector_store"]["path"]
 
 
+def _make_real_retriever(strategy):
+    """按策略构造真实 Retriever 实例（构造参数不参与 retrieve，测试安全）"""
+    from core.retriever.simple import SimpleRetriever
+    from core.retriever.hybrid import HybridRetriever
+    from core.retriever.bm25_only import BM25OnlyRetriever
+    from core.retriever.mmr import MMRRetriever
+    if strategy == "simple":
+        return SimpleRetriever(None, None)
+    if strategy == "hybrid":
+        return HybridRetriever(None, None)
+    if strategy == "bm25":
+        return BM25OnlyRetriever()
+    return MMRRetriever(None, None)
+
+
 class FakePipeline:
     def __init__(self, config):
         self.config = config
-        self.retriever = SimpleNamespace(
-            rrf_tie_breaker=config.rrf_tie_breaker
-        )
+        self.retriever = _make_real_retriever(config.retriever_strategy)
 
 
 def _make_factory(recorder, mutate=None):
@@ -186,6 +198,123 @@ def test_hybrid_retriever_tie_breaker_mismatch_fails(tmp_path):
     runner = ExperimentRunner(base, tmp_path / "runs", factory)
     with pytest.raises(RuntimeError, match="HybridRetriever.rrf_tie_breaker"):
         runner.prepare(ExperimentConfig(), "run1")
+
+
+def _factory_with_retriever(config_path, retriever):
+    from core.retriever.simple import SimpleRetriever
+    from core.retriever.bm25_only import BM25OnlyRetriever
+    from core.retriever.mmr import MMRRetriever
+
+    cfg = FakeConfig(config_path)
+    pipeline = FakePipeline(cfg)
+    pipeline.retriever = retriever
+    return pipeline
+
+
+def test_simple_retriever_runtime_type_passes(tmp_path):
+    from core.retriever.simple import SimpleRetriever
+    base = _write_base_config(tmp_path)
+    runner = ExperimentRunner(
+        base, tmp_path / "runs",
+        lambda p: _factory_with_retriever(p, SimpleRetriever(None, None)),
+    )
+    runner.prepare(ExperimentConfig(retriever_strategy="simple"), "run1")
+
+
+def test_simple_retriever_wrong_runtime_type_fails(tmp_path):
+    from core.retriever.bm25_only import BM25OnlyRetriever
+    base = _write_base_config(tmp_path)
+    runner = ExperimentRunner(
+        base, tmp_path / "runs",
+        lambda p: _factory_with_retriever(p, BM25OnlyRetriever()),
+    )
+    with pytest.raises(RuntimeError, match="实际 Retriever 类型"):
+        runner.prepare(ExperimentConfig(retriever_strategy="simple"), "run1")
+
+
+def test_bm25_retriever_runtime_type_passes(tmp_path):
+    from core.retriever.bm25_only import BM25OnlyRetriever
+    base = _write_base_config(tmp_path)
+    runner = ExperimentRunner(
+        base, tmp_path / "runs",
+        lambda p: _factory_with_retriever(p, BM25OnlyRetriever()),
+    )
+    runner.prepare(ExperimentConfig(retriever_strategy="bm25"), "run1")
+
+
+def test_bm25_retriever_wrong_runtime_type_fails(tmp_path):
+    from core.retriever.simple import SimpleRetriever
+    base = _write_base_config(tmp_path)
+    runner = ExperimentRunner(
+        base, tmp_path / "runs",
+        lambda p: _factory_with_retriever(p, SimpleRetriever(None, None)),
+    )
+    with pytest.raises(RuntimeError, match="实际 Retriever 类型"):
+        runner.prepare(ExperimentConfig(retriever_strategy="bm25"), "run1")
+
+
+def test_hybrid_retriever_runtime_type_passes(tmp_path):
+    base = _write_base_config(tmp_path)
+    runner = ExperimentRunner(base, tmp_path / "runs", _make_factory([]))
+    runner.prepare(ExperimentConfig(retriever_strategy="hybrid"), "run1")
+
+
+def test_hybrid_retriever_wrong_runtime_type_fails(tmp_path):
+    from core.retriever.bm25_only import BM25OnlyRetriever
+    base = _write_base_config(tmp_path)
+    runner = ExperimentRunner(
+        base, tmp_path / "runs",
+        lambda p: _factory_with_retriever(p, BM25OnlyRetriever()),
+    )
+    with pytest.raises(RuntimeError, match="实际 Retriever 类型"):
+        runner.prepare(ExperimentConfig(retriever_strategy="hybrid"), "run1")
+
+
+# ============================================================
+# G2-ABL-16-R1：BM25 Sparse Index Integrity（index_corpus 层）
+# ============================================================
+
+
+def test_bm25_sparse_count_consistent_manifest(tmp_path):
+    corpus = _make_corpus(tmp_path, {"a.md": "aaa", "b.txt": "bbb"})
+    config = ExperimentConfig(retriever_strategy="bm25")
+    pipeline = FakeIndexPipeline(vector_count=2, bm25_count=2)
+    prepared = _prepare_experiment(tmp_path, tmp_path / "runs", config, pipeline)
+    manifest = _make_runner(tmp_path).index_corpus(prepared, corpus)
+    assert manifest.sparse_index_count == 2
+    raw = json.loads(
+        prepared.paths.index_manifest_path.read_text(encoding="utf-8")
+    )
+    assert raw["sparse_index_count"] == 2
+
+
+def test_bm25_sparse_count_mismatch_fails(tmp_path):
+    corpus = _make_corpus(tmp_path, {"a.md": "aaa", "b.txt": "bbb"})
+    config = ExperimentConfig(retriever_strategy="bm25")
+    pipeline = FakeIndexPipeline(vector_count=2, bm25_count=1)
+    prepared = _prepare_experiment(tmp_path, tmp_path / "runs", config, pipeline)
+    with pytest.raises(RuntimeError, match="sparse_index_count"):
+        _make_runner(tmp_path).index_corpus(prepared, corpus)
+    assert not prepared.paths.index_manifest_path.exists()
+
+
+def test_bm25_sparse_count_zero_fails(tmp_path):
+    corpus = _make_corpus(tmp_path, {"a.md": "aaa", "b.txt": "bbb"})
+    config = ExperimentConfig(retriever_strategy="bm25")
+    pipeline = FakeIndexPipeline(vector_count=2, bm25_count=0)
+    prepared = _prepare_experiment(tmp_path, tmp_path / "runs", config, pipeline)
+    with pytest.raises(RuntimeError, match="sparse_index_count"):
+        _make_runner(tmp_path).index_corpus(prepared, corpus)
+    assert not prepared.paths.index_manifest_path.exists()
+
+
+def test_simple_manifest_sparse_index_count_none(tmp_path):
+    corpus = _make_corpus(tmp_path, {"a.md": "aaa", "b.txt": "bbb"})
+    config = ExperimentConfig(retriever_strategy="simple")
+    pipeline = FakeIndexPipeline(vector_count=2)
+    prepared = _prepare_experiment(tmp_path, tmp_path / "runs", config, pipeline)
+    manifest = _make_runner(tmp_path).index_corpus(prepared, corpus)
+    assert manifest.sparse_index_count is None
 
 
 def test_pipeline_factory_error_propagates(tmp_path):

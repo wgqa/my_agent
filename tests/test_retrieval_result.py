@@ -324,6 +324,35 @@ def test_hybrid_sparse_count_mismatch_zero_calls(tmp_path):
     assert retriever.calls == []
 
 
+def test_bm25_sparse_count_consistent_retrieval(tmp_path):
+    config = ExperimentConfig(retriever_strategy="bm25")
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001", sparse_index_count=3)
+    manifest.write_json(prepared.paths.index_manifest_path)
+    eval_set = _make_eval_set("corpus-001")
+    result = ExperimentRunner(
+        tmp_path / "base_config.yaml", tmp_path / "runs"
+    ).run_retrieval(prepared, manifest, eval_set)
+    assert len(retriever.calls) == 2
+    assert prepared.paths.retrieval_results_path.is_file()
+
+
+def test_bm25_sparse_count_mismatch_zero_calls(tmp_path):
+    config = ExperimentConfig(retriever_strategy="bm25")
+    retriever = FakeRetriever(_default_results())
+    prepared = _prepare(tmp_path, config, retriever)
+    manifest = _make_manifest(config, "corpus-001", sparse_index_count=2)
+    manifest.write_json(prepared.paths.index_manifest_path)
+    eval_set = _make_eval_set("corpus-001")
+    with pytest.raises(RuntimeError, match="sparse_index_count"):
+        ExperimentRunner(
+            tmp_path / "base_config.yaml", tmp_path / "runs"
+        ).run_retrieval(prepared, manifest, eval_set)
+    assert retriever.calls == []
+    assert not prepared.paths.retrieval_results_path.exists()
+
+
 def test_existing_result_file_rejects_rerun(tmp_path):
     config = ExperimentConfig()
     retriever = FakeRetriever(_default_results())

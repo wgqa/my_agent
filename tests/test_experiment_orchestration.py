@@ -11,6 +11,7 @@ from evaluation.experiment_config import ExperimentConfig
 from evaluation.experiment_corpus import ExperimentCorpus
 from evaluation.experiment_runner import ExperimentRunner
 from evaluation.retrieval_evaluation_set import RetrievalCase, RetrievalEvaluationSet
+from core.retriever.hybrid import HybridRetriever
 
 
 BASE_CONFIG_YAML = """\
@@ -243,8 +244,9 @@ class _FakeConfig:
         self.vector_store_path = raw["vector_store"]["path"]
 
 
-class _FakeRetriever:
+class _FakeRetriever(HybridRetriever):
     def __init__(self, results, bm25_count):
+        super().__init__(None, None)
         self._results = results
         self._bm25 = _FakeBM25(bm25_count)
         self.rrf_tie_breaker = "chunk_id_asc"

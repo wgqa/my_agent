@@ -115,6 +115,7 @@ class ExperimentRunner:
                     f"Pipeline 配置 {name} 与实验配置不一致："
                     f"actual={actual!r} expected={expected!r}，不能继续实验"
                 )
+        self._validate_retriever_runtime_type(pipeline, config)
         if config.retriever_strategy == "hybrid":
             actual_breaker = getattr(
                 getattr(pipeline, "retriever", None),
@@ -133,6 +134,34 @@ class ExperimentRunner:
                 f"Pipeline vector_store.path 与实验工作区不一致："
                 f"actual={vs_actual} expected={paths.vector_store_path}，"
                 "不能继续实验"
+            )
+
+    @staticmethod
+    def _validate_retriever_runtime_type(pipeline, config: ExperimentConfig) -> None:
+        """验证 pipeline.retriever 实际类型与实验策略一致（真正 isinstance）。"""
+        retriever = getattr(pipeline, "retriever", None)
+        strategy = config.retriever_strategy
+        if strategy == "simple":
+            from core.retriever.simple import SimpleRetriever
+            expected = SimpleRetriever
+        elif strategy == "hybrid":
+            from core.retriever.hybrid import HybridRetriever
+            expected = HybridRetriever
+        elif strategy == "bm25":
+            from core.retriever.bm25_only import BM25OnlyRetriever
+            expected = BM25OnlyRetriever
+        elif strategy == "mmr":
+            from core.retriever.mmr import MMRRetriever
+            expected = MMRRetriever
+        else:
+            expected = None
+        if expected is not None and not isinstance(retriever, expected):
+            actual_name = (
+                type(retriever).__name__ if retriever is not None else "None"
+            )
+            raise RuntimeError(
+                f"Pipeline 实际 Retriever 类型与实验策略不一致："
+                f"strategy={strategy!r} actual={actual_name}，不能继续实验"
             )
 
     def index_corpus(
@@ -182,9 +211,11 @@ class ExperimentRunner:
             )
 
         sparse_index_count = None
-        if prepared.experiment_config.retriever_strategy == "hybrid":
-            sparse_index_count = self._validate_hybrid_sparse_index(
-                prepared, vector_store_count
+        if prepared.experiment_config.retriever_strategy in ("hybrid", "bm25"):
+            sparse_index_count = self._validate_sparse_index(
+                prepared,
+                vector_store_count,
+                prepared.experiment_config.retriever_strategy,
             )
 
         config = prepared.experiment_config
@@ -859,12 +890,13 @@ class ExperimentRunner:
                 f"index_manifest total_chunks={index_manifest.total_chunks} "
                 f"与 vector_store_count={index_manifest.vector_store_count} 不一致"
             )
-        if retriever_strategy == "hybrid":
+        if retriever_strategy in ("hybrid", "bm25"):
             if index_manifest.sparse_index_count != index_manifest.vector_store_count:
                 raise RuntimeError(
-                    f"Hybrid sparse_index_count="
-                    f"{index_manifest.sparse_index_count} 与 vector_store_count="
-                    f"{index_manifest.vector_store_count} 不一致"
+                    f"Sparse retrieval strategy（{retriever_strategy}）"
+                    f"sparse_index_count={index_manifest.sparse_index_count} "
+                    f"与 vector_store_count={index_manifest.vector_store_count} "
+                    "不一致"
                 )
         if metrics_result.case_count != len(metrics_result.cases):
             raise RuntimeError(
@@ -1146,10 +1178,11 @@ class ExperimentRunner:
                 f"检索绑定校验失败：total_chunks={index_manifest.total_chunks} "
                 f"与 vector_store_count={index_manifest.vector_store_count} 不一致"
             )
-        if config.retriever_strategy == "hybrid":
+        if config.retriever_strategy in ("hybrid", "bm25"):
             if index_manifest.sparse_index_count != index_manifest.vector_store_count:
                 raise RuntimeError(
-                    f"检索绑定校验失败：Hybrid sparse_index_count="
+                    f"检索绑定校验失败：Sparse retrieval strategy（"
+                    f"{config.retriever_strategy}）sparse_index_count="
                     f"{index_manifest.sparse_index_count} 与 vector_store_count="
                     f"{index_manifest.vector_store_count} 不一致"
                 )
@@ -1236,30 +1269,34 @@ class ExperimentRunner:
         )
 
     @staticmethod
-    def _validate_hybrid_sparse_index(
-        prepared: PreparedExperiment, vector_store_count: int
+    def _validate_sparse_index(
+        prepared: PreparedExperiment,
+        vector_store_count: int,
+        strategy: str,
     ) -> int:
-        """Hybrid 模式：调用现有严格 BM25 重建，并校验 Sparse 数量与向量库一致。
+        """Hybrid/BM25 模式：调用现有严格 BM25 重建，并校验 Sparse 数量与向量库一致。
 
-        不允许 Hybrid 实验以 Dense-only 状态完成；数量不一致立即失败。
+        不允许依赖 Sparse 的实验以 Dense-only 状态完成；数量不一致立即失败。
         """
         pipeline = prepared.pipeline
         rebuild = getattr(pipeline, "_rebuild_sparse_index", None)
         if rebuild is None:
             raise RuntimeError(
-                "Hybrid 实验缺少严格 BM25 重建接口 _rebuild_sparse_index，"
-                "不能以 Dense-only 状态完成"
+                f"Sparse retrieval strategy（{strategy}）缺少严格 BM25 重建接口 "
+                "_rebuild_sparse_index，不能以 Dense-only 状态完成"
             )
         rebuild(strict=True)
         bm25 = getattr(getattr(pipeline, "retriever", None), "_bm25", None)
         if bm25 is None:
             raise RuntimeError(
-                "Hybrid 实验 BM25 索引缺失，不得生成正式 Manifest"
+                f"Sparse retrieval strategy（{strategy}）BM25 索引缺失，"
+                "不得生成正式 Manifest"
             )
         sparse_count = bm25.doc_count
         if sparse_count != vector_store_count:
             raise RuntimeError(
-                f"Sparse/BM25 数量 {sparse_count} 与向量库数量 "
-                f"{vector_store_count} 不一致，不得生成正式 Manifest"
+                f"Sparse retrieval strategy（{strategy}）sparse_index_count "
+                f"{sparse_count} 与 vector_store_count {vector_store_count} "
+                "不一致，不得生成正式 Manifest"
             )
         return sparse_count
