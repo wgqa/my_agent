@@ -297,6 +297,87 @@ Sequence([Lowercase(), BertNormalizer(...)])
 runtime 11 tokens。因此 would-truncate 从 34/35 变为 57/71，
 说明"同一个模型名"下独立 AutoTokenizer 可能低估实际输入长度。
 
+### 12.2 Tokenizer identity 到底是什么？
+
+这是 G2-DIAG-18-R2 的重点：**tokenizer identity 不能只由模型名、
+class 或 max length 定义**。
+
+#### 哪些信息不足以定义 identity
+
+```text
+模型名（"BAAI/bge-small-zh-v1.5"）：
+  同一个模型名可能被不同 wrapper 加载出不同 tokenizer 行为。
+
+Tokenizer class（"BertTokenizer"）：
+  只是实现类型，不代表具体配置。
+
+model_max_length（512）：
+  只描述长度上限，不描述如何把文本变成 token。
+```
+
+#### 真正影响行为的因素
+
+```text
+normalizer（clean_text / handle_chinese_chars / lowercase / strip_accents）
+pre-tokenizer（按空格/标点预切分规则）
+vocabulary（词表与 id 映射）
+special-token handling（[CLS]/[SEP] 是否/如何添加）
+runtime wrapper / config（SentenceTransformer 对 tokenizer 的修改）
+```
+
+#### 本项目真实反例
+
+```text
+Tokenizer A：独立 AutoTokenizer
+  class = BertTokenizer、model_max_length = 512
+
+Tokenizer B：SentenceTransformer runtime tokenizer
+  class = BertTokenizer、model_max_length = 512
+
+但 B 多了 Lowercase normalizer
+→ 同一文本 token ids / counts 不同
+→ would-truncate 34/35 vs 57/71
+```
+
+因此：
+
+```text
+class name ≠ tokenizer behavioral identity
+```
+
+#### 本项目最终做法
+
+R2 引入 `runtime_tokenizer_behavior_fingerprint`：
+
+```text
+按稳定顺序（strategy → relative_path → chunk_index）
+遍历全部冻结诊断 Chunk；
+用真正 runtime tokenizer（add_special_tokens=True、truncation=False）
+取得 input_ids；
+把 (strategy, relative_path, chunk_index, input_ids) 流式写入
+SHA-256，取前 16 位 hex。
+```
+
+它绑定：
+
+```text
+normalizer
+pre-tokenization
+vocabulary mapping
+special-token 行为
+当前 Corpus 上实际 tokenization output
+```
+
+并进入 diagnostic_id：
+
+```text
+同 class + 同 max + 行为不同
+→ fingerprint 不同 → diagnostic_id 不同
+```
+
+R1 diagnostic_id=51e18bf2cff6，R2 diagnostic_id=801dda0b7ca0
+（R1 解释保留，不覆盖）。
+
 ## 13. 面试追问
 
 ### Q1：Tokenizer 是模型的一部分吗？
@@ -345,6 +426,14 @@ encode 数据整理阶段，以 `SentenceTransformer.max_seq_length` 为有效
 （例如本项目 sentence-transformers 给 tokenizer 加了 Lowercase
 normalizer，导致 token 数与独立 AutoTokenizer 不同）。所以诊断/实验
 必须绑定 effective runtime contract，而不是只读某个底层配置文件。
+
+### Q6.6：tokenizer identity 到底是什么？
+
+不只是模型名、class 或 max length。真正决定模型输入的是实际
+tokenization 行为：normalizer、pre-tokenizer、vocabulary、
+special-token handling、runtime wrapper/config。最可靠的做法是绑定
+"实际 tokenization output 的稳定指纹"（例如本项目的
+`runtime_tokenizer_behavior_fingerprint`），而不是只比较类名和属性。
 
 ### Q7：如何证明一个失败是截断导致的？
 

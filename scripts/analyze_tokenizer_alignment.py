@@ -97,6 +97,47 @@ def overflow_tokens(bge_token_count: int, max_seq_length: int) -> int:
     return max(0, bge_token_count - max_seq_length)
 
 
+def compute_behavior_fingerprint(
+    records_by_strategy: Dict[str, List[tuple]],
+    tokenizer,
+) -> str:
+    """基于实际 tokenization output 的稳定行为指纹。
+
+    按固定顺序（strategy → relative_path → chunk_index）遍历全部冻结
+    诊断 Chunk，使用真正 runtime tokenizer 以 add_special_tokens=True、
+    truncation=False 取得 input_ids，流式写入 SHA-256。
+
+    fingerprint 绑定 normalizer / pre-tokenizer / vocabulary /
+    special-token 行为与当前 Corpus 上的实际 tokenization output；
+    不包含对象地址、repr 或绝对路径。全部 input_ids 不写入 JSON。
+    """
+    h = hashlib.sha256()
+    for strategy in ("recursive", "fixed"):
+        records = records_by_strategy.get(strategy, [])
+        for relative_path, chunk in sorted(
+            records,
+            key=lambda item: (item[0], item[1].metadata.get("chunk_index", 0)),
+        ):
+            input_ids = tokenizer(
+                chunk.content,
+                add_special_tokens=True,
+                truncation=False,
+            )["input_ids"]
+            h.update(
+                json.dumps(
+                    [
+                        strategy,
+                        relative_path,
+                        chunk.metadata.get("chunk_index", 0),
+                        input_ids,
+                    ],
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            )
+    return h.hexdigest()[:16]
+
+
 def load_corpus(corpus_root: Path) -> ExperimentCorpus:
     relative_paths = sorted(
         p.relative_to(corpus_root).as_posix()
@@ -281,6 +322,7 @@ def compute_diagnostic_id(
     chunk_overlap: int,
     chunk_counts: Dict[str, int],
     runtime_embedding_tokenizer: str,
+    runtime_tokenizer_behavior_fingerprint: str,
     effective_embedding_max_seq_length: int,
 ) -> str:
     payload = json.dumps(
@@ -292,6 +334,9 @@ def compute_diagnostic_id(
             "chunk_size": chunk_size,
             "chunk_overlap": chunk_overlap,
             "runtime_embedding_tokenizer": runtime_embedding_tokenizer,
+            "runtime_tokenizer_behavior_fingerprint": (
+                runtime_tokenizer_behavior_fingerprint
+            ),
             "effective_embedding_max_seq_length": (
                 effective_embedding_max_seq_length
             ),
@@ -325,6 +370,7 @@ def build_payload(
     corpus: ExperimentCorpus,
     token_counter: TokenCounter,
     runtime_contract: dict,
+    runtime_tokenizer_behavior_fingerprint: str,
     strategy_stats: Dict[str, dict],
 ) -> dict:
     counts = {
@@ -340,6 +386,7 @@ def build_payload(
             CHUNK_OVERLAP,
             counts,
             runtime_contract["runtime_tokenizer_class"],
+            runtime_tokenizer_behavior_fingerprint,
             runtime_contract["effective_embedding_max_seq_length"],
         ),
         "corpus_id": corpus.corpus_id,
@@ -355,6 +402,9 @@ def build_payload(
         "embedding_tokenizer": runtime_contract["runtime_tokenizer_class"],
         "runtime_tokenizer_class": (
             runtime_contract["runtime_tokenizer_class"]
+        ),
+        "runtime_tokenizer_behavior_fingerprint": (
+            runtime_tokenizer_behavior_fingerprint
         ),
         "runtime_tokenizer_model_max_length": (
             runtime_contract["runtime_tokenizer_model_max_length"]
@@ -376,8 +426,10 @@ def read_runtime_contract(model) -> dict:
     """从实际 SentenceTransformer 对象读取运行时输入长度契约。
 
     effective max 来自 model.max_seq_length（正式 encode 路径的真实
-    截断上限），并验证首个 Transformer module 的 tokenizer 与
-    model_max_length 一致。只读配置，不调用 encode()。
+    截断上限），要求等于预期值 512（否则 fail-fast）；
+    runtime tokenizer 的 model_max_length 只作为运行态事实记录，
+    不要求与 effective max 相同（was-truncate 一律按 effective max
+    判断）。只读配置，不调用 encode()。
     """
     max_len = model.max_seq_length
     if max_len != EXPECTED_MAX_SEQ_LENGTH:
@@ -393,12 +445,6 @@ def read_runtime_contract(model) -> dict:
             "实际 tokenizer，停止诊断"
         )
     runtime_max = int(tokenizer.model_max_length)
-    if runtime_max != max_len:
-        raise RuntimeError(
-            f"runtime tokenizer.model_max_length={runtime_max} 与 "
-            f"SentenceTransformer.max_seq_length={max_len} 不一致，"
-            "停止诊断"
-        )
     return {
         "sentence_transformer_class": type(model).__name__,
         "sentence_transformer_max_seq_length": max_len,
@@ -452,9 +498,11 @@ def main(argv=None):
     max_len = runtime_contract["effective_embedding_max_seq_length"]
 
     strategy_stats = {}
+    records_by_strategy = {}
     for strategy in ("recursive", "fixed"):
         records = chunk_documents(strategy, docs, token_counter)
         validate_chunk_count(strategy, records)
+        records_by_strategy[strategy] = records
         strategy_stats[strategy] = analyze_records(
             strategy,
             records,
@@ -462,11 +510,16 @@ def main(argv=None):
             tokenizer,
             max_len,
         )
+    behavior_fingerprint = compute_behavior_fingerprint(
+        records_by_strategy,
+        tokenizer,
+    )
 
     payload = build_payload(
         corpus,
         token_counter,
         runtime_contract,
+        behavior_fingerprint,
         strategy_stats,
     )
     output_path = Path(args.output)

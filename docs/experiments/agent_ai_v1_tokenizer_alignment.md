@@ -64,10 +64,17 @@ chunk_size = 512
   ```
   `add_special_tokens=True`、`truncation=False` 计算未截断长度；
 - 运行时验证：`SentenceTransformer.max_seq_length == 512`，
-  runtime tokenizer `model_max_length == 512`，两者相等；
+  必须与预期 512 一致（否则 fail-fast）；runtime tokenizer
+  `model_max_length` 只作为运行态事实记录，不要求与 effective max
+  相同（G2-DIAG-18-R2 契约）；
   `effective_embedding_max_seq_length = 512`；
 - `would_truncate = bge_token_count > effective_embedding_max_seq_length`；
 - `overflow_tokens = max(0, bge_token_count - effective_max)`；
+- R2 新增 `runtime_tokenizer_behavior_fingerprint`：按稳定顺序
+  （strategy → relative_path → chunk_index）遍历全部冻结 Chunk，
+  使用真正 runtime tokenizer（add_special_tokens=True、
+  truncation=False）取得 input_ids，流式写入 SHA-256，取前 16 位
+  hex；Artifact 只保存 fingerprint，不保存 input_ids；
 - 百分位使用固定线性插值方法（与 numpy linear 一致），有测试覆盖；
 - 本脚本不调用 `SentenceTransformer.encode()` / Chroma / BM25 /
   Retriever / ExperimentRunner。
@@ -89,6 +96,52 @@ handle_chinese_chars=True, strip_accents=None, lowercase=False)])
 不同（实测同一字符串 `"import React from 'react'"`：standalone 10
 tokens、runtime 11 tokens）。因此主体诊断低估了实际 Embedding 路径的
 输入长度，R1 统计以运行时契约为准，如实保存并解释差异。
+
+### R2：tokenizer class ≠ tokenizer behavioral identity
+
+R1 提供了一个真实反例：
+
+```text
+Tokenizer A（独立 AutoTokenizer）：
+  class = BertTokenizer
+  model_max_length = 512
+
+Tokenizer B（SentenceTransformer runtime）：
+  class = BertTokenizer
+  model_max_length = 512
+
+但实际 tokenization output 不同
+→ would-truncate 34/35 vs 57/71
+```
+
+因此 class name 与 model_max_length 不足以定义 tokenizer identity。
+真正影响模型输入的行为因素还包括：
+
+```text
+normalizer（本例：runtime 多一个 Lowercase）
+pre-tokenizer
+vocabulary mapping
+special-token handling
+runtime wrapper/config
+```
+
+R2 使用 `runtime_tokenizer_behavior_fingerprint`（基于当前冻结
+Corpus 上实际 input_ids 的 SHA-256）作为完整 behavior identity，
+并进入 diagnostic_id。因此：
+
+```text
+同 class + 同 max + 行为不同
+→ fingerprint 不同 → diagnostic_id 不同
+```
+
+身份历史：
+
+```text
+R1 diagnostic_id = 51e18bf2cff6
+R2 diagnostic_id = 801dda0b7ca0（绑定 behavior fingerprint）
+```
+
+R1 的历史解释与数字保留在上文，不覆盖。
 
 ## 5. Recursive 统计（215 Chunks）
 
@@ -280,8 +333,10 @@ would-truncate 比例会显著下降，但 chunk 边界/总数/检索结果都�
 ## 14. 分析 Artifact 与脚本
 
 - Artifact：[agent_ai_v1_tokenizer_alignment.json](./agent_ai_v1_tokenizer_alignment.json)
-  （diagnostic_id=51e18bf2cff6，schema_version=1，无绝对路径；
-  R1 起绑定 runtime tokenizer 与 effective max）；
+  （diagnostic_id=801dda0b7ca0，schema_version=1，无绝对路径；
+  R2 起绑定 runtime tokenizer、effective max 与
+  runtime_tokenizer_behavior_fingerprint=1b865a1b28144ede；
+  R1 历史 identity=51e18bf2cff6）；
 - 脚本：[analyze_tokenizer_alignment.py](../../scripts/analyze_tokenizer_alignment.py)
   （只读，不调用 Embedding/VectorStore/BM25/Retriever/Runner）；
 - 百分位方法：线性插值（与 numpy.percentile linear 一致），测试覆盖。

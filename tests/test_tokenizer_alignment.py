@@ -41,6 +41,20 @@ class FakeRuntimeModel:
         return self._first
 
 
+class MappingTokenizer:
+    """模拟相同 class/max 但 behavior 不同的 tokenizer（真实 R1 反例）。"""
+
+    def __init__(self, mapping):
+        self.mapping = mapping
+        self.model_max_length = 512
+
+    def __call__(self, text, add_special_tokens=True, truncation=False):
+        ids = list(self.mapping.get(text, [len(text)]))
+        if add_special_tokens:
+            ids = [101] + ids + [102]
+        return {"input_ids": ids}
+
+
 def _record(relative_path, content, chunk_index=0, start=0, end=None,
             oversized=False):
     doc = Document(
@@ -117,6 +131,7 @@ def test_artifact_contains_no_absolute_path():
         )(),
         token_counter=type("Counter", (), {"name": "cl100k_base"})(),
         runtime_contract=runtime_contract,
+        runtime_tokenizer_behavior_fingerprint="a1b2c3d4e5f60718",
         strategy_stats={
             "recursive": stats,
             "fixed": stats,
@@ -128,6 +143,9 @@ def test_artifact_contains_no_absolute_path():
     assert payload["sentence_transformer_max_seq_length"] == 512
     assert payload["effective_embedding_max_seq_length"] == 512
     assert payload["runtime_tokenizer_model_max_length"] == 512
+    assert payload["runtime_tokenizer_behavior_fingerprint"] == (
+        "a1b2c3d4e5f60718"
+    )
 
 
 def test_validate_payload_rejects_invalid_top_level():
@@ -221,15 +239,21 @@ def test_runtime_contract_effective_max_from_runtime_model():
 def test_runtime_contract_fails_fast_when_max_mismatch():
     tokenizer = FakeTokenizer(specials=2)
     tokenizer.model_max_length = 512
-    with pytest.raises(RuntimeError, match="不一致"):
+    with pytest.raises(RuntimeError, match="SentenceTransformer.max_seq_length"):
         ta.read_runtime_contract(
             FakeRuntimeModel(max_len=511, tokenizer=tokenizer)
         )
-    tokenizer.model_max_length = 511
-    with pytest.raises(RuntimeError, match="不一致"):
-        ta.read_runtime_contract(
-            FakeRuntimeModel(max_len=512, tokenizer=tokenizer)
-        )
+
+
+def test_runtime_contract_records_tokenizer_max_as_fact_only():
+    tokenizer = FakeTokenizer(specials=2)
+    tokenizer.model_max_length = 1024
+    contract = ta.read_runtime_contract(
+        FakeRuntimeModel(max_len=512, tokenizer=tokenizer)
+    )
+    assert contract["sentence_transformer_max_seq_length"] == 512
+    assert contract["effective_embedding_max_seq_length"] == 512
+    assert contract["runtime_tokenizer_model_max_length"] == 1024
 
 
 def test_runtime_contract_fails_fast_without_actual_tokenizer():
@@ -245,6 +269,7 @@ def test_diagnostic_id_binds_max_length_and_tokenizer_identity():
         chunk_overlap=64,
         chunk_counts={"recursive": 215, "fixed": 237},
         runtime_embedding_tokenizer="BertTokenizer",
+        runtime_tokenizer_behavior_fingerprint="fp-512-bert",
         effective_embedding_max_seq_length=512,
     )
     id_a = ta.compute_diagnostic_id(**base)
@@ -255,3 +280,55 @@ def test_diagnostic_id_binds_max_length_and_tokenizer_identity():
     assert id_a != ta.compute_diagnostic_id(
         **{**base, "runtime_embedding_tokenizer": "BertTokenizerFast"}
     )
+    assert id_a != ta.compute_diagnostic_id(
+        **{**base, "runtime_tokenizer_behavior_fingerprint": "fp-different"}
+    )
+
+
+def test_behavior_fingerprint_detects_same_class_different_behavior():
+    records = {
+        "recursive": [_record("llm/a.md", "ABC")],
+        "fixed": [],
+    }
+    tok_a = MappingTokenizer({"ABC": [1, 2, 3]})
+    tok_b = MappingTokenizer({"ABC": [4, 5, 6, 7]})
+    assert type(tok_a).__name__ == type(tok_b).__name__
+    assert tok_a.model_max_length == tok_b.model_max_length == 512
+
+    fp_a = ta.compute_behavior_fingerprint(records, tok_a)
+    fp_b = ta.compute_behavior_fingerprint(records, tok_b)
+    assert fp_a != fp_b
+
+    def diag_id(fp):
+        return ta.compute_diagnostic_id(
+            corpus_id="870e5864df67",
+            embedding_model="BAAI/bge-small-zh-v1.5",
+            chunk_size=512,
+            chunk_overlap=64,
+            chunk_counts={"recursive": 1, "fixed": 0},
+            runtime_embedding_tokenizer="MappingTokenizer",
+            runtime_tokenizer_behavior_fingerprint=fp,
+            effective_embedding_max_seq_length=512,
+        )
+
+    assert diag_id(fp_a) != diag_id(fp_b)
+
+
+def test_behavior_fingerprint_is_stable_and_order_deterministic():
+    records = {
+        "recursive": [
+            _record("rag/b.md", "BB", chunk_index=1),
+            _record("llm/a.md", "AA", chunk_index=0),
+        ],
+        "fixed": [],
+    }
+    tok = MappingTokenizer({"AA": [7], "BB": [8, 9]})
+    first = ta.compute_behavior_fingerprint(records, tok)
+    second = ta.compute_behavior_fingerprint(records, tok)
+    assert first == second
+    assert len(first) == 16
+    reversed_records = {
+        "recursive": list(reversed(records["recursive"])),
+        "fixed": [],
+    }
+    assert ta.compute_behavior_fingerprint(reversed_records, tok) == first
