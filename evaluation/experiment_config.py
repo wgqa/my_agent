@@ -12,7 +12,7 @@ VALID_CHUNK_STRATEGIES = ("fixed", "recursive", "semantic")
 STABLE_CHUNK_STRATEGIES = ("fixed", "recursive")
 # 实验性实现：保留手动学习/调试入口，但不得进入正式 ExperimentConfig
 EXPERIMENTAL_CHUNK_STRATEGIES = ("semantic",)
-VALID_RETRIEVER_STRATEGIES = ("simple", "hybrid", "mmr")
+VALID_RETRIEVER_STRATEGIES = ("simple", "hybrid", "mmr", "bm25")
 VALID_RRF_TIE_BREAKERS = ("chunk_id_asc",)
 
 

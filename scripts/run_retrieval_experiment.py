@@ -22,15 +22,20 @@ from evaluation.experiment_runner import ExperimentRunner
 from evaluation.retrieval_evaluation_set import RetrievalEvaluationSet
 
 
-def build_config() -> ExperimentConfig:
-    """G2-REAL-11 冻结参数：Recursive + Hybrid + top5（不得调参）。"""
+def build_config(retriever_strategy: str = "hybrid") -> ExperimentConfig:
+    """冻结参数：Recursive + top5（不得调参）；strategy 可选 hybrid/simple/bm25。"""
+    if retriever_strategy not in ("simple", "hybrid", "bm25"):
+        raise ValueError(
+            f"未知 retriever_strategy: {retriever_strategy}，"
+            "CLI 只允许 simple/hybrid/bm25"
+        )
     return ExperimentConfig(
         embedding_provider="bge",
         embedding_model="BAAI/bge-small-zh-v1.5",
         chunk_strategy="recursive",
         chunk_size=512,
         chunk_overlap=64,
-        retriever_strategy="hybrid",
+        retriever_strategy=retriever_strategy,
         top_k=5,
         dense_candidate_k=30,
         sparse_candidate_k=30,
@@ -54,7 +59,7 @@ def run(args) -> dict:
     evaluation_set = RetrievalEvaluationSet.load_jsonl(
         Path(args.evaluation), corpus
     )
-    config = build_config()
+    config = build_config(args.retriever_strategy)
     runner = ExperimentRunner(args.base_config, args.workspace_root)
     result = runner.run_experiment(config, args.run_id, corpus, evaluation_set)
     return {
@@ -90,6 +95,11 @@ def main(argv=None):
     parser.add_argument("--base-config", required=True, help="项目 config.yaml")
     parser.add_argument("--workspace-root", required=True, help="实验 Workspace Root")
     parser.add_argument("--run-id", required=True, help="显式 run_id")
+    parser.add_argument(
+        "--retriever-strategy", default="hybrid",
+        choices=["simple", "hybrid", "bm25"],
+        help="正式实验策略：simple=Dense-only，bm25=BM25-only，hybrid=RRF 融合",
+    )
     args = parser.parse_args(argv)
     facts = run(args)
     print(json.dumps(facts, ensure_ascii=False, indent=2, sort_keys=True))

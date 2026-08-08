@@ -12,7 +12,7 @@ _VALID_PROVIDERS = {
 }
 _VALID_STRATEGIES = {
     "chunker": ("fixed", "recursive", "semantic"),
-    "retriever": ("simple", "hybrid", "mmr"),
+    "retriever": ("simple", "hybrid", "mmr", "bm25"),
 }
 
 

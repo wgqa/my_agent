@@ -16,6 +16,7 @@ from core.vector_store.chroma_store import ChromaStore
 from core.retriever.base import BaseRetriever
 from core.retriever.simple import SimpleRetriever
 from core.retriever.hybrid import HybridRetriever
+from core.retriever.bm25_only import BM25OnlyRetriever
 from core.reranker.base import BaseReranker
 from core.reranker.bge_reranker import BGEReranker
 from core.generator.base import BaseGenerator
@@ -90,6 +91,8 @@ class Pipeline:
                 rrf_k=self.config.rrf_k,
                 rrf_tie_breaker=self.config.rrf_tie_breaker,
             )
+        elif self.config.retriever_strategy == "bm25":
+            return BM25OnlyRetriever()
         from core.retriever.mmr import MMRRetriever
         return MMRRetriever(self.embedding, self.vector_store)
 

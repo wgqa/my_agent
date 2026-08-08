@@ -26,6 +26,18 @@ def test_build_config_is_frozen_baseline():
     )
 
 
+def test_build_config_supports_formal_strategies():
+    simple = cli.build_config("simple")
+    assert simple.retriever_strategy == "simple"
+    assert simple.top_k == 5
+    assert simple.chunk_strategy == "recursive"
+    bm25 = cli.build_config("bm25")
+    assert bm25.retriever_strategy == "bm25"
+    assert bm25.rrf_k == 60.0
+    with pytest.raises(ValueError, match="未知 retriever_strategy"):
+        cli.build_config("graph_rag")
+
+
 def test_cli_run_calls_existing_chain_in_order(tmp_path, monkeypatch):
     calls = []
     corpus = SimpleNamespace(corpus_id="corpus-1")
@@ -74,6 +86,7 @@ def test_cli_run_calls_existing_chain_in_order(tmp_path, monkeypatch):
         base_config=str(tmp_path / "config.yaml"),
         workspace_root=str(tmp_path / "runs"),
         run_id="agent-ai-v1-recursive-hybrid-baseline-001",
+        retriever_strategy="hybrid",
     )
     facts = cli.run(args)
 
