@@ -123,8 +123,9 @@ G2-ANALYSIS-14 的 H4/H5 方向一致。
 
 ## 11. 下一组实验应该回答什么
 
-1. 为什么 BM25-only 在这份技术文档语料上显著强于 Dense-only？
-   （词法命中是否系统性优于语义近邻？）
+1. 为什么 BM25-only 在当前 50 Case Benchmark 上的观测指标明显高于
+   Dense-only？
+   （词法命中在当前语料上是否比语义近邻更占优？）
 2. 在 Hybrid 中，Reranker（候选 20 → 最终 5）或 candidate_k 调整
    能否减少 fusion_regression？——必须作为正式实验验证，不能凭
    本离线结果下结论。
