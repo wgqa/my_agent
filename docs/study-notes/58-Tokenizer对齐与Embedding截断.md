@@ -108,8 +108,18 @@ BGE-small-zh-v1.5 通过 SentenceTransformer 加载，底层 BERT tokenizer
 → 尾部若有 Query 需要的证据，就检索不到
 ```
 
-注意：这不是"一定发生"——是否截断、截断后影响多大，取决于模型加载
-配置与具体证据位置。
+注意区分两层：
+
+```text
+Level 2（是否实际发生截断）：confirmed。
+当前正式运行时 SentenceTransformer.max_seq_length = 512，
+输入 >512 的 chunk 在正式 BGEEmbedding / SentenceTransformer
+路径会发生输入截断。
+
+Level 3（截断是否删除 Query 所需关键证据、是否导致 Retrieval
+failure）：currently unverified。
+取决于具体证据位置与后续 intervention 实验。
+```
 
 ## 8. 为什么 Chunker tokenizer 与 Embedding tokenizer 不一致可能产生隐藏截断
 
@@ -136,8 +146,9 @@ Recursive：57 / 215 = 26.51% chunk 会截断（R1 运行时口径）
 Fixed：    71 / 237 = 29.96% chunk 会截断（R1 运行时口径）
 ```
 
-注：主体诊断用独立 AutoTokenizer 得到 34/35，R1 改为实际
-SentenceTransformer 运行时的 tokenizer 后为 57/71（原因见 12.1）。
+注：R0（主体诊断）用独立 AutoTokenizer 得到 34/35
+（R0 / standalone 历史口径），R1 改为实际 SentenceTransformer
+运行时的 tokenizer 后为 57/71（原因见 12.1）。
 
 ## 9. 为什么不能发现问题后直接换 tokenizer
 
@@ -378,6 +389,11 @@ special-token 行为
 R1 diagnostic_id=51e18bf2cff6，R2 diagnostic_id=801dda0b7ca0
 （R1 解释保留，不覆盖）。
 
+注意：`runtime_tokenizer_behavior_fingerprint` 是
+corpus-scoped fingerprint——它只保证在当前冻结 Benchmark 输入上，
+tokenization output 改变 → fingerprint 改变 → diagnostic_id 改变；
+它不是对 tokenizer 在所有可能输入上的数学完整描述。
+
 ## 13. 面试追问
 
 ### Q1：Tokenizer 是模型的一部分吗？
@@ -404,13 +420,20 @@ tokenizer 下长度不同；BGE 计数还包含 [CLS]/[SEP]。
 
 ### Q5：超长输入一定会让检索变差吗？
 
-不一定。要看：
+Level 2 与 Level 3 要分开：
 
-- 模型加载时是否真的截断；
-- 被截断的部分是否包含证据；
-- 截断后剩余内容是否仍足以表征该 chunk。
+```text
+Level 2（实际发生截断）：confirmed。
+SentenceTransformer.max_seq_length = 512，
+输入 >512 的 chunk 在正式 encode 路径会被截断。
 
-所以只能做风险分析，不能直接断言因果。
+Level 3（截断是否造成检索变差）：currently unverified。
+要看被截断的部分是否包含证据、截断后剩余内容是否仍足以表征该
+chunk，以及 intervention experiment 结果。
+```
+
+所以不能说"超长一定变差"，也不能把"是否发生截断"与"截断是否造成
+性能下降"写成同一个不确定问题。
 
 ### Q6：既然有 26.5%/30% chunk 超长，为什么不能直接换 tokenizer？
 
@@ -463,7 +486,8 @@ overflow_tokens 分布
 3. 本 Benchmark 按实际 SentenceTransformer 运行时口径，约 26.5%
    （Recursive）/ 30%（Fixed）的 chunk 存在 would-truncate 风险，
    集中在中英混排 + 代码/JSON/表格密集文档，最大溢出约 195-196
-   token；独立 AutoTokenizer 会低估（34/35），必须以运行时契约为准。
+   token；独立 AutoTokenizer 会低估（R0 历史口径 34/35），必须以
+   运行时契约为准。
 4. 风险 ≠ 因果：没有 chunk-level Gold 与 intervention 前，不能断言
    "q036 就是截断失败"。
 5. 换 chunk budget tokenizer 等于换实验变量，必须进入实验身份并做

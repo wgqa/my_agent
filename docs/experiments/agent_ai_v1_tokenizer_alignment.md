@@ -81,9 +81,10 @@ chunk_size = 512
 
 ### R1 与主体诊断的数字差异及原因
 
-DIAG-18 主体使用独立 `AutoTokenizer.from_pretrained(...)`，当时
-Recursive 34 / Fixed 35 个 would-truncate。R1 改用实际运行时 tokenizer
-后为 Recursive 57 / Fixed 71。原因：
+R0（主体诊断）使用独立 `AutoTokenizer.from_pretrained(...)`，当时
+Recursive 34 / Fixed 35 个 would-truncate（R0 / standalone
+AutoTokenizer 历史诊断结果）。R1 改用实际运行时 tokenizer 后为
+Recursive 57 / Fixed 71。原因：
 
 ```text
 sentence-transformers 加载 BGE 时修改了 tokenizer 的 normalizer：
@@ -126,8 +127,11 @@ runtime wrapper/config
 ```
 
 R2 使用 `runtime_tokenizer_behavior_fingerprint`（基于当前冻结
-Corpus 上实际 input_ids 的 SHA-256）作为完整 behavior identity，
-并进入 diagnostic_id。因此：
+Corpus 上实际 input_ids 的 SHA-256）作为
+corpus-scoped tokenizer behavior fingerprint，并进入 diagnostic_id。
+它能保证：在当前冻结 Benchmark 输入上，tokenization output 改变
+→ fingerprint 改变 → diagnostic_id 改变；但它不是对 tokenizer 在
+所有可能输入上的数学完整描述。因此：
 
 ```text
 同 class + 同 max + 行为不同
@@ -206,8 +210,9 @@ Fixed：    71 / 237 = 29.96%（运行时口径）
 
 两套策略的 chunk 边界不同，但超长比例都在 1/4 以上，说明这是
 "cl100k 预算与 BGE 输入上限不匹配"的系统性工程边界，不是某一策略
-特有的偶然现象。主体诊断（独立 AutoTokenizer）为 34/215 与 35/237，
-低估了实际运行时输入长度，详见第 4 节差异说明。
+特有的偶然现象。R0 / standalone AutoTokenizer 历史诊断结果为
+34/215 与 35/237（仅历史口径，不是当前结果），低估了实际运行时
+输入长度，详见第 4 节差异说明。
 
 ## 8. 严重程度
 
@@ -319,8 +324,10 @@ q036（提示工程高级技巧.md, rag/文档处理.md,
 
 ## 13. 是否值得下一步调整 Chunk budget tokenizer
 
-证据表明 alignment mismatch 真实存在（约 15% chunk 超 BGE 上限），
-值得作为下一组可验证实验假设，但本任务不修改 TokenCounter。
+证据表明 alignment mismatch 真实存在：按实际 SentenceTransformer
+runtime tokenizer 口径，Recursive 57/215 ≈ 26.5%、Fixed 71/237 ≈
+30.0% 的 Chunk 超过 effective max_seq_length=512。这值得作为下一组
+可验证实验假设，但本任务不修改 TokenCounter。
 
 候选假设（只提出）：
 
