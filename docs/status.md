@@ -2,7 +2,7 @@
 
 > 唯一的实时状态表。每次里程碑/修复后更新本文件。
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
-> 历史大规划已归档至 `docs/archive/`，以本文件为真相来源。
+> 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
 **更新日期：** 2026-08-09
 
