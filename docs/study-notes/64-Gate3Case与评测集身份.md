@@ -10,7 +10,7 @@ G3-DATA-02A 只完成了 **Gate 3 评测集的数据 Schema 基础设施**：
 
 - 三个 frozen dataclass：`EvidenceObligation`、`Gate3Case`、`Gate3EvaluationSet`；
 - 严格 JSONL Loader（`load_jsonl(path, corpus)`，corpus 必须是 `ExperimentCorpus`）；
-- answerability 跨字段不变量（构造前 fail-fast）；
+- answerability 跨字段不变量（Case 构造后立即校验，fail-fast）；
 - 稳定 `evaluation_set_id`（canonical JSON + SHA-256[:12]）；
 - 76 个测试。
 
@@ -57,7 +57,7 @@ Gate 3 的复杂问题（comparison、multi_entity、causal synthesis）需要�
 - `no_retrieval` 且 `decomposition_expected="required"`：矛盾，一个不检索的问题不该要求分解；
 - `unanswerable` 且 `relevant_files` 非空：不可回答的问题不该有"相关文件"。
 
-所以解析器在**构造 Gate3Case 之前**先跑 `_validate_answerability_invariants`，任何违反立即抛错（带行号 + case_id），而不是等到评测阶段才暴露。这就是"字段类型合法 ≠ 对象状态合法"的工程含义。
+所以解析器在**构造 Gate3Case 之后立即**运行 `_validate_answerability_invariants`，任何违反立即抛错（带行号 + case_id），而不是等到评测阶段才暴露。这就是"字段类型合法 ≠ 对象状态合法"的工程含义。
 
 ## 5. 为什么数据顺序不应改变 evaluation_set_id
 
@@ -67,7 +67,7 @@ Gate 3 的复杂问题（comparison、multi_entity、causal synthesis）需要�
 
 - 解析后 `cases` 按 `case_id` 排序；
 - obligation 按数字编号排序（o1..oN）；
-- `relevant_files` / `tags` 排序去重；
+- `relevant_files` 排序去重；`tags` 拒绝重复输入后对合法列表排序；
 - 规范化路径统一 POSIX（`\` → `/`，折叠 `./`）；
 - identity payload 用 `sort_keys=True` 的 canonical JSON。
 
@@ -94,12 +94,27 @@ G3-DATA-02A 只提供"容器"（强类型 Case 与评测集契约 + 严格 Loade
 
 ---
 
+## R1 修订：严格输入与完整序列化契约收口（2026-08-09）
+
+G3-DATA-02A-R1 在三处收紧契约：
+
+- **tags 严格校验**：重复输入直接 `ValueError`（不再 `sorted(set(...))` 静默去重）；空字符串/纯空白/首尾空白均拒绝；合法 tags 在内存中按字典序排序，输入顺序不改变 `evaluation_set_id`。
+- **拒绝空评测集**：空文件、只有空白行的文件、没有任何有效 Case 的 JSONL 一律 `ValueError`（信息含"评测集不能为空"）；不为零 Case 数据生成 `evaluation_set_id`，`_compute_id` 对空 cases 也 fail-fast。
+- **`Gate3EvaluationSet.to_dict()` 完整输出**：包含 `schema_version` / `corpus_id` / `evaluation_set_id` / `cases`。`evaluation_set_id` 只是快照展示字段，身份计算仍用独立 identity payload（schema_version + corpus_id + 规范化 cases），不通过 to_dict() 计算，避免身份自指。
+
+**文档口径修正**：不变量校验实际发生在 **Gate3Case 构造后立即**（先构造、再校验、后返回），不是"构造前"；本节、§4 与代码注释已同步为准确表述，实现行为不变。
+
+---
+
 ## 关键知识点速记
 
 - Gate 3 评测集需要**结构化 evidence obligation**（部分失败可评估），Gate 2 扁平 relevant_files 不够。
-- 三种 answerability（answerable/unanswerable/no_retrieval）各有独立跨字段不变量，构造前 fail-fast。
+- 三种 answerability（answerable/unanswerable/no_retrieval）各有独立跨字段不变量，构造后立即 fail-fast。
 - 字段类型合法 ≠ 对象状态合法；组合约束必须显式校验。
 - `evaluation_set_id` 只绑定语义：顺序、反斜杠、字段书写顺序不改变 ID；语义字段变化必须改变 ID。
+- tags 重复输入拒绝（不是静默去重）；合法 tags 按字典序排序，输入顺序不改变 ID。
+- 空评测集（空文件/只有空白行/零 Case）必须拒绝，不为零 Case 数据生成 `evaluation_set_id`。
+- 完整 `to_dict()` 包含 `evaluation_set_id`，但身份计算用独立 identity payload（schema_version + corpus_id + 规范化 cases），避免自指。
 - dev 与 holdout 必须是两个 evaluation_set_id，才谈得上 holdout 隔离。
 - frozen + 内存快照 = 评测输入不可变、不依赖原文件。
 - G3-DATA-02A 只建了数据 Schema 基础设施；36 条问题与 sealed holdout 尚未创建。

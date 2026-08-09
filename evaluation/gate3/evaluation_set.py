@@ -79,9 +79,9 @@ class EvidenceObligation:
 
 @dataclass(frozen=True)
 class Gate3Case:
-    """一个 Gate 3 评测 Case；relevant_files / tags 规范化后排序去重。
+    """一个 Gate 3 评测 Case；relevant_files 排序去重，tags 拒绝重复后排序。
 
-    answerability 跨字段不变量在构造前 fail-fast（见 load_jsonl 的
+    answerability 跨字段不变量在构造后立即校验（见
     _validate_answerability_invariants），frozen 保证不可变内存快照。
     """
 
@@ -127,10 +127,12 @@ class Gate3EvaluationSet:
     schema_version: str = GATE3_EVALUATION_SET_SCHEMA_VERSION
 
     def to_dict(self) -> dict:
-        """按 case_id 排序输出语义快照；不包含 evaluation_set_id（身份自指）。"""
+        """按 case_id 排序输出语义快照；含 evaluation_set_id（仅快照展示，
+        不作为身份计算输入，避免自指）。"""
         return {
             "schema_version": self.schema_version,
             "corpus_id": self.corpus_id,
+            "evaluation_set_id": self.evaluation_set_id,
             "cases": [
                 c.to_dict()
                 for c in sorted(self.cases, key=lambda c: c.case_id)
@@ -207,6 +209,12 @@ class Gate3EvaluationSet:
                 seen_case_ids[case.case_id] = lineno
                 seen_queries[case.query] = lineno
                 cases.append(case)
+
+        if not cases:
+            raise ValueError(
+                "评测集不能为空：JSONL 不含任何有效 Gate3Case"
+                "（空文件或只有空白行）"
+            )
 
         cases.sort(key=lambda c: c.case_id)
         return cls(
@@ -328,6 +336,7 @@ class Gate3EvaluationSet:
                 f"{ctx} case_id={case_id}：tags 必须是数组，"
                 f"实际 {type(raw_tags).__name__}"
             )
+        seen_tags: set[str] = set()
         for tag in raw_tags:
             if not isinstance(tag, str):
                 raise ValueError(
@@ -336,9 +345,18 @@ class Gate3EvaluationSet:
                 )
             if not tag.strip():
                 raise ValueError(
-                    f"{ctx} case_id={case_id}：tags 不允许空字符串"
+                    f"{ctx} case_id={case_id}：tags 不允许空字符串或纯空白"
                 )
-        tags = sorted(set(raw_tags))
+            if tag != tag.strip():
+                raise ValueError(
+                    f"{ctx} case_id={case_id}：tags 首尾不允许空白"
+                )
+            if tag in seen_tags:
+                raise ValueError(
+                    f"{ctx} case_id={case_id}：tags 包含重复值 {tag!r}"
+                )
+            seen_tags.add(tag)
+        tags = sorted(seen_tags)
 
         case = Gate3Case(
             schema_version=schema_version,
@@ -460,7 +478,7 @@ class Gate3EvaluationSet:
         case: Gate3Case,
         ctx: str,
     ) -> None:
-        """answerability 跨字段不变量，构造前 fail-fast（设计文档 §10.1）。"""
+        """answerability 跨字段不变量，Gate3Case 构造后立即校验（设计文档 §10.1）。"""
         if case.answerability == "answerable":
             if not case.evidence_obligations:
                 raise ValueError(
@@ -620,8 +638,12 @@ class Gate3EvaluationSet:
 
         payload 绑定：evaluation_set schema_version、corpus_id、全部
         规范化 Case（to_dict）。不绑定时间、绝对路径、行顺序、输入
-        文件对象地址。
+        文件对象地址，也不绑定 evaluation_set_id 自身（避免自指）。
         """
+        if not cases:
+            raise ValueError(
+                "评测集不能为空：无法为零 Case 数据生成 evaluation_set_id"
+            )
         ordered = sorted(cases, key=lambda c: c.case_id)
         payload = {
             "schema_version": GATE3_EVALUATION_SET_SCHEMA_VERSION,

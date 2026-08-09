@@ -195,12 +195,44 @@ class TestNormalPath:
             Gate3EvaluationSet.load_jsonl(path, corpus)
         assert "重复" in str(ei.value)
 
-    def test_tags_sorted_deduped(self, tmp_path):
+    def test_tags_sorted_valid_distinct(self, tmp_path):
         corpus, path = _write_default(tmp_path)
-        c = _case(tags=["b", "a", "b"])
+        c = _case(tags=["b", "c", "a"])
         _write_jsonl(path, [c])
         s = Gate3EvaluationSet.load_jsonl(path, corpus)
-        assert s.cases[0].tags == ("a", "b")
+        assert s.cases[0].tags == ("a", "b", "c")
+
+
+class TestTagsValidation:
+    """tags 严格校验：类型、空白、重复、排序（G3-DATA-02A-R1）。"""
+
+    def test_duplicate_tags_rejected(self, tmp_path):
+        corpus, path = _write_default(tmp_path)
+        _write_jsonl(path, [_case(tags=["a", "a"])])
+        with pytest.raises(Exception) as ei:
+            Gate3EvaluationSet.load_jsonl(path, corpus)
+        assert "重复" in str(ei.value)
+
+    def test_tag_leading_whitespace_rejected(self, tmp_path):
+        corpus, path = _write_default(tmp_path)
+        _write_jsonl(path, [_case(tags=["  a"])])
+        with pytest.raises(Exception) as ei:
+            Gate3EvaluationSet.load_jsonl(path, corpus)
+        assert "空白" in str(ei.value)
+
+    def test_tag_trailing_whitespace_rejected(self, tmp_path):
+        corpus, path = _write_default(tmp_path)
+        _write_jsonl(path, [_case(tags=["a  "])])
+        with pytest.raises(Exception) as ei:
+            Gate3EvaluationSet.load_jsonl(path, corpus)
+        assert "空白" in str(ei.value)
+
+    def test_pure_whitespace_tag_rejected(self, tmp_path):
+        corpus, path = _write_default(tmp_path)
+        _write_jsonl(path, [_case(tags=["   "])])
+        with pytest.raises(Exception) as ei:
+            Gate3EvaluationSet.load_jsonl(path, corpus)
+        assert "空白" in str(ei.value)
 
     def test_evaluation_set_schema_version_and_id(self, tmp_path):
         corpus, path = _write_default(tmp_path)
@@ -209,17 +241,30 @@ class TestNormalPath:
         assert s.corpus_id == corpus.corpus_id
         assert len(s.evaluation_set_id) == 12
 
-    def test_to_dict_deep_isolated(self, tmp_path):
+    def test_to_dict_includes_evaluation_set_id(self, tmp_path):
         corpus, path = _write_default(tmp_path)
         s = Gate3EvaluationSet.load_jsonl(path, corpus)
         d = s.to_dict()
         assert d["schema_version"] == GATE3_EVALUATION_SET_SCHEMA_VERSION
         assert d["corpus_id"] == corpus.corpus_id
+        assert d["evaluation_set_id"] == s.evaluation_set_id
         assert len(d["cases"]) == 1
-        assert "evaluation_set_id" not in d
         case0 = d["cases"][0]
         assert case0["case_id"] == "g3q001"
         assert case0["evidence_obligations"][0]["obligation_id"] == "o1"
+
+    def test_to_dict_mutation_isolated(self, tmp_path):
+        corpus, path = _write_default(tmp_path)
+        s = Gate3EvaluationSet.load_jsonl(path, corpus)
+        d = s.to_dict()
+        d["cases"][0]["query"] = "被篡改的问题"
+        d["cases"][0]["tags"].append("evil")
+        d["cases"][0]["evidence_obligations"][0]["description"] = "被篡改"
+        d["cases"].clear()
+        assert s.cases[0].query != "被篡改的问题"
+        assert s.cases[0].tags == ("comparison",)
+        assert s.cases[0].evidence_obligations[0].description != "被篡改"
+        assert len(s.cases) == 1
 
     def test_case_to_dict_roundtrip_fields(self, tmp_path):
         corpus, path = _write_default(tmp_path)
@@ -247,13 +292,21 @@ class TestNormalPath:
         assert d["relevant_files"] == ["core/pipeline.py"]
         assert d["required"] is True
 
-    def test_empty_file_is_valid_empty_set(self, tmp_path):
+    def test_empty_file_rejected(self, tmp_path):
         corpus = _write_corpus(tmp_path)
         path = tmp_path / "set.jsonl"
         path.write_text("", encoding="utf-8")
-        s = Gate3EvaluationSet.load_jsonl(path, corpus)
-        assert s.cases == ()
-        assert len(s.evaluation_set_id) == 12
+        with pytest.raises(Exception) as ei:
+            Gate3EvaluationSet.load_jsonl(path, corpus)
+        assert "评测集不能为空" in str(ei.value)
+
+    def test_blank_lines_only_rejected(self, tmp_path):
+        corpus = _write_corpus(tmp_path)
+        path = tmp_path / "set.jsonl"
+        path.write_text("\n  \n\t\n", encoding="utf-8")
+        with pytest.raises(Exception) as ei:
+            Gate3EvaluationSet.load_jsonl(path, corpus)
+        assert "评测集不能为空" in str(ei.value)
 
 
 # ---------------------------------------------------------------------------
@@ -397,6 +450,16 @@ class TestIdentityStability:
         a = Gate3EvaluationSet.load_jsonl(path1, corpus)
         b = Gate3EvaluationSet.load_jsonl(path2, corpus)
         assert a.evaluation_set_id != b.evaluation_set_id
+
+    def test_id_not_bound_to_self(self, tmp_path):
+        corpus, path = _write_default(tmp_path)
+        s = Gate3EvaluationSet.load_jsonl(path, corpus)
+        # 身份由独立 identity payload（schema_version + corpus_id + 规范化 cases）
+        # 决定，不依赖对象自身携带的 evaluation_set_id 字段（避免自指）。
+        recomputed = Gate3EvaluationSet._compute_id(corpus.corpus_id, s.cases)
+        assert s.evaluation_set_id == recomputed
+        # to_dict 包含 evaluation_set_id，但该字段不作为身份计算输入。
+        assert s.to_dict()["evaluation_set_id"] == s.evaluation_set_id
 
 
 # ---------------------------------------------------------------------------
