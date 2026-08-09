@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（17 份）
+## CURRENT（18 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -43,6 +43,7 @@
 | 50 | [50-experiment-orchestrator.md](50-experiment-orchestrator.md) | 单实验端到端 Orchestrator（当前基础设施） |
 | 61 | [61-API上传安全边界.md](61-API上传安全边界.md) | API 上传安全边界（安全文件名 / 唯一临时目录 / 分块读取 / 20 MiB 上限 / 通用错误响应） |
 | 62 | [62-API本地暴露与请求边界.md](62-API本地暴露与请求边界.md) | API 本地暴露与请求边界（CORS 白名单 / 127.0.0.1 默认监听 / Query 输入上限 / /query 通用错误响应） |
+| 63 | [63-Gate3问题分解与自适应检索设计.md](63-Gate3问题分解与自适应检索设计.md) | Gate 3 问题分解与自适应检索设计契约（G3-DESIGN-01，主设计文档与 ADR-001 的索引） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -109,6 +110,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–62 共 **63 份**，每份只出现一次：CURRENT 17 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 63。
+- 编号覆盖 00–63 共 **64 份**，每份只出现一次：CURRENT 18 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 64。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-09。
