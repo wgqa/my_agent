@@ -8,9 +8,11 @@
 1. 用户当前决定
 2. 当前审计任务/返工单
 3. 代码与测试
-4. `docs/status.md`
-5. `docs/HANDOFF.md`
-6. study-notes / archive
+4. `docs/experiments/gate2_freeze.json`（冻结数字与结论）
+5. `docs/status.md`（当前实时任务）
+6. `docs/roadmap.md`（长期路线）
+7. `docs/HANDOFF.md`（快速交接）
+8. study-notes / archive（设计演进与学习历史）
 
 ## 1. 当前状态
 
@@ -53,12 +55,12 @@
 M0-M3 + REWORK-P0-01/02/03 + E-01~04 + ER-01~04 + G1-META-02/R1 +
 G1-CTX-03A/R1/03B + G1-RANK-04 + G1-CHUNK-05A/R1/05B + G1-CLOSE-06
 
-### Gate 2（全部任务完成，待 closure 复审）
+### Gate 2（CLOSED / FROZEN）
 
 G2-ER-05、G2-EVAL-06/07/08/09、G2-EXP-10、G2-REAL-11、
 G2-ANALYSIS-12、G2-DIAG-13/R1、G2-ANALYSIS-14、G2-ABL-15/R1、
 G2-ABL-16/R1、G2-ABL-17/R1、G2-DIAG-18/R1/R2/R3、G2-DESIGN-19/R1/R2、
-G2-IMPL-20/R1、G2-ABL-21/R1、G2-CLOSE-22/R1/R2/R3
+G2-IMPL-20/R1、G2-ABL-21/R1、G2-CLOSE-22/R1/R2/R3/R4
 
 ## 4. 关键文件地图（以 Git 仓库根目录为基准）
 
