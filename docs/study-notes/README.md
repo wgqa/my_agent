@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（16 份）
+## CURRENT（17 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -42,6 +42,7 @@
 | 49 | [49-experiment-result.md](49-experiment-result.md) | ExperimentResult 事实快照绑定（当前基础设施） |
 | 50 | [50-experiment-orchestrator.md](50-experiment-orchestrator.md) | 单实验端到端 Orchestrator（当前基础设施） |
 | 61 | [61-API上传安全边界.md](61-API上传安全边界.md) | API 上传安全边界（安全文件名 / 唯一临时目录 / 分块读取 / 20 MiB 上限 / 通用错误响应） |
+| 62 | [62-API本地暴露与请求边界.md](62-API本地暴露与请求边界.md) | API 本地暴露与请求边界（CORS 白名单 / 127.0.0.1 默认监听 / Query 输入上限 / /query 通用错误响应） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -108,6 +109,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–61 共 **62 份**，每份只出现一次：CURRENT 16 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 62。
+- 编号覆盖 00–62 共 **63 份**，每份只出现一次：CURRENT 17 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 63。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-09。

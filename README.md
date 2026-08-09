@@ -55,7 +55,7 @@ python -m pytest --basetemp=.tmp_pytest
 
 **API：**
 ```bash
-uvicorn api.app:app --host 0.0.0.0 --port 8000
+uvicorn api.app:app --host 127.0.0.1 --port 8000
 ```
 
 **UI（新终端）：**
@@ -64,6 +64,8 @@ streamlit run ui/app.py
 ```
 
 浏览器访问 `http://localhost:8501`。
+
+> **监听地址说明**：当前项目默认是本地 Demo，API 只监听 `127.0.0.1`，仅允许本机访问。`0.0.0.0` 会把服务暴露到所有网卡接口，同网段设备均可访问。如未来公开部署，必须另行增加认证、反向代理、TLS、限流和部署安全配置。
 
 ## 已知限制
 

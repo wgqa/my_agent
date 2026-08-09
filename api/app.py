@@ -56,10 +56,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -158,9 +158,13 @@ def query(req: QueryRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
     try:
-        result = p.query(req.question, top_k=req.top_k, history=req.history)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+        history = [m.model_dump() for m in req.history]
+        result = p.query(req.question, top_k=req.top_k, history=history)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Query failed")
+        raise HTTPException(status_code=500, detail="Internal query error")
 
     sources = [
         SourceItem(

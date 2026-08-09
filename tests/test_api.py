@@ -3,9 +3,11 @@ import tempfile
 
 import pytest
 from fastapi import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 import api.app
+from api import schemas
 
 
 @pytest.fixture(autouse=True)
@@ -323,3 +325,171 @@ class TestUploadSecurity:
             with pytest.raises(HTTPException) as ei:
                 api.app._copy_upload(reader, path, max_bytes=10)
             assert ei.value.status_code == 413
+
+
+class TestCORS:
+    def test_cors_allows_localhost_8501(self, client):
+        resp = client.get("/health", headers={"Origin": "http://localhost:8501"})
+        assert resp.headers.get("access-control-allow-origin") == "http://localhost:8501"
+
+    def test_cors_allows_127_0_0_1_8501(self, client):
+        resp = client.get("/health", headers={"Origin": "http://127.0.0.1:8501"})
+        assert resp.headers.get("access-control-allow-origin") == "http://127.0.0.1:8501"
+
+    def test_cors_denies_evil_origin(self, client):
+        resp = client.get("/health", headers={"Origin": "http://evil.example"})
+        assert "access-control-allow-origin" not in resp.headers
+
+    def test_cors_preflight_allows_expected_methods_and_headers(self, client):
+        resp = client.options(
+            "/query",
+            headers={
+                "Origin": "http://localhost:8501",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Content-Type",
+            },
+        )
+        assert resp.headers.get("access-control-allow-origin") == "http://localhost:8501"
+        assert "POST" in resp.headers.get("access-control-allow-methods", "")
+        assert "content-type" in resp.headers.get("access-control-allow-headers", "").lower()
+
+    def test_cors_does_not_allow_credentials(self, client):
+        resp = client.options(
+            "/query",
+            headers={
+                "Origin": "http://localhost:8501",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        assert resp.headers.get("access-control-allow-credentials") != "true"
+
+    def test_cors_config_no_wildcard_origin(self):
+        cors = [m for m in api.app.app.user_middleware if m.cls is CORSMiddleware]
+        assert cors
+        mw = cors[0]
+        opts = getattr(mw, "kwargs", None)
+        if opts is None:
+            opts = mw.options
+            if isinstance(opts, tuple):
+                opts = opts[1]
+        assert "*" not in opts["allow_origins"]
+        assert opts["allow_origins"] == [
+            "http://localhost:8501",
+            "http://127.0.0.1:8501",
+        ]
+        assert opts["allow_credentials"] is False
+        assert opts["allow_methods"] == ["GET", "POST"]
+        assert opts["allow_headers"] == ["Content-Type"]
+
+
+class TestQueryInput:
+    def test_top_k_zero_rejected(self, client):
+        resp = client.post("/query", json={"question": "测试问题", "top_k": 0})
+        assert resp.status_code == 422
+
+    def test_top_k_above_max_rejected(self, client):
+        resp = client.post("/query", json={"question": "测试问题", "top_k": 51})
+        assert resp.status_code == 422
+
+    @pytest.mark.parametrize("top_k", [1, 50])
+    def test_top_k_min_and_max_valid(self, client, top_k):
+        resp = client.post("/query", json={"question": "测试问题", "top_k": top_k})
+        assert resp.status_code == 200
+
+    def test_question_too_long_rejected(self, client):
+        resp = client.post("/query", json={"question": "q" * 4001})
+        assert resp.status_code == 422
+
+    def test_history_too_many_messages_rejected(self, client):
+        history = [{"role": "user", "content": "x"} for _ in range(21)]
+        resp = client.post("/query", json={"question": "测试问题", "history": history})
+        assert resp.status_code == 422
+
+    def test_history_invalid_role_rejected(self, client):
+        resp = client.post(
+            "/query",
+            json={"question": "测试问题", "history": [{"role": "system", "content": "x"}]},
+        )
+        assert resp.status_code == 422
+
+    def test_history_content_too_long_rejected(self, client):
+        resp = client.post(
+            "/query",
+            json={
+                "question": "测试问题",
+                "history": [{"role": "user", "content": "c" * 8001}],
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_valid_history_passed_as_plain_dict(self, client):
+        history = [
+            {"role": "user", "content": "你好"},
+            {"role": "assistant", "content": "在的"},
+        ]
+        resp = client.post("/query", json={"question": "测试问题", "history": history})
+        assert resp.status_code == 200
+        call_kwargs = api.app.pipeline.query.call_args.kwargs
+        assert call_kwargs["history"] == history
+        assert all(isinstance(m, dict) for m in call_kwargs["history"])
+
+    def test_history_uses_default_factory_not_shared_mutable(self):
+        r1 = schemas.QueryRequest(question="a")
+        r2 = schemas.QueryRequest(question="b")
+        assert r1.history == []
+        assert r2.history == []
+        assert r1.history is not r2.history
+        assert schemas.QueryRequest.model_fields["history"].default_factory is not None
+
+
+class TestQueryException:
+    def test_query_exception_returns_generic_500_without_leak(self, client):
+        p = api.app.pipeline
+
+        def boom(question, top_k=5, history=None):
+            raise RuntimeError("secret=super-secret at /var/secret/path")
+
+        p.query.side_effect = boom
+        resp = client.post("/query", json={"question": "测试问题"})
+        assert resp.status_code == 500
+        body = resp.text
+        assert "super-secret" not in body
+        assert "/var/secret/path" not in body
+        assert "Traceback" not in body
+
+
+class TestUploadCleanup:
+    @pytest.fixture
+    def recording_tempdir(self, monkeypatch):
+        real = tempfile.TemporaryDirectory
+        created = []
+
+        class Rec:
+            def __call__(self, *args, **kwargs):
+                td = real(*args, **kwargs)
+                created.append(td.name)
+                return td
+
+        monkeypatch.setattr(api.app.tempfile, "TemporaryDirectory", Rec())
+        return created
+
+    def test_413_cleans_temp_directory(self, client, monkeypatch, recording_tempdir):
+        monkeypatch.setattr(api.app, "MAX_UPLOAD_BYTES", 16)
+        resp = client.post(
+            "/index/file",
+            files={"file": ("big.md", b"x" * 64, "text/markdown")},
+        )
+        assert resp.status_code == 413
+        assert recording_tempdir
+        assert not os.path.exists(recording_tempdir[0])
+
+    def test_500_cleans_temp_directory(self, client, recording_tempdir):
+        p = api.app.pipeline
+        p.index_file.side_effect = RuntimeError("index boom")
+        resp = client.post(
+            "/index/file",
+            files={"file": ("boom.md", b"data", "text/markdown")},
+        )
+        assert resp.status_code == 500
+        assert recording_tempdir
+        assert not os.path.exists(recording_tempdir[0])

@@ -9,7 +9,7 @@
 ## 当前结论
 
 - **定位**：面向技术文档与代码的可评测 RAG Agent
-- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis 复审通过** → **G2-DIAG-13/R1 Hybrid Channel-Level Diagnostic：RRF tie 确定化 + canonical Baseline + 50/50 复审通过** → **G2-ANALYSIS-14 Chunk-Level Fusion Fragmentation Analysis 复审通过** → **G2-ABL-15/R1 Dense vs BM25 vs Hybrid offline channel ablation 复审通过** → **G2-ABL-16/R1 Dense-only / BM25-only Formal Strategy Confirmation 复审通过** → **G2-ABL-17/R1 Fixed vs Recursive Chunk Strategy Formal Ablation 复审通过** → **G2-DIAG-18/R1/R2/R3 Chunk Budget vs BGE Tokenizer Alignment Diagnostic 复审通过** → **G2-DESIGN-19/R1/R2 BGE-Aligned Chunk Budget Intervention Contract 复审通过** → **G2-IMPL-20/R1 BGE-Aligned Chunk Budget Infrastructure 复审通过** → **G2-ABL-21/R1 BGE-Aligned Chunk Budget Formal Retrieval Ablation 复审通过** → **G2-CLOSE-22/R1/R2/R3/R4 Gate 2 Final Review / Evidence Synthesis / Benchmark Freeze（Reviewer accepted）** → **Gate 1 = CLOSED；Gate 2 = CLOSED / FROZEN；Gate 3 = READY / NOT STARTED（Query Decomposition / Adaptive Retrieval 尚未实现）** → **SEC-P0-01A（API 上传安全边界修复）已完成（08-09）** → **当前下一任务 = SEC-P0-01B（安全插单，完成前不公开部署）**
+- **阶段**：M0-M3 + REWORK-P0 + 评测阻塞修复（E-01~04）+ ER-01~04 完成 → **Gate 1（基础 RAG 可信状态）已通过** → **G2-ER-05 ExperimentRunner 入库功能复审通过** → **G2-EVAL-06 RetrievalEvaluationSet 复审通过** → **G2-EVAL-07 正式检索执行与原始结果快照复审通过** → **G2-EVAL-08 文档级 Retrieval Metrics 复审通过** → **G2-EVAL-09 ExperimentResult 最终实验摘要复审通过** → **G2-EXP-10 单实验端到端 Orchestrator 复审通过** → **G2-REAL-11 第一次真实 agent_ai_v1 Retrieval Baseline（pre-binding + R1 embedding-bound）复审通过** → **G2-ANALYSIS-12 第一次真实 Baseline Error Analysis 复审通过** → **G2-DIAG-13/R1 Hybrid Channel-Level Diagnostic：RRF tie 确定化 + canonical Baseline + 50/50 复审通过** → **G2-ANALYSIS-14 Chunk-Level Fusion Fragmentation Analysis 复审通过** → **G2-ABL-15/R1 Dense vs BM25 vs Hybrid offline channel ablation 复审通过** → **G2-ABL-16/R1 Dense-only / BM25-only Formal Strategy Confirmation 复审通过** → **G2-ABL-17/R1 Fixed vs Recursive Chunk Strategy Formal Ablation 复审通过** → **G2-DIAG-18/R1/R2/R3 Chunk Budget vs BGE Tokenizer Alignment Diagnostic 复审通过** → **G2-DESIGN-19/R1/R2 BGE-Aligned Chunk Budget Intervention Contract 复审通过** → **G2-IMPL-20/R1 BGE-Aligned Chunk Budget Infrastructure 复审通过** → **G2-ABL-21/R1 BGE-Aligned Chunk Budget Formal Retrieval Ablation 复审通过** → **G2-CLOSE-22/R1/R2/R3/R4 Gate 2 Final Review / Evidence Synthesis / Benchmark Freeze（Reviewer accepted）** → **Gate 1 = CLOSED；Gate 2 = CLOSED / FROZEN；Gate 3 = READY / NOT STARTED（Query Decomposition / Adaptive Retrieval 尚未实现）** → **SEC-P0-01（API 上传安全边界 + 本地暴露与请求边界）安全插单已完成（08-09）** → **当前下一任务 = G3-DESIGN-01**
 - **测试**：全量 suite 通过（--basetemp=.tmp_pytest）
 
 ## 任务状态
@@ -89,6 +89,7 @@
 | G1-CHUNK-05B | SemanticChunker 会产出不可信结果 | 标记实验性，ExperimentConfig 拒绝，保留手动入口 | ✅ 复审通过 |
 | G1-CLOSE-06 | — | Gate 1 文档状态收尾 | ✅ 完成 |
 | SEC-P0-01A | 上传边界不安全（文件名拼接进系统临时目录 / 无参全量读取 / 无大小限制 / 空文件可入 Pipeline / 异常 str(e) 泄露 / 临时文件手工删除） | /index/file 收紧：安全文件名白名单（拒绝路径分隔符/控制字符/Windows 非法字符/超长）→ 每次请求独立 TemporaryDirectory → 1 MiB 分块读取 → 累计超 20 MiB 返回 413 → 空文件 400 → HTTPException 原样上抛、未知异常仅记日志并返回通用 500（不含 str(e)/本地路径/Key/traceback）→ 成功/400/413/500 均自动清理；/query 留 SEC-P0-01B | ✅ 2026-08-09 完成 |
+| SEC-P0-01B | API 暴露与请求边界（CORS wildcard+credential / 默认监听 0.0.0.0 / Query 无输入上限 / /query 异常 str(e) 泄露 / 01A 异常路径无清理测试） | CORS 白名单 http://localhost:8501 + http://127.0.0.1:8501（allow_credentials=False、方法仅 GET/POST、头仅 Content-Type）→ 默认监听 127.0.0.1（start.ps1/README）→ QueryRequest/HistoryMessage 强类型上限（question 1-4000 / top_k 1-50 / history ≤20 条 / role 仅 user\|assistant / content 1-8000，default_factory）→ /query 通用 500（HTTPException 原样、其余仅记日志，不含 str(e)/路径/traceback）→ 01A 413/500 临时目录清理补测 | ✅ 2026-08-09 完成 |
 
 ## Chunker 策略状态（G1-CHUNK-05B）
 
@@ -101,7 +102,7 @@
 ## 测试
 
 - 命令：`python -m pytest --basetemp=.tmp_pytest`（Windows 中文用户名环境规避）
-- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ 260（Gate1 RRF）→ 266（G1-META-02）→ 269（G1-META-02-R1）→ 277（G1-CTX-03A）→ 280（G1-CTX-03A-R1）→ 292（G1-CTX-03B）→ 301（G1-RANK-04）→ 306（G1-CHUNK-05A）→ 312（G1-CHUNK-05A-R1）→ 314（G1-CHUNK-05B）→ **314**（G1-CLOSE-06 文档收尾，08-06）→ 332（G2-ER-05，08-06）→ 334（G2-ER-05-R1，08-07）→ 382（G2-EVAL-06，08-07）→ 396（G2-EVAL-06-R1，08-07）→ 435（G2-EVAL-07，08-07）→ 442（G2-EVAL-07-R1，08-07）→ 479（G2-EVAL-08，08-07）→ 488（G2-EVAL-08-R1，08-07）→ 522（G2-EVAL-09，08-07）→ 526（G2-EVAL-09-R1，08-07）→ 537（G2-EXP-10，08-07）→ 540（G2-REAL-11 CLI 与全量，08-07）→ 559（G2-REAL-11-R1，08-07）→ 574（G2-DIAG-13，08-08）→ 590（G2-DIAG-13-R1，08-08）→ 595（G2-ANALYSIS-14，08-08）→ 604（G2-ABL-15，08-08）→ 610（G2-ABL-16，08-08）→ 624（G2-ABL-16-R1，08-08）→ **625（G2-ABL-17，08-08）** → **635（G2-DIAG-18，08-08）** → **639（G2-DIAG-18-R1，08-08）** → **642（G2-DIAG-18-R2，08-08）** → **668（G2-IMPL-20，08-08）** → **673（G2-IMPL-20-R1，08-08）** → **697（SEC-P0-01A，08-09）**
+- 历史：130（08-03）→ 139（P0）→ 141（REWORK-01）→ 147（REWORK-02）→ 157（REWORK-03）→ 163（REWORK-03-R1）→ 169（REWORK-03-R2）→ 170（E-01）→ 172（E-02）→ 173（E-03）→ 180（E-04）→ 199（ER-01）→ 213（ER-01 类型契约）→ 227（ER-02）→ 228（ER-02 路径逃逸）→ 242（ER-03）→ 254（ER-04）→ 256（ER-04 序列化）→ 260（Gate1 RRF）→ 266（G1-META-02）→ 269（G1-META-02-R1）→ 277（G1-CTX-03A）→ 280（G1-CTX-03A-R1）→ 292（G1-CTX-03B）→ 301（G1-RANK-04）→ 306（G1-CHUNK-05A）→ 312（G1-CHUNK-05A-R1）→ 314（G1-CHUNK-05B）→ **314**（G1-CLOSE-06 文档收尾，08-06）→ 332（G2-ER-05，08-06）→ 334（G2-ER-05-R1，08-07）→ 382（G2-EVAL-06，08-07）→ 396（G2-EVAL-06-R1，08-07）→ 435（G2-EVAL-07，08-07）→ 442（G2-EVAL-07-R1，08-07）→ 479（G2-EVAL-08，08-07）→ 488（G2-EVAL-08-R1，08-07）→ 522（G2-EVAL-09，08-07）→ 526（G2-EVAL-09-R1，08-07）→ 537（G2-EXP-10，08-07）→ 540（G2-REAL-11 CLI 与全量，08-07）→ 559（G2-REAL-11-R1，08-07）→ 574（G2-DIAG-13，08-08）→ 590（G2-DIAG-13-R1，08-08）→ 595（G2-ANALYSIS-14，08-08）→ 604（G2-ABL-15，08-08）→ 610（G2-ABL-16，08-08）→ 624（G2-ABL-16-R1，08-08）→ **625（G2-ABL-17，08-08）** → **635（G2-DIAG-18，08-08）** → **639（G2-DIAG-18-R1，08-08）** → **642（G2-DIAG-18-R2，08-08）** → **668（G2-IMPL-20，08-08）** → **673（G2-IMPL-20-R1，08-08）** → **697（SEC-P0-01A，08-09）** → **716（SEC-P0-01B，08-09）**
 
 ## Git
 
@@ -115,7 +116,7 @@
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-60 |
+| docs/study-notes/ | 学习笔记 00-62 |
 | docs/design/ | 设计文档（tokenizer-aligned chunk intervention 契约等） |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |
 | ../docs/superpowers/ | 原始设计与实施计划 |
