@@ -119,6 +119,35 @@ Gate 3 正式 Run ID 至少绑定：
 
 ---
 
+## 11. R1 收口：schema 版本、身份哈希与数据不变量
+
+G3-DESIGN-01-R1 把设计文档里的 schema 收口成可执行契约：
+
+**Schema 版本（全部显式）**：`query_plan_v1`、`route_decision_v1`、`evidence_hit_v1`、`evidence_bundle_v1`、`gate3_case_v1`、`query_plan_snapshot_v1`；merge policy `subquery_round_robin_v1`。
+
+**身份哈希（统一 canonical JSON + SHA-256[:12]）**：
+
+- `plan_id` = 规范化 QueryPlan 排除 plan_id 自身后的哈希（self-referential 循环依赖，自身不能参与自身）；
+- `query_plan_snapshot_id` = `{schema_version, evaluation_set_id, case_id 排序的 plans}`；
+- `gate3_config_id` = `Gate3ExperimentConfig` 规范化 JSON 哈希；
+- `gate3_run_id` = `{schema_version, gate3_config_id, corpus_id, evaluation_set_id, split, query_plan_snapshot_id, frozen_code_commit}`；
+- 都不含时间、路径、API Key、latency、实际输出/得分。
+
+**QueryPlan 跨字段不变量（fail-fast）**：
+
+- `no_retrieval`：retrieval_required=false、action=no_retrieval、subqueries=[]、无 RouteDecision、reason_code=NO_RETRIEVAL_NEEDED；
+- `single_retrieval`：retrieval_required=true、action=single_retrieval、subqueries=[]、一条 ROOT RouteDecision；
+- `decomposed_retrieval`：retrieval_required=true、action=decomposed_retrieval、subqueries=2~3、ID 连续唯一 sq1~sq3、required 全 true、每子问题一条 RouteDecision、不额外 ROOT；
+- fallback：Schema 无效/越界/空/重复 → 规范化为 single_retrieval + PLANNER_FALLBACK + subqueries=[] + single_bm25_original_query，再算 plan_id。
+
+**RouteDecision 精确映射**：删除模糊 `candidate_k`；改为 `retrieval_top_k=5` + `dense_candidate_k` / `sparse_candidate_k`。bm25/simple → null/null 直接 `retrieve(query, top_k=5)`；hybrid → 30/30（冻结 Hybrid control 候选池）。reason_code 封闭为 6 个枚举，未知拒绝。
+
+**Gate3Case 三种 answerability 不变量**：answerable（obligations 非空、顶层 relevant_files = 各 obligation 并集的排序去重、文件属于冻结语料）、unanswerable（retrieval_required=true、obligations/relevant_files 空、forbidden）、no_retrieval（retrieval_required=false、空、forbidden、评估零检索调用）。
+
+**holdout 会话隔离**：数据构建/Gold 审核阶段可读待封存 Case；sealed 后数据构建 Agent 停止，G3-PLAN/G3-DECOMP/G3-ADAPT 用新会话且不接收 holdout 内容；同一实现会话读入 holdout 即失效。这是流程隔离，不声称 OS 级访问控制。
+
+---
+
 ## 关键知识点速记
 
 - Gate 3 是**受控对照**不是"高级 RAG 炫技"；负结果也是正式结论。

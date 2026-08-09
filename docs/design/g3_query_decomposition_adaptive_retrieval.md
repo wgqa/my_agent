@@ -127,6 +127,16 @@ D:\学习\rag实战项目\rag数据集\benchmark_work\gate3\sealed\
 - holdout 原则上**只正式运行一次**；
 - 如果看到 holdout 逐 Case 结果后继续调规则，该 holdout 立即失效，必须建立新的 evaluation_set_id，不能继续用原结果证明泛化。
 
+**上下文隔离（session isolation）**：
+
+- 数据构建 / Gold 审核阶段**可以**读取待封存 Case（这是数据建设者的正当职责）；
+- sealed 之后，数据构建 Agent 必须**停止**；
+- 后续 G3-PLAN / G3-DECOMP / G3-ADAPT 必须使用**新的执行会话**；
+- 新会话不得接收 holdout 的 Query、Gold、文件内容或逐 Case 结果；
+- 用户与审计负责 Gold 技术判断和最终 split 拍板；
+- 若同一实现会话读取过 holdout，该 holdout 立即失效；
+- 这是**流程隔离**，不声称操作系统级访问控制。
+
 ---
 
 ## 4. 架构边界
@@ -208,7 +218,7 @@ QueryPlan 与 RouteDecision **必须分离**。
 | 字段 | 契约 |
 |---|---|
 | schema_version | 固定 `query_plan_v1` |
-| plan_id | 规范化 QueryPlan 的稳定哈希 |
+| plan_id | 规范化 QueryPlan 的稳定哈希（见 §5.2.1） |
 | original_query | 保留原问题，1～4000 字符 |
 | query_type | 固定枚举 |
 | retrieval_required | bool |
@@ -216,6 +226,20 @@ QueryPlan 与 RouteDecision **必须分离**。
 | reason_code | 固定枚举，不使用自由推理文本 |
 | subqueries | 0～3 条 |
 | fallback_policy | 固定 `single_bm25_original_query` |
+
+### 5.2.1 plan_id 哈希算法
+
+plan_id 的哈希 payload 是**规范化 QueryPlan，但排除 plan_id 字段本身**。任何对象都不能参与自身的身份哈希。
+
+算法：
+
+- payload 包含 `schema_version` 和其余规范化 QueryPlan 字段（`original_query`、`query_type`、`retrieval_required`、`action`、`reason_code`、`subqueries`、`fallback_policy`）；
+- dict key 按字典序（`sort_keys=True`）；
+- `subqueries` list 顺序具有语义，保持 `sq1 → sq3` 顺序，**不排序**；
+- canonical JSON：UTF-8、`ensure_ascii=False`、`sort_keys=True`、`separators=(",", ":")`；
+- SHA-256 取前 12 位小写十六进制；
+- `plan_id` 不参与自身哈希；
+- 时间、路径、对象地址、原始模型输出、latency 一律不参与 plan_id。
 
 ### 5.3 query_type 枚举
 
@@ -268,6 +292,54 @@ QueryPlan 与 RouteDecision **必须分离**。
 
 最大子问题数、最大轮数等限制属于**不可变执行配置**，不能由 LLM 输出并控制。任何模型输出都不能突破这些上限（见第 11 节硬预算）。
 
+### 5.9 QueryPlan 跨字段不变量（fail-fast）
+
+QueryPlan 是强类型对象，字段之间存在**跨字段不变量**，Schema 校验必须 fail-fast。违反任一不变量即视为 Schema 无效，回退为 `PLANNER_FALLBACK`（见下）。
+
+#### no_retrieval
+
+- `retrieval_required = false`
+- `action = no_retrieval`
+- `subqueries` 必须为空
+- 不生成任何 RouteDecision
+- `reason_code` 必须为 `NO_RETRIEVAL_NEEDED`
+
+#### single_retrieval
+
+- `retrieval_required = true`
+- `action = single_retrieval`
+- `subqueries` 必须为空
+- 只生成一条 `subquery_id=ROOT` 的 RouteDecision
+
+#### decomposed_retrieval
+
+- `retrieval_required = true`
+- `action = decomposed_retrieval`
+- `subqueries` 数量必须为 **2～3**
+- 子问题 ID 必须连续且唯一：`sq1`、`sq2`、`sq3`
+- v1 中所有生成的 `Subquery.required` 固定为 `true`
+- 每个子问题生成一条 RouteDecision
+- 不额外生成 ROOT 检索
+
+#### fallback 规范化
+
+Planner Schema 无效、越界、空结果或重复结果时，必须规范化为一个**合法的 single_retrieval QueryPlan**：
+
+- `retrieval_required = true`
+- `action = single_retrieval`
+- `reason_code = PLANNER_FALLBACK`
+- `subqueries = []`
+- `fallback_policy = single_bm25_original_query`
+
+随后再计算该 fallback QueryPlan 的 `plan_id`。
+
+#### unanswerable 与 no_retrieval 的区分
+
+`query_type = unanswerable_or_no_retrieval` 由 `retrieval_required` 区分：
+
+- `retrieval_required = false` → `no_retrieval`（不生成 RouteDecision）
+- `retrieval_required = true` → `unanswerable check`（允许检索一次以核实不可回答，Gate 3 只记录 Planner/Router 行为，拒答正确性属于 Gate 5）
+
 ---
 
 ## 6. RouteDecision Schema v1
@@ -280,9 +352,10 @@ QueryPlan 与 RouteDecision **必须分离**。
 | plan_id | 绑定规范化 QueryPlan |
 | subquery_id | `ROOT` 或 `sq1`～`sq3` |
 | selected_strategy | `bm25`、`simple`、`hybrid` |
-| reason_code | 枚举 |
-| candidate_k | 正整数，来自冻结配置 |
-| final_k | 固定为 5 |
+| reason_code | 封闭枚举（见 §6.4），未知值必须拒绝 |
+| retrieval_top_k | 固定为 5 |
+| dense_candidate_k | 正整数或 null（见 §6.4 映射） |
+| sparse_candidate_k | 正整数或 null（见 §6.4 映射） |
 | reranker_enabled | Gate 3 retrieval 第一版固定 `false` |
 | fallback_used | bool |
 | latency_ms | 观测事实，不进入配置身份 |
@@ -290,6 +363,7 @@ QueryPlan 与 RouteDecision **必须分离**。
 说明：
 
 - `simple` 是当前代码中 Dense Retriever 的正式策略名（`ExperimentConfig.retriever_strategy` 合法值为 `simple/hybrid/mmr/bm25`；`core/retriever/simple.py` 的 `SimpleRetriever` 即 Dense 检索器）。文档与配置必须沿用 `simple`，不能另造一个无法映射代码的 `dense` 配置值。
+- **删除模糊的单一 `candidate_k`**：不同策略的候选池语义不同（Hybrid 有双通道候选池，BM25/simple 没有），单一字段无法表达，改为 `dense_candidate_k` / `sparse_candidate_k` 显式分离。
 
 ### 6.1 Router v1 允许使用的信号
 
@@ -313,7 +387,42 @@ Router v1 只允许使用：
 - 默认 fallback 永远是 BM25；
 - Router 候选可以包含 BM25、simple（Dense）、Hybrid；
 - 但 Dense 或 Hybrid 是否真正进入最终规则，**必须由 dev 证据决定**；
-- 不因“Hybrid 更高级”默认选择 Hybrid。
+- 不因”Hybrid 更高级”默认选择 Hybrid。
+
+### 6.4 Retriever 精确映射与 reason_code 封闭
+
+每个 `selected_strategy` 精确映射到现有 Retriever 的确定性调用：
+
+#### bm25
+
+- `retrieval_top_k = 5`
+- `dense_candidate_k = null`
+- `sparse_candidate_k = null`
+- 直接映射 `BM25OnlyRetriever.retrieve(query, top_k=5)`
+
+#### simple
+
+- `retrieval_top_k = 5`
+- `dense_candidate_k = null`
+- `sparse_candidate_k = null`
+- 直接映射 `SimpleRetriever.retrieve(query, top_k=5)`
+
+#### hybrid
+
+- `retrieval_top_k = 5`
+- `dense_candidate_k = 30`
+- `sparse_candidate_k = 30`
+- 映射冻结 Hybrid control 的内部候选池（Gate 2 Hybrid control `3c613202e1ed` / `e27141a2b63e` 的检索参数）
+- 最终仍返回每个子问题 Top-5
+
+Route `reason_code` 封闭为以下枚举，未知 `reason_code` 必须拒绝：
+
+- `NO_RETRIEVAL`
+- `DEFAULT_BM25`
+- `EXACT_LEXICAL_BM25`
+- `DEV_RULE_SIMPLE`
+- `DEV_RULE_HYBRID`
+- `ROUTER_FALLBACK`
 
 ---
 
@@ -321,7 +430,7 @@ Router v1 只允许使用：
 
 ### 7.1 EvidenceHit
 
-至少保留：
+schema_version 固定 `evidence_hit_v1`。至少保留：
 
 - subquery_id；
 - chunk_id；
@@ -333,6 +442,18 @@ Router v1 只允许使用：
 - route reason_code。
 
 ### 7.2 EvidenceBundle
+
+schema_version 固定 `evidence_bundle_v1`；`merge_policy_version` 固定 `subquery_round_robin_v1`。
+
+EvidenceBundle 必须绑定：
+
+- `query_plan_snapshot_id` 或 `plan_id`；
+- 对应的 RouteDecision；
+- 每个子问题的原始命中；
+- subquery → chunks → documents 映射；
+- 去重后的最终唯一文档顺序；
+- `retrieval_top_k`；
+- `final_unique_document_k = 5`。
 
 至少保留：
 
@@ -412,6 +533,29 @@ Router v1 只允许使用：
 
 C（Decomposition + BM25）与 D（Decomposition + Adaptive Retrieval）的正式对照必须复用**同一份规范化 QueryPlan snapshot**，避免 LLM 两次输出不同而污染 Router 对照。只有 Router 这一变量允许不同。
 
+### 8.5 身份哈希：query_plan_snapshot_id、gate3_config_id、gate3_run_id
+
+全部身份使用同一 canonical JSON + SHA-256 前 12 位小写十六进制（UTF-8、`ensure_ascii=False`、`sort_keys=True`、`separators=(",", ":")`）。
+
+#### QueryPlan snapshot ID
+
+- schema_version 固定 `query_plan_snapshot_v1`；
+- payload 至少包含：`schema_version`、`evaluation_set_id`、按 `case_id` 排序的 plans；
+- 每项 plan 包含 `case_id`、`plan_id` 和排除 `plan_id` 后的规范化 plan；
+- 不含时间、路径、latency 与实际输出。
+
+#### gate3_config_id
+
+- `gate3_config_id = Gate3ExperimentConfig 规范化 JSON 的 SHA-256[:12]`；
+- 规范化 JSON 覆盖第 8.1 节全部身份绑定字段。
+
+#### gate3_run_id
+
+- schema_version 固定（沿用 Run 身份 schema）；
+- `gate3_run_id` 绑定：`schema_version`、`gate3_config_id`、`corpus_id`、`evaluation_set_id`、`split`、`query_plan_snapshot_id`、`frozen_code_commit`；
+- 使用 canonical JSON + SHA-256[:12]；
+- **不包含**：时间、绝对路径、API Key、latency、实际得分。
+
 ---
 
 ## 9. 实验矩阵
@@ -438,9 +582,9 @@ C（Decomposition + BM25）与 D（Decomposition + Adaptive Retrieval）的正�
 
 ## 10. Gate3Case 与指标
 
-### 10.1 Gate3Case 草案
+### 10.1 Gate3Case 数据不变量
 
-至少包含：
+schema_version 固定 `gate3_case_v1`。至少包含：
 
 - case_id；
 - query；
@@ -459,6 +603,43 @@ C（Decomposition + BM25）与 D（Decomposition + Adaptive Retrieval）的正�
 - description；
 - relevant_files；
 - required。
+
+#### 10.1.1 answerable 不变量
+
+- `retrieval_required = true`
+- `evidence_obligations` 非空
+- 每个 `required` obligation 的 `relevant_files` 非空
+- 顶层 `relevant_files` 必须等于所有 obligation `relevant_files` 的**排序去重并集**
+- 文件必须属于冻结 ExperimentCorpus
+
+#### 10.1.2 unanswerable 不变量
+
+- `retrieval_required = true`
+- `query_type = unanswerable_or_no_retrieval`
+- `evidence_obligations = []`
+- `relevant_files = []`
+- `decomposition_expected = forbidden`
+- 不参与 Hit/Recall/MRR/nDCG
+
+#### 10.1.3 no_retrieval 不变量
+
+- `retrieval_required = false`
+- `query_type = unanswerable_or_no_retrieval`
+- `evidence_obligations = []`
+- `relevant_files = []`
+- `decomposition_expected = forbidden`
+- 主要评估是否产生**零** Planner 后续检索调用
+
+#### 10.1.4 其他约束
+
+- `obligation_id` 在 Case 内唯一
+- `relevant_files` 排序、去重
+- `tags` 排序、去重
+- split 不进入 Case 本体，由 split Manifest 管理
+- dev 与 holdout 分别生成**独立 evaluation_set_id**
+- `evaluation_set_id` 必须绑定 `schema_version`、`corpus_id` 和按 `case_id` 排序的完整规范化 Case
+- 使用 canonical JSON + SHA-256[:12]
+- split Manifest 另有独立 `manifest_id`
 
 ### 10.2 Obligation 覆盖定义
 

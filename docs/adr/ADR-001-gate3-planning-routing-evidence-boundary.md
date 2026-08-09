@@ -125,3 +125,33 @@ Gate 3 在新 evaluation set 上重跑相同配置时生成**新的 Gate 3 Run A
 | R4 | 把 Gate 3 字段直接加进 Gate 2 `ExperimentConfig` | 改变已冻结的 experiment_id 身份语义，破坏 Gate 2 Artifact 的可复现绑定；跨域字段混入一个检索配置结构 |
 | R5 | 把所有 Planner/Router/Evidence 逻辑直接堆进 `ExperimentRunner` | 破坏 Gate 2 编排契约与 Artifact 稳定性；单阶段失败模型无法表达 PLAN_*/ROUTE_*/MERGE_* 等 Gate 3 失败类型 |
 | R6 | 让模型自由决定检索轮数和子问题数量 | 上限一旦由 LLM 决定，成本/时延/失败风险不可在实验前冻结，无法做受控对照；硬预算是"收益是否值得额外调用"唯一可测前提 |
+
+---
+
+## R1 补充：schema 与身份不变量收口
+
+G3-DESIGN-01-R1 收口了 schema 版本、身份哈希与数据不变量。以下四个"为什么"是 R1 的核心论证。
+
+### 为什么 plan_id 的哈希不能包含自身
+
+- plan_id 是规范化 QueryPlan 的 SHA-256[:12]。如果 payload 包含 plan_id 字段，那么在计算 plan_id 时又需要先知道 plan_id，形成**循环依赖**，哈希无法计算。
+- 任何"对象自指"的身份哈希都必须排除该字段本身。这是哈希函数的构造前提，不是可选优化。
+- 因此 payload 只含 `schema_version` 和其余规范化字段，plan_id 参与下游绑定（RouteDecision、EvidenceBundle、snapshot）但不参与自身。
+
+### 为什么 Schema 除字段类型外还需要跨字段不变量
+
+- 类型约束（如 `action` 是枚举、`subqueries` 长度 0-3）只保证**单个字段合法**，无法保证字段之间**组合后语义合法**。
+- 例如 `action=decomposed_retrieval` 但 `subqueries=[]` 时，每个字段都"合法"，但整体无意义——Retriever 无从执行。跨字段不变量把这些组合约束写成 fail-fast 规则（no_retrieval / single_retrieval / decomposed_retrieval / fallback），任何违反都回退 `PLANNER_FALLBACK`。
+- 没有跨字段不变量，畸形 QueryPlan 会进入执行层，产生无法归属的错误；有了它，错误在规划层就被拦截并规范化为合法的 fallback plan。
+
+### 为什么 BM25/simple 没有 Hybrid 式 candidate pool
+
+- Hybrid（Dense + BM25 双通道 RRF 融合）在融合前需要分别取两个通道的候选池再合并重排，所以有 `dense_candidate_k` / `sparse_candidate_k`（冻结为 30）。
+- BM25-only 与 Dense-only 是**单通道直达**：`BM25OnlyRetriever.retrieve(query, top_k=5)` 与 `SimpleRetriever.retrieve(query, top_k=5)` 直接返回最终结果，没有"先取候选池再融合"的中间步骤。
+- 用一个模糊的单一 `candidate_k` 无法表达"Hybrid 有双池、BM25/simple 无池"的差异。R1 删除 `candidate_k`，改用 `retrieval_top_k` + `dense_candidate_k` + `sparse_candidate_k`，让每个策略的候选语义显式、可映射到现有代码。
+
+### 为什么数据构建会话和实现会话必须分离
+
+- 数据构建 / Gold 审核阶段的正当职责就是**读取待封存 Case**（标注 Gold、拍板 split）。此时允许访问。
+- sealed 之后，任何"读取过 holdout 内容"的实现会话都等于用测试集信息调参——指标不再能证明泛化。因此数据构建 Agent 必须停止，后续 G3-PLAN/G3-DECOMP/G3-ADAPT 必须开**新的执行会话**，且新会话不接收 holdout 的 Query/Gold/文件/逐 Case 结果。
+- 这是**流程隔离**（谁在哪个阶段能碰什么），不声称操作系统级访问控制。它的效力来自纪律：一旦同一实现会话读入 holdout，该 holdout 立即失效。
