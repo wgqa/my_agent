@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from contextlib import asynccontextmanager
@@ -17,6 +18,15 @@ from api.schemas import (
     IndexResponse,
     HealthResponse,
 )
+
+logger = logging.getLogger(__name__)
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MiB
+UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
+MAX_FILENAME_LENGTH = 255
+ALLOWED_EXTENSIONS = (".txt", ".md", ".pdf", ".py", ".js", ".java")
+_WINDOWS_ILLEGAL_CHARS = set('<>:"|?*')
+
 
 pipeline: Optional[Pipeline] = None
 
@@ -70,34 +80,71 @@ def health():
     )
 
 
-@app.post("/index/file", response_model=IndexResponse)
-def index_file(file: UploadFile = File(...)):
-    p = _get_pipeline()
-
-    if not file.filename:
+def _validate_filename(filename: str) -> None:
+    if not filename:
         raise HTTPException(status_code=400, detail="No file provided")
-
-    suffix = os.path.splitext(file.filename)[1].lower()
-    if suffix not in (".txt", ".md", ".pdf", ".py", ".js", ".java"):
+    if filename in (".", ".."):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename: path separators are not allowed",
+        )
+    if any(ord(c) < 32 or ord(c) == 127 for c in filename):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename: control characters are not allowed",
+        )
+    if any(c in _WINDOWS_ILLEGAL_CHARS for c in filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if len(filename) > MAX_FILENAME_LENGTH:
+        raise HTTPException(status_code=400, detail="Invalid filename: too long")
+    suffix = os.path.splitext(filename)[1].lower()
+    if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported file type: {suffix}. Supported: .txt, .md, .pdf, .py, .js, .java",
         )
 
-    tmp_path = os.path.join(tempfile.gettempdir(), f"rag_{file.filename}")
+
+def _copy_upload(file_obj, dst_path: str, max_bytes: int) -> int:
+    total = 0
+    with open(dst_path, "wb") as out:
+        while True:
+            chunk = file_obj.read(UPLOAD_CHUNK_SIZE)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail="File too large (max 20 MiB)",
+                )
+            out.write(chunk)
+    return total
+
+
+@app.post("/index/file", response_model=IndexResponse)
+def index_file(file: UploadFile = File(...)):
+    p = _get_pipeline()
+    filename = file.filename or ""
+    _validate_filename(filename)
+
     try:
-        content = file.file.read()
-        with open(tmp_path, "wb") as f:
-            f.write(content)
-        result = p.index_file(tmp_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+        with tempfile.TemporaryDirectory(prefix="rag_upload_") as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, filename)
+            total = _copy_upload(file.file, tmp_path, MAX_UPLOAD_BYTES)
+            if total == 0:
+                raise HTTPException(status_code=400, detail="Empty file")
+            result = p.index_file(tmp_path)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail="Internal indexing error")
 
     return IndexResponse(
-        file_name=file.filename,
+        file_name=filename,
         chunks=result.get("chunks", 0),
         status=result.get("status", "success"),
     )

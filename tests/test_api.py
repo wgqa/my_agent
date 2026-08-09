@@ -1,4 +1,8 @@
+import os
+import tempfile
+
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 import api.app
@@ -140,3 +144,182 @@ class TestQuery:
         api.app.pipeline = None
         resp = client.post("/query", json={"question": "测试问题"})
         assert resp.status_code == 503
+
+
+class _RecordingReader:
+    """Fake file-like that fails if read() is called without an explicit size."""
+
+    def __init__(self, data):
+        self._data = data
+        self._pos = 0
+        self.sizes = []
+
+    def read(self, size=-1):
+        self.sizes.append(size)
+        if size is None or size < 0:
+            raise AssertionError("read() called without explicit size")
+        chunk = self._data[self._pos:self._pos + size]
+        self._pos += len(chunk)
+        return chunk
+
+
+class TestUploadSecurity:
+    def test_unicode_filename_uploads_ok(self, client):
+        resp = client.post(
+            "/index/file",
+            files={"file": ("测试文档.md", "内容".encode("utf-8"), "text/markdown")},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["file_name"] == "测试文档.md"
+
+    def test_slash_traversal_rejected_and_pipeline_not_called(self, client):
+        resp = client.post(
+            "/index/file",
+            files={"file": ("../evil.md", b"x", "text/markdown")},
+        )
+        assert resp.status_code == 400
+        api.app.pipeline.index_file.assert_not_called()
+
+    def test_backslash_traversal_rejected_and_pipeline_not_called(self, client):
+        resp = client.post(
+            "/index/file",
+            files={"file": ("..\\evil.md", b"x", "text/markdown")},
+        )
+        assert resp.status_code == 400
+        api.app.pipeline.index_file.assert_not_called()
+
+    def test_empty_file_returns_400_and_pipeline_not_called(self, client):
+        resp = client.post(
+            "/index/file",
+            files={"file": ("empty.md", b"", "text/markdown")},
+        )
+        assert resp.status_code == 400
+        api.app.pipeline.index_file.assert_not_called()
+
+    def test_file_over_limit_returns_413_and_pipeline_not_called(self, client, monkeypatch):
+        monkeypatch.setattr(api.app, "MAX_UPLOAD_BYTES", 16)
+        resp = client.post(
+            "/index/file",
+            files={"file": ("big.md", b"x" * 64, "text/markdown")},
+        )
+        assert resp.status_code == 413
+        api.app.pipeline.index_file.assert_not_called()
+
+    def test_pipeline_exception_returns_generic_500_without_leak(self, client):
+        p = api.app.pipeline
+
+        def boom(path):
+            raise RuntimeError("secret=super-secret at /var/secret/path")
+
+        p.index_file.side_effect = boom
+        resp = client.post(
+            "/index/file",
+            files={"file": ("x.md", b"data", "text/markdown")},
+        )
+        assert resp.status_code == 500
+        body = resp.text
+        assert "super-secret" not in body
+        assert "/var/secret/path" not in body
+
+    def test_temp_file_cleaned_after_response(self, client):
+        p = api.app.pipeline
+        captured = {}
+
+        def check_exists(path):
+            captured["path"] = path
+            assert os.path.exists(path), "temp file must exist during pipeline execution"
+            return {"status": "create", "document_id": "doc_mock", "chunks": 3}
+
+        p.index_file.side_effect = check_exists
+        resp = client.post(
+            "/index/file",
+            files={"file": ("cleanup.md", b"data", "text/markdown")},
+        )
+        assert resp.status_code == 200
+        assert not os.path.exists(captured["path"])
+        assert not os.path.exists(os.path.dirname(captured["path"]))
+
+    def test_consecutive_same_filename_gets_different_temp_paths(self, client):
+        p = api.app.pipeline
+        paths = []
+
+        def capture(path):
+            paths.append(path)
+            return {"status": "create", "document_id": "doc_mock", "chunks": 3}
+
+        p.index_file.side_effect = capture
+        for _ in range(2):
+            resp = client.post(
+                "/index/file",
+                files={"file": ("same.md", b"x", "text/markdown")},
+            )
+            assert resp.status_code == 200
+        assert len(paths) == 2
+        assert paths[0] != paths[1]
+
+    def test_response_keeps_original_filename_and_fields(self, client):
+        resp = client.post(
+            "/index/file",
+            files={"file": ("report.md", b"# hi", "text/markdown")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["file_name"] == "report.md"
+        assert data["chunks"] == 3
+        assert data["status"] == "create"
+
+    def test_validate_filename_rejects_path_separators_and_dots(self):
+        for bad in ("../evil.md", "..\\evil.md", "a/b.md", "a\\b.md", ".", ".."):
+            with pytest.raises(HTTPException) as ei:
+                api.app._validate_filename(bad)
+            assert ei.value.status_code == 400
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            'evil:name.md',
+            'evil<name.md',
+            'evil>name.md',
+            'evil"name.md',
+            'evil|name.md',
+            'evil?name.md',
+            'evil*name.md',
+        ],
+    )
+    def test_validate_filename_rejects_windows_illegal_chars(self, bad):
+        with pytest.raises(HTTPException) as ei:
+            api.app._validate_filename(bad)
+        assert ei.value.status_code == 400
+
+    @pytest.mark.parametrize(
+        "bad",
+        ["evil\x00name.md", "evil\nname.md", "evil\rname.md", "evil\tname.md"],
+    )
+    def test_validate_filename_rejects_control_chars(self, bad):
+        with pytest.raises(HTTPException) as ei:
+            api.app._validate_filename(bad)
+        assert ei.value.status_code == 400
+
+    def test_validate_filename_rejects_overlong_name(self):
+        with pytest.raises(HTTPException) as ei:
+            api.app._validate_filename("a" * 300 + ".md")
+        assert ei.value.status_code == 400
+
+    def test_chunked_copy_reads_with_explicit_size(self):
+        data = b"y" * (api.app.UPLOAD_CHUNK_SIZE * 2 + 50)
+        reader = _RecordingReader(data)
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "out.bin")
+            total = api.app._copy_upload(reader, path, api.app.MAX_UPLOAD_BYTES)
+        assert total == len(data)
+        assert reader.sizes
+        assert all(s is not None and s > 0 for s in reader.sizes)
+        assert len(reader.sizes) >= 3
+
+    def test_chunked_copy_stops_when_over_limit(self):
+        reader = _RecordingReader(b"z" * 100)
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "out.bin")
+            with pytest.raises(HTTPException) as ei:
+                api.app._copy_upload(reader, path, max_bytes=10)
+            assert ei.value.status_code == 413

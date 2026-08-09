@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（15 份）
+## CURRENT（16 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -41,6 +41,7 @@
 | 48 | [48-retrieval-metrics.md](48-retrieval-metrics.md) | 文档级指标与原子指标快照（当前基础设施） |
 | 49 | [49-experiment-result.md](49-experiment-result.md) | ExperimentResult 事实快照绑定（当前基础设施） |
 | 50 | [50-experiment-orchestrator.md](50-experiment-orchestrator.md) | 单实验端到端 Orchestrator（当前基础设施） |
+| 61 | [61-API上传安全边界.md](61-API上传安全边界.md) | API 上传安全边界（安全文件名 / 唯一临时目录 / 分块读取 / 20 MiB 上限 / 通用错误响应） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -107,6 +108,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–60 共 **61 份**，每份只出现一次：CURRENT 15 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 61。
+- 编号覆盖 00–61 共 **62 份**，每份只出现一次：CURRENT 16 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 62。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-09。
