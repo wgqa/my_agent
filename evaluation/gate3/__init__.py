@@ -1,5 +1,24 @@
-"""G3-DATA-02A + G3-DECOMP-04B-02A：Gate 3 评测集强类型契约与 Dev Planner 校准导出。"""
+"""G3-DATA-02A + G3-DECOMP-04B-02A + G3-ADAPT-06B：Gate 3 评测集/Planner 校准/
+Adaptive Dev 检索对照导出。"""
 
+from evaluation.gate3.adaptive_dev import (
+    GATE3_ADAPTIVE_DEV_MANIFEST_SCHEMA_VERSION,
+    GATE3_ADAPTIVE_DEV_METRICS_SCHEMA_VERSION,
+    GATE3_ADAPTIVE_DEV_RESULT_SCHEMA_VERSION,
+    GATE3_ADAPTIVE_DEV_SCHEMA_VERSION,
+    BM25OnlyCapabilityAdapter,
+    DeterministicNoopAnswerPort,
+    Gate3AdaptiveDevConfig,
+    SnapshotPlanner,
+    build_shared_index,
+    compute_group_metrics,
+    finalize_adaptive_dev,
+    load_corpus,
+    load_planner_snapshot,
+    run_adaptive_dev,
+    validate_identity,
+    write_adaptive_dev_artifacts,
+)
 from evaluation.gate3.evaluation_set import (
     ANSWERABILITY_VALUES,
     DECOMPOSITION_EXPECTED_VALUES,
@@ -64,4 +83,20 @@ __all__ = [
     "reanalyze_planner_dev_run",
     "write_analysis_artifacts",
     "finalize_analysis",
+    "GATE3_ADAPTIVE_DEV_SCHEMA_VERSION",
+    "GATE3_ADAPTIVE_DEV_METRICS_SCHEMA_VERSION",
+    "GATE3_ADAPTIVE_DEV_RESULT_SCHEMA_VERSION",
+    "GATE3_ADAPTIVE_DEV_MANIFEST_SCHEMA_VERSION",
+    "Gate3AdaptiveDevConfig",
+    "SnapshotPlanner",
+    "DeterministicNoopAnswerPort",
+    "BM25OnlyCapabilityAdapter",
+    "validate_identity",
+    "load_corpus",
+    "load_planner_snapshot",
+    "build_shared_index",
+    "compute_group_metrics",
+    "write_adaptive_dev_artifacts",
+    "finalize_adaptive_dev",
+    "run_adaptive_dev",
 ]
