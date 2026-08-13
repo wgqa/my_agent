@@ -287,6 +287,65 @@ class TestRetrievalAdapter:
             adapter.search("q", strategy="hybrid", top_k=5)
 
 
+class _HybridStub(HybridRetriever):
+    """只记录方法调用并返回带 rrf_score 结果的假 HybridRetriever。"""
+
+    def __init__(self):
+        super().__init__(embedding=object(), vector_store=object())
+        self.calls = []
+
+    def retrieve_sparse(self, query, top_k=5):
+        self.calls.append("retrieve_sparse")
+        return [
+            LoaderDocument(
+                content="x",
+                metadata={"id": "c1", "source_name": "a.md", "sparse_score": 0.7},
+            )
+        ]
+
+    def retrieve(self, query, top_k=5):
+        self.calls.append("retrieve")
+        return [
+            LoaderDocument(
+                content="y",
+                metadata={"id": "c2", "source_name": "b.md", "rrf_score": 0.9},
+            )
+        ]
+
+
+class TestAdapterHybrid:
+    def test_supported_strategies_declaration(self):
+        assert PipelineRetrievalAdapter(_HybridStub()).supported_strategies == (
+            "bm25",
+            "hybrid",
+        )
+        assert PipelineRetrievalAdapter(_bm25_retriever()).supported_strategies == (
+            "bm25",
+        )
+        assert PipelineRetrievalAdapter(object()).supported_strategies == ()
+
+    def test_bm25_dispatch_uses_sparse_score(self):
+        stub = _HybridStub()
+        adapter = PipelineRetrievalAdapter(stub)
+        docs = adapter.search("q", "bm25", 5)
+        assert stub.calls == ["retrieve_sparse"]
+        assert docs[0].chunk_id == "c1"
+        assert docs[0].score == 0.7  # sparse_score
+
+    def test_hybrid_dispatch_uses_rrf_score(self):
+        stub = _HybridStub()
+        adapter = PipelineRetrievalAdapter(stub)
+        docs = adapter.search("q", "hybrid", 5)
+        assert stub.calls == ["retrieve"]
+        assert docs[0].chunk_id == "c2"
+        assert docs[0].score == 0.9  # rrf_score
+
+    def test_hybrid_with_bm25only_unsupported(self):
+        adapter = PipelineRetrievalAdapter(_bm25_retriever())
+        with pytest.raises(UnsupportedRetrievalStrategyError):
+            adapter.search("q", "hybrid", 5)
+
+
 # ---------------------------------------------------------------------------
 # 5/6/7/8. PipelineAnswerAdapter grounded
 # ---------------------------------------------------------------------------
@@ -423,8 +482,9 @@ class _Planner(BaseQueryPlanner):
 
 
 class _Retriever:
-    def __init__(self, result):
+    def __init__(self, result, supported=()):
         self._result = result
+        self.supported_strategies = tuple(supported)
         self.calls = 0
 
     def search(self, q, strategy, top_k):

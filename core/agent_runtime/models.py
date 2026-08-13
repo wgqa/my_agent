@@ -15,10 +15,14 @@ import re
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
+from core.adaptive_retrieval import (
+    ADAPTIVE_RETRIEVAL_POLICY_VERSION,
+    STRATEGY_REASON_CODES,
+)
 from core.query_planning import PlannerOutcome
 
 # ---- schema 版本 ----
-ROUTE_DECISION_SCHEMA_VERSION = "route_decision_v1"
+ROUTE_DECISION_SCHEMA_VERSION = "route_decision_v2"
 EVIDENCE_BUNDLE_SCHEMA_VERSION = "evidence_bundle_v1"
 VERIFICATION_RESULT_SCHEMA_VERSION = "verification_result_v1"
 AGENT_RUN_RESULT_SCHEMA_VERSION = "agent_run_result_v1"
@@ -29,7 +33,7 @@ ROUTE_DECISION_ROUTES = (
     "single_retrieval",
     "decomposed_retrieval",
 )
-ROUTE_DECISION_STRATEGIES = ("none", "bm25")
+ROUTE_DECISION_STRATEGIES = ("none", "bm25", "hybrid")
 VERIFICATION_STATUSES = (
     "not_required",
     "supported",
@@ -48,6 +52,7 @@ AGENT_TRACE_EVENTS = (
     "planning_completed",
     "routing_completed",
     "retrieval_completed",
+    "retrieval_upgraded",
     "verification_completed",
     "generation_completed",
     "evidence_merged",
@@ -162,7 +167,7 @@ class AgentRunBudget:
 
     max_steps: int = 6
     max_planner_calls: int = 1
-    max_retrieval_calls: int = 3
+    max_retrieval_calls: int = 4
     max_generation_calls: int = 1
     max_evidence_items: int = 5
 
@@ -228,9 +233,10 @@ class Document:
 
 @dataclass(frozen=True)
 class RouteDecision:
-    """DeterministicRouter 由 QueryPlan 映射出的路由决策快照。
+    """DeterministicRouter 由 QueryPlan + Adaptive Policy 映射出的路由决策快照。
 
-    只读、不可变；不携带 plan 之外的语义，不生成子问题，不选 Hybrid/Dense。
+    只读、不可变；不携带 plan 之外的语义，不生成子问题。reason_code 表示
+    Planner 原因；strategy_reason_code 表示 Router 策略原因，两者不混用。
     """
 
     schema_version: str
@@ -238,6 +244,8 @@ class RouteDecision:
     retrieval_strategy: str
     queries: tuple[str, ...]
     reason_code: str
+    router_policy_version: str
+    strategy_reason_code: str
 
     def __post_init__(self) -> None:
         _require_type(self.schema_version, str, "schema_version")
@@ -264,14 +272,32 @@ class RouteDecision:
                 raise ValueError(f"queries[{i}] 必须是非空字符串")
         _require_non_empty_str(self.reason_code, "reason_code")
 
+        _require_type(
+            self.router_policy_version, str, "router_policy_version"
+        )
+        if self.router_policy_version != ADAPTIVE_RETRIEVAL_POLICY_VERSION:
+            raise ValueError(
+                f"router_policy_version 必须是 "
+                f"{ADAPTIVE_RETRIEVAL_POLICY_VERSION!r}，"
+                f"实际 {self.router_policy_version!r}"
+            )
+        _require_type(self.strategy_reason_code, str, "strategy_reason_code")
+        if self.strategy_reason_code not in STRATEGY_REASON_CODES:
+            raise ValueError(
+                f"strategy_reason_code 必须是 {'、'.join(STRATEGY_REASON_CODES)} "
+                f"之一，实际 {self.strategy_reason_code!r}"
+            )
+
         if self.route == "direct_answer":
             if self.retrieval_strategy != "none":
                 raise ValueError("direct_answer 要求 retrieval_strategy=none")
             if self.queries:
                 raise ValueError("direct_answer 要求 queries 为空")
         elif self.route == "single_retrieval":
-            if self.retrieval_strategy != "bm25":
-                raise ValueError("single_retrieval 要求 retrieval_strategy=bm25")
+            if self.retrieval_strategy not in ("bm25", "hybrid"):
+                raise ValueError(
+                    "single_retrieval 要求 retrieval_strategy=bm25 或 hybrid"
+                )
             if len(self.queries) != 1:
                 raise ValueError("single_retrieval 要求恰好 1 个 query")
         elif self.route == "decomposed_retrieval":
@@ -292,6 +318,8 @@ class RouteDecision:
             "retrieval_strategy": self.retrieval_strategy,
             "queries": list(self.queries),
             "reason_code": self.reason_code,
+            "router_policy_version": self.router_policy_version,
+            "strategy_reason_code": self.strategy_reason_code,
         }
 
 
@@ -463,7 +491,9 @@ class EvidenceBundle:
 
 @dataclass(frozen=True)
 class VerificationResult:
-    """最小规则版 Verifier 的结论；本阶段不宣称 claim-level Faithfulness。"""
+    """结构化覆盖结果：query-level evidence coverage，不宣称 claim-level
+    Faithfulness。coverage 字段在 decomposed 路径最有意义；direct/single
+    用默认空覆盖。Citation 合法性仍由 CitationValidator 强制执行。"""
 
     schema_version: str
     status: str
@@ -471,6 +501,12 @@ class VerificationResult:
     reason_code: str
     evidence_count: int
     warnings: tuple[str, ...]
+    required_query_ids: tuple[str, ...] = ()
+    covered_query_ids: tuple[str, ...] = ()
+    missing_query_ids: tuple[str, ...] = ()
+    coverage_complete: bool = True
+    upgrade_attempted: bool = False
+    upgrade_used: bool = False
 
     def __post_init__(self) -> None:
         _require_type(self.schema_version, str, "schema_version")
@@ -494,12 +530,23 @@ class VerificationResult:
             )
         _require_non_negative_int(self.evidence_count, "evidence_count")
         _require_str_tuple(self.warnings, "warnings")
+        _require_str_tuple(self.required_query_ids, "required_query_ids")
+        _require_str_tuple(self.covered_query_ids, "covered_query_ids")
+        _require_str_tuple(self.missing_query_ids, "missing_query_ids")
+        for label in (
+            "coverage_complete",
+            "upgrade_attempted",
+            "upgrade_used",
+        ):
+            _require_type(getattr(self, label), bool, label)
 
         if self.status == "not_required":
             if self.can_generate is not True:
                 raise ValueError("not_required 要求 can_generate=true")
             if self.reason_code != "NOT_REQUIRED":
                 raise ValueError("not_required 要求 reason_code=NOT_REQUIRED")
+            if self.coverage_complete is not True:
+                raise ValueError("not_required 要求 coverage_complete=true")
         elif self.status == "supported":
             if self.can_generate is not True:
                 raise ValueError("supported 要求 can_generate=true")
@@ -507,6 +554,8 @@ class VerificationResult:
                 raise ValueError("supported 要求 reason_code=SUPPORTED")
             if self.evidence_count <= 0:
                 raise ValueError("supported 要求 evidence_count>0")
+            if self.coverage_complete is not True:
+                raise ValueError("supported 要求 coverage_complete=true")
         elif self.status == "insufficient_evidence":
             if self.can_generate is not False:
                 raise ValueError(
@@ -520,6 +569,17 @@ class VerificationResult:
                     "insufficient_evidence 要求 reason_code=INSUFFICIENT_EVIDENCE "
                     "或 INCOMPLETE_SUBQUERY_EVIDENCE"
                 )
+            if self.coverage_complete is not False:
+                raise ValueError(
+                    "insufficient_evidence 要求 coverage_complete=false"
+                )
+            if (
+                self.reason_code == "INCOMPLETE_SUBQUERY_EVIDENCE"
+                and not self.missing_query_ids
+            ):
+                raise ValueError(
+                    "INCOMPLETE_SUBQUERY_EVIDENCE 要求 missing_query_ids 非空"
+                )
 
     def to_dict(self) -> dict:
         return {
@@ -529,6 +589,12 @@ class VerificationResult:
             "reason_code": self.reason_code,
             "evidence_count": self.evidence_count,
             "warnings": list(self.warnings),
+            "required_query_ids": list(self.required_query_ids),
+            "covered_query_ids": list(self.covered_query_ids),
+            "missing_query_ids": list(self.missing_query_ids),
+            "coverage_complete": self.coverage_complete,
+            "upgrade_attempted": self.upgrade_attempted,
+            "upgrade_used": self.upgrade_used,
         }
 
 

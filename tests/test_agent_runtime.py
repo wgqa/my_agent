@@ -13,6 +13,7 @@ import json
 
 import pytest
 
+from core.adaptive_retrieval import resolve_initial_strategy
 from core.agent_runtime import (
     AGENT_ANSWER_MODES,
     AGENT_REFUSAL_ANSWER,
@@ -80,6 +81,19 @@ def _plan(
     return PlannerOutcome(plan=plan, fallback_used=False, failure_code=None)
 
 
+def _plan_single_type(query_type: str, reason_code: str) -> PlannerOutcome:
+    """构造指定 query_type 的 single_retrieval PlannerOutcome。"""
+    plan = QueryPlan.create(
+        original_query="问题",
+        query_type=query_type,
+        retrieval_required=True,
+        action="single_retrieval",
+        reason_code=reason_code,
+        subqueries=(),
+    )
+    return PlannerOutcome(plan=plan, fallback_used=False, failure_code=None)
+
+
 def _doc(
     chunk_id,
     source_name: str,
@@ -114,9 +128,10 @@ class _FakePlanner(BaseQueryPlanner):
 
 
 class _FakeRetriever:
-    def __init__(self, documents=(), error=None):
+    def __init__(self, documents=(), error=None, supported=()):
         self.documents = list(documents)
         self.error = error
+        self.supported_strategies = tuple(supported)
         self.calls = 0
         self.calls_args: list[tuple] = []
 
@@ -146,8 +161,9 @@ class _FakeAnswerer:
 class _SequenceRetriever:
     """按调用顺序返回预置结果；某项为 Exception 时抛异常。"""
 
-    def __init__(self, results):
+    def __init__(self, results, supported=()):
         self._results = list(results)
+        self.supported_strategies = tuple(supported)
         self.calls = 0
         self.calls_args: list[tuple] = []
 
@@ -217,21 +233,25 @@ class TestDataContract:
     def test_route_decision_rejects_invalid_route(self):
         with pytest.raises(ValueError):
             RouteDecision(
-                schema_version="route_decision_v1",
+                schema_version="route_decision_v2",
                 route="hybrid",
                 retrieval_strategy="bm25",
                 queries=("q",),
                 reason_code="X",
+                router_policy_version="adaptive_retrieval_policy_v1",
+                strategy_reason_code="LEXICAL_EXACT_BM25",
             )
 
     def test_route_decision_rejects_invalid_strategy_for_route(self):
         with pytest.raises(ValueError):
             RouteDecision(
-                schema_version="route_decision_v1",
+                schema_version="route_decision_v2",
                 route="direct_answer",
                 retrieval_strategy="bm25",
                 queries=(),
                 reason_code="X",
+                router_policy_version="adaptive_retrieval_policy_v1",
+                strategy_reason_code="DIRECT_NO_RETRIEVAL",
             )
 
     def test_agent_run_result_rejects_invalid_status(self):
@@ -786,6 +806,243 @@ class TestEvidenceMerge:
         sq2 = [_doc("C", "c.md", "中分C", 1, document_id="dC", score=0.5)]
         bundle = merge_subquery_results([("sq1", sq1), ("sq2", sq2)], max_items=5)
         assert [i.chunk_id for i in bundle.items] == ["A", "C", "B"]
+
+
+# ---------------------------------------------------------------------------
+# G3-ADAPT-06A：Adaptive Policy 策略表
+# ---------------------------------------------------------------------------
+
+
+class TestAdaptivePolicy:
+    def test_policy_table(self):
+        # no_retrieval
+        assert resolve_initial_strategy(
+            _plan("no_retrieval").plan, ("bm25", "hybrid")
+        ) == ("none", "DIRECT_NO_RETRIEVAL")
+        # fact / code_symbol → bm25 lexical
+        assert resolve_initial_strategy(
+            _plan_single_type("fact", "SIMPLE_FACT").plan, ("bm25", "hybrid")
+        ) == ("bm25", "LEXICAL_EXACT_BM25")
+        assert resolve_initial_strategy(
+            _plan_single_type("code_symbol", "CODE_SYMBOL").plan, ("bm25", "hybrid")
+        ) == ("bm25", "LEXICAL_EXACT_BM25")
+        # hybrid-preferred single types
+        for qtype, reason in [
+            ("comparison", "COMPARISON_EVIDENCE"),
+            ("causal", "CAUSAL_SYNTHESIS"),
+            ("multi_entity", "MULTI_ENTITY_EVIDENCE"),
+            ("troubleshooting", "TROUBLESHOOTING_EVIDENCE"),
+            ("unanswerable_or_no_retrieval", "UNANSWERABLE_CHECK"),
+        ]:
+            assert resolve_initial_strategy(
+                _plan_single_type(qtype, reason).plan, ("bm25", "hybrid")
+            ) == ("hybrid", "COMPLEX_SEMANTIC_HYBRID")
+            assert resolve_initial_strategy(
+                _plan_single_type(qtype, reason).plan, ("bm25",)
+            ) == ("bm25", "CAPABILITY_FALLBACK_BM25")
+
+    def test_planner_fallback_fixed_bm25(self):
+        fallback = build_planner_fallback_outcome("q", "PLAN_INVALID_SCHEMA")
+        assert resolve_initial_strategy(
+            fallback.plan, ("bm25", "hybrid")
+        ) == ("bm25", "PLANNER_FALLBACK_BM25")
+
+    def test_decomposed_primary_bm25(self):
+        dec = _plan("decomposed_retrieval", subqueries=_subqueries("a", "b")).plan
+        assert resolve_initial_strategy(
+            dec, ("bm25", "hybrid")
+        ) == ("bm25", "DECOMPOSED_BM25_PRIMARY")
+
+
+# ---------------------------------------------------------------------------
+# G3-ADAPT-06A：单次 Evidence Rescue（single）
+# ---------------------------------------------------------------------------
+
+
+class TestSingleRescue:
+    def test_single_bm25_empty_upgrade_once(self):
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        seq = _SequenceRetriever([[], docs], supported=("bm25", "hybrid"))
+        runtime = AgentRuntime(
+            planner=_FakePlanner(_plan("single_retrieval")),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-rescue-ok",
+        )
+        result = runtime.run("问题")
+        assert result.status == "completed"
+        assert seq.calls == 2  # bm25 + 一次 hybrid rescue
+        assert seq.calls_args[0][1] == "bm25"
+        assert seq.calls_args[1][1] == "hybrid"
+        assert result.verification.upgrade_attempted is True
+        assert result.verification.upgrade_used is True
+        upgraded = [
+            t for t in result.trace if t.event_type == "retrieval_upgraded"
+        ]
+        assert len(upgraded) == 1  # 只升级一次，无循环
+        assert upgraded[0].data["subquery_id"] == "q0"
+        assert upgraded[0].data["upgrade_index"] == 1
+        assert upgraded[0].data["from_strategy"] == "bm25"
+        assert upgraded[0].data["to_strategy"] == "hybrid"
+
+    def test_single_rescue_still_empty_refused(self):
+        seq = _SequenceRetriever([[], []], supported=("bm25", "hybrid"))
+        runtime = AgentRuntime(
+            planner=_FakePlanner(_plan("single_retrieval")),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-rescue-fail",
+        )
+        result = runtime.run("问题")
+        assert result.status == "refused"
+        assert seq.calls == 2
+        assert result.verification.upgrade_attempted is True
+        assert result.verification.upgrade_used is False
+        assert result.verification.reason_code == "INSUFFICIENT_EVIDENCE"
+
+    def test_no_rescue_when_hybrid_unsupported(self):
+        seq = _SequenceRetriever([[]], supported=())
+        runtime = AgentRuntime(
+            planner=_FakePlanner(_plan("single_retrieval")),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-no-rescue",
+        )
+        result = runtime.run("问题")
+        assert result.status == "refused"
+        assert seq.calls == 1  # 只 bm25，无补检索
+
+    def test_single_complex_initial_hybrid_no_bm25(self):
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        seq = _SequenceRetriever([docs], supported=("bm25", "hybrid"))
+        runtime = AgentRuntime(
+            planner=_FakePlanner(_plan_single_type("comparison", "COMPARISON_EVIDENCE")),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-initial-hybrid",
+        )
+        result = runtime.run("问题")
+        assert result.status == "completed"
+        assert seq.calls == 1
+        assert seq.calls_args[0][1] == "hybrid"  # 初始即 hybrid，不先 bm25
+
+
+# ---------------------------------------------------------------------------
+# G3-ADAPT-06A：单次 Evidence Rescue（decomposed）
+# ---------------------------------------------------------------------------
+
+
+class TestDecomposedRescue:
+    def test_decomposed_one_empty_rescued(self):
+        doc1 = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        doc2 = [_doc("c2", "b.md", "内容B", rank=1, document_id="d2")]
+        seq = _SequenceRetriever([[], doc2, doc1], supported=("bm25", "hybrid"))
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan("decomposed_retrieval", subqueries=_subqueries("甲", "乙"))
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-dec-rescue",
+        )
+        result = runtime.run("问题")
+        assert result.status == "completed"
+        # sq1 bm25(空) + sq2 bm25 + sq1 hybrid rescue = 3 次
+        assert seq.calls == 3
+        assert [a[1] for a in seq.calls_args] == ["bm25", "bm25", "hybrid"]
+        assert result.verification.upgrade_attempted is True
+        assert result.verification.upgrade_used is True
+        assert result.verification.coverage_complete is True
+
+    def test_decomposed_two_empty_only_first_rescued_refused(self):
+        doc3 = [_doc("c3", "c.md", "内容C", rank=1, document_id="d3")]
+        doc1 = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        # sq1 bm25(空) sq2 bm25(空) sq3 bm25(命中) sq1 hybrid(命中) = 4 次
+        seq = _SequenceRetriever(
+            [[], [], doc3, doc1], supported=("bm25", "hybrid")
+        )
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan(
+                    "decomposed_retrieval",
+                    subqueries=_subqueries("甲", "乙", "丙"),
+                )
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-two-missing",
+        )
+        result = runtime.run("问题")
+        assert result.status == "refused"
+        assert seq.calls == 4  # 3 bm25 + 1 hybrid rescue（只救第一个缺失 sq1）
+        assert result.verification.reason_code == "INCOMPLETE_SUBQUERY_EVIDENCE"
+        assert result.verification.missing_query_ids == ("sq2",)
+        upgraded = [
+            t for t in result.trace if t.event_type == "retrieval_upgraded"
+        ]
+        assert len(upgraded) == 1  # 只补检索一次
+        assert upgraded[0].data["subquery_id"] == "sq1"
+
+    def test_decomposed_rescue_exception_stops(self):
+        doc2 = [_doc("c2", "b.md", "内容B", rank=1, document_id="d2")]
+        # sq1 bm25(空) sq2 bm25(命中) sq1 hybrid(异常)
+        seq = _SequenceRetriever(
+            [[], doc2, RuntimeError("rescue boom")], supported=("bm25", "hybrid")
+        )
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan("decomposed_retrieval", subqueries=_subqueries("甲", "乙"))
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-rescue-exc",
+        )
+        result = runtime.run("问题")
+        assert result.status == "failed"
+        assert result.error_code == "RETRIEVAL_FAILED"
+        assert seq.calls == 3  # 补检索异常后不再调用
+        assert result.trace[-1].event_type == "run_failed"
+
+    def test_decomposed_budget_two_retrievals_stops_rescue(self):
+        doc1 = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        budget = AgentRunBudget(max_retrieval_calls=2)
+        seq = _SequenceRetriever(
+            [[], doc1], supported=("bm25", "hybrid")
+        )
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan("decomposed_retrieval", subqueries=_subqueries("甲", "乙"))
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            budget=budget,
+            run_id_factory=lambda: "rid-budget-rescue",
+        )
+        result = runtime.run("问题")
+        assert result.status == "failed"
+        assert result.error_code == "BUDGET_EXCEEDED"
+        assert seq.calls == 2  # 2 bm25 后，补检索前预算超限
+        assert result.trace[-1].event_type == "run_failed"
+
+    def test_decomposed_trace_no_query_or_body(self):
+        body = "这是不能进 trace 的证据正文"
+        doc1 = [_doc("c1", "a.md", body, rank=1, document_id="d1")]
+        seq = _SequenceRetriever(
+            [[], doc1, doc1], supported=("bm25", "hybrid")
+        )
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan("decomposed_retrieval", subqueries=_subqueries("绝密子问题甲", "绝密子问题乙"))
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-rescue-body",
+        )
+        result = runtime.run("问题")
+        blob = json.dumps([t.to_dict() for t in result.trace], ensure_ascii=False)
+        assert body not in blob
+        assert "绝密子问题甲" not in blob
+        assert "绝密子问题乙" not in blob
 
 
 # ---------------------------------------------------------------------------

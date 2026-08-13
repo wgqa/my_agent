@@ -1,10 +1,10 @@
-"""G3-RUNTIME-05A：最小 Agent Runtime 离线垂直切片。
+"""G3-RUNTIME-05A/05C + G3-ADAPT-06A：Agent Runtime 执行与自适应检索。
 
-把已存在的 QueryPlan 通过确定性 Router 转成 RouteDecision，执行
-direct_answer / single_retrieval 两条路径（decomposed_retrieval 只路由
-不执行），构建 EvidenceBundle、跑最小规则 Verifier、写 RunTrace 并返回
-结构化 AgentRunResult。所有外部能力经 RetrievalPort / AnswerPort 注入；
-本模块不调用真实模型/检索/生成，不读 Holdout。
+把 QueryPlan 通过确定性 Router（Adaptive Policy v1）转成 RouteDecision v2，
+执行 direct_answer / single_retrieval / decomposed_retrieval（多子问题）；
+BM25 证据为空时最多一次 Hybrid 补检索；构建 EvidenceBundle、跑结构化
+Verifier、写脱敏 RunTrace 并返回 AgentRunResult。外部能力经 RetrievalPort /
+AnswerPort 注入；本模块不调用真实模型/检索/生成，不读 Holdout。
 """
 
 from __future__ import annotations
@@ -12,9 +12,14 @@ from __future__ import annotations
 import uuid
 from typing import Optional, Protocol, Sequence, runtime_checkable
 
+from core.adaptive_retrieval import (
+    ADAPTIVE_RETRIEVAL_POLICY_VERSION,
+    resolve_initial_strategy,
+)
 from core.agent_runtime.evidence import SUBQUERY_ROUND_ROBIN_V1, merge_subquery_results
 from core.agent_runtime.models import (
     AGENT_REFUSAL_ANSWER,
+    ROUTE_DECISION_SCHEMA_VERSION,
     AgentRunBudget,
     AgentRunResult,
     Document,
@@ -31,7 +36,9 @@ _SUBQUERY_IDS = ("sq1", "sq2", "sq3")
 
 @runtime_checkable
 class RetrievalPort(Protocol):
-    """检索端口契约：Adapter 需实现 search 并把结果映射为 Document 序列。"""
+    """检索端口契约：Adapter 需实现 search 与只读能力声明 supported_strategies。"""
+
+    supported_strategies: tuple[str, ...]
 
     def search(self, query: str, strategy: str, top_k: int) -> Sequence[Document]:
         """执行一次检索；strategy 与 top_k 由调用方给定。"""
@@ -53,55 +60,69 @@ class AnswerPort(Protocol):
 
 
 class DeterministicRouter:
-    """只根据已存在的 QueryPlan 路由，不调用 LLM、不改 plan、不生成子问题。
+    """只根据 QueryPlan + Adaptive Policy v1 路由，不调用 LLM、不改 plan。
 
-    固定映射：
-      action=no_retrieval        → direct_answer / none / ()
-      action=single_retrieval    → single_retrieval / bm25 / (original_query,)
-      action=decomposed_retrieval→ decomposed_retrieval / bm25 / sq1..sq3
+    初始检索策略由 resolve_initial_strategy 按 query_type/action 与
+    supported_strategies 确定性选择；策略原因单独记录在
+    strategy_reason_code，不与 Planner 的 reason_code 混用。
     """
 
-    def route(self, plan: QueryPlan) -> RouteDecision:
+    def route(
+        self, plan: QueryPlan, supported_strategies=()
+    ) -> RouteDecision:
         if not isinstance(plan, QueryPlan):
             raise TypeError(
                 f"route 输入必须是 QueryPlan，实际 {type(plan).__name__}"
             )
+        strategy, strategy_reason = resolve_initial_strategy(
+            plan, supported_strategies
+        )
         action = plan.action
         if action == "no_retrieval":
             return RouteDecision(
-                schema_version="route_decision_v1",
+                schema_version=ROUTE_DECISION_SCHEMA_VERSION,
                 route="direct_answer",
                 retrieval_strategy="none",
                 queries=(),
                 reason_code=plan.reason_code,
+                router_policy_version=ADAPTIVE_RETRIEVAL_POLICY_VERSION,
+                strategy_reason_code=strategy_reason,
             )
         if action == "single_retrieval":
             return RouteDecision(
-                schema_version="route_decision_v1",
+                schema_version=ROUTE_DECISION_SCHEMA_VERSION,
                 route="single_retrieval",
-                retrieval_strategy="bm25",
+                retrieval_strategy=strategy,
                 queries=(plan.original_query,),
                 reason_code=plan.reason_code,
+                router_policy_version=ADAPTIVE_RETRIEVAL_POLICY_VERSION,
+                strategy_reason_code=strategy_reason,
             )
         if action == "decomposed_retrieval":
             return RouteDecision(
-                schema_version="route_decision_v1",
+                schema_version=ROUTE_DECISION_SCHEMA_VERSION,
                 route="decomposed_retrieval",
                 retrieval_strategy="bm25",
                 queries=tuple(sub.query for sub in plan.subqueries),
                 reason_code=plan.reason_code,
+                router_policy_version=ADAPTIVE_RETRIEVAL_POLICY_VERSION,
+                strategy_reason_code=strategy_reason,
             )
         raise ValueError(f"未知 action {action!r}")  # pragma: no cover
 
 
 class MinimalEvidenceVerifier:
-    """最小规则版 Verifier：只做结构准入，不宣称 claim-level Faithfulness。
+    """结构化 Verifier：query-level evidence coverage，不宣称 claim-level
+    Faithfulness。
 
       no_retrieval               → not_required / can_generate=true
-      retrieval_required + 有证据 → supported / can_generate=true
-      retrieval_required + 无证据 → insufficient_evidence / can_generate=false
-      decomposed：任意 required 子问题原始结果为空 → insufficient_evidence
-      （INCOMPLETE_SUBQUERY_EVIDENCE）/ can_generate=false
+      single / decomposed 覆盖齐  → supported / can_generate=true
+      single 无证据               → insufficient_evidence（INSUFFICIENT_EVIDENCE）
+      decomposed 有 required 子问题缺证据 → insufficient_evidence
+        （INCOMPLETE_SUBQUERY_EVIDENCE）
+
+    当调用方传入 required_query_ids / covered_query_ids 时按覆盖计算
+    missing / coverage_complete；未传时回退到“Bundle 有无证据”的历史行为。
     """
 
     def verify(
@@ -109,8 +130,10 @@ class MinimalEvidenceVerifier:
         plan: QueryPlan,
         bundle: EvidenceBundle,
         *,
-        covered_query_count: Optional[int] = None,
-        required_query_count: Optional[int] = None,
+        required_query_ids=(),
+        covered_query_ids=(),
+        upgrade_attempted: bool = False,
+        upgrade_used: bool = False,
     ) -> VerificationResult:
         if plan.action == "no_retrieval":
             return VerificationResult(
@@ -121,20 +144,46 @@ class MinimalEvidenceVerifier:
                 evidence_count=len(bundle.items),
                 warnings=(),
             )
-        if plan.action == "decomposed_retrieval":
-            if (
-                covered_query_count is not None
-                and required_query_count is not None
-                and covered_query_count < required_query_count
-            ):
+        if required_query_ids:
+            missing = [
+                qid for qid in required_query_ids if qid not in covered_query_ids
+            ]
+            coverage_complete = (not missing) and bool(bundle.items)
+            if coverage_complete:
                 return VerificationResult(
                     schema_version="verification_result_v1",
-                    status="insufficient_evidence",
-                    can_generate=False,
-                    reason_code="INCOMPLETE_SUBQUERY_EVIDENCE",
+                    status="supported",
+                    can_generate=True,
+                    reason_code="SUPPORTED",
                     evidence_count=len(bundle.items),
                     warnings=(),
+                    required_query_ids=tuple(required_query_ids),
+                    covered_query_ids=tuple(covered_query_ids),
+                    missing_query_ids=(),
+                    coverage_complete=True,
+                    upgrade_attempted=upgrade_attempted,
+                    upgrade_used=upgrade_used,
                 )
+            reason = (
+                "INCOMPLETE_SUBQUERY_EVIDENCE"
+                if plan.action == "decomposed_retrieval"
+                else "INSUFFICIENT_EVIDENCE"
+            )
+            return VerificationResult(
+                schema_version="verification_result_v1",
+                status="insufficient_evidence",
+                can_generate=False,
+                reason_code=reason,
+                evidence_count=len(bundle.items),
+                warnings=(),
+                required_query_ids=tuple(required_query_ids),
+                covered_query_ids=tuple(covered_query_ids),
+                missing_query_ids=tuple(missing),
+                coverage_complete=False,
+                upgrade_attempted=upgrade_attempted,
+                upgrade_used=upgrade_used,
+            )
+        # 历史回退：未提供覆盖信息时按 Bundle 有无证据判断。
         if bundle.items:
             return VerificationResult(
                 schema_version="verification_result_v1",
@@ -151,18 +200,18 @@ class MinimalEvidenceVerifier:
             reason_code="INSUFFICIENT_EVIDENCE",
             evidence_count=0,
             warnings=(),
+            coverage_complete=False,
         )
 
 
 class AgentRuntime:
-    """最小离线 Agent Runtime。
+    """Agent Runtime：执行 direct/single/decomposed，自适应检索 + 单次补检索。
 
     构造注入 BaseQueryPlanner / RetrievalPort / AnswerPort / AgentRunBudget /
     可选 run_id_factory。run() 每次独立计数（每 run 各 Port 预算重置），
     外部 Port 调用前都检查预算；异常不吞掉，转成结构化 failed result，
-    Trace 只记录异常类型名。
-
-    本阶段 decomposed_retrieval 只路由为 deferred，不静默降级成单问题检索。
+    Trace 只记录异常类型名。decomposed 多子问题执行；BM25 证据为空时最多
+    一次 Hybrid 补检索，不静默降级、不无限循环。
     """
 
     def __init__(
@@ -338,14 +387,19 @@ class AgentRuntime:
         )
         plan = outcome.plan
 
-        # ---- 确定性路由 ----
-        route = self._router.route(plan)
+        # ---- 确定性路由（Adaptive Policy v1）----
+        supported_strategies = tuple(
+            getattr(self._retrieval_port, "supported_strategies", ())
+        )
+        route = self._router.route(plan, supported_strategies)
         emit(
             "routing_completed",
             "routing completed",
             {
                 "route": route.route,
                 "retrieval_strategy": route.retrieval_strategy,
+                "strategy_reason_code": route.strategy_reason_code,
+                "router_policy_version": route.router_policy_version,
                 "query_count": len(route.queries),
             },
         )
@@ -396,15 +450,18 @@ class AgentRuntime:
                 error_code=None,
             )
 
-        # ---- single_retrieval：单次 BM25 检索 ----
+        # ---- single_retrieval：初始策略检索 + 至多一次 Hybrid 补检索 ----
         if route.route == "single_retrieval":
+            initial_strategy = route.retrieval_strategy
+            upgrade_attempted = False
+            upgrade_used = False
             if not ensure_budget("retrieval"):
                 return budget_failed(outcome, route, None, None)
             retrieval_calls += 1
             steps += 1
             try:
                 documents = self._retrieval_port.search(
-                    question, strategy="bm25", top_k=top_k
+                    question, strategy=initial_strategy, top_k=top_k
                 )
                 documents = tuple(documents)
             except Exception as exc:
@@ -415,8 +472,44 @@ class AgentRuntime:
             emit(
                 "retrieval_completed",
                 "retrieval completed",
-                {"strategy": "bm25", "documents_returned": len(documents)},
+                {
+                    "strategy": initial_strategy,
+                    "documents_returned": len(documents),
+                    "retrieval_call_index": retrieval_calls,
+                },
             )
+            if (
+                not documents
+                and initial_strategy == "bm25"
+                and "hybrid" in supported_strategies
+            ):
+                if not ensure_budget("retrieval"):
+                    return budget_failed(outcome, route, None, None)
+                retrieval_calls += 1
+                steps += 1
+                upgrade_attempted = True
+                try:
+                    documents = self._retrieval_port.search(
+                        question, strategy="hybrid", top_k=top_k
+                    )
+                    documents = tuple(documents)
+                except Exception as exc:
+                    return run_failed(
+                        "RETRIEVAL_FAILED", type(exc).__name__,
+                        outcome, route, None, None,
+                    )
+                upgrade_used = bool(documents)
+                emit(
+                    "retrieval_upgraded",
+                    "retrieval upgraded",
+                    {
+                        "from_strategy": "bm25",
+                        "to_strategy": "hybrid",
+                        "subquery_id": "q0",
+                        "upgrade_index": 1,
+                        "documents_returned": len(documents),
+                    },
+                )
             try:
                 bundle = EvidenceBundle.from_documents(
                     documents,
@@ -430,7 +523,14 @@ class AgentRuntime:
                     "RETRIEVAL_FAILED", type(exc).__name__,
                     outcome, route, None, None,
                 )
-            verification = self._verifier.verify(plan, bundle)
+            verification = self._verifier.verify(
+                plan,
+                bundle,
+                required_query_ids=("q0",),
+                covered_query_ids=("q0",) if bundle.items else (),
+                upgrade_attempted=upgrade_attempted,
+                upgrade_used=upgrade_used,
+            )
             emit(
                 "verification_completed",
                 "verification completed",
@@ -438,6 +538,8 @@ class AgentRuntime:
                     "status": verification.status,
                     "can_generate": verification.can_generate,
                     "evidence_count": verification.evidence_count,
+                    "coverage_complete": verification.coverage_complete,
+                    "missing_query_ids": list(verification.missing_query_ids),
                 },
             )
             if verification.can_generate:
@@ -488,11 +590,12 @@ class AgentRuntime:
                 error_code=None,
             )
 
-        # ---- decomposed_retrieval：多子问题串行检索 + round-robin 合并 ----
+        # ---- decomposed_retrieval：多子问题串行检索 + 至多一次 Hybrid 补检索 ----
         query_results = []
-        covered = 0
+        missing = []
         sub_ids = _SUBQUERY_IDS[: len(route.queries)]
-        for sub_id, sub_query in zip(sub_ids, route.queries):
+        sub_queries = list(route.queries)
+        for sub_id, sub_query in zip(sub_ids, sub_queries):
             if not ensure_budget("retrieval"):
                 return budget_failed(outcome, route, None, None)
             retrieval_calls += 1
@@ -518,8 +621,42 @@ class AgentRuntime:
                 },
             )
             query_results.append((sub_id, documents))
-            if documents:
-                covered += 1
+            if not documents:
+                missing.append(sub_id)
+
+        upgrade_attempted = False
+        upgrade_used = False
+        if missing and "hybrid" in supported_strategies:
+            first_missing = missing[0]
+            idx = sub_ids.index(first_missing)
+            if not ensure_budget("retrieval"):
+                return budget_failed(outcome, route, None, None)
+            retrieval_calls += 1
+            steps += 1
+            upgrade_attempted = True
+            try:
+                rescued = self._retrieval_port.search(
+                    sub_queries[idx], strategy="hybrid", top_k=top_k
+                )
+                rescued = tuple(rescued)
+            except Exception as exc:
+                return run_failed(
+                    "RETRIEVAL_FAILED", type(exc).__name__,
+                    outcome, route, None, None,
+                )
+            upgrade_used = bool(rescued)
+            emit(
+                "retrieval_upgraded",
+                "subquery retrieval upgraded",
+                {
+                    "from_strategy": "bm25",
+                    "to_strategy": "hybrid",
+                    "subquery_id": first_missing,
+                    "upgrade_index": 1,
+                    "documents_returned": len(rescued),
+                },
+            )
+            query_results[idx] = (first_missing, rescued)
 
         merge_stats: dict = {}
         try:
@@ -533,6 +670,9 @@ class AgentRuntime:
                 "RETRIEVAL_FAILED", type(exc).__name__,
                 outcome, route, None, None,
             )
+        covered_ids = tuple(
+            sub_id for sub_id, _docs in query_results if _docs
+        )
         emit(
             "evidence_merged",
             "evidence merged",
@@ -546,15 +686,17 @@ class AgentRuntime:
                 "final_unique_count": len(bundle.items),
                 "duplicate_count": merge_stats.get("duplicate_count", 0),
                 "truncated": merge_stats.get("truncated", False),
-                "covered_query_count": covered,
+                "covered_query_count": len(covered_ids),
                 "required_query_count": len(query_results),
             },
         )
         verification = self._verifier.verify(
             plan,
             bundle,
-            covered_query_count=covered,
-            required_query_count=len(query_results),
+            required_query_ids=tuple(sub_ids),
+            covered_query_ids=covered_ids,
+            upgrade_attempted=upgrade_attempted,
+            upgrade_used=upgrade_used,
         )
         emit(
             "verification_completed",
@@ -563,6 +705,8 @@ class AgentRuntime:
                 "status": verification.status,
                 "can_generate": verification.can_generate,
                 "evidence_count": verification.evidence_count,
+                "coverage_complete": verification.coverage_complete,
+                "missing_query_ids": list(verification.missing_query_ids),
             },
         )
         if verification.can_generate:

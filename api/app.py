@@ -102,20 +102,22 @@ def _get_agent_runtime() -> AgentRuntime:
 
 
 def _build_agent_response(result) -> AgentQueryResponse:
+    cited = set(result.sources)
     sources = []
     for item in (result.evidence_bundle.items if result.evidence_bundle else ()):
-        sources.append(
-            AgentSourceItem(
-                citation_id=item.citation_id,
-                chunk_id=item.chunk_id,
-                document_id=item.document_id,
-                source=item.source_name,
-                content=item.content[:200],
-                score=item.score,
-                rank=item.rank,
-                query_id=item.query_id,
+        if item.citation_id in cited:
+            sources.append(
+                AgentSourceItem(
+                    citation_id=item.citation_id,
+                    chunk_id=item.chunk_id,
+                    document_id=item.document_id,
+                    source=item.source_name,
+                    content=item.content[:200],
+                    score=item.score,
+                    rank=item.rank,
+                    query_id=item.query_id,
+                )
             )
-        )
     return AgentQueryResponse(
         schema_version="agent_query_response_v1",
         run_id=result.run_id,

@@ -76,36 +76,59 @@ def _extract_direct_content(response: object) -> str:
 
 
 class PipelineRetrievalAdapter:
-    """把现有 Retriever 包装成 RetrievalPort（当前只支持 strategy=bm25）。
+    """把现有 Retriever 包装成 RetrievalPort（支持 bm25 / hybrid）。
 
-    HybridRetriever → retrieve_sparse()；BM25OnlyRetriever → retrieve()；
-    其他 Retriever → UnsupportedRetrievalStrategyError。loader.Document →
-    Runtime Document 映射：metadata.id → chunk_id、document_id → document_id、
-    source_name/source → source_name、sparse_score → score；rank 从 1 开始；
-    缺失字段保持 None；source_name 缺失时 fail-fast（禁止虚构来源）。
+    能力声明 supported_strategies：HybridRetriever → ("bm25", "hybrid")；
+    BM25OnlyRetriever → ("bm25",)；其他 → ()。
+    bm25 + HybridRetriever → retrieve_sparse()；hybrid + HybridRetriever →
+    retrieve()（真实 Dense+Sparse+RRF）；bm25 + BM25OnlyRetriever →
+    retrieve()；其余组合抛 UnsupportedRetrievalStrategyError。
+    Hybrid 结果的 score 用真实 rrf_score；BM25 用 sparse_score，不得虚构。
     """
 
     def __init__(self, retriever) -> None:
         self._retriever = retriever
+        if isinstance(retriever, HybridRetriever):
+            self._supported = ("bm25", "hybrid")
+        elif isinstance(retriever, BM25OnlyRetriever):
+            self._supported = ("bm25",)
+        else:
+            self._supported = ()
+
+    @property
+    def supported_strategies(self) -> tuple[str, ...]:
+        return self._supported
 
     def search(
         self, query: str, strategy: str, top_k: int
     ) -> Sequence[RuntimeDocument]:
-        if strategy != "bm25":
-            raise UnsupportedRetrievalStrategyError(
-                f"当前只支持 strategy=bm25，实际 {strategy!r}"
-            )
         retriever = self._retriever
-        if isinstance(retriever, HybridRetriever) and hasattr(
-            retriever, "retrieve_sparse"
-        ):
-            raw_docs = retriever.retrieve_sparse(query, top_k=top_k)
-        elif isinstance(retriever, BM25OnlyRetriever):
-            raw_docs = retriever.retrieve(query, top_k=top_k)
+        if strategy == "bm25":
+            if isinstance(retriever, HybridRetriever) and hasattr(
+                retriever, "retrieve_sparse"
+            ):
+                raw_docs = retriever.retrieve_sparse(query, top_k=top_k)
+                score_key = "sparse_score"
+            elif isinstance(retriever, BM25OnlyRetriever):
+                raw_docs = retriever.retrieve(query, top_k=top_k)
+                score_key = "sparse_score"
+            else:
+                raise UnsupportedRetrievalStrategyError(
+                    f"不支持的 Retriever：{type(retriever).__name__}（bm25 只支持 "
+                    "HybridRetriever 与 BM25OnlyRetriever）"
+                )
+        elif strategy == "hybrid":
+            if isinstance(retriever, HybridRetriever):
+                raw_docs = retriever.retrieve(query, top_k=top_k)
+                score_key = "rrf_score"
+            else:
+                raise UnsupportedRetrievalStrategyError(
+                    f"不支持的 Retriever：{type(retriever).__name__}（hybrid "
+                    "只支持 HybridRetriever）"
+                )
         else:
             raise UnsupportedRetrievalStrategyError(
-                f"不支持的 Retriever：{type(retriever).__name__}（只支持 "
-                "HybridRetriever 的 BM25 与 BM25OnlyRetriever）"
+                f"不支持的 strategy {strategy!r}（只支持 bm25 / hybrid）"
             )
         mapped = []
         for rank, doc in enumerate(raw_docs, 1):
@@ -114,18 +137,20 @@ class PipelineRetrievalAdapter:
                     f"检索结果每项必须是 loader.Document，实际 "
                     f"{type(doc).__name__}"
                 )
-            mapped.append(self._map_document(doc, rank))
+            mapped.append(self._map_document(doc, rank, score_key))
         return tuple(mapped)
 
     @staticmethod
-    def _map_document(doc: LoaderDocument, rank: int) -> RuntimeDocument:
+    def _map_document(
+        doc: LoaderDocument, rank: int, score_key: str = "sparse_score"
+    ) -> RuntimeDocument:
         meta = doc.metadata or {}
         source_name = meta.get("source_name", meta.get("source"))
         if source_name is None or not str(source_name).strip():
             raise ValueError("检索结果缺少 source_name，禁止虚构来源")
         chunk_id = meta.get("id")
         document_id = meta.get("document_id")
-        score = meta.get("sparse_score")
+        score = meta.get(score_key)
         return RuntimeDocument(
             chunk_id=chunk_id,
             document_id=document_id,

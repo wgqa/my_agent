@@ -659,6 +659,8 @@ class TestAgentQuery:
         assert data["status"] == "completed"
         assert data["error_code"] is None
         assert data["route"]["route"] == "decomposed_retrieval"
+        assert data["route"]["router_policy_version"] == "adaptive_retrieval_policy_v1"
+        assert data["route"]["strategy_reason_code"] == "DECOMPOSED_BM25_PRIMARY"
         assert data["verification"]["reason_code"] == "SUPPORTED"
         assert len(data["sources"]) == 2
         by_citation = {s["citation_id"]: s for s in data["sources"]}
@@ -680,6 +682,7 @@ class TestAgentQuery:
         assert data["status"] == "refused"
         assert data["answer"] == "现有资料不足，无法可靠回答该问题。"
         assert data["verification"]["reason_code"] == "INCOMPLETE_SUBQUERY_EVIDENCE"
+        assert data["sources"] == []  # refused 的 API sources 必须为空
         assert gen.calls == 0
 
     def test_not_initialized_503(self, client, monkeypatch):
