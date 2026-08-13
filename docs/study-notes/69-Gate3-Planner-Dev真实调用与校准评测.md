@@ -152,6 +152,52 @@ A：本任务只做 Planning 层。obligation coverage、Hit@5、Recall、MRR、
 
 ---
 
+## 16. R1 修正与补充
+
+R1（commit b8ad220，离线重分析 analysis_id=`4630da4f4e38`，**未重跑模型**）修正了 04B-02A 的评测口径与实现：
+
+### 16.1 条件错误率 vs 总体发生占比
+
+R0 把 unnecessary/missed 的分母都写成了 `case_count`（24），那是 **overall case rate（总体发生占比）**。更准确的 **conditional rate（条件错误率）** 分母应是"**有资格发生该错误的 Case 数**"：
+
+- unnecessary 的资格 = `decomposition_expected=forbidden`（8 条）：`2/8 = 0.25`
+- missed 的资格 = `decomposition_expected=required`（16 条）：`1/16 = 0.0625`
+
+R1 同时输出两种口径：`unnecessary_decomposition_rate=0.25`（条件）、`unnecessary_decomposition_overall_case_rate=0.083`（总体）；`missed_decomposition_rate=0.0625`（条件）、`missed_decomposition_overall_case_rate=0.042`（总体）。**headline 用条件口径 0.25/0.0625**。当资格数=0 时条件 rate 输出 `null`，不伪装成 0。R0 的 0.083/0.042 是历史 all-case incidence，如实保留不就地篡改。
+
+### 16.2 为什么不能就地覆盖错误的 Artifact
+
+R0 的 planner_metrics.json（SHA `4b1ec88b...`）记录了旧口径 0.083/0.042。如果直接改它，会破坏 run 的可复现身份（SHA 变、run_id 语义被污染）。正确做法：**R0 Artifact 冻结不动**，用新的离线分析（analysis_id）基于 R0 原始 24 条 Planner 输出重新计算，输出到独立 analysis 目录。这就是"错误指标作为历史事实保留，不就地篡改"。
+
+### 16.3 execution run identity 与 offline analysis identity
+
+- **run identity（497808269bdd）**：绑定 execution 配置（source_commit/corpus/Dev/Prompt/params），v2 还绑定 `gate3_dataset_freeze_id` 与 `dev_manifest_sha256`。
+- **analysis identity（4630da4f4e38）**：独立绑定 `analysis_source_commit`、parent_run_id、parent source_commit、parent planner_results SHA、parent result.json SHA、corpus/Dev/manifest/freeze 身份与 metrics schema 版本。
+
+两者不同：execution identity 标识"这次真实跑过什么"；analysis identity 标识"这次离线分析是基于哪个冻结快照、用哪个代码版本算的"。analysis_id 变化条件与 run_id 正交，测试硬编码验证了"analysis source commit / parent SHA 变化 → analysis_id 必变"。
+
+### 16.4 manifest 为什么不能只是"传入但不用"
+
+`--dev-manifest` 是冻结身份的权威来源（freeze_id、dev evaluation_set_id、dev JSONL SHA、case_count 等）。如果只是传参不用，就失去了交叉验证的意义。R1 的 CLI **真正读取** manifest，校验其 SHA-256 与全部关键字段，并与实际 corpus、Dev JSONL、Gate3EvaluationSet 四者交叉验证；任何缺失/错值都在 Planner 调用前 fail-fast。
+
+### 16.5 evidence_target 教训（g3q010/g3q014）
+
+evidence_target 的语义是"**只描述所需证据，不写答案**"。g3q010 的 target 写了"向量空间不一致、旧索引失效"、g3q014 写了"点积过大导致 softmax 梯度消失"——这些是答案性断言，泄漏了结论。修正版把这两条标记为 WARN。04B-02B 可评估在 Prompt 中强化该措辞。
+
+### 16.6 修正后人工审查统计
+
+| 维度 | PASS | WARN | FAIL | N/A |
+|---|--:|--:|--:|--:|
+| new_entity | 21 | 0 | 0 | 3 |
+| comparison_object_preservation | 6 | 0 | 0 | 18 |
+| semantic_duplicate_subquery | 17 | 0 | 0 | 7 |
+| evidence_target_quality | 15 | 2 | 0 | 7 |
+
+- comparison 6 PASS = 5 条 Gold comparison + g3q033 的 predicted comparison（不是"6 个 Gold comparison"）。
+- semantic_duplicate 的 7 条 N/A = 3 条 fallback + 4 条 single/no_retrieval（无 subqueries）；R0 误标为 PASS，修正为 N/A。
+
+---
+
 ## 边界声明
 
 - 本 baseline 只覆盖公开 Dev 24 Case，不推广为 Holdout 或跨语料泛化结论。

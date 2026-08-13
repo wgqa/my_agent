@@ -168,14 +168,15 @@ Gate 3 分成四层，禁止把 Planner、Router 或 Evidence 业务逻辑直接
 - **PlannerCallMetadata**：记录 provider/model/prompt_version/prompt_sha256/call_count/tokens/latency_ms，作为观测事实，**不进入 plan_id**。
 - **当前未实现**：运行时语义新实体检测、比较对象语义保持检测、语义近义子问题检测（属 04B-02）；**当前未运行** Dev/Holdout 指标；04B-01/R1 仍为 REVIEW PENDING。
 
-#### 4.1.2 04B-02A 实现事实（Dev Planner 校准与真实 baseline）
+#### 4.1.2 04B-02A + R1 实现事实（Dev Planner 校准与真实 baseline）
 
 - **可复现 Runner**：`evaluation/gate3/planner_dev.py`（Gate3PlannerDevConfig/CaseResult/Metrics/DevResult/Runner）+ `scripts/run_gate3_planner_dev.py`；按 case_id 升序、每 Case 恰好一次 `planner.plan(case.query)`；Gold 只在模型调用后用于指标。
-- **run identity**：`planner_dev_run_id` = canonical JSON（schema_version/source_commit/corpus_id/evaluation_set_id/dev_jsonl_sha256/provider/model/prompt_version/prompt_sha256/temperature/max_tokens/timeout/max_retries）SHA-256[:12]；不绑定 API Key/base_url/路径/时间/latency。
-- **真实 baseline（run_id 497808269bdd）**：provider=deepseek、model=deepseek-chat、Prompt gate3_planner_prompt_v1、source_commit=ede4ec6d；24/24 Case、24 次 Planner 调用、0 timeout、0 provider_error；schema validity 0.875、fallback 0.125（全 PLAN_INVALID_SCHEMA）、query_type exact all 0.667 / non-fallback 0.762、retrieval_required 0.958、action 0.833、unnecessary 0.083、missed 0.042。
-- **外部 Artifact**：`benchmark_work/gate3/dev_runs/497808269bdd/`（run_config/planner_results/planner_metrics/planner_semantic_review/result），canonical JSON + 原子写入 + 防覆盖，不入 git。
-- **人工语义审查**：24 Case 逐条人工（new_entity/comparison/duplicate/evidence_target）；未引入新实体、comparison 两侧均保留、无重复子问题；3 条 fallback 标记 N/A。
-- **当前边界**：未改 Prompt、未运行 Retriever/Holdout、未算检索/答案指标、未把人工判断当自动指标；04B-02A 为调优前快照，修复决策属 04B-02B。
+- **run identity（v2）**：`planner_dev_run_id` = canonical JSON（schema_version/source_commit/corpus_id/evaluation_set_id/gate3_dataset_freeze_id/dev_jsonl_sha256/dev_manifest_sha256/provider/model/prompt_version/prompt_sha256/temperature/max_tokens/timeout/max_retries）SHA-256[:12]；不绑定 API Key/base_url/路径/时间/latency。Config v2 强类型校验（40/12/64 位 hex、temperature=0、max_tokens=800、timeout=20.0、max_retries=0）。
+- **真实 baseline（run_id 497808269bdd，R0）**：provider=deepseek、model=deepseek-chat、Prompt gate3_planner_prompt_v1、source_commit=ede4ec6d；24/24 Case、24 次 Planner 调用、0 timeout、0 provider_error；schema validity 0.875、fallback 0.125（全 PLAN_INVALID_SCHEMA）、query_type exact all 0.667 / non-fallback 0.762、retrieval_required 0.958、action 0.833。**R0 记录的 unnecessary 0.083 / missed 0.042 是 all-case incidence（分母=24）；R1 权威条件口径为 unnecessary 2/8=0.25、missed 1/16=0.0625（分母=forbidden/required 数），overall case rate 仍为 2/24、1/24。**
+- **R1 离线重分析（analysis_id 4630da4f4e38，未重跑模型）**：读取并验证 R0 五文件 SHA 不变、重建 run_id、从 Dev EvaluationSet 重新取得 Gold、重算 v2 metrics（条件分母、duplicate 含 PLAN_DUPLICATE_SUBQUERY、完整 call_metadata）；Artifact 在 `dev_runs/497808269bdd/analysis/4630da4f4e38/`。
+- **外部 Artifact**：R0 在 `benchmark_work/gate3/dev_runs/497808269bdd/`；R1 在 `.../analysis/4630da4f4e38/`；canonical JSON + 原子写入 + 防覆盖，不入 git。
+- **人工语义审查（R1 修正）**：new_entity 21 PASS/3 N/A；comparison 6 PASS/18 N/A（5 Gold comparison + g3q033 predicted comparison）；semantic_duplicate 17 PASS/7 N/A；evidence_target 15 PASS/2 WARN/7 N/A（g3q010/g3q014 含答案性断言标记 WARN）。
+- **当前边界**：未改 Prompt、未运行 Retriever/Holdout、未算检索/答案指标、未把人工判断当自动指标、**原始 24 次调用未重跑**；04B-01/R1 已 Reviewer accepted；04B-02A + R1 仍 REVIEW PENDING，修复决策属 04B-02B。
 
 ### 4.2 Adaptive Routing
 
