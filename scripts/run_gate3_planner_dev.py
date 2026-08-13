@@ -248,17 +248,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         result = runner.run(fail_fast_on_provider_error=True)
     except ProviderFailFast as exc:
         print(f"[ABORT] {exc}", file=sys.stderr)
-        # 保留脱敏 abort Artifact
-        abort_case = sorted(evaluation_set.cases, key=lambda c: c.case_id)[0]
+        # 使用异常携带的首次 outcome 写脱敏 abort Artifact；严禁再次调用 planner
         try:
-            first_outcome = planner.plan(abort_case.query)
-            from evaluation.gate3.planner_dev import _build_call_metadata_dict
-            write_abort_artifact(
-                run_dir, config, abort_case.case_id,
-                first_outcome.failure_code,
-                _build_call_metadata_dict(config, first_outcome),
-                first_outcome.plan,
-            )
+            write_abort_artifact(run_dir, config, exc.case_id, exc.outcome)
         except Exception as abort_exc:  # noqa: BLE001 - 尽力保留 abort 信息
             print(f"[ABORT-ARTIFACT-FAIL] {abort_exc}", file=sys.stderr)
         return 2
@@ -276,6 +268,18 @@ def cmd_reanalyze(args: argparse.Namespace) -> int:
     # 禁止 API Key、禁止构造 Planner、禁止网络
     if getattr(args, "api_key_env", None):
         raise SystemExit("reanalyze 模式禁止 API Key")
+    # analysis_source_commit 必须绑定实际 git HEAD，且工作区 tracked clean
+    if len(args.analysis_source_commit) != 40:
+        raise SystemExit("--analysis-source-commit 必须是完整 40 位 hex")
+    head = _git_head()
+    if head != args.analysis_source_commit:
+        raise SystemExit(
+            "--analysis-source-commit "
+            f"({args.analysis_source_commit}) 与 git HEAD ({head}) 不一致"
+        )
+    if _git_has_tracked_modification():
+        raise SystemExit("工作区存在 tracked modification，拒绝离线重分析")
+
     parent_run_dir = Path(args.parent_run_dir)
     if parent_run_dir.name != _R0_RUN_ID:
         raise SystemExit(f"parent run 必须是 {_R0_RUN_ID}")

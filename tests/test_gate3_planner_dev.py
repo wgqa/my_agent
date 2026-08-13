@@ -485,6 +485,28 @@ class TestArtifacts:
         with pytest.raises(FileNotFoundError):
             finalize_planner_dev_run(run_dir)
 
+    def test_finalize_run_protects_overwrite(self, tmp_path):
+        s = _default_dev(tmp_path)
+        result = Gate3PlannerDevRunner(_config(), FakePlanner(), s).run()
+        out = tmp_path / "out_f"
+        write_planner_dev_artifacts(result, out)
+        run_dir = out / result.run_id
+        (run_dir / "planner_semantic_review.md").write_text(
+            "# review\n", encoding="utf-8"
+        )
+        import hashlib
+
+        finalize_planner_dev_run(run_dir)
+        result_sha = hashlib.sha256(
+            (run_dir / "result.json").read_bytes()
+        ).hexdigest()
+        # 第二次 finalize 明确失败（防覆盖），原 SHA 不变
+        with pytest.raises(FileExistsError):
+            finalize_planner_dev_run(run_dir)
+        assert hashlib.sha256(
+            (run_dir / "result.json").read_bytes()
+        ).hexdigest() == result_sha
+
 
 # ---------------------------------------------------------------------------
 # CLI API key behavior
@@ -670,6 +692,13 @@ class TestReanalyze:
         )
         lines = []
         for c in sorted(s.cases, key=lambda x: x.case_id):
+            from core.query_planning import QueryPlan as QP
+
+            plan = QP.create(
+                original_query=c.query, query_type="fact",
+                retrieval_required=True, action="single_retrieval",
+                reason_code="SIMPLE_FACT",
+            )
             record = {
                 "schema_version": "gate3_planner_dev_results_v1",
                 "case_id": c.case_id,
@@ -682,27 +711,17 @@ class TestReanalyze:
                     "action": gold_action_for(c),
                 },
                 "predicted": {
-                    "query_type": "fact",
-                    "retrieval_required": True,
-                    "action": "single_retrieval",
-                    "reason_code": "SIMPLE_FACT",
+                    "query_type": plan.query_type,
+                    "retrieval_required": plan.retrieval_required,
+                    "action": plan.action,
+                    "reason_code": plan.reason_code,
                 },
                 "fallback_used": False,
                 "failure_code": None,
                 "correctness": {"query_type_correct": False},  # 故意存错
                 "call": {"input_tokens": 10, "output_tokens": 5,
                          "latency_ms": 100.0},
-                "plan": {
-                    "schema_version": "query_plan_v1",
-                    "plan_id": "x" * 12,
-                    "original_query": c.query,
-                    "query_type": "fact",
-                    "retrieval_required": True,
-                    "action": "single_retrieval",
-                    "reason_code": "SIMPLE_FACT",
-                    "subqueries": [],
-                    "fallback_policy": "single_bm25_original_query",
-                },
+                "plan": plan.to_dict(),
             }
             lines.append(json.dumps(record, ensure_ascii=False))
         (run_dir / "planner_results.jsonl").write_text(
@@ -839,14 +858,226 @@ class TestReanalyze:
         out = tmp_path / "analysis"
         write_analysis_artifacts(analysis, out)
         analysis_dir = out / analysis.analysis_id
-        # 预写 review 后 finalize
         (analysis_dir / "planner_semantic_review.md").write_text(
             "# r1\n", encoding="utf-8"
         )
-        finalize_analysis(analysis_dir)
-        # 再次 finalize 应允许（result.json 已存在但 finalize 本身是幂等写）？
-        # 规范：finalize 不防覆盖 result.json（仅 analysis 目录防覆盖）。
+        # 第一次 finalize 成功
+        import hashlib
+
+        first = finalize_analysis(analysis_dir)
         assert (analysis_dir / "result.json").is_file()
+        result_sha = hashlib.sha256(
+            (analysis_dir / "result.json").read_bytes()
+        ).hexdigest()
+        # 第二次 finalize 明确失败（防覆盖），原 result.json SHA 不变
+        with pytest.raises(FileExistsError):
+            finalize_analysis(analysis_dir)
+        assert hashlib.sha256(
+            (analysis_dir / "result.json").read_bytes()
+        ).hexdigest() == result_sha
         # 防覆盖：write_analysis_artifacts 对已存在 analysis_id 应拒绝
         with pytest.raises(FileExistsError):
             write_analysis_artifacts(analysis, out)
+
+
+# ---------------------------------------------------------------------------
+# R2-MICRO: fail-fast 单次调用 / analysis git 绑定 / finalize 防覆盖 /
+# metrics schema 一致 / reanalyze 篡改
+# ---------------------------------------------------------------------------
+
+
+class _Args:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+class TestFailFastSingleCall:
+    def _run_cli(self, tmp_path, monkeypatch, failure_code):
+        import scripts.run_gate3_planner_dev as cli
+
+        fake = FakePlanner(lambda q: _fallback(q, failure_code))
+        commit = "a" * 40
+        monkeypatch.setenv("R2_TEST_KEY", "k")
+        monkeypatch.setattr(cli, "_git_head", lambda: commit)
+        monkeypatch.setattr(cli, "_git_has_tracked_modification", lambda: False)
+        monkeypatch.setattr(cli, "_resolve_api_key", lambda e: "sk-test")
+        monkeypatch.setattr(cli, "_build_planner", lambda *a, **k: fake)
+        monkeypatch.setattr(
+            cli, "_load_corpus_and_eval",
+            lambda *a: (type("C", (), {"corpus_id": "870e5864df67"})(),
+                        _default_dev(tmp_path), "0" * 64),
+        )
+        monkeypatch.setattr(cli, "_validate_manifest",
+                            lambda p: ("1" * 64, "257fa0d0a6d6"))
+        out = tmp_path / "out"
+        code = cli.main([
+            "run", "--corpus-root", "x", "--dev-jsonl", "x",
+            "--dev-manifest", "x", "--output-root", str(out),
+            "--provider", "p", "--model", "m", "--base-url", "https://x",
+            "--api-key-env", "R2_TEST_KEY", "--source-commit", commit,
+        ])
+        return code, fake, out
+
+    def test_cli_provider_error_calls_once_and_aborts(self, tmp_path, monkeypatch):
+        code, fake, out = self._run_cli(tmp_path, monkeypatch,
+                                        "PLANNER_PROVIDER_ERROR")
+        assert code == 2
+        assert len(fake.queries) == 1  # 只调用一次
+        run_dirs = list(out.iterdir())
+        assert len(run_dirs) == 1
+        abort = json.loads((run_dirs[0] / "abort.json").read_text(encoding="utf-8"))
+        assert abort["status"] == "ABORTED_FIRST_PROVIDER_FAILURE"
+        assert abort["planner_call_count"] == 1
+        assert abort["call_metadata"]["call_count"] == 1
+        assert abort["failure_code"] == "PLANNER_PROVIDER_ERROR"
+        assert "api_key" not in json.dumps(abort, ensure_ascii=False)
+        assert "base_url" not in json.dumps(abort, ensure_ascii=False)
+
+    def test_cli_timeout_calls_once_and_aborts(self, tmp_path, monkeypatch):
+        code, fake, out = self._run_cli(tmp_path, monkeypatch, "PLANNER_TIMEOUT")
+        assert code == 2
+        assert len(fake.queries) == 1  # 只调用一次
+        run_dirs = list(out.iterdir())
+        abort = json.loads((run_dirs[0] / "abort.json").read_text(encoding="utf-8"))
+        assert abort["failure_code"] == "PLANNER_TIMEOUT"
+        assert abort["planner_call_count"] == 1
+
+
+class TestReanalyzeGitBinding:
+    def test_source_commit_must_match_head(self, monkeypatch):
+        import scripts.run_gate3_planner_dev as cli
+
+        monkeypatch.setattr(cli, "_git_head", lambda: "b" * 40)
+        monkeypatch.setattr(cli, "_git_has_tracked_modification", lambda: False)
+        with pytest.raises(SystemExit):
+            cli.cmd_reanalyze(_Args(analysis_source_commit="a" * 40,
+                                    parent_run_dir="x", corpus_root="x",
+                                    dev_jsonl="x", dev_manifest="x"))
+
+    def test_tracked_dirty_rejected(self, monkeypatch):
+        import scripts.run_gate3_planner_dev as cli
+
+        monkeypatch.setattr(cli, "_git_head", lambda: "a" * 40)
+        monkeypatch.setattr(cli, "_git_has_tracked_modification", lambda: True)
+        with pytest.raises(SystemExit):
+            cli.cmd_reanalyze(_Args(analysis_source_commit="a" * 40,
+                                    parent_run_dir="x", corpus_root="x",
+                                    dev_jsonl="x", dev_manifest="x"))
+
+    def test_non_hex_source_commit_rejected(self, monkeypatch):
+        import scripts.run_gate3_planner_dev as cli
+
+        monkeypatch.setattr(cli, "_git_head", lambda: "a" * 40)
+        with pytest.raises(SystemExit):
+            cli.cmd_reanalyze(_Args(analysis_source_commit="g" * 40,
+                                    parent_run_dir="x", corpus_root="x",
+                                    dev_jsonl="x", dev_manifest="x"))
+
+
+class TestMetricsSchemaConsistency:
+    def test_finalize_rejects_schema_mismatch(self, tmp_path):
+        analysis_dir = tmp_path / "a"
+        analysis_dir.mkdir()
+        (analysis_dir / "analysis_config.json").write_text(
+            json.dumps({"analysis_id": "x" * 12,
+                        "metrics_schema_version": "gate3_planner_dev_metrics_v2"}),
+            encoding="utf-8",
+        )
+        (analysis_dir / "planner_metrics.json").write_text(
+            json.dumps({"schema_version": "gate3_planner_dev_metrics_v1"}),
+            encoding="utf-8",
+        )
+        (analysis_dir / "planner_semantic_review.md").write_text(
+            "# r\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError):
+            finalize_analysis(analysis_dir)
+
+
+class TestReanalyzeTamper(TestReanalyze):
+    def _reanalyze(self, tmp_path):
+        run_dir, run_id, sha = self._r0_artifacts(tmp_path)
+        eval_set = _default_dev(tmp_path)
+        return run_dir, sha, eval_set
+
+    def _recompute_sha(self, run_dir, sha):
+        import hashlib
+
+        return {k: hashlib.sha256((run_dir / k).read_bytes()).hexdigest()
+                for k in sha}
+
+    def test_duplicate_case_rejected(self, tmp_path):
+        run_dir, sha, eval_set = self._reanalyze(tmp_path)
+        lines = (run_dir / "planner_results.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        lines.append(lines[0])  # 重复第一条 → 拒绝
+        (run_dir / "planner_results.jsonl").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError):
+            reanalyze_planner_dev_run(
+                parent_run_dir=run_dir,
+                expected_r0_sha256=self._recompute_sha(run_dir, sha),
+                evaluation_set=eval_set, dev_manifest_sha256="1" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+                analysis_source_commit="c" * 40,
+            )
+
+    def test_missing_case_rejected(self, tmp_path):
+        run_dir, sha, eval_set = self._reanalyze(tmp_path)
+        lines = (run_dir / "planner_results.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        lines.pop(0)  # 删一条，总数仍等于 4-1（这里删后 3，会触发 seen != dev）
+        (run_dir / "planner_results.jsonl").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError):
+            reanalyze_planner_dev_run(
+                parent_run_dir=run_dir,
+                expected_r0_sha256=self._recompute_sha(run_dir, sha),
+                evaluation_set=eval_set, dev_manifest_sha256="1" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+                analysis_source_commit="c" * 40,
+            )
+
+    def test_predicted_mismatch_rejected(self, tmp_path):
+        run_dir, sha, eval_set = self._reanalyze(tmp_path)
+        lines = (run_dir / "planner_results.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        rec = json.loads(lines[0])
+        rec["predicted"]["query_type"] = "comparison"  # 与 plan 不一致
+        lines[0] = json.dumps(rec, ensure_ascii=False)
+        (run_dir / "planner_results.jsonl").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError):
+            reanalyze_planner_dev_run(
+                parent_run_dir=run_dir,
+                expected_r0_sha256=self._recompute_sha(run_dir, sha),
+                evaluation_set=eval_set, dev_manifest_sha256="1" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+                analysis_source_commit="c" * 40,
+            )
+
+    def test_plan_original_query_mismatch_rejected(self, tmp_path):
+        run_dir, sha, eval_set = self._reanalyze(tmp_path)
+        lines = (run_dir / "planner_results.jsonl").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        rec = json.loads(lines[0])
+        rec["plan"]["original_query"] = "被篡改"
+        lines[0] = json.dumps(rec, ensure_ascii=False)
+        (run_dir / "planner_results.jsonl").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError):
+            reanalyze_planner_dev_run(
+                parent_run_dir=run_dir,
+                expected_r0_sha256=self._recompute_sha(run_dir, sha),
+                evaluation_set=eval_set, dev_manifest_sha256="1" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+                analysis_source_commit="c" * 40,
+            )

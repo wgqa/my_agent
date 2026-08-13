@@ -31,7 +31,6 @@ PLANNER_DEV_SCHEMA_VERSION_V1 = "gate3_planner_dev_run_v1"
 PLANNER_RESULTS_SCHEMA_VERSION = "gate3_planner_dev_results_v2"
 PLANNER_METRICS_SCHEMA_VERSION = "gate3_planner_dev_metrics_v2"
 PLANNER_DEV_ANALYSIS_SCHEMA_VERSION = "gate3_planner_dev_analysis_v1"
-PLANNER_DEV_ANALYSIS_METRICS_SCHEMA_VERSION = "gate3_planner_dev_analysis_metrics_v1"
 PLANNER_DEV_ANALYSIS_RESULT_SCHEMA_VERSION = "gate3_planner_dev_analysis_result_v1"
 PLANNER_RESULT_SUMMARY_SCHEMA_VERSION = "gate3_planner_dev_result_v1"
 PLANNER_ABORT_SCHEMA_VERSION = "gate3_planner_dev_abort_v1"
@@ -386,7 +385,14 @@ class Gate3PlannerDevResult:
 
 
 class ProviderFailFast(RuntimeError):
-    """首条 Case 发生 Provider 错误/超时时停止正式运行。"""
+    """首条 Case 发生 Provider 错误/超时时停止，携带首个 outcome（不再二次调用）。"""
+
+    def __init__(self, message: str, case_id: str, failure_code: str,
+                 outcome: PlannerOutcome):
+        super().__init__(message)
+        self.case_id = case_id
+        self.failure_code = failure_code
+        self.outcome = outcome
 
 
 def _has_duplicate_subquery(plan: QueryPlan, failure_code: Optional[str]) -> bool:
@@ -444,7 +450,10 @@ class Gate3PlannerDevRunner:
             ):
                 raise ProviderFailFast(
                     f"首条 Case {case.case_id} 发生 {outcome.failure_code}，"
-                    "停止正式运行"
+                    "停止正式运行",
+                    case_id=case.case_id,
+                    failure_code=outcome.failure_code,
+                    outcome=outcome,
                 )
             case_results.append(self._evaluate_case(case, outcome))
         metrics = self._compute_metrics(case_results)
@@ -721,11 +730,12 @@ def write_abort_artifact(
     run_dir: Path,
     config: Gate3PlannerDevConfig,
     case_id: str,
-    failure_code: str,
-    call_metadata: dict,
-    fallback_plan: QueryPlan,
+    outcome: PlannerOutcome,
 ) -> dict:
-    """首条 Provider 失败时保留脱敏 abort Artifact（不入 git，防覆盖）。"""
+    """首条 Provider 失败时保留脱敏 abort Artifact（不入 git，防覆盖）。
+
+    只使用首次调用产生的 outcome；严禁再次调用 planner。
+    """
     run_dir = Path(run_dir)
     if run_dir.exists():
         raise FileExistsError(f"输出目录已存在，禁止覆盖: {run_dir}")
@@ -737,9 +747,9 @@ def write_abort_artifact(
         "completed_case_count": 1,
         "planner_call_count": 1,
         "case_id": case_id,
-        "failure_code": failure_code,
-        "call_metadata": call_metadata,
-        "fallback_plan": fallback_plan.to_dict(),
+        "failure_code": outcome.failure_code,
+        "call_metadata": _build_call_metadata_dict(config, outcome),
+        "fallback_plan": outcome.plan.to_dict(),
     }
     text = _canonical_json(abort).decode("utf-8") + "\n"
     write_text_atomic(run_dir / "abort.json", text)
@@ -772,8 +782,11 @@ def finalize_planner_dev_run(run_dir: Path) -> dict:
         "metrics": metrics,
         "artifact_sha256": artifact_sha,
     }
+    result_path = run_dir / "result.json"
+    if result_path.exists():
+        raise FileExistsError(f"result.json 已存在，禁止覆盖: {result_path}")
     text = _canonical_json(summary).decode("utf-8") + "\n"
-    write_text_atomic(run_dir / "result.json", text)
+    write_text_atomic(result_path, text)
     return {
         "result.json": _sha256_bytes(_artifact_bytes(text)),
         **artifact_sha,
@@ -798,7 +811,31 @@ class Gate3PlannerAnalysisConfig:
     dev_jsonl_sha256: str = ""
     dev_manifest_sha256: str = ""
     gate3_dataset_freeze_id: str = ""
-    metrics_schema_version: str = PLANNER_DEV_ANALYSIS_METRICS_SCHEMA_VERSION
+    metrics_schema_version: str = PLANNER_METRICS_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if type(self.schema_version) is not str or self.schema_version != PLANNER_DEV_ANALYSIS_SCHEMA_VERSION:
+            raise ValueError(
+                f"schema_version 必须是 {PLANNER_DEV_ANALYSIS_SCHEMA_VERSION!r}"
+            )
+        _check_hex(self.analysis_source_commit, 40, "analysis_source_commit")
+        _check_hex(self.parent_source_commit, 40, "parent_source_commit")
+        _check_hex(self.parent_run_id, 12, "parent_run_id")
+        _check_hex(self.corpus_id, 12, "corpus_id")
+        _check_hex(self.evaluation_set_id, 12, "evaluation_set_id")
+        _check_hex(self.gate3_dataset_freeze_id, 12, "gate3_dataset_freeze_id")
+        _check_hex(self.parent_planner_results_sha256, 64,
+                   "parent_planner_results_sha256")
+        _check_hex(self.parent_result_json_sha256, 64,
+                   "parent_result_json_sha256")
+        _check_hex(self.dev_jsonl_sha256, 64, "dev_jsonl_sha256")
+        _check_hex(self.dev_manifest_sha256, 64, "dev_manifest_sha256")
+        if type(self.metrics_schema_version) is not str or \
+                self.metrics_schema_version != PLANNER_METRICS_SCHEMA_VERSION:
+            raise ValueError(
+                "metrics_schema_version 必须是实际发射的 "
+                f"{PLANNER_METRICS_SCHEMA_VERSION!r}"
+            )
 
     def identity_payload(self) -> dict:
         return {
@@ -837,29 +874,58 @@ def _case_result_from_record(
     gold_case: Gate3Case,
     config_identity: dict,
 ) -> Gate3PlannerCaseResult:
-    """从 R0 planner_results 记录 + 已验证 Dev Gold 重新构建 CaseResult（不信任旧 correctness）。"""
-    plan = record["plan"]
-    predicted_qt = record["predicted"]["query_type"]
-    predicted_rr = record["predicted"]["retrieval_required"]
-    predicted_action = record["predicted"]["action"]
-    reason_code = record["predicted"]["reason_code"]
-    fallback_used = record["fallback_used"]
-    failure_code = record["failure_code"]
-    gold_action = gold_action_for(gold_case)
+    """从 R0 planner_results 记录 + 已验证 Dev Gold 重建 CaseResult。
 
-    query_type_correct = predicted_qt == gold_case.query_type
-    retrieval_required_correct = predicted_rr == gold_case.retrieval_required
-    action_correct = predicted_action == gold_action
+    使用 QueryPlan.from_dict 严格重建计划，不信任旧 correctness/predicted 派生字段；
+    predicted 必须与重建后的 QueryPlan 一致。
+    """
+    plan_dict = record.get("plan")
+    if not isinstance(plan_dict, dict):
+        raise ValueError(f"{gold_case.case_id} 缺 plan")
+    plan = QueryPlan.from_dict(plan_dict)
+    predicted = record.get("predicted", {})
+    if plan.original_query != record.get("query"):
+        raise ValueError(f"{gold_case.case_id} plan.original_query 与 record.query 不一致")
+    if predicted.get("query_type") != plan.query_type:
+        raise ValueError(f"{gold_case.case_id} predicted.query_type 与 plan 不一致")
+    if predicted.get("retrieval_required") != plan.retrieval_required:
+        raise ValueError(f"{gold_case.case_id} predicted.retrieval_required 与 plan 不一致")
+    if predicted.get("action") != plan.action:
+        raise ValueError(f"{gold_case.case_id} predicted.action 与 plan 不一致")
+    if predicted.get("reason_code") != plan.reason_code:
+        raise ValueError(f"{gold_case.case_id} predicted.reason_code 与 plan 不一致")
+
+    fallback_used = record.get("fallback_used")
+    failure_code = record.get("failure_code")
+    if type(fallback_used) is not bool:
+        raise ValueError(f"{gold_case.case_id} fallback_used 必须是 bool")
+    if fallback_used:
+        if not failure_code:
+            raise ValueError(f"{gold_case.case_id} fallback 必须带 failure_code")
+        if not (
+            plan.reason_code == "PLANNER_FALLBACK"
+            and plan.query_type == "unknown"
+            and plan.action == "single_retrieval"
+            and not plan.subqueries
+        ):
+            raise ValueError(f"{gold_case.case_id} fallback plan 形状不合法")
+    else:
+        if failure_code is not None:
+            raise ValueError(f"{gold_case.case_id} 正常结果不允许带 failure_code")
+
+    gold_action = gold_action_for(gold_case)
+    query_type_correct = plan.query_type == gold_case.query_type
+    retrieval_required_correct = plan.retrieval_required == gold_case.retrieval_required
+    action_correct = plan.action == gold_action
     unnecessary = (
-        predicted_action == "decomposed_retrieval"
+        plan.action == "decomposed_retrieval"
         and gold_action != "decomposed_retrieval"
     )
     missed = (
         gold_action == "decomposed_retrieval"
-        and predicted_action != "decomposed_retrieval"
+        and plan.action != "decomposed_retrieval"
     )
-    subqueries = plan.get("subqueries", [])
-    queries = [s["query"] for s in subqueries]
+    queries = [s["query"] for s in plan.to_dict()["subqueries"]]
     duplicate = failure_code == "PLAN_DUPLICATE_SUBQUERY" or (
         len(set(queries)) != len(queries)
     )
@@ -887,10 +953,10 @@ def _case_result_from_record(
         gold_retrieval_required=gold_case.retrieval_required,
         gold_decomposition_expected=gold_case.decomposition_expected,
         gold_action=gold_action,
-        predicted_query_type=predicted_qt,
-        predicted_retrieval_required=predicted_rr,
-        predicted_action=predicted_action,
-        reason_code=reason_code,
+        predicted_query_type=plan.query_type,
+        predicted_retrieval_required=plan.retrieval_required,
+        predicted_action=plan.action,
+        reason_code=plan.reason_code,
         fallback_used=fallback_used,
         failure_code=failure_code,
         query_type_correct=query_type_correct,
@@ -903,7 +969,7 @@ def _case_result_from_record(
         output_tokens=call_metadata["output_tokens"],
         latency_ms=call_metadata["latency_ms"],
         call_metadata=call_metadata,
-        plan=plan,
+        plan=plan.to_dict(),
     )
 
 
@@ -942,24 +1008,30 @@ def reanalyze_planner_dev_run(
         raise ValueError("R0 result.json run_id 不一致")
 
     case_by_id = {c.case_id: c for c in evaluation_set.cases}
+    dev_case_ids = set(case_by_id)
     case_results = []
+    seen = set()
     with results_path.open("r", encoding="utf-8") as f:
         for lineno, line in enumerate(f, 1):
             if not line.strip():
                 continue
             record = json.loads(line)
-            gold = case_by_id.get(record["case_id"])
-            if gold is None:
+            cid = record.get("case_id")
+            if cid not in dev_case_ids:
                 raise ValueError(
-                    f"第 {lineno} 行 case_id 不在 Dev EvaluationSet: "
-                    f"{record['case_id']}"
+                    f"第 {lineno} 行 case_id 不在 Dev EvaluationSet: {cid!r}"
                 )
-            if record["query"] != gold.query:
-                raise ValueError(f"{gold.case_id} query 与 Dev Gold 不一致")
-            plan_id = record.get("plan", {}).get("plan_id")
-            if not plan_id:
-                raise ValueError(f"{gold.case_id} 缺 plan_id")
+            if cid in seen:
+                raise ValueError(f"case_id 重复: {cid}")
+            seen.add(cid)
+            gold = case_by_id[cid]
+            if record.get("query") != gold.query:
+                raise ValueError(f"{cid} query 与 Dev Gold 不一致")
             case_results.append(_case_result_from_record(record, gold, config))
+
+    if seen != dev_case_ids:
+        missing = sorted(dev_case_ids - seen)
+        raise ValueError(f"R0 遗漏 Case（即便总数相同）: {missing}")
 
     if len(case_results) != len(evaluation_set.cases):
         raise ValueError(
@@ -1011,7 +1083,11 @@ def write_analysis_artifacts(
 
 
 def finalize_analysis(analysis_dir: Path) -> dict:
-    """读取 analysis_config/planner_metrics/planner_semantic_review，写 result.json。"""
+    """读取 analysis_config/planner_metrics/planner_semantic_review，写 result.json。
+
+    校验 declared metrics_schema_version 与 emitted metrics.schema_version 一致；
+    result.json 已存在时防覆盖。
+    """
     analysis_dir = Path(analysis_dir)
     cfg_path = analysis_dir / "analysis_config.json"
     metrics_path = analysis_dir / "planner_metrics.json"
@@ -1021,6 +1097,13 @@ def finalize_analysis(analysis_dir: Path) -> dict:
             raise FileNotFoundError(f"缺少 R1 Artifact: {path}")
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    if cfg.get("metrics_schema_version") != metrics.get("schema_version"):
+        raise ValueError(
+            "analysis_config.metrics_schema_version "
+            f"({cfg.get('metrics_schema_version')!r}) 与 "
+            f"planner_metrics.schema_version "
+            f"({metrics.get('schema_version')!r}) 不一致"
+        )
     artifact_sha = {
         "analysis_config.json": _sha256_bytes(cfg_path.read_bytes()),
         "planner_metrics.json": _sha256_bytes(metrics_path.read_bytes()),
@@ -1033,8 +1116,11 @@ def finalize_analysis(analysis_dir: Path) -> dict:
         "metrics": metrics,
         "artifact_sha256": artifact_sha,
     }
+    result_path = analysis_dir / "result.json"
+    if result_path.exists():
+        raise FileExistsError(f"result.json 已存在，禁止覆盖: {result_path}")
     text = _canonical_json(summary).decode("utf-8") + "\n"
-    write_text_atomic(analysis_dir / "result.json", text)
+    write_text_atomic(result_path, text)
     return {
         "result.json": _sha256_bytes(_artifact_bytes(text)),
         **artifact_sha,
