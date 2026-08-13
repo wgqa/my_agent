@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（26 份）
+## CURRENT（27 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -52,6 +52,7 @@
 | 69 | [69-Gate3-Planner-Dev真实调用与校准评测.md](69-Gate3-Planner-Dev真实调用与校准评测.md) | G3-DECOMP-04B-02A：公开 Dev 24 Case 真实 DeepSeek baseline（run_id 497808269bdd）、可复现校准 Runner、Planning 指标与人工语义审查（调优前快照，未改 Prompt） |
 | 70 | [70-Gate3最小Agent-Runtime与执行轨迹.md](70-Gate3最小Agent-Runtime与执行轨迹.md) | G3-RUNTIME-05A：最小离线 Agent Runtime（RouteDecision/EvidenceBundle/VerificationResult/RunTrace + AgentRuntime，direct/single 执行、decomposed 只路由、预算/异常/脱敏 Trace） |
 | 71 | [71-Gate3-Agent-Runtime接入Pipeline与API.md](71-Gate3-Agent-Runtime接入Pipeline与API.md) | G3-RUNTIME-05B：PipelineRetrievalAdapter/AnswerAdapter + build_pipeline_agent_runtime + POST /agent/query（BM25-only retrieve_sparse、grounded Citation 校验、direct 单次生成、decomposed 仍 deferred） |
+| 72 | [72-Gate3多问题检索与证据轮转合并.md](72-Gate3多问题检索与证据轮转合并.md) | G3-RUNTIME-05C：decomposed 真多子问题 BM25 执行 + subquery_round_robin_v1 证据合并 + required-subquery 覆盖检查（INCOMPLETE_SUBQUERY_EVIDENCE 拒答、evidence_merged Trace、API sources 含 query_id） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -118,6 +119,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–71 共 **72 份**，每份只出现一次：CURRENT 26 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 72。
+- 编号覆盖 00–72 共 **73 份**，每份只出现一次：CURRENT 27 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 73。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-13。

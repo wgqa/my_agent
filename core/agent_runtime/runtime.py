@@ -12,6 +12,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional, Protocol, Sequence, runtime_checkable
 
+from core.agent_runtime.evidence import SUBQUERY_ROUND_ROBIN_V1, merge_subquery_results
 from core.agent_runtime.models import (
     AGENT_REFUSAL_ANSWER,
     AgentRunBudget,
@@ -23,6 +24,9 @@ from core.agent_runtime.models import (
     VerificationResult,
 )
 from core.query_planning import BaseQueryPlanner, PlannerOutcome, QueryPlan
+
+# decomposed 路径的子问题稳定标识（QueryPlan 已保证 sq1/sq2/sq3 顺序）。
+_SUBQUERY_IDS = ("sq1", "sq2", "sq3")
 
 
 @runtime_checkable
@@ -91,15 +95,22 @@ class DeterministicRouter:
 
 
 class MinimalEvidenceVerifier:
-    """最小规则版 Verifier：只做三条规则，不宣称 claim-level Faithfulness。
+    """最小规则版 Verifier：只做结构准入，不宣称 claim-level Faithfulness。
 
       no_retrieval               → not_required / can_generate=true
       retrieval_required + 有证据 → supported / can_generate=true
       retrieval_required + 无证据 → insufficient_evidence / can_generate=false
+      decomposed：任意 required 子问题原始结果为空 → insufficient_evidence
+      （INCOMPLETE_SUBQUERY_EVIDENCE）/ can_generate=false
     """
 
     def verify(
-        self, plan: QueryPlan, bundle: EvidenceBundle
+        self,
+        plan: QueryPlan,
+        bundle: EvidenceBundle,
+        *,
+        covered_query_count: Optional[int] = None,
+        required_query_count: Optional[int] = None,
     ) -> VerificationResult:
         if plan.action == "no_retrieval":
             return VerificationResult(
@@ -110,6 +121,20 @@ class MinimalEvidenceVerifier:
                 evidence_count=len(bundle.items),
                 warnings=(),
             )
+        if plan.action == "decomposed_retrieval":
+            if (
+                covered_query_count is not None
+                and required_query_count is not None
+                and covered_query_count < required_query_count
+            ):
+                return VerificationResult(
+                    schema_version="verification_result_v1",
+                    status="insufficient_evidence",
+                    can_generate=False,
+                    reason_code="INCOMPLETE_SUBQUERY_EVIDENCE",
+                    evidence_count=len(bundle.items),
+                    warnings=(),
+                )
         if bundle.items:
             return VerificationResult(
                 schema_version="verification_result_v1",
@@ -463,24 +488,127 @@ class AgentRuntime:
                 error_code=None,
             )
 
-        # ---- decomposed_retrieval：只路由，不执行多子问题检索 ----
-        bundle = EvidenceBundle.empty()
-        verification = self._verifier.verify(plan, bundle)
+        # ---- decomposed_retrieval：多子问题串行检索 + round-robin 合并 ----
+        query_results = []
+        covered = 0
+        sub_ids = _SUBQUERY_IDS[: len(route.queries)]
+        for sub_id, sub_query in zip(sub_ids, route.queries):
+            if not ensure_budget("retrieval"):
+                return budget_failed(outcome, route, None, None)
+            retrieval_calls += 1
+            steps += 1
+            try:
+                documents = self._retrieval_port.search(
+                    sub_query, strategy="bm25", top_k=top_k
+                )
+                documents = tuple(documents)
+            except Exception as exc:
+                return run_failed(
+                    "RETRIEVAL_FAILED", type(exc).__name__,
+                    outcome, route, None, None,
+                )
+            emit(
+                "retrieval_completed",
+                "subquery retrieval completed",
+                {
+                    "subquery_id": sub_id,
+                    "strategy": "bm25",
+                    "documents_returned": len(documents),
+                    "retrieval_call_index": retrieval_calls,
+                },
+            )
+            query_results.append((sub_id, documents))
+            if documents:
+                covered += 1
+
+        merge_stats: dict = {}
+        try:
+            bundle = merge_subquery_results(
+                query_results,
+                max_items=self._budget.max_evidence_items,
+                stats=merge_stats,
+            )
+        except Exception as exc:
+            return run_failed(
+                "RETRIEVAL_FAILED", type(exc).__name__,
+                outcome, route, None, None,
+            )
         emit(
-            "run_deferred",
-            "decomposed retrieval not implemented",
+            "evidence_merged",
+            "evidence merged",
             {
-                "error_code": "DECOMPOSED_RETRIEVAL_NOT_IMPLEMENTED",
-                "subquery_count": len(route.queries),
+                "merge_policy": merge_stats.get(
+                    "merge_policy", SUBQUERY_ROUND_ROBIN_V1
+                ),
+                "input_candidate_count": merge_stats.get(
+                    "input_candidate_count", 0
+                ),
+                "final_unique_count": len(bundle.items),
+                "duplicate_count": merge_stats.get("duplicate_count", 0),
+                "truncated": merge_stats.get("truncated", False),
+                "covered_query_count": covered,
+                "required_query_count": len(query_results),
             },
         )
+        verification = self._verifier.verify(
+            plan,
+            bundle,
+            covered_query_count=covered,
+            required_query_count=len(query_results),
+        )
+        emit(
+            "verification_completed",
+            "verification completed",
+            {
+                "status": verification.status,
+                "can_generate": verification.can_generate,
+                "evidence_count": verification.evidence_count,
+            },
+        )
+        if verification.can_generate:
+            if not ensure_budget("generation"):
+                return budget_failed(outcome, route, bundle, verification)
+            generation_calls += 1
+            steps += 1
+            try:
+                answer = self._answer_port.answer(
+                    question, bundle, mode="grounded"
+                )
+            except Exception as exc:
+                return run_failed(
+                    "GENERATION_FAILED", type(exc).__name__,
+                    outcome, route, bundle, verification,
+                )
+            if type(answer) is not str or not answer.strip():
+                return run_failed(
+                    "GENERATION_FAILED", "InvalidAnswer",
+                    outcome, route, bundle, verification,
+                )
+            emit(
+                "generation_completed",
+                "generation completed",
+                {"mode": "grounded", "answer_length": len(answer)},
+            )
+            sources = tuple(item.citation_id for item in bundle.items)
+            emit("run_completed", "run completed", {"status": "completed"})
+            return _result(
+                status="completed",
+                planner_outcome=outcome,
+                route_decision=route,
+                bundle=bundle,
+                verification=verification,
+                answer=answer,
+                sources=sources,
+                error_code=None,
+            )
+        emit("run_completed", "run completed", {"status": "refused"})
         return _result(
-            status="deferred",
+            status="refused",
             planner_outcome=outcome,
             route_decision=route,
             bundle=bundle,
             verification=verification,
-            answer=None,
+            answer=AGENT_REFUSAL_ANSWER,
             sources=(),
-            error_code="DECOMPOSED_RETRIEVAL_NOT_IMPLEMENTED",
+            error_code=None,
         )

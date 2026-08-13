@@ -28,6 +28,7 @@ from core.agent_runtime import (
     TraceEvent,
     validate_answer_mode,
     AgentRuntime,
+    merge_subquery_results,
 )
 from core.query_planning import (
     BaseQueryPlanner,
@@ -140,6 +141,24 @@ class _FakeAnswerer:
         if self.error is not None:
             raise self.error
         return self._answer_text
+
+
+class _SequenceRetriever:
+    """按调用顺序返回预置结果；某项为 Exception 时抛异常。"""
+
+    def __init__(self, results):
+        self._results = list(results)
+        self.calls = 0
+        self.calls_args: list[tuple] = []
+
+    def search(self, query: str, strategy: str, top_k: int):
+        self.calls += 1
+        self.calls_args.append((query, strategy, top_k))
+        index = self.calls - 1
+        if index < len(self._results) and isinstance(self._results[index], Exception):
+            raise self._results[index]
+        result = self._results[index] if index < len(self._results) else ()
+        return list(result)
 
 
 def _runtime(
@@ -517,40 +536,256 @@ class TestRuntimeRefused:
 
 
 # ---------------------------------------------------------------------------
-# 4. decomposed_retrieval → deferred
+# 4. decomposed_retrieval → 多子问题检索执行
 # ---------------------------------------------------------------------------
 
 
-class TestRuntimeDeferred:
-    def test_deferred_three_subqueries_preserved(self):
+class TestRuntimeDecomposed:
+    def test_two_subqueries_completed(self):
+        docs = [
+            _doc("c1", "a.md", "内容A", rank=1, document_id="d1"),
+            _doc("c2", "b.md", "内容B", rank=2, document_id="d2"),
+        ]
+        runtime, planner, retriever, answerer = _runtime(
+            action="decomposed_retrieval",
+            subqueries=_subqueries("子问题1", "子问题2"),
+            docs=docs,
+            run_id_factory=lambda: "rid-dec2",
+        )
+        result = runtime.run("问题")
+        assert result.status == "completed"
+        assert result.error_code is None
+        assert planner.calls == 1
+        assert retriever.calls == 2
+        assert answerer.calls == 1
+        assert answerer.calls_args[0][1] == "grounded"
+        assert result.route_decision.queries == ("子问题1", "子问题2")
+        assert result.route_decision.queries != ("问题",)  # 不检索 original_query
+        assert result.evidence_bundle.retrieval_call_count == 2
+        assert result.evidence_bundle.query_count == 2
+        assert result.sources == ("[C1]", "[C2]")
+
+    def test_three_subqueries_completed(self):
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
         runtime, planner, retriever, answerer = _runtime(
             action="decomposed_retrieval",
             subqueries=_subqueries("子问题1", "子问题2", "子问题3"),
-            run_id_factory=lambda: "rid-deferred3",
+            docs=docs,
+            run_id_factory=lambda: "rid-dec3",
         )
         result = runtime.run("问题")
-        assert result.status == "deferred"
-        assert result.error_code == "DECOMPOSED_RETRIEVAL_NOT_IMPLEMENTED"
+        assert result.status == "completed"
         assert planner.calls == 1
-        assert retriever.calls == 0
-        assert answerer.calls == 0
+        assert retriever.calls == 3
+        assert answerer.calls == 1
+        assert result.evidence_bundle.retrieval_call_count == 3
         assert result.route_decision.queries == (
             "子问题1", "子问题2", "子问题3",
         )
-        assert result.route_decision.queries != ("问题",)  # 不静默执行 original
-        assert result.answer is None
-        assert result.trace[-1].event_type == "run_deferred"
 
-    def test_deferred_two_subqueries_preserved(self):
-        runtime, _planner, retriever, answerer = _runtime(
+    def test_no_original_query_retrieval_and_bm25_only(self):
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        runtime, _planner, retriever, _answerer = _runtime(
             action="decomposed_retrieval",
-            subqueries=_subqueries("子问题1", "子问题2"),
-            run_id_factory=lambda: "rid-deferred2",
+            subqueries=_subqueries("甲", "乙", "丙"),
+            docs=docs,
+            run_id_factory=lambda: "rid-order",
+        )
+        runtime.run("问题")
+        assert [a[0] for a in retriever.calls_args] == ["甲", "乙", "丙"]
+        assert all(a[1] == "bm25" for a in retriever.calls_args)
+
+    def test_partial_subquery_empty_refused(self):
+        seq = _SequenceRetriever(
+            [
+                [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")],
+                [],
+                [_doc("c2", "b.md", "内容B", rank=1, document_id="d2")],
+            ]
+        )
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan(
+                    "decomposed_retrieval",
+                    subqueries=_subqueries("甲", "乙", "丙"),
+                )
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-partial",
         )
         result = runtime.run("问题")
-        assert result.route_decision.queries == ("子问题1", "子问题2")
-        assert retriever.calls == 0
+        assert result.status == "refused"
+        assert result.answer == AGENT_REFUSAL_ANSWER
+        assert result.verification.status == "insufficient_evidence"
+        assert result.verification.reason_code == "INCOMPLETE_SUBQUERY_EVIDENCE"
+        assert seq.calls == 3
+        assert result.trace[-1].event_type == "run_completed"
+
+    def test_subquery_exception_stops_remaining(self):
+        seq = _SequenceRetriever(
+            [
+                [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")],
+                RuntimeError("第二个子问题检索失败"),
+                [_doc("c3", "c.md", "内容C", rank=1, document_id="d3")],
+            ]
+        )
+        runtime = AgentRuntime(
+            planner=_FakePlanner(
+                _plan(
+                    "decomposed_retrieval",
+                    subqueries=_subqueries("甲", "乙", "丙"),
+                )
+            ),
+            retrieval_port=seq,
+            answer_port=_FakeAnswerer(),
+            run_id_factory=lambda: "rid-raise",
+        )
+        result = runtime.run("问题")
+        assert result.status == "failed"
+        assert result.error_code == "RETRIEVAL_FAILED"
+        assert seq.calls == 2  # 第三个子问题不再调用
+        assert result.trace[-1].event_type == "run_failed"
+
+    def test_budget_two_retrievals_stops_third(self):
+        budget = AgentRunBudget(max_retrieval_calls=2)
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        runtime, _planner, retriever, answerer = _runtime(
+            action="decomposed_retrieval",
+            subqueries=_subqueries("甲", "乙", "丙"),
+            docs=docs,
+            budget=budget,
+            run_id_factory=lambda: "rid-budget2",
+        )
+        result = runtime.run("问题")
+        assert result.status == "failed"
+        assert result.error_code == "BUDGET_EXCEEDED"
+        assert retriever.calls == 2  # 第三次检索前停止
         assert answerer.calls == 0
+        assert result.trace[-1].event_type == "run_failed"
+
+    def test_trace_has_subquery_retrieval_events(self):
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        runtime, _planner, _retriever, _answerer = _runtime(
+            action="decomposed_retrieval",
+            subqueries=_subqueries("甲", "乙", "丙"),
+            docs=docs,
+            run_id_factory=lambda: "rid-trace-sub",
+        )
+        result = runtime.run("问题")
+        retrieval_events = [
+            t for t in result.trace if t.event_type == "retrieval_completed"
+        ]
+        assert len(retrieval_events) == 3
+        assert [e.data["subquery_id"] for e in retrieval_events] == [
+            "sq1", "sq2", "sq3",
+        ]
+        assert all(e.data["strategy"] == "bm25" for e in retrieval_events)
+
+    def test_trace_has_evidence_merged(self):
+        docs = [_doc("c1", "a.md", "内容A", rank=1, document_id="d1")]
+        runtime, _planner, _retriever, _answerer = _runtime(
+            action="decomposed_retrieval",
+            subqueries=_subqueries("甲", "乙"),
+            docs=docs,
+            run_id_factory=lambda: "rid-trace-merge",
+        )
+        result = runtime.run("问题")
+        merged = [t for t in result.trace if t.event_type == "evidence_merged"]
+        assert len(merged) == 1
+        data = merged[0].data
+        assert data["merge_policy"] == "subquery_round_robin_v1"
+        assert data["covered_query_count"] == 2
+        assert data["required_query_count"] == 2
+        assert data["final_unique_count"] == 1
+
+    def test_trace_excludes_query_and_evidence_body(self):
+        body = "这是绝不能进 trace 的证据正文"
+        docs = [_doc("c1", "a.md", body, rank=1, document_id="d1")]
+        runtime, _planner, _retriever, _answerer = _runtime(
+            action="decomposed_retrieval",
+            subqueries=_subqueries("绝密子问题甲", "绝密子问题乙"),
+            docs=docs,
+            run_id_factory=lambda: "rid-trace-body",
+        )
+        result = runtime.run("问题")
+        blob = json.dumps([t.to_dict() for t in result.trace], ensure_ascii=False)
+        assert body not in blob
+        assert "绝密子问题甲" not in blob
+        assert "绝密子问题乙" not in blob
+
+
+# ---------------------------------------------------------------------------
+# 8. Evidence Merge（subquery_round_robin_v1）
+# ---------------------------------------------------------------------------
+
+
+class TestEvidenceMerge:
+    def test_round_robin_exact_example(self):
+        sq1 = [
+            _doc("A", "a.md", "内容A", 1, document_id="dA", score=0.9),
+            _doc("B", "b.md", "内容B", 2, document_id="dB", score=0.8),
+            _doc("C", "c.md", "内容C", 3, document_id="dC", score=0.7),
+        ]
+        sq2 = [
+            _doc("A", "a.md", "内容A", 1, document_id="dA", score=0.6),
+            _doc("D", "d.md", "内容D", 2, document_id="dD", score=0.5),
+            _doc("E", "e.md", "内容E", 3, document_id="dE", score=0.4),
+        ]
+        sq3 = [_doc("F", "f.md", "内容F", 1, document_id="dF", score=0.3)]
+        bundle = merge_subquery_results(
+            [("sq1", sq1), ("sq2", sq2), ("sq3", sq3)], max_items=5
+        )
+        assert [i.chunk_id for i in bundle.items] == ["A", "D", "F", "B", "E"]
+        assert [i.query_id for i in bundle.items] == [
+            "sq1", "sq2", "sq3", "sq1", "sq2",
+        ]
+        assert [i.citation_id for i in bundle.items] == [
+            "[C1]", "[C2]", "[C3]", "[C4]", "[C5]",
+        ]
+        assert bundle.retrieval_call_count == 3
+        assert bundle.query_count == 3
+
+    def test_dedup_by_source_and_content_when_no_chunk_id(self):
+        sq1 = [
+            _doc(None, "a.md", "同一内容", 1, document_id="d1"),
+            _doc(None, "b.md", "不同内容", 2, document_id="d2"),
+        ]
+        sq2 = [
+            _doc(None, "a.md", "同一内容", 1, document_id="d1"),
+            _doc(None, "c.md", "第三内容", 2, document_id="d3"),
+        ]
+        bundle = merge_subquery_results([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        assert [i.content for i in bundle.items] == [
+            "同一内容", "第三内容", "不同内容",
+        ]
+        assert [i.query_id for i in bundle.items] == ["sq1", "sq2", "sq1"]
+        assert all(i.chunk_id is None for i in bundle.items)
+
+    def test_truncated_to_max_items(self):
+        sq1 = [_doc("A", "a.md", "内容A", 1, document_id="dA")]
+        sq2 = [_doc("B", "b.md", "内容B", 1, document_id="dB")]
+        sq3 = [_doc("C", "c.md", "内容C", 1, document_id="dC")]
+        stats = {}
+        bundle = merge_subquery_results(
+            [("sq1", sq1), ("sq2", sq2), ("sq3", sq3)],
+            max_items=2,
+            stats=stats,
+        )
+        assert [i.chunk_id for i in bundle.items] == ["A", "B"]
+        assert stats["truncated"] is True
+        assert stats["input_candidate_count"] == 3
+        assert stats["duplicate_count"] == 0
+
+    def test_no_cross_subquery_score_ranking(self):
+        # 轮转保持子问题顺序；若按分数全局排序会得到 B,C,A
+        sq1 = [
+            _doc("A", "a.md", "低分A", 1, document_id="dA", score=0.1),
+            _doc("B", "b.md", "高分B", 2, document_id="dB", score=0.9),
+        ]
+        sq2 = [_doc("C", "c.md", "中分C", 1, document_id="dC", score=0.5)]
+        bundle = merge_subquery_results([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        assert [i.chunk_id for i in bundle.items] == ["A", "C", "B"]
 
 
 # ---------------------------------------------------------------------------

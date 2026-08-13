@@ -643,20 +643,43 @@ class TestAgentQuery:
         assert data["sources"] == []
         assert gen.calls == 0
 
-    def test_deferred(self, client, monkeypatch):
+    def test_decomposed_completed(self, client, monkeypatch):
+        planner_client, gen = _install_agent_runtime(
+            monkeypatch,
+            plan_json=_DECOMPOSED_PLAN_JSON,
+            index=[
+                ("c1", "甲 alpha", {"document_id": "d1", "source_name": "a.md"}),
+                ("c2", "乙 beta", {"document_id": "d2", "source_name": "b.md"}),
+            ],
+            gen_answer="答案 [C1][C2]",
+        )
+        resp = client.post("/agent/query", json={"question": "alpha"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "completed"
+        assert data["error_code"] is None
+        assert data["route"]["route"] == "decomposed_retrieval"
+        assert data["verification"]["reason_code"] == "SUPPORTED"
+        assert len(data["sources"]) == 2
+        by_citation = {s["citation_id"]: s for s in data["sources"]}
+        assert by_citation["[C1]"]["query_id"] == "sq1"
+        assert by_citation["[C2]"]["query_id"] == "sq2"
+        assert planner_client.calls == 1
+        assert gen.calls == 1
+
+    def test_decomposed_refused(self, client, monkeypatch):
         _planner_client, gen = _install_agent_runtime(
             monkeypatch,
             plan_json=_DECOMPOSED_PLAN_JSON,
-            index=[("c1", "alpha beta", {"document_id": "d1", "source_name": "a.md"})],
+            index=[],
             gen_answer="不应被调用",
         )
         resp = client.post("/agent/query", json={"question": "alpha"})
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] == "deferred"
-        assert data["error_code"] == "DECOMPOSED_RETRIEVAL_NOT_IMPLEMENTED"
-        assert data["answer"] is None
-        assert data["route"]["queries"] == ["甲", "乙"]
+        assert data["status"] == "refused"
+        assert data["answer"] == "现有资料不足，无法可靠回答该问题。"
+        assert data["verification"]["reason_code"] == "INCOMPLETE_SUBQUERY_EVIDENCE"
         assert gen.calls == 0
 
     def test_not_initialized_503(self, client, monkeypatch):

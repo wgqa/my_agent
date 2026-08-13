@@ -113,6 +113,7 @@ def _build_agent_response(result) -> AgentQueryResponse:
                 content=item.content[:200],
                 score=item.score,
                 rank=item.rank,
+                query_id=item.query_id,
             )
         )
     return AgentQueryResponse(

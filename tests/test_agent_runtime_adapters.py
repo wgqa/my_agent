@@ -575,7 +575,8 @@ class TestFactory:
         rt.run("alpha")
         assert planner_client.sink[0]["model"] == "custom-model"
 
-    def test_factory_deferred_preserves_subqueries(self):
+    def test_factory_decomposed_incomplete_refused(self):
+        # 子问题 "甲"/"乙" 在 "alpha beta" 索引中无命中 → 覆盖不足 → refused
         pipeline = SimpleNamespace(
             retriever=_bm25_retriever(), generator=_FakeGenerator("答案 [C1]")
         )
@@ -587,10 +588,37 @@ class TestFactory:
             direct_answer_client=_FakeDirectClient(_FakeResp("42")),
         )
         result = rt.run("alpha")
-        assert result.status == "deferred"
-        assert result.error_code == "DECOMPOSED_RETRIEVAL_NOT_IMPLEMENTED"
+        assert result.status == "refused"
+        assert result.error_code is None
         assert result.route_decision.queries == ("甲", "乙")
+        assert result.verification.reason_code == "INCOMPLETE_SUBQUERY_EVIDENCE"
         assert pipeline.generator.calls == 0
+
+    def test_factory_decomposed_completed(self):
+        retriever = BM25OnlyRetriever()
+        retriever.build_sparse_index(
+            [
+                ("c1", "甲 alpha", {"document_id": "d1", "source_name": "a.md"}),
+                ("c2", "乙 beta", {"document_id": "d2", "source_name": "b.md"}),
+            ]
+        )
+        pipeline = SimpleNamespace(
+            retriever=retriever,
+            generator=_FakeGenerator("答案 [C1][C2]"),
+        )
+        rt = build_pipeline_agent_runtime(
+            pipeline,
+            planner_provider="deepseek",
+            api_key="sk-test",
+            planner_client=_FakePlannerClient(_DECOMPOSED_PLAN_JSON),
+            direct_answer_client=_FakeDirectClient(_FakeResp("42")),
+        )
+        result = rt.run("alpha")
+        assert result.status == "completed"
+        assert result.route_decision.route == "decomposed_retrieval"
+        assert result.evidence_bundle.retrieval_call_count == 2
+        assert result.sources == ("[C1]", "[C2]")
+        assert pipeline.generator.calls == 1
 
     def test_factory_no_key_leak(self):
         pipeline = SimpleNamespace(

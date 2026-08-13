@@ -83,6 +83,7 @@ class AgentSourceItem(BaseModel):
     content: str
     score: Optional[float] = None
     rank: int
+    query_id: Optional[str] = None
 
 
 class AgentQueryResponse(BaseModel):

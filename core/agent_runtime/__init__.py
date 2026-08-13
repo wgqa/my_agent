@@ -44,6 +44,10 @@ from core.agent_runtime.adapters import (
     UnsupportedRetrievalStrategyError,
     build_pipeline_agent_runtime,
 )
+from core.agent_runtime.evidence import (
+    SUBQUERY_ROUND_ROBIN_V1,
+    merge_subquery_results,
+)
 
 __all__ = [
     "ROUTE_DECISION_SCHEMA_VERSION",
@@ -78,4 +82,6 @@ __all__ = [
     "PipelineRetrievalAdapter",
     "PipelineAnswerAdapter",
     "build_pipeline_agent_runtime",
+    "SUBQUERY_ROUND_ROBIN_V1",
+    "merge_subquery_results",
 ]

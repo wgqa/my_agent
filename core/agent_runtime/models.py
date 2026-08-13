@@ -39,6 +39,7 @@ VERIFICATION_REASON_CODES = (
     "NOT_REQUIRED",
     "SUPPORTED",
     "INSUFFICIENT_EVIDENCE",
+    "INCOMPLETE_SUBQUERY_EVIDENCE",
 )
 AGENT_RUN_STATUSES = ("completed", "refused", "deferred", "failed")
 AGENT_ANSWER_MODES = ("direct", "grounded")
@@ -49,6 +50,7 @@ AGENT_TRACE_EVENTS = (
     "retrieval_completed",
     "verification_completed",
     "generation_completed",
+    "evidence_merged",
     "run_completed",
     "run_deferred",
     "run_failed",
@@ -160,7 +162,7 @@ class AgentRunBudget:
 
     max_steps: int = 6
     max_planner_calls: int = 1
-    max_retrieval_calls: int = 1
+    max_retrieval_calls: int = 3
     max_generation_calls: int = 1
     max_evidence_items: int = 5
 
@@ -510,10 +512,13 @@ class VerificationResult:
                 raise ValueError(
                     "insufficient_evidence 要求 can_generate=false"
                 )
-            if self.reason_code != "INSUFFICIENT_EVIDENCE":
+            if self.reason_code not in (
+                "INSUFFICIENT_EVIDENCE",
+                "INCOMPLETE_SUBQUERY_EVIDENCE",
+            ):
                 raise ValueError(
-                    "insufficient_evidence 要求 "
-                    "reason_code=INSUFFICIENT_EVIDENCE"
+                    "insufficient_evidence 要求 reason_code=INSUFFICIENT_EVIDENCE "
+                    "或 INCOMPLETE_SUBQUERY_EVIDENCE"
                 )
 
     def to_dict(self) -> dict:
