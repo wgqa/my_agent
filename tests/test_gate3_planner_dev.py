@@ -23,8 +23,11 @@ from evaluation.gate3.planner_dev import (
     Gate3PlannerDevConfig,
     Gate3PlannerDevRunner,
     ProviderFailFast,
+    finalize_analysis,
     finalize_planner_dev_run,
     gold_action_for,
+    reanalyze_planner_dev_run,
+    write_analysis_artifacts,
     write_planner_dev_artifacts,
 )
 
@@ -36,10 +39,12 @@ from evaluation.gate3.planner_dev import (
 
 def _config(**overrides):
     defaults = dict(
-        source_commit="abc123",
+        source_commit="a" * 40,
         corpus_id="870e5864df67",
         evaluation_set_id="f2144030d754",
+        gate3_dataset_freeze_id="257fa0d0a6d6",
         dev_jsonl_sha256="0" * 64,
+        dev_manifest_sha256="1" * 64,
         provider="deepseek",
         model="deepseek-chat",
         prompt_version="gate3_planner_prompt_v1",
@@ -189,10 +194,11 @@ class TestRunIdentity:
             ("model", "other-model"),
             ("prompt_version", "gate3_planner_prompt_v2"),
             ("prompt_sha256", "6" * 64),
-            ("source_commit", "xyz"),
-            ("temperature", 1),
-            ("evaluation_set_id", "other-set"),
-            ("corpus_id", "other-corpus"),
+            ("source_commit", "b" * 40),
+            ("evaluation_set_id", "f" * 12),
+            ("corpus_id", "c" * 12),
+            ("gate3_dataset_freeze_id", "d" * 12),
+            ("dev_manifest_sha256", "9" * 64),
         ):
             assert _config(**{field: value}).run_id != base.run_id, field
 
@@ -298,16 +304,22 @@ class TestRunner:
 
         result = Gate3PlannerDevRunner(_config(), FakePlanner(builder), s).run()
         m = result.metrics
+        # 3 条 forbidden 被分解 → unnecessary=3；条件分母=forbidden 数=3；overall=3/4
         assert m.unnecessary_decomposition_count == 3
-        assert m.unnecessary_decomposition_rate == pytest.approx(0.75)
+        assert m.unnecessary_decomposition_eligible_count == 3
+        assert m.unnecessary_decomposition_rate == 1.0
+        assert m.unnecessary_decomposition_overall_case_rate == pytest.approx(0.75)
         assert m.missed_decomposition_count == 0
 
     def test_missed_decomposition_when_should(self, tmp_path):
         s = _default_dev(tmp_path)
         result = Gate3PlannerDevRunner(_config(), FakePlanner(), s).run()
         m = result.metrics
+        # g3q001 需分解但模型没分解 → missed=1；条件分母=required 数=1
         assert m.missed_decomposition_count == 1
-        assert m.missed_decomposition_rate == pytest.approx(0.25)
+        assert m.missed_decomposition_eligible_count == 1
+        assert m.missed_decomposition_rate == 1.0
+        assert m.missed_decomposition_overall_case_rate == pytest.approx(0.25)
 
     def test_usage_missing_not_fabricated(self, tmp_path):
         from core.query_planning import PlannerCallMetadata
@@ -486,3 +498,355 @@ class TestApiKeyBehavior:
         monkeypatch.delenv("DEEPSEEK_API_KEY_TEST", raising=False)
         with pytest.raises(SystemExit):
             cli._resolve_api_key("DEEPSEEK_API_KEY_TEST")
+
+
+# ---------------------------------------------------------------------------
+# R1: Config v2 强类型
+# ---------------------------------------------------------------------------
+
+
+class TestConfigV2:
+    def test_valid_v2_config(self):
+        c = _config()
+        assert c.schema_version == "gate3_planner_dev_run_v2"
+        assert len(c.run_id) == 12
+
+    def test_schema_version_must_be_v2(self):
+        with pytest.raises(ValueError):
+            _config(schema_version="gate3_planner_dev_run_v1")
+
+    def test_source_commit_must_be_40_hex(self):
+        for bad in ("abc", "g" * 40, "a" * 39):
+            with pytest.raises(ValueError):
+                _config(source_commit=bad)
+
+    def test_id_hex_lengths(self):
+        with pytest.raises(ValueError):
+            _config(corpus_id="870e5864df6")  # 11
+        with pytest.raises(ValueError):
+            _config(evaluation_set_id="f2144030d75")  # 11
+        with pytest.raises(ValueError):
+            _config(gate3_dataset_freeze_id="257fa0d0a6d")  # 11
+        with pytest.raises(ValueError):
+            _config(dev_jsonl_sha256="0" * 63)
+        with pytest.raises(ValueError):
+            _config(dev_manifest_sha256="1" * 63)
+        with pytest.raises(ValueError):
+            _config(prompt_sha256="5" * 63)
+
+    def test_bool_not_int(self):
+        with pytest.raises(TypeError):
+            _config(temperature=True)
+        with pytest.raises(TypeError):
+            _config(max_tokens=True)
+        with pytest.raises(TypeError):
+            _config(max_retries=True)
+
+    def test_nan_inf_timeout_rejected(self):
+        with pytest.raises(ValueError):
+            _config(timeout=float("nan"))
+        with pytest.raises(ValueError):
+            _config(timeout=float("inf"))
+
+    def test_fixed_values_enforced(self):
+        with pytest.raises(ValueError):
+            _config(temperature=1)
+        with pytest.raises(ValueError):
+            _config(max_tokens=1024)
+        with pytest.raises(ValueError):
+            _config(timeout=30.0)
+        with pytest.raises(ValueError):
+            _config(max_retries=2)
+
+    def test_provider_model_prompt_no_blank(self):
+        with pytest.raises(ValueError):
+            _config(provider="  ")
+        with pytest.raises(ValueError):
+            _config(model=" ")
+        with pytest.raises(ValueError):
+            _config(prompt_version="")
+
+
+# ---------------------------------------------------------------------------
+# R1: 条件分母与 duplicate 修复
+# ---------------------------------------------------------------------------
+
+
+class TestConditionalRates:
+    def test_eligible_zero_conditional_rate_is_none(self, tmp_path):
+        # 构造全 required 评测集 → unnecessary eligible=0 → rate=None
+        s = _write_dev(tmp_path, [
+            _answerable("g3q001", "比较 A 和 B", query_type="comparison",
+                        decomposition="required"),
+            _answerable("g3q002", "比较 C 和 D", query_type="comparison",
+                        decomposition="required"),
+        ])
+        result = Gate3PlannerDevRunner(_config(), FakePlanner(), s).run()
+        m = result.metrics
+        assert m.unnecessary_decomposition_eligible_count == 0
+        assert m.unnecessary_decomposition_rate is None
+        assert m.unnecessary_decomposition_overall_case_rate == 0.0
+
+    def test_duplicate_from_failure_code_counts(self, tmp_path):
+        # Parser 输出 PLAN_DUPLICATE_SUBQUERY fallback（空 subqueries）→ 仍计 duplicate
+        s = _default_dev(tmp_path)
+        result = Gate3PlannerDevRunner(
+            _config(),
+            FakePlanner(lambda q: _fallback(q, "PLAN_DUPLICATE_SUBQUERY")),
+            s,
+        ).run()
+        m = result.metrics
+        assert m.exact_duplicate_subquery_case_count == 4
+        assert m.exact_duplicate_subquery_rate == 1.0
+        for cr in result.case_results:
+            assert cr.duplicate_subquery is True
+
+
+class TestCallMetadata:
+    def test_full_call_metadata_serialized(self, tmp_path):
+        from core.query_planning import PlannerCallMetadata
+
+        s = _default_dev(tmp_path)
+
+        def builder(q):
+            return _normal(
+                q, "fact", "single_retrieval", "SIMPLE_FACT",
+                call_metadata=PlannerCallMetadata(
+                    provider="p", model="m",
+                    prompt_version="gate3_planner_prompt_v1",
+                    prompt_sha256="5" * 64, call_count=1,
+                    input_tokens=10, output_tokens=5, latency_ms=2.0,
+                ),
+            )
+
+        result = Gate3PlannerDevRunner(_config(), FakePlanner(builder), s).run()
+        cr = result.case_results[0]
+        assert cr.call_metadata["provider"] == "p"
+        assert cr.call_metadata["model"] == "m"
+        assert cr.call_metadata["prompt_version"] == "gate3_planner_prompt_v1"
+        assert cr.call_metadata["prompt_sha256"] == "5" * 64
+        assert cr.call_metadata["call_count"] == 1
+        assert cr.call_metadata["input_tokens"] == 10
+        assert cr.call_metadata["output_tokens"] == 5
+        assert cr.call_metadata["latency_ms"] == 2.0
+        # to_dict 使用完整 call_metadata，且不含敏感信息
+        d = cr.to_dict()
+        assert d["call_metadata"]["provider"] == "p"
+        assert "api_key" not in json.dumps(d, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# R1: 离线 reanalyze
+# ---------------------------------------------------------------------------
+
+
+class TestReanalyze:
+    def _r0_artifacts(self, tmp_path):
+        """构造一套 R0 风格 Artifact（v1 run_config + planner_results + result.json）。"""
+        s = _default_dev(tmp_path)
+        # v1 历史 config
+        v1 = {
+            "schema_version": "gate3_planner_dev_run_v1",
+            "source_commit": "e" * 40,
+            "corpus_id": "870e5864df67",
+            "evaluation_set_id": "f2144030d754",
+            "dev_jsonl_sha256": "0" * 64,
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "gate3_planner_prompt_v1",
+            "prompt_sha256": "5" * 64,
+            "temperature": 0,
+            "max_tokens": 800,
+            "timeout": 20.0,
+            "max_retries": 0,
+        }
+        from evaluation.gate3.planner_dev import _v1_run_id
+
+        run_id = _v1_run_id(v1)
+        run_dir = tmp_path / "parent" / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "run_config.json").write_text(
+            json.dumps({**v1, "run_id": run_id}, ensure_ascii=False), encoding="utf-8"
+        )
+        lines = []
+        for c in sorted(s.cases, key=lambda x: x.case_id):
+            record = {
+                "schema_version": "gate3_planner_dev_results_v1",
+                "case_id": c.case_id,
+                "query": c.query,
+                "gold": {
+                    "query_type": c.query_type,
+                    "answerability": c.answerability,
+                    "retrieval_required": c.retrieval_required,
+                    "decomposition_expected": c.decomposition_expected,
+                    "action": gold_action_for(c),
+                },
+                "predicted": {
+                    "query_type": "fact",
+                    "retrieval_required": True,
+                    "action": "single_retrieval",
+                    "reason_code": "SIMPLE_FACT",
+                },
+                "fallback_used": False,
+                "failure_code": None,
+                "correctness": {"query_type_correct": False},  # 故意存错
+                "call": {"input_tokens": 10, "output_tokens": 5,
+                         "latency_ms": 100.0},
+                "plan": {
+                    "schema_version": "query_plan_v1",
+                    "plan_id": "x" * 12,
+                    "original_query": c.query,
+                    "query_type": "fact",
+                    "retrieval_required": True,
+                    "action": "single_retrieval",
+                    "reason_code": "SIMPLE_FACT",
+                    "subqueries": [],
+                    "fallback_policy": "single_bm25_original_query",
+                },
+            }
+            lines.append(json.dumps(record, ensure_ascii=False))
+        (run_dir / "planner_results.jsonl").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
+        (run_dir / "planner_metrics.json").write_text("{}", encoding="utf-8")
+        (run_dir / "planner_semantic_review.md").write_text(
+            "# r0\n", encoding="utf-8"
+        )
+        result_summary = {
+            "schema_version": "gate3_planner_dev_result_v1",
+            "run_id": run_id,
+            "config": {**v1, "run_id": run_id},
+            "metrics": {},
+            "artifact_sha256": {},
+        }
+        (run_dir / "result.json").write_text(
+            json.dumps(result_summary, ensure_ascii=False), encoding="utf-8"
+        )
+        # SHA map（五个文件）
+        import hashlib
+
+        sha = {
+            name: hashlib.sha256((run_dir / name).read_bytes()).hexdigest()
+            for name in ("run_config.json", "planner_results.jsonl",
+                         "planner_metrics.json", "planner_semantic_review.md",
+                         "result.json")
+        }
+        return run_dir, run_id, sha
+
+    def test_reanalyze_recomputes_metrics(self, tmp_path):
+        from evaluation.gate3.planner_dev import Gate3PlannerDevRunner, _v1_run_id
+
+        run_dir, run_id, sha = self._r0_artifacts(tmp_path)
+        assert sha["planner_results.jsonl"]  # non-empty
+        # 从结果反推：需要 sha 用真实文件 SHA（已算）
+        cfg = json.loads((run_dir / "run_config.json").read_text(encoding="utf-8"))
+        assert cfg["run_id"] == run_id
+
+        # 用真实 sha 重算
+        eval_set = _default_dev(tmp_path)
+        analysis = reanalyze_planner_dev_run(
+            parent_run_dir=run_dir,
+            expected_r0_sha256=sha,
+            evaluation_set=eval_set,
+            dev_manifest_sha256="1" * 64,
+            gate3_dataset_freeze_id="257fa0d0a6d6",
+            analysis_source_commit="c" * 40,
+        )
+        m = analysis.metrics
+        assert m.case_count == 4
+        # 全部 fact/single → 只有 g3q002（fact）query_type 正确（忽略 R0 存的 False）
+        assert m.query_type_exact_correct_count == 1
+        assert m.query_type_exact_accuracy_all == pytest.approx(0.25)
+
+    def test_reanalyze_rejects_sha_change(self, tmp_path):
+        run_dir, run_id, sha = self._r0_artifacts(tmp_path)
+        # 篡改一个 Artifact 后 SHA 不匹配 → 拒绝
+        (run_dir / "planner_results.jsonl").write_text(
+            "tampered\n", encoding="utf-8"
+        )
+        eval_set = _default_dev(tmp_path)
+        with pytest.raises(ValueError):
+            reanalyze_planner_dev_run(
+                parent_run_dir=run_dir,
+                expected_r0_sha256=sha,
+                evaluation_set=eval_set,
+                dev_manifest_sha256="1" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+                analysis_source_commit="c" * 40,
+            )
+
+    def test_reanalyze_rejects_query_tamper(self, tmp_path):
+        run_dir, run_id, sha = self._r0_artifacts(tmp_path)
+        # 改一条 query 但保持行结构 → reanalyze 应拒绝（query 与 Dev Gold 不一致）
+        path = run_dir / "planner_results.jsonl"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        rec = json.loads(lines[0])
+        rec["query"] = "被篡改的查询"
+        lines[0] = json.dumps(rec, ensure_ascii=False)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        sha2 = {name: None for name in sha}
+        import hashlib
+
+        for name in sha:
+            sha2[name] = hashlib.sha256((run_dir / name).read_bytes()).hexdigest()
+        eval_set = _default_dev(tmp_path)
+        with pytest.raises(ValueError):
+            reanalyze_planner_dev_run(
+                parent_run_dir=run_dir,
+                expected_r0_sha256=sha2,
+                evaluation_set=eval_set,
+                dev_manifest_sha256="1" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+                analysis_source_commit="c" * 40,
+            )
+
+    def test_analysis_id_stable_and_binds_identity(self):
+        from evaluation.gate3.planner_dev import Gate3PlannerAnalysisConfig
+
+        def cfg(**kw):
+            base = dict(
+                analysis_source_commit="c" * 40,
+                parent_run_id="497808269bdd",
+                parent_source_commit="e" * 40,
+                parent_planner_results_sha256="0" * 64,
+                parent_result_json_sha256="1" * 64,
+                corpus_id="870e5864df67",
+                evaluation_set_id="f2144030d754",
+                dev_jsonl_sha256="2" * 64,
+                dev_manifest_sha256="3" * 64,
+                gate3_dataset_freeze_id="257fa0d0a6d6",
+            )
+            base.update(kw)
+            return Gate3PlannerAnalysisConfig(**base)
+
+        a = cfg()
+        assert a.analysis_id == cfg().analysis_id
+        assert a.analysis_id != cfg(analysis_source_commit="d" * 40)
+        assert a.analysis_id != cfg(parent_planner_results_sha256="9" * 64)
+        assert len(a.analysis_id) == 12
+
+    def test_finalize_analysis_protects_overwrite(self, tmp_path):
+        run_dir, run_id, sha = self._r0_artifacts(tmp_path)
+        eval_set = _default_dev(tmp_path)
+        analysis = reanalyze_planner_dev_run(
+            parent_run_dir=run_dir,
+            expected_r0_sha256=sha,
+            evaluation_set=eval_set,
+            dev_manifest_sha256="1" * 64,
+            gate3_dataset_freeze_id="257fa0d0a6d6",
+            analysis_source_commit="c" * 40,
+        )
+        out = tmp_path / "analysis"
+        write_analysis_artifacts(analysis, out)
+        analysis_dir = out / analysis.analysis_id
+        # 预写 review 后 finalize
+        (analysis_dir / "planner_semantic_review.md").write_text(
+            "# r1\n", encoding="utf-8"
+        )
+        finalize_analysis(analysis_dir)
+        # 再次 finalize 应允许（result.json 已存在但 finalize 本身是幂等写）？
+        # 规范：finalize 不防覆盖 result.json（仅 analysis 目录防覆盖）。
+        assert (analysis_dir / "result.json").is_file()
+        # 防覆盖：write_analysis_artifacts 对已存在 analysis_id 应拒绝
+        with pytest.raises(FileExistsError):
+            write_analysis_artifacts(analysis, out)
