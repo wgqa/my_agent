@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（28 份）
+## CURRENT（29 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -54,6 +54,7 @@
 | 71 | [71-Gate3-Agent-Runtime接入Pipeline与API.md](71-Gate3-Agent-Runtime接入Pipeline与API.md) | G3-RUNTIME-05B：PipelineRetrievalAdapter/AnswerAdapter + build_pipeline_agent_runtime + POST /agent/query（BM25-only retrieve_sparse、grounded Citation 校验、direct 单次生成、decomposed 仍 deferred） |
 | 72 | [72-Gate3多问题检索与证据轮转合并.md](72-Gate3多问题检索与证据轮转合并.md) | G3-RUNTIME-05C：decomposed 真多子问题 BM25 执行 + subquery_round_robin_v1 证据合并 + required-subquery 覆盖检查（INCOMPLETE_SUBQUERY_EVIDENCE 拒答、evidence_merged Trace、API sources 含 query_id） |
 | 73 | [73-Gate3自适应检索、单次补检索与证据验证.md](73-Gate3自适应检索、单次补检索与证据验证.md) | G3-ADAPT-06A：确定性 Adaptive Policy v1（BM25/Hybrid 策略表 + 固定原因码）、RouteDecision v2、最多一次 Hybrid Evidence Rescue、Verifier v2 coverage、API sources 契约修正 |
+| 74 | [74-Gate3自适应检索Dev对照实验.md](74-Gate3自适应检索Dev对照实验.md) | G3-ADAPT-06B：Dev 24 真实四组检索对照（A 原问题BM25/B 原问题Hybrid/C Plan+BM25/D Plan+Adaptive），run_id 4d29b9e0b2cc；结果为负（C/D 覆盖 0.727 < A 0.818、调用 49 vs 24、C==D） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -120,6 +121,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–73 共 **74 份**，每份只出现一次：CURRENT 28 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 74。
+- 编号覆盖 00–74 共 **75 份**，每份只出现一次：CURRENT 29 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 75。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-13。
