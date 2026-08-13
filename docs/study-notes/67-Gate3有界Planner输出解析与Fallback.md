@@ -102,7 +102,7 @@ Gate 3 选择 **strict**。原因：这是受控实验，schema validity 与 fal
 
 ## 9. JSON 重复 key 的风险
 
-JSON 规范允许重复 key 但**没有规定取哪个**。Python 的 `json.loads` 默认**后值覆盖前值**。攻击或幻觉场景：
+JSON 标准建议对象成员名称保持唯一，但不少解析器仍会接受重复 key；不同实现可能保留首值、保留末值或直接报错，因此不能依赖默认行为。攻击或幻觉场景：
 
 ```json
 {"query_type": "fact", "query_type": "comparison", ...}
@@ -233,7 +233,7 @@ Gate 3 设计文档 §12 定义了一组失败代码（`PLAN_*`、`ROUTE_*`、`R
 A：这是受控实验，schema validity 和 fallback rate 是研究指标。修复规则会掩盖模型不守契约的真实行为，让指标失真。宁可回退也不掩盖。
 
 **Q：重复 key 为什么危险？你如何处理？**
-A：JSON 规范没规定取哪个值，Python 默认后值覆盖。这会制造不可复现的输出。我用 `object_pairs_hook` 在解析期检测重复 key，出现即失败。
+A：JSON 标准建议对象成员名称唯一，但很多解析器仍会接受重复 key，且行为不一（保留首值、保留末值或直接报错），不能依赖默认行为，否则输出不可复现。我用 `object_pairs_hook` 在解析期检测重复 key，出现即失败。
 
 **Q：未知字段为什么 fail-fast 而不是忽略？**
 A：未知字段往往意味着模型越界（试图干预策略或身份）。忽略它契约会腐化；fail-fast 把越界显式暴露成指标。

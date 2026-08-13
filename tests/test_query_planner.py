@@ -229,22 +229,39 @@ class TestEmptyAndJsonErrors:
         _assert_fallback(_parse(raw), "PLAN_INVALID_SCHEMA")
 
     def test_duplicate_key_inside_subquery_fallback(self):
-        raw = json.dumps(
+        # 直接手写 raw JSON，使第一个 subquery 是真正的嵌套 JSON object，
+        # 并在其内部制造重复 "id" key。若暂时移除 object_pairs_hook 的重复
+        # key 检测，Python 默认解析会“末值覆盖前值”得到 id="sq1"，从而成为
+        # 一份合法的两子问题 comparison QueryPlan——因此本测试只有检测到
+        # 嵌套重复 key 才会失败（PLAN_INVALID_SCHEMA），不是依赖其他 Schema 错误。
+        raw = """
+        {
+          "query_type": "comparison",
+          "retrieval_required": true,
+          "action": "decomposed_retrieval",
+          "reason_code": "COMPARISON_EVIDENCE",
+          "subqueries": [
             {
-                "query_type": "comparison",
-                "retrieval_required": True,
-                "action": "decomposed_retrieval",
-                "reason_code": "COMPARISON_EVIDENCE",
-                "subqueries": [
-                    '{"id":"sq1","id":"sq1","query":"A",'
-                    '"evidence_target":"B","required":true}',
-                    '{"id":"sq2","query":"C","evidence_target":"D","required":true}',
-                ],
+              "id": "sq1",
+              "id": "sq1",
+              "query": "A 的特点是什么？",
+              "evidence_target": "A 的机制",
+              "required": true
             },
-            ensure_ascii=False,
+            {
+              "id": "sq2",
+              "query": "B 的特点是什么？",
+              "evidence_target": "B 的机制",
+              "required": true
+            }
+          ]
+        }
+        """
+        _assert_fallback(
+            _parse(raw, original_query="比较 A 和 B",
+                   fallback_query_type="comparison"),
+            "PLAN_INVALID_SCHEMA",
         )
-        _assert_fallback(_parse(raw, fallback_query_type="comparison"),
-                         "PLAN_INVALID_SCHEMA")
 
 
 # ---------------------------------------------------------------------------
