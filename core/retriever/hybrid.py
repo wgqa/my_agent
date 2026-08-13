@@ -209,6 +209,23 @@ class HybridRetriever(BaseRetriever):
         _, _, final = self._internal_retrieve(query, top_k)
         return final
 
+    def retrieve_sparse(self, query: str, top_k: int = 5) -> List[Document]:
+        """只运行 BM25 的检索：不调用 Embedding / Dense Search / RRF。
+
+        G3-RUNTIME-05B：Agent Runtime 生产 Adapter 只跑 BM25 时使用。
+        复用同一 BM25Index，返回按 BM25 分数排序的 Document 列表；元数据
+        含 id / document_id / source_name / sparse_score 等原始信息。
+        """
+        hits = self._bm25.search(query, top_k=top_k)
+        docs = []
+        for chunk_id, score in hits:
+            text = self._bm25.get_text(chunk_id)
+            meta = self._bm25.get_meta(chunk_id)
+            meta["id"] = chunk_id
+            meta["sparse_score"] = round(score, 4)
+            docs.append(Document(content=text, metadata=meta))
+        return docs
+
     def retrieve_with_trace(self, query: str, top_k: int = 5) -> dict:
         """诊断接口：一次检索同时暴露 Dense/Sparse 完整候选与最终结果。
 

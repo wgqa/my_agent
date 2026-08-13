@@ -298,7 +298,9 @@ class AgentRuntime:
                 None,
             )
         if not isinstance(outcome, PlannerOutcome):
-            raise TypeError("planner.plan() 必须返回 PlannerOutcome")
+            return run_failed(
+                "PLANNING_FAILED", "InvalidPlannerOutcome", None, None, None, None
+            )
         emit(
             "planning_completed",
             "planning completed",
@@ -347,6 +349,11 @@ class AgentRuntime:
                     "GENERATION_FAILED", type(exc).__name__,
                     outcome, route, bundle, verification,
                 )
+            if type(answer) is not str or not answer.strip():
+                return run_failed(
+                    "GENERATION_FAILED", "InvalidAnswer",
+                    outcome, route, bundle, verification,
+                )
             emit(
                 "generation_completed",
                 "generation completed",
@@ -374,24 +381,30 @@ class AgentRuntime:
                 documents = self._retrieval_port.search(
                     question, strategy="bm25", top_k=top_k
                 )
+                documents = tuple(documents)
             except Exception as exc:
                 return run_failed(
                     "RETRIEVAL_FAILED", type(exc).__name__,
                     outcome, route, None, None,
                 )
-            documents = tuple(documents)
             emit(
                 "retrieval_completed",
                 "retrieval completed",
                 {"strategy": "bm25", "documents_returned": len(documents)},
             )
-            bundle = EvidenceBundle.from_documents(
-                documents,
-                query_id=question,
-                max_items=self._budget.max_evidence_items,
-                retrieval_call_count=retrieval_calls,
-                query_count=len(route.queries),
-            )
+            try:
+                bundle = EvidenceBundle.from_documents(
+                    documents,
+                    query_id=question,
+                    max_items=self._budget.max_evidence_items,
+                    retrieval_call_count=retrieval_calls,
+                    query_count=len(route.queries),
+                )
+            except Exception as exc:
+                return run_failed(
+                    "RETRIEVAL_FAILED", type(exc).__name__,
+                    outcome, route, None, None,
+                )
             verification = self._verifier.verify(plan, bundle)
             emit(
                 "verification_completed",
@@ -414,6 +427,11 @@ class AgentRuntime:
                 except Exception as exc:
                     return run_failed(
                         "GENERATION_FAILED", type(exc).__name__,
+                        outcome, route, bundle, verification,
+                    )
+                if type(answer) is not str or not answer.strip():
+                    return run_failed(
+                        "GENERATION_FAILED", "InvalidAnswer",
                         outcome, route, bundle, verification,
                     )
                 emit(

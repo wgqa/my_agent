@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（25 份）
+## CURRENT（26 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -51,6 +51,7 @@
 | 68 | [68-Gate3真实Planner调用、Prompt版本与超时回退.md](68-Gate3真实Planner调用、Prompt版本与超时回退.md) | G3-DECOMP-04B-01：正式 Planner Prompt v1、OpenAI-compatible Provider、单次调用边界、超时/Provider 错误回退、PlannerCallMetadata（只经 Fake Client 验证，未调真实模型） |
 | 69 | [69-Gate3-Planner-Dev真实调用与校准评测.md](69-Gate3-Planner-Dev真实调用与校准评测.md) | G3-DECOMP-04B-02A：公开 Dev 24 Case 真实 DeepSeek baseline（run_id 497808269bdd）、可复现校准 Runner、Planning 指标与人工语义审查（调优前快照，未改 Prompt） |
 | 70 | [70-Gate3最小Agent-Runtime与执行轨迹.md](70-Gate3最小Agent-Runtime与执行轨迹.md) | G3-RUNTIME-05A：最小离线 Agent Runtime（RouteDecision/EvidenceBundle/VerificationResult/RunTrace + AgentRuntime，direct/single 执行、decomposed 只路由、预算/异常/脱敏 Trace） |
+| 71 | [71-Gate3-Agent-Runtime接入Pipeline与API.md](71-Gate3-Agent-Runtime接入Pipeline与API.md) | G3-RUNTIME-05B：PipelineRetrievalAdapter/AnswerAdapter + build_pipeline_agent_runtime + POST /agent/query（BM25-only retrieve_sparse、grounded Citation 校验、direct 单次生成、decomposed 仍 deferred） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -117,6 +118,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–70 共 **71 份**，每份只出现一次：CURRENT 25 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 71。
+- 编号覆盖 00–71 共 **72 份**，每份只出现一次：CURRENT 26 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 72。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-13。

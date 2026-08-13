@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -56,3 +56,44 @@ class HealthResponse(BaseModel):
     embedding_provider: str = ""
     retriever_strategy: str = ""
     generator_provider: str = ""
+
+
+class AgentQueryRequest(BaseModel):
+    """/agent/query 请求。本版本不接 history：未定义字段（含 history）显式
+    拒绝（extra=forbid），绝不静默忽略。"""
+
+    model_config = {"extra": "forbid"}
+
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    top_k: int = Field(default=5, ge=1, le=MAX_TOP_K)
+
+    @field_validator("question")
+    @classmethod
+    def _reject_blank_question(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("question must not be blank")
+        return v
+
+
+class AgentSourceItem(BaseModel):
+    citation_id: str
+    chunk_id: Optional[str] = None
+    document_id: Optional[str] = None
+    source: str
+    content: str
+    score: Optional[float] = None
+    rank: int
+
+
+class AgentQueryResponse(BaseModel):
+    schema_version: str
+    run_id: str
+    status: str
+    answer: Optional[str] = None
+    sources: List[AgentSourceItem]
+    planner: Optional[dict] = None
+    route: Optional[dict] = None
+    verification: Optional[dict] = None
+    trace: List[dict]
+    error_code: Optional[str] = None
+    warnings: List[str]

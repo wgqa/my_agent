@@ -37,6 +37,13 @@ from core.agent_runtime.runtime import (
     MinimalEvidenceVerifier,
     RetrievalPort,
 )
+from core.agent_runtime.adapters import (
+    GenerationAdapterError,
+    PipelineAnswerAdapter,
+    PipelineRetrievalAdapter,
+    UnsupportedRetrievalStrategyError,
+    build_pipeline_agent_runtime,
+)
 
 __all__ = [
     "ROUTE_DECISION_SCHEMA_VERSION",
@@ -66,4 +73,9 @@ __all__ = [
     "DeterministicRouter",
     "MinimalEvidenceVerifier",
     "AgentRuntime",
+    "UnsupportedRetrievalStrategyError",
+    "GenerationAdapterError",
+    "PipelineRetrievalAdapter",
+    "PipelineAnswerAdapter",
+    "build_pipeline_agent_runtime",
 ]

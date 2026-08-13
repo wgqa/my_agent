@@ -1,5 +1,7 @@
+import json
 import os
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -493,3 +495,202 @@ class TestUploadCleanup:
         assert resp.status_code == 500
         assert recording_tempdir
         assert not os.path.exists(recording_tempdir[0])
+
+
+# ---------------------------------------------------------------------------
+# G3-RUNTIME-05B：/agent/query
+# ---------------------------------------------------------------------------
+
+
+class _FakeResp:
+    def __init__(self, content):
+        self.choices = [SimpleNamespace(message=SimpleNamespace(content=content))]
+
+
+class _FakePlannerClient:
+    def __init__(self, content):
+        self._content = content
+        self.calls = 0
+
+    @property
+    def chat(self):
+        return self
+
+    @property
+    def completions(self):
+        return self
+
+    def create(self, **kwargs):
+        self.calls += 1
+        return _FakeResp(self._content)
+
+
+class _FakeDirectClient:
+    def __init__(self, response):
+        self._response = response
+        self.calls = 0
+
+    @property
+    def chat(self):
+        return self
+
+    @property
+    def completions(self):
+        return self
+
+    def create(self, **kwargs):
+        self.calls += 1
+        return self._response
+
+
+class _FakeGen:
+    def __init__(self, answer):
+        self._answer = answer
+        self.calls = 0
+
+    def generate(self, question, blocks):
+        self.calls += 1
+        return self._answer
+
+
+_SINGLE_PLAN_JSON = json.dumps(
+    {
+        "query_type": "fact",
+        "retrieval_required": True,
+        "action": "single_retrieval",
+        "reason_code": "SIMPLE_FACT",
+        "subqueries": [],
+    },
+    ensure_ascii=False,
+)
+_DECOMPOSED_PLAN_JSON = json.dumps(
+    {
+        "query_type": "comparison",
+        "retrieval_required": True,
+        "action": "decomposed_retrieval",
+        "reason_code": "COMPARISON_EVIDENCE",
+        "subqueries": [
+            {"id": "sq1", "query": "甲", "evidence_target": "t", "required": True},
+            {"id": "sq2", "query": "乙", "evidence_target": "t", "required": True},
+        ],
+    },
+    ensure_ascii=False,
+)
+
+
+def _install_agent_runtime(monkeypatch, *, plan_json, index, gen_answer):
+    """用 Fake 注入一个与网络无关的 AgentRuntime 到 api.app.agent_runtime。"""
+    from core.retriever.bm25_only import BM25OnlyRetriever
+    from core.agent_runtime import build_pipeline_agent_runtime
+
+    retriever = BM25OnlyRetriever()
+    retriever.build_sparse_index(index)
+    gen = _FakeGen(gen_answer)
+    pipeline = SimpleNamespace(retriever=retriever, generator=gen)
+    planner_client = _FakePlannerClient(plan_json)
+    rt = build_pipeline_agent_runtime(
+        pipeline,
+        planner_provider="deepseek",
+        api_key="sk-api-test",
+        planner_client=planner_client,
+        direct_answer_client=_FakeDirectClient(_FakeResp("42")),
+    )
+    monkeypatch.setattr(api.app, "agent_runtime", rt)
+    return planner_client, gen
+
+
+class TestAgentQuery:
+    def test_completed(self, client, monkeypatch):
+        planner_client, gen = _install_agent_runtime(
+            monkeypatch,
+            plan_json=_SINGLE_PLAN_JSON,
+            index=[("c1", "alpha beta", {"document_id": "d1", "source_name": "a.md"})],
+            gen_answer="答案 [C1]",
+        )
+        resp = client.post("/agent/query", json={"question": "alpha", "top_k": 5})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["schema_version"] == "agent_query_response_v1"
+        assert data["status"] == "completed"
+        assert data["answer"] == "答案 [C1]"
+        assert data["error_code"] is None
+        assert len(data["sources"]) == 1
+        s = data["sources"][0]
+        assert s["citation_id"] == "[C1]"
+        assert s["chunk_id"] == "c1"
+        assert s["document_id"] == "d1"
+        assert s["source"] == "a.md"
+        assert s["rank"] == 1
+        assert data["route"]["route"] == "single_retrieval"
+        assert data["verification"]["status"] == "supported"
+        assert len(data["trace"]) >= 7
+        assert planner_client.calls == 1
+        assert gen.calls == 1
+
+    def test_refused(self, client, monkeypatch):
+        _planner_client, gen = _install_agent_runtime(
+            monkeypatch,
+            plan_json=_SINGLE_PLAN_JSON,
+            index=[],
+            gen_answer="不应被调用",
+        )
+        resp = client.post("/agent/query", json={"question": "alpha"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "refused"
+        assert data["answer"] == "现有资料不足，无法可靠回答该问题。"
+        assert data["error_code"] is None
+        assert data["sources"] == []
+        assert gen.calls == 0
+
+    def test_deferred(self, client, monkeypatch):
+        _planner_client, gen = _install_agent_runtime(
+            monkeypatch,
+            plan_json=_DECOMPOSED_PLAN_JSON,
+            index=[("c1", "alpha beta", {"document_id": "d1", "source_name": "a.md"})],
+            gen_answer="不应被调用",
+        )
+        resp = client.post("/agent/query", json={"question": "alpha"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "deferred"
+        assert data["error_code"] == "DECOMPOSED_RETRIEVAL_NOT_IMPLEMENTED"
+        assert data["answer"] is None
+        assert data["route"]["queries"] == ["甲", "乙"]
+        assert gen.calls == 0
+
+    def test_not_initialized_503(self, client, monkeypatch):
+        monkeypatch.setattr(api.app, "agent_runtime", None)
+        resp = client.post("/agent/query", json={"question": "alpha"})
+        assert resp.status_code == 503
+
+    def test_history_rejected_not_silently_ignored(self, client, monkeypatch):
+        _install_agent_runtime(
+            monkeypatch,
+            plan_json=_SINGLE_PLAN_JSON,
+            index=[],
+            gen_answer="x",
+        )
+        resp = client.post(
+            "/agent/query",
+            json={
+                "question": "alpha",
+                "history": [{"role": "user", "content": "旧问题"}],
+            },
+        )
+        assert resp.status_code == 422  # extra=forbid 显式拒绝 history
+
+    def test_no_key_or_prompt_leak(self, client, monkeypatch):
+        _install_agent_runtime(
+            monkeypatch,
+            plan_json=_SINGLE_PLAN_JSON,
+            index=[("c1", "alpha beta", {"document_id": "d1", "source_name": "a.md"})],
+            gen_answer="答案 [C1]",
+        )
+        resp = client.post("/agent/query", json={"question": "alpha"})
+        assert resp.status_code == 200
+        body = resp.text
+        assert "sk-api-test" not in body
+        assert "Traceback" not in body
+        assert "你是一个只处理问题自身信息" not in body  # direct prompt 不泄漏
+        assert "你是一个知识库问答助手" not in body  # grounded prompt 不泄漏
