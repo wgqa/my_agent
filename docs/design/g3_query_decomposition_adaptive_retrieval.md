@@ -156,6 +156,17 @@ Gate 3 分成四层，禁止把 Planner、Router 或 Evidence 业务逻辑直接
 - Schema 校验与规范化；
 - 失败时回退。
 
+#### 4.1.1 04B-01 实现事实（OpenAI-compatible Planner Provider）
+
+以下为 04B-01 已实现的固定执行事实（非实验效果，不登记任何指标）：
+
+- **Prompt v1**：`PLANNER_PROMPT_VERSION = gate3_planner_prompt_v1`；System Prompt 全文与 user payload 模板版本绑定为 `PLANNER_PROMPT_SHA256`（canonical JSON + SHA-256 64 位小写十六进制）；原始 query 是运行时输入，不进入模板哈希。
+- **OpenAI-compatible Provider**：`OpenAICompatibleQueryPlanner`（`core/query_planning/openai_compatible.py`）实现 `BaseQueryPlanner`，生产默认构造 openai SDK client，测试用 Fake Client 注入。
+- **固定参数**：`temperature=0`、`max_tokens=800`、`timeout=20s`、`max_retries=0`；每个问题最多一次模型调用，无重试循环、无 sleep。
+- **失败代码**：新增 `PLANNER_PROVIDER_ERROR`；超时用 `PLANNER_TIMEOUT`；非法/空模型文本仍交 `parse_planner_output` 分类（PLAN_EMPTY/INVALID_SCHEMA/OVER_DECOMPOSE/UNDER_DECOMPOSE/DUPLICATE_SUBQUERY）。
+- **PlannerCallMetadata**：记录 provider/model/prompt_version/prompt_sha256/call_count/tokens/latency_ms，作为观测事实，**不进入 plan_id**。
+- **当前未实现**：运行时语义新实体检测、比较对象语义保持检测、语义近义子问题检测（属 04B-02）；**当前未运行** Dev/Holdout 指标。
+
 ### 4.2 Adaptive Routing
 
 未来目录：`core/adaptive_retrieval/`

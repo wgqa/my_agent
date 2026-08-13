@@ -159,7 +159,7 @@ QueryPlan 的 Schema 校验是**结构级**的，解决不了**语义级**的问
 ## 13. 项目代码位置与测试位置
 
 - 实现：`core/query_planning/__init__.py`（公开 API：`QUERY_PLAN_SCHEMA_VERSION` / `QUERY_PLAN_ACTIONS` / `QUERY_PLAN_REASON_CODES` / `QUERY_PLAN_QUERY_TYPES` / `QUERY_PLAN_CLASSIFIED_QUERY_TYPES` / `QUERY_PLAN_FALLBACK_QUERY_TYPE` / `QUERY_PLAN_FALLBACK_POLICY` / `Subquery` / `QueryPlan` / `build_fallback_query_plan`）；`core/query_planning/models.py`（全部逻辑）。
-- 测试：`tests/test_query_plan.py`（90 个 synthetic 测试）。
+- 测试：`tests/test_query_plan.py`（99 个 synthetic 测试）。
 - 约定：
   - `Subquery`：frozen dataclass，字段 `id/query/evidence_target/required`，构造即校验。
   - `QueryPlan`：frozen dataclass，字段 `schema_version/plan_id/original_query/query_type/retrieval_required/action/reason_code/subqueries/fallback_policy`。

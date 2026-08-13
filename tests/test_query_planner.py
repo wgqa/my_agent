@@ -554,9 +554,11 @@ class TestPlannerOutcomeInvariants:
     def test_to_dict_excludes_sensitive_fields(self):
         o = _parse(_single_raw())
         d = o.to_dict()
-        assert set(d) == {"plan", "fallback_used", "failure_code"}
+        assert set(d) == {"plan", "fallback_used", "failure_code", "call_metadata"}
+        # parser-only 单独调用时 call_metadata 为 None
+        assert d["call_metadata"] is None
         for sensitive in ("raw_output", "exception", "traceback", "prompt",
-                          "chain_of_thought", "latency"):
+                          "chain_of_thought"):
             assert sensitive not in d
             assert sensitive not in json.dumps(d, ensure_ascii=False)
 
@@ -628,6 +630,7 @@ class TestBaseQueryPlanner:
         assert "PLAN_OVER_DECOMPOSE" in PLANNER_FAILURE_CODES
         assert "PLAN_UNDER_DECOMPOSE" in PLANNER_FAILURE_CODES
         assert "PLAN_DUPLICATE_SUBQUERY" in PLANNER_FAILURE_CODES
+        assert "PLANNER_PROVIDER_ERROR" in PLANNER_FAILURE_CODES
         assert "PLAN_NEW_ENTITY" in PLANNER_FAILURE_CODES
         assert "PLANNER_TIMEOUT" in PLANNER_FAILURE_CODES
         assert PLANNER_MODEL_ALLOWED_FIELDS == {

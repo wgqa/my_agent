@@ -122,7 +122,18 @@ JSON 标准建议对象成员名称保持唯一，但不少解析器仍会接受
 - normal：`fallback_used=False`、`failure_code=None`、`plan.reason_code != "PLANNER_FALLBACK"`；
 - fallback：`fallback_used=True`、`failure_code` 是允许枚举、`plan` 必须是单次检索 `PLANNER_FALLBACK`。
 
-`to_dict()` 只含 `plan / fallback_used / failure_code`，**不含** raw_output、完整异常、traceback、Prompt、思维链——错误细节留在日志，不进结果对象。
+`to_dict()` 只含 `plan / fallback_used / failure_code / call_metadata`，**不含** raw_output、完整异常、traceback、Prompt、思维链——错误细节留在日志，不进结果对象。
+
+### 10.1 call_metadata（04B-01 新增）
+
+`PlannerOutcome` 增加可选字段 `call_metadata`（`PlannerCallMetadata`）：
+
+- **parser-only**：`parse_planner_output` 单独调用时不附加元数据，`call_metadata` 为 `None`；
+- **Provider 运行时**：真实/注入 Provider 返回时必须附加元数据（provider/model/prompt_version/prompt_sha256/call_count/tokens/latency_ms）；
+- `PlannerCallMetadata` 是观测事实，**不参与 plan_id**；不含 API Key、Authorization、base_url 秘密参数、raw model output、traceback、完整异常或思维链；
+- 原始模型输出**不保存到 outcome**，只作为 `parse_planner_output` 的输入。
+
+04B-01 还区分两类 **Provider 层失败**（与 parser 层失败不同）：超时 → `PLANNER_TIMEOUT`；认证/限流/连接失败/HTTP Provider 错误/响应结构缺损 → `PLANNER_PROVIDER_ERROR`。非法/空模型文本仍由 `parse_planner_output` 分类（PLAN_EMPTY/INVALID_SCHEMA/OVER_DECOMPOSE/UNDER_DECOMPOSE/DUPLICATE_SUBQUERY）。`BaseQueryPlanner.plan(original_query) -> PlannerOutcome` 接口不变，04B-01 只是它的一个真实实现。
 
 ## 11. fallback 为什么是系统行为
 
