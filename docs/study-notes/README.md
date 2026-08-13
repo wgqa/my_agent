@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（19 份）
+## CURRENT（20 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -45,6 +45,7 @@
 | 62 | [62-API本地暴露与请求边界.md](62-API本地暴露与请求边界.md) | API 本地暴露与请求边界（CORS 白名单 / 127.0.0.1 默认监听 / Query 输入上限 / /query 通用错误响应） |
 | 63 | [63-Gate3问题分解与自适应检索设计.md](63-Gate3问题分解与自适应检索设计.md) | Gate 3 问题分解与自适应检索设计契约（G3-DESIGN-01，主设计文档与 ADR-001 的索引） |
 | 64 | [64-Gate3Case与评测集身份.md](64-Gate3Case与评测集身份.md) | G3-DATA-02A：Gate3Case 与 Gate3EvaluationSet 强类型契约（数据 Schema 基础设施；36 条问题与 sealed holdout 尚未创建） |
+| 65 | [65-Gate3数据集划分、Holdout封存与泄漏防护.md](65-Gate3数据集划分、Holdout封存与泄漏防护.md) | G3-DATA-02C：24/12 分层划分、Holdout 封存与泄漏防护（Goodhart/数据泄漏/预注册 split/语义身份 vs 字节身份/canonicalization/sealed 流程；不含 Holdout case_id 或题目） |
 
 ## FROZEN_EVIDENCE（10 份）
 

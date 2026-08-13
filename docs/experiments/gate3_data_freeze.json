@@ -1,0 +1,82 @@
+{
+  "schema_version": "gate3_dataset_freeze_v1",
+  "status": "SEALED",
+  "gate3_dataset_freeze_id": "257fa0d0a6d6",
+  "corpus_id": "870e5864df67",
+  "corpus_file_count": 37,
+  "combined_evaluation_set_id": "c40a414f539f",
+  "split_candidate_id": "d2573d4d0082",
+  "selection_method": "reviewer_prescribed_stratified_v1",
+  "selection_time_relation": "before_gate3_implementation_and_metrics",
+  "canonicalization": "python_json_sort_keys_compact_v1",
+  "dev": {
+    "case_count": 24,
+    "evaluation_set_id": "f2144030d754",
+    "jsonl_sha256": "0b4bbf5314fee27d965c6ccefd738d71eb5c3925b15517b544c1fdf4f8e94015",
+    "distributions": {
+      "query_type": {
+        "comparison": 5,
+        "multi_entity": 4,
+        "causal": 4,
+        "troubleshooting": 3,
+        "fact": 2,
+        "code_symbol": 2,
+        "unanswerable_or_no_retrieval": 4
+      },
+      "answerability": {
+        "answerable": 20,
+        "unanswerable": 2,
+        "no_retrieval": 2
+      },
+      "decomposition_expected": {
+        "required": 16,
+        "forbidden": 8
+      },
+      "retrieval_required": {
+        "true": 22,
+        "false": 2
+      },
+      "multi_obligation_case_count": 16
+    }
+  },
+  "holdout": {
+    "case_count": 12,
+    "evaluation_set_id": "79a6bc0814a3",
+    "jsonl_sha256": "00bfcac2fe553f3edeefcc281db5c2aecaa380e9f41fd3ecfb98ec7a4796fe61",
+    "distributions": {
+      "query_type": {
+        "comparison": 3,
+        "multi_entity": 2,
+        "causal": 2,
+        "troubleshooting": 1,
+        "fact": 1,
+        "code_symbol": 1,
+        "unanswerable_or_no_retrieval": 2
+      },
+      "answerability": {
+        "answerable": 10,
+        "unanswerable": 1,
+        "no_retrieval": 1
+      },
+      "decomposition_expected": {
+        "required": 8,
+        "forbidden": 4
+      },
+      "retrieval_required": {
+        "true": 11,
+        "false": 1
+      },
+      "multi_obligation_case_count": 8
+    }
+  },
+  "dev_manifest_sha256": "1baeed58d22a71e49c4edb83b7ce156df6a1982ae4c17f0a9aba37fce980ce27",
+  "private_manifest_sha256": "b34bb2d16d29dcd22c5d096dda370b044ffc64c81c9c590df7086926db2205c0",
+  "isolation_level": "process_isolated_same_os_user_v1",
+  "limitations": [
+    "not_cryptographic_isolation",
+    "not_separate_os_account"
+  ],
+  "holdout_case_ids_omitted": true,
+  "implementation_agent_access": "dev_only",
+  "final_evaluation_policy": "independent_session_once_after_dev_promotion"
+}
