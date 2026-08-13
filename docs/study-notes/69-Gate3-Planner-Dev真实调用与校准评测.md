@@ -198,6 +198,41 @@ evidence_target 的语义是"**只描述所需证据，不写答案**"。g3q010 
 
 ---
 
+## 17. R2-MICRO 收口
+
+R2-MICRO（提交 E=6d1dfb0，analysis_id=`1b38cd1d9be3`，**未重跑模型**）收口了五类边界。
+
+### 17.1 为什么 fail-fast 后再调用一次仍然属于隐式重试
+
+原 CLI 在 ProviderFailFast 后为了写 abort Artifact **再次调用 `planner.plan()`**。这就是隐式重试：第一次失败后代码又发了一次真实请求。有界预算要求"每 Case 最多一次调用"，任何二次调用都让成本/失败率不可控。修复：`ProviderFailFast` 异常直接携带首个 `case_id/failure_code/PlannerOutcome`，CLI 用它写 abort.json，**catch 路径严禁再调 planner**。测试证明首条 Provider 错误/超时都只调用一次、call_metadata.call_count==1、exit code==2、abort 无敏感信息。
+
+### 17.2 declared schema 与 emitted schema 为什么必须一致
+
+`analysis_config.metrics_schema_version` 是**身份声明**，`planner_metrics.schema_version` 是**实际发射**。两者不一致（声明 v1、发射 v2）会让分析身份与内容脱节。修复：两者统一为 `gate3_planner_dev_metrics_v2`；`finalize_analysis` 再校验一次，不一致 fail-fast。
+
+### 17.3 provenance 为什么必须绑定实际 Git HEAD
+
+`analysis_source_commit` 是"用什么代码版本做的分析"。如果不校验等于 git HEAD，可以声称任意 commit；`--source-commit` 与 HEAD 不符、或工作区 tracked dirty 时分析不可复现。修复：reanalyze 在写任何 Artifact 前校验 40 位 hex + 等于 git HEAD + tracked clean（untracked 用户 Artifact 不阻塞）。
+
+### 17.4 原子写入与防覆盖的区别
+
+- **原子写入**：先写临时文件再 `os.replace`，避免半截文件；解决"写坏了"。
+- **防覆盖**：目标文件/目录已存在时 `FileExistsError`，即使内容相同也不覆盖；解决"篡改历史"。R2 给 `finalize_planner_dev_run` 与 `finalize_analysis` 都加了 result.json 防覆盖——第一次 finalize 成功，第二次明确失败，原 SHA 不变。
+
+### 17.5 为什么离线重分析要从 QueryPlan 重建事实
+
+R0 planner_results 里的 `predicted` 与 `correctness` 是**派生字段**，可能被篡改或与 plan 不一致。reanalyze 必须用 `QueryPlan.from_dict(record["plan"])` 严格重建，再校验：
+
+- R0 case_id 集合与 Dev 集合**精确相等**（拒绝重复、拒绝遗漏，即便总数相同）；
+- `plan.original_query == record.query == Dev query`；
+- `predicted.*` 与重建后的 QueryPlan 完全一致；
+- `fallback_used/failure_code` 满足 PlannerOutcome/fallback 契约；
+- 指标从重建后的 plan 计算，不信任旧 correctness。
+
+这样篡改任何派生字段都会 fail-fast。
+
+---
+
 ## 边界声明
 
 - 本 baseline 只覆盖公开 Dev 24 Case，不推广为 Holdout 或跨语料泛化结论。
