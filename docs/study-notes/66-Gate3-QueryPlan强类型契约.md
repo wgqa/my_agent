@@ -115,7 +115,7 @@ QueryPlan 和 Subquery 都是 `@dataclass(frozen=True)`。frozen 意味着构造
 
 **为什么是 BM25**：Gate 2 的正式结论是 Recursive + BM25 top5 是 Benchmark v1 的 winner（`dbc497c796d5`）。当复杂规划失败时，最保守、最不容易引入新错误的兜底就是退回"已知最好的简单策略"。BM25 也最稳定，且查询阶段不需要生成 query embedding，也没有 Dense/融合路径的额外查询复杂度。回退到 Hybrid 或 Dense 反而是把失败风险嫁接到更复杂的通道上。
 
-注意 fallback 保留原 `query_type`（`build_fallback_query_plan(original_query, query_type)` 原样传入），因为 query_type 是"问题本身是什么"的分类，不是规划执行的结果。
+fallback 的 `query_type` 固定为系统专属 `unknown`（`QUERY_PLAN_FALLBACK_QUERY_TYPE`），`build_fallback_query_plan(original_query)` 只接受原问题一个参数。原因：**Planner 失败时并不存在可信 query_type**——模型没有产出可用分类，调用方也没有能力判断"这题本该是什么类型"。用任何语义类型（fact/comparison…）填充都是伪造分类，也禁止用 Gold/Dev 标签或部分非法模型输出填。`unknown` 是 system-only sentinel：它不是模型输出类别、不属于 Gate3Case 标签、不参与正常分类准确率，并且与 `reason_code=PLANNER_FALLBACK` 构成双向强约束（unknown ⇔ PLANNER_FALLBACK）。这**不是新增第八种业务问题类型**——它只出现在系统 fallback 路径，永远不进入正常分类指标。
 
 ## 9. plan_id 如何计算
 
@@ -158,13 +158,13 @@ QueryPlan 的 Schema 校验是**结构级**的，解决不了**语义级**的问
 
 ## 13. 项目代码位置与测试位置
 
-- 实现：`core/query_planning/__init__.py`（公开 API：`QUERY_PLAN_SCHEMA_VERSION` / `QUERY_PLAN_ACTIONS` / `QUERY_PLAN_REASON_CODES` / `QUERY_PLAN_QUERY_TYPES` / `QUERY_PLAN_FALLBACK_POLICY` / `Subquery` / `QueryPlan` / `build_fallback_query_plan`）；`core/query_planning/models.py`（全部逻辑）。
+- 实现：`core/query_planning/__init__.py`（公开 API：`QUERY_PLAN_SCHEMA_VERSION` / `QUERY_PLAN_ACTIONS` / `QUERY_PLAN_REASON_CODES` / `QUERY_PLAN_QUERY_TYPES` / `QUERY_PLAN_CLASSIFIED_QUERY_TYPES` / `QUERY_PLAN_FALLBACK_QUERY_TYPE` / `QUERY_PLAN_FALLBACK_POLICY` / `Subquery` / `QueryPlan` / `build_fallback_query_plan`）；`core/query_planning/models.py`（全部逻辑）。
 - 测试：`tests/test_query_plan.py`（90 个 synthetic 测试）。
 - 约定：
   - `Subquery`：frozen dataclass，字段 `id/query/evidence_target/required`，构造即校验。
   - `QueryPlan`：frozen dataclass，字段 `schema_version/plan_id/original_query/query_type/retrieval_required/action/reason_code/subqueries/fallback_policy`。
   - 对外构造一律 `QueryPlan.create(...)`（自动算 plan_id）；`QueryPlan.from_dict(...)`（读完整快照并验证 plan_id）；`identity_payload()` 排除 plan_id 的窄接口。
-  - `build_fallback_query_plan(original_query, query_type)` 构造合法 fallback。
+  - `build_fallback_query_plan(original_query)` 构造合法 fallback（query_type 固定为系统专属 `unknown`）。
   - `core/query_planning` 不反向依赖 `evaluation`；不使用 Pydantic；路由字段（selected_strategy/candidate_k/reranker/max rounds）一律不混入 QueryPlan。
 
 ## 14. 常见错误案例
@@ -227,7 +227,7 @@ G3-DECOMP-04（有界 Planner 与 fallback）要做：
 
 - 调用 Planner 生成原始输出；
 - 解析并决定传入哪个合法 query_type；
-- 捕获 Planner 解析失败，调用 `build_fallback_query_plan(original_query, query_type)` 回退；
+- 捕获 Planner 解析失败，调用 `build_fallback_query_plan(original_query)` 回退（内部固定 query_type=unknown）；
 - 对 Planner 输出做**语义验证**（新实体、比较两侧对象、evidence_target 正确性、隐式 Gold、语义近义重复）——这些本任务的 Schema 明确不解决。
 
 本任务还明确了状态机：审计（G3-PLAN-03 REVIEW PENDING）通过后，进入 G3-DECOMP-04；在此之前不实现、不假装实现 Planner/Router/Evidence 任何业务逻辑。

@@ -150,15 +150,15 @@ def parse_planner_output(
     *,
     original_query: str,
     raw_output: str,
-    fallback_query_type: str,
 ) -> PlannerOutcome:
     """严格解析模型输出：正常 QueryPlan 或确定性 fallback。
 
-    解析开始先用 build_fallback_query_plan 构造并缓存 fallback plan。
-    original_query / fallback_query_type 非法属于调用方错误，直接抛
-    TypeError/ValueError，不会被误判成模型输出错误。
+    解析开始先用 build_fallback_query_plan(original_query) 构造并缓存
+    fallback plan（其 query_type 固定为系统专属 unknown）。original_query
+    非法属于调用方错误，直接抛 TypeError/ValueError，不会被误判成模型
+    输出错误；模型无权提供或覆盖 fallback 类型。
     """
-    fallback_plan = build_fallback_query_plan(original_query, fallback_query_type)
+    fallback_plan = build_fallback_query_plan(original_query)
 
     if type(raw_output) is not str:
         raise TypeError(

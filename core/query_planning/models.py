@@ -19,7 +19,9 @@ from typing import Sequence
 QUERY_PLAN_SCHEMA_VERSION = "query_plan_v1"
 QUERY_PLAN_FALLBACK_POLICY = "single_bm25_original_query"
 
-QUERY_PLAN_QUERY_TYPES = (
+# 正常规划 / 模型输出允许的语义类型（恰好原 7 种）。
+# Gate3Case 的 query_type 标签也只用这 7 种，不含 unknown。
+QUERY_PLAN_CLASSIFIED_QUERY_TYPES = (
     "fact",
     "comparison",
     "causal",
@@ -27,6 +29,15 @@ QUERY_PLAN_QUERY_TYPES = (
     "code_symbol",
     "troubleshooting",
     "unanswerable_or_no_retrieval",
+)
+
+# 系统 fallback 专属类型：Planner 失败后不存在可信分类结果，只能标 unknown。
+# unknown 不是模型输出类别、不是数据集标签；只允许配合 PLANNER_FALLBACK。
+QUERY_PLAN_FALLBACK_QUERY_TYPE = "unknown"
+
+# QueryPlan 对象层总枚举：分类类型 + 系统 fallback 哨兵。
+QUERY_PLAN_QUERY_TYPES = (
+    QUERY_PLAN_CLASSIFIED_QUERY_TYPES + (QUERY_PLAN_FALLBACK_QUERY_TYPE,)
 )
 
 QUERY_PLAN_ACTIONS = (
@@ -461,7 +472,19 @@ class QueryPlan:
             raise ValueError(
                 "reason_code=NO_RETRIEVAL_NEEDED 只能用于 no_retrieval"
             )
+        # 双向强约束：unknown ⇔ PLANNER_FALLBACK（系统 fallback 专属状态）。
+        if self.query_type == QUERY_PLAN_FALLBACK_QUERY_TYPE:
+            if self.reason_code != "PLANNER_FALLBACK":
+                raise ValueError(
+                    f"query_type={QUERY_PLAN_FALLBACK_QUERY_TYPE!r} 只允许 "
+                    "reason_code=PLANNER_FALLBACK"
+                )
         if self.reason_code == "PLANNER_FALLBACK":
+            if self.query_type != QUERY_PLAN_FALLBACK_QUERY_TYPE:
+                raise ValueError(
+                    "reason_code=PLANNER_FALLBACK 只允许 "
+                    f"query_type={QUERY_PLAN_FALLBACK_QUERY_TYPE!r}"
+                )
             if (
                 action != "single_retrieval"
                 or self.retrieval_required is not True
@@ -469,7 +492,8 @@ class QueryPlan:
             ):
                 raise ValueError(
                     "reason_code=PLANNER_FALLBACK 必须是 single_retrieval + "
-                    "retrieval_required=true + subqueries 为空"
+                    "retrieval_required=true + subqueries 为空 + "
+                    f"query_type={QUERY_PLAN_FALLBACK_QUERY_TYPE!r}"
                 )
         if (
             self.query_type == "unanswerable_or_no_retrieval"
@@ -480,31 +504,23 @@ class QueryPlan:
                     "unanswerable_or_no_retrieval + retrieval_required=true "
                     "要求 action=single_retrieval"
                 )
-            if self.reason_code not in ("UNANSWERABLE_CHECK", "PLANNER_FALLBACK"):
+            if self.reason_code != "UNANSWERABLE_CHECK":
                 raise ValueError(
                     "unanswerable_or_no_retrieval + retrieval_required=true "
-                    "只允许 reason_code=UNANSWERABLE_CHECK 或 PLANNER_FALLBACK"
+                    "只允许 reason_code=UNANSWERABLE_CHECK"
                 )
 
 
-def build_fallback_query_plan(original_query: str, query_type: str) -> QueryPlan:
+def build_fallback_query_plan(original_query: str) -> QueryPlan:
     """构造合法 fallback QueryPlan：回到原问题单次 BM25。
 
-    query_type 必须先通过正式枚举校验，本函数不猜测、不修复无效值。
-    不调用 LLM，不吞异常。
+    query_type 固定为系统专属 QUERY_PLAN_FALLBACK_QUERY_TYPE（unknown）：
+    Planner 失败后不存在可信分类结果，不允许调用方、Dev 或 Gold 提供类型。
+    调用方不能覆盖。不调用 LLM，不吞异常。
     """
-    if type(query_type) is not str:
-        raise TypeError(
-            f"query_type 必须是字符串，实际 {type(query_type).__name__}"
-        )
-    if query_type not in QUERY_PLAN_QUERY_TYPES:
-        raise ValueError(
-            f"query_type 必须是 {', '.join(QUERY_PLAN_QUERY_TYPES)} 之一，"
-            f"实际 {query_type!r}"
-        )
     return QueryPlan.create(
         original_query=original_query,
-        query_type=query_type,
+        query_type=QUERY_PLAN_FALLBACK_QUERY_TYPE,
         retrieval_required=True,
         action="single_retrieval",
         reason_code="PLANNER_FALLBACK",

@@ -16,6 +16,7 @@ from core.query_planning import (
     PLANNER_FAILURE_CODES,
     PLANNER_MODEL_ALLOWED_FIELDS,
     QUERY_PLAN_FALLBACK_POLICY,
+    QUERY_PLAN_FALLBACK_QUERY_TYPE,
     QUERY_PLAN_SCHEMA_VERSION,
     BaseQueryPlanner,
     PlannerOutcome,
@@ -92,12 +93,10 @@ def _decomposed_raw(n: int = 2) -> str:
     )
 
 
-def _parse(raw: str, original_query: str = "什么是 BM25？",
-           fallback_query_type: str = "fact") -> PlannerOutcome:
+def _parse(raw: str, original_query: str = "什么是 BM25？") -> PlannerOutcome:
     return parse_planner_output(
         original_query=original_query,
         raw_output=raw,
-        fallback_query_type=fallback_query_type,
     )
 
 
@@ -108,6 +107,7 @@ def _assert_fallback(outcome: PlannerOutcome, code: str) -> None:
     assert outcome.plan.reason_code == "PLANNER_FALLBACK"
     assert outcome.plan.retrieval_required is True
     assert outcome.plan.subqueries == ()
+    assert outcome.plan.query_type == QUERY_PLAN_FALLBACK_QUERY_TYPE
     assert isinstance(outcome.plan, QueryPlan)
 
 
@@ -118,7 +118,7 @@ def _assert_fallback(outcome: PlannerOutcome, code: str) -> None:
 
 class TestNormalParsing:
     def test_valid_no_retrieval(self):
-        o = _parse(_no_retrieval_raw(), fallback_query_type="unanswerable_or_no_retrieval")
+        o = _parse(_no_retrieval_raw())
         assert o.fallback_used is False
         assert o.failure_code is None
         assert o.plan.action == "no_retrieval"
@@ -136,15 +136,14 @@ class TestNormalParsing:
         assert o.plan.reason_code == "SIMPLE_FACT"
 
     def test_valid_decomposed_two(self):
-        o = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索",
-                   fallback_query_type="comparison")
+        o = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索")
         assert o.fallback_used is False
         assert o.failure_code is None
         assert o.plan.action == "decomposed_retrieval"
         assert [s.id for s in o.plan.subqueries] == ["sq1", "sq2"]
 
     def test_valid_decomposed_three(self):
-        o = _parse(_decomposed_raw(3), fallback_query_type="comparison")
+        o = _parse(_decomposed_raw(3))
         assert o.fallback_used is False
         assert [s.id for s in o.plan.subqueries] == ["sq1", "sq2", "sq3"]
 
@@ -181,10 +180,15 @@ class TestNormalParsing:
         assert o.plan.reason_code != "PLANNER_FALLBACK"
 
     def test_normal_plan_roundtrips_via_from_dict(self):
-        o = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索",
-                   fallback_query_type="comparison")
+        o = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索")
         restored = QueryPlan.from_dict(o.plan.to_dict())
         assert restored == o.plan
+
+    def test_normal_plan_keeps_classified_query_type(self):
+        o = _parse(_single_raw())
+        assert o.plan.query_type == "fact"
+        o2 = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索")
+        assert o2.plan.query_type == "comparison"
 
 
 # ---------------------------------------------------------------------------
@@ -258,8 +262,7 @@ class TestEmptyAndJsonErrors:
         }
         """
         _assert_fallback(
-            _parse(raw, original_query="比较 A 和 B",
-                   fallback_query_type="comparison"),
+            _parse(raw, original_query="比较 A 和 B"),
             "PLAN_INVALID_SCHEMA",
         )
 
@@ -344,7 +347,7 @@ class TestFieldBoundaries:
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"] = ["sq1", "sq2"]
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_INVALID_SCHEMA",
         )
 
@@ -352,7 +355,7 @@ class TestFieldBoundaries:
         obj = json.loads(_decomposed_raw(2))
         del obj["subqueries"][0]["query"]
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_INVALID_SCHEMA",
         )
 
@@ -360,7 +363,7 @@ class TestFieldBoundaries:
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"][0]["score"] = 0.9
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_INVALID_SCHEMA",
         )
 
@@ -375,7 +378,7 @@ class TestFailureClassification:
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"] = []
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_UNDER_DECOMPOSE",
         )
 
@@ -383,7 +386,7 @@ class TestFailureClassification:
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"] = [obj["subqueries"][0]]
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_UNDER_DECOMPOSE",
         )
 
@@ -398,7 +401,7 @@ class TestFailureClassification:
             }
         )
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_OVER_DECOMPOSE",
         )
 
@@ -406,14 +409,14 @@ class TestFailureClassification:
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"][1]["query"] = obj["subqueries"][0]["query"]
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_DUPLICATE_SUBQUERY",
         )
 
     def test_case_difference_not_exact_duplicate(self):
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"][1]["query"] = "bm25 检索有什么特点？"  # 大小写不同
-        o = _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison")
+        o = _parse(json.dumps(obj, ensure_ascii=False))
         assert o.fallback_used is False
         assert o.failure_code is None
         assert o.plan.action == "decomposed_retrieval"
@@ -421,7 +424,7 @@ class TestFailureClassification:
     def test_inner_whitespace_difference_not_exact_duplicate(self):
         obj = json.loads(_decomposed_raw(2))
         obj["subqueries"][1]["query"] = "BM25  检索有什么特点？"  # 中间多空格
-        o = _parse(json.dumps(obj, ensure_ascii=False), fallback_query_type="comparison")
+        o = _parse(json.dumps(obj, ensure_ascii=False))
         assert o.fallback_used is False
         assert o.failure_code is None
 
@@ -430,8 +433,7 @@ class TestFailureClassification:
         obj = json.loads(_no_retrieval_raw())
         obj["retrieval_required"] = True
         _assert_fallback(
-            _parse(json.dumps(obj, ensure_ascii=False),
-                   fallback_query_type="unanswerable_or_no_retrieval"),
+            _parse(json.dumps(obj, ensure_ascii=False)),
             "PLAN_INVALID_SCHEMA",
         )
 
@@ -456,6 +458,14 @@ class TestFailureClassification:
             _parse(json.dumps(obj, ensure_ascii=False)), "PLAN_INVALID_SCHEMA"
         )
 
+    def test_model_output_unknown_query_type_fallback(self):
+        # 模型无权使用系统 fallback 专属类型 unknown。
+        obj = json.loads(_single_raw())
+        obj["query_type"] = QUERY_PLAN_FALLBACK_QUERY_TYPE
+        _assert_fallback(
+            _parse(json.dumps(obj, ensure_ascii=False)), "PLAN_INVALID_SCHEMA"
+        )
+
 
 # ---------------------------------------------------------------------------
 # 5.5 caller errors are not swallowed
@@ -467,49 +477,39 @@ class TestCallerErrors:
         with pytest.raises(TypeError):
             parse_planner_output(
                 original_query=42, raw_output=_single_raw(),
-                fallback_query_type="fact",
             )
 
     def test_original_query_blank(self):
         with pytest.raises(ValueError):
             parse_planner_output(
                 original_query="   ", raw_output=_single_raw(),
-                fallback_query_type="fact",
             )
 
     def test_original_query_leading_whitespace(self):
         with pytest.raises(ValueError):
             parse_planner_output(
                 original_query=" 什么是 BM25？", raw_output=_single_raw(),
-                fallback_query_type="fact",
-            )
-
-    def test_fallback_query_type_non_str(self):
-        with pytest.raises(TypeError):
-            parse_planner_output(
-                original_query="x", raw_output=_single_raw(),
-                fallback_query_type=5,
-            )
-
-    def test_fallback_query_type_not_in_enum(self):
-        with pytest.raises(ValueError):
-            parse_planner_output(
-                original_query="x", raw_output=_single_raw(),
-                fallback_query_type="mystery",
             )
 
     def test_raw_output_non_str(self):
         with pytest.raises(TypeError):
             parse_planner_output(
-                original_query="x", raw_output=42, fallback_query_type="fact",
+                original_query="x", raw_output=42,
             )
 
     def test_caller_errors_never_return_fallback(self):
+        # 调用方参数错误必须抛异常，而不是返回 fallback 结果。
         with pytest.raises((TypeError, ValueError)):
             parse_planner_output(
-                original_query="x", raw_output=_single_raw(),
-                fallback_query_type="mystery",
+                original_query="   ", raw_output=_single_raw(),
             )
+
+    def test_parser_does_not_require_fallback_type(self):
+        # 不再需要调用方、Dev 或 Gold 提供 fallback 类型。
+        o = parse_planner_output(
+            original_query="什么是 BM25？", raw_output=_single_raw(),
+        )
+        assert o.fallback_used is False
 
 
 # ---------------------------------------------------------------------------
@@ -524,18 +524,18 @@ class TestPlannerOutcomeInvariants:
                            failure_code=None)
 
     def test_fallback_used_must_be_bool(self):
-        plan = build_fallback_query_plan("x", "fact")
+        plan = build_fallback_query_plan("x")
         with pytest.raises(TypeError):
             PlannerOutcome(plan=plan, fallback_used=1, failure_code="PLAN_EMPTY")
 
     def test_normal_with_failure_code_rejected(self):
-        plan = build_fallback_query_plan("x", "fact")
+        plan = build_fallback_query_plan("x")
         with pytest.raises(ValueError):
             PlannerOutcome(plan=plan, fallback_used=False,
                            failure_code="PLAN_EMPTY")
 
     def test_fallback_without_failure_code_rejected(self):
-        plan = build_fallback_query_plan("x", "fact")
+        plan = build_fallback_query_plan("x")
         with pytest.raises(ValueError):
             PlannerOutcome(plan=plan, fallback_used=True, failure_code=None)
 
@@ -546,7 +546,7 @@ class TestPlannerOutcomeInvariants:
                            failure_code="PLAN_EMPTY")
 
     def test_failure_code_not_allowed_rejected(self):
-        plan = build_fallback_query_plan("x", "fact")
+        plan = build_fallback_query_plan("x")
         with pytest.raises(ValueError):
             PlannerOutcome(plan=plan, fallback_used=True,
                            failure_code="MYSTERY_CODE")
@@ -561,7 +561,7 @@ class TestPlannerOutcomeInvariants:
             assert sensitive not in json.dumps(d, ensure_ascii=False)
 
     def test_fallback_plan_id_uses_local_policy(self):
-        o = _parse("", original_query="什么是 BM25？", fallback_query_type="fact")
+        o = _parse("", original_query="什么是 BM25？")
         assert o.plan.reason_code == "PLANNER_FALLBACK"
         assert o.plan.action == "single_retrieval"
         assert o.plan.fallback_policy == QUERY_PLAN_FALLBACK_POLICY
@@ -580,8 +580,7 @@ class TestExistingIdentityNoRegression:
         assert o.plan.plan_id == "b8aa7cf8f976"
 
     def test_fixed_vector_2_via_parse(self):
-        o = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索",
-                   fallback_query_type="comparison")
+        o = _parse(_decomposed_raw(2), original_query="比较 BM25 和 Dense 检索")
         assert o.plan.plan_id == "84233ef03b4b"
 
     def test_parse_never_changes_plan_id_of_valid_plan(self):
@@ -609,7 +608,6 @@ class _StubPlanner(BaseQueryPlanner):
         return parse_planner_output(
             original_query=original_query,
             raw_output=_single_raw(),
-            fallback_query_type="fact",
         )
 
 

@@ -325,6 +325,7 @@ QueryPlan 是强类型对象，字段之间存在**跨字段不变量**，Schema
 
 Planner Schema 无效、越界、空结果或重复结果时，必须规范化为一个**合法的 single_retrieval QueryPlan**：
 
+- `query_type = unknown`（系统 fallback 哨兵，见下）
 - `retrieval_required = true`
 - `action = single_retrieval`
 - `reason_code = PLANNER_FALLBACK`
@@ -332,6 +333,17 @@ Planner Schema 无效、越界、空结果或重复结果时，必须规范化�
 - `fallback_policy = single_bm25_original_query`
 
 随后再计算该 fallback QueryPlan 的 `plan_id`。
+
+#### system fallback sentinel：unknown
+
+Planner 失败时**不存在可信分类结果**，因此 fallback 使用系统专属 `query_type = unknown`：
+
+- 正常 Planner 的 `query_type` 仍然恰好是原 7 种（`fact / comparison / causal / multi_entity / code_symbol / troubleshooting / unanswerable_or_no_retrieval`）。
+- `unknown` 是 **system-only sentinel**：它不是模型输出类型、不属于 Gate3Case 标签、不参与正常分类准确率。
+- `query_type = unknown` ⇔ `reason_code = PLANNER_FALLBACK` 双向强约束：模型无权输出 `unknown`，系统也无权用分类类型填充 fallback。
+- **禁止**用 Gold 标签、Dev 标签、部分非法模型输出或任意语义类型填充 fallback `query_type`。
+- fallback rate 与 `failure_code` 单独统计，不混入正常分类指标。
+- Router 看见 `reason_code = PLANNER_FALLBACK` 时固定走原问题单次 BM25，不根据 `unknown` 做普通路由。
 
 #### unanswerable 与 no_retrieval 的区分
 

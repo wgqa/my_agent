@@ -140,7 +140,17 @@ fallback 的意义是"复杂规划失败了，退回最保守的路径"，而不
 - 检索执行层按原问题单次 BM25 检索，结果可预测、可复现；
 - 不静默生成新 query——那等于在没有监督的情况下引入新的规划决策，违背"回退"的语义。
 
-所以 `build_fallback_query_plan(original_query, fallback_query_type)` 直接用原 query 构造。
+所以 `build_fallback_query_plan(original_query)` 直接用原 query 构造；它的 `query_type` 固定为系统专属 `unknown`（见 §12.1），调用方、Dev 或 Gold 都不参与 fallback 类型。
+
+### 12.1 为什么 fallback 的 query_type 必须是 unknown
+
+Planner 失败时**不存在可信分类结果**：模型没有产出可用的 query_type，调用方也没有能力判断"这题本该是什么类型"。因此 fallback 使用系统专属 `unknown`：
+
+- **禁止**用 Gold 标签、Dev 标签、部分非法模型输出或任意语义类型填充 fallback 的 query_type——那等于伪造一个"分类正确"的假象，污染正常分类准确率；
+- `unknown` 不是模型输出类别、不是数据集标签，只属于 `PLANNER_FALLBACK`；
+- `query_type = unknown` ⇔ `reason_code = PLANNER_FALLBACK` 双向强约束：模型输出 `unknown` 判 `PLAN_INVALID_SCHEMA`，系统也不允许用分类类型构造 fallback。
+
+这**不是**新增第八种业务问题类型：`unknown` 只出现在系统 fallback 路径，永远不进正常分类指标。
 
 ## 13. 为什么 fallback 选择单次 BM25，而不是继续让模型修复
 
@@ -175,10 +185,10 @@ Gate 3 设计文档 §12 定义了一组失败代码（`PLAN_*`、`ROUTE_*`、`R
 
 `parse_planner_output` 区分两类错误：
 
-- **调用方错误**（程序员的 bug）：`original_query` 非字符串/空白/首尾空白、`fallback_query_type` 非字符串/不在枚举、`raw_output` 非字符串。这些**直接抛 TypeError/ValueError**，不转 fallback——因为 bug 必须立刻暴露，不能伪装成"模型输出不好"。
+- **调用方错误**（程序员的 bug）：`original_query` 非字符串/空白/首尾空白、`raw_output` 非字符串。这些**直接抛 TypeError/ValueError**，不转 fallback——因为 bug 必须立刻暴露，不能伪装成"模型输出不好"。
 - **模型输出错误**（预期内的坏数据）：空输出、非法 JSON、字段越界等。这些**转 fallback**并记录 `failure_code`。
 
-实现顺序保证这个区分：解析**一开始**就调用 `build_fallback_query_plan(original_query, fallback_query_type)`——这一步会校验两个调用方参数，非法则直接抛。也就是说，**调用方参数在接触任何模型输出之前就被验证了**，不可能被误判成模型错误。
+实现顺序保证这个区分：解析**一开始**就调用 `build_fallback_query_plan(original_query)`——这一步会校验 `original_query`，非法则直接抛。也就是说，**调用方参数在接触任何模型输出之前就被验证了**，不可能被误判成模型错误。fallback 的 query_type 由 factory 内部固定为系统专属 `unknown`，调用方不需要也不能提供。
 
 ## 16. 为什么不能吞掉所有 Exception
 
@@ -239,7 +249,10 @@ A：JSON 标准建议对象成员名称唯一，但很多解析器仍会接受�
 A：未知字段往往意味着模型越界（试图干预策略或身份）。忽略它契约会腐化；fail-fast 把越界显式暴露成指标。
 
 **Q：调用方错误和模型错误怎么区分？**
-A：解析一开始先 `build_fallback_query_plan` 校验 original_query/fallback_query_type，非法直接抛 TypeError/ValueError。模型输出错误走 try 块转 fallback。raw_output 非 str 也显式抛 TypeError。
+A：解析一开始先 `build_fallback_query_plan(original_query)` 校验 original_query，非法直接抛 TypeError/ValueError。模型输出错误走 try 块转 fallback。raw_output 非 str 也显式抛 TypeError。fallback 的 query_type 由 factory 内部固定为系统专属 unknown，调用方不需要也不能提供。
+
+**Q：fallback 的 query_type 为什么是 unknown？**
+A：Planner 失败时不存在可信分类结果——模型没产出可用类型，调用方也没能力判断"这题本该是什么类型"。用任何语义类型填充都是伪造分类，也禁止用 Gold/Dev 标签填。所以 fallback 用系统专属 `unknown`，它不是模型输出类别、不属于数据集标签，且与 `PLANNER_FALLBACK` 双向强约束，不参与正常分类准确率。
 
 **Q：fallback 为什么回退单次 BM25 而不是重试？**
 A：重试把一次失败变成两次随机机会，成本/延迟/失败率不可控，无法在实验前冻结。BM25 是已知最强的简单基线，规划失败退回最保守路径最稳。
@@ -272,6 +285,6 @@ G3-CLOSE-09  失败分析与 Gate 3 freeze
 - **正式 Prompt**：约束模型输出成五字段 JSON；
 - **单次调用 / 超时边界**：用 `PLANNER_TIMEOUT` 捕获超时（本任务只有声明，没有超时机制）；
 - **语义约束**：新增实体检查（`PLAN_NEW_ENTITY`）、比较两侧对象保持、evidence_target 正确性、语义近义重复——本任务的 Schema 无法确定性判断，04B 需要更高级的验证策略；
-- **如何决定 fallback_query_type**：本任务由调用方传入，04B 负责在 Planner 解析失败时选择传哪个有效 query_type。
+- **fallback 自动生效**：fallback 的 query_type 已由本任务固定为系统专属 `unknown`，04B 接入真实 Provider 后，任何解析失败都直接走 `build_fallback_query_plan(original_query)`，无需再决定 fallback 类型。
 
 所有示例均为 synthetic；本任务未接触任何 Dev/Holdout 真实题目。

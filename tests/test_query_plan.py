@@ -16,7 +16,9 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from core.query_planning import (
+    QUERY_PLAN_CLASSIFIED_QUERY_TYPES,
     QUERY_PLAN_FALLBACK_POLICY,
+    QUERY_PLAN_FALLBACK_QUERY_TYPE,
     QUERY_PLAN_QUERY_TYPES,
     QUERY_PLAN_SCHEMA_VERSION,
     Subquery,
@@ -191,12 +193,13 @@ class TestNormalPath:
         assert len(plan.subqueries) == 3
 
     def test_legal_fallback(self):
-        plan = build_fallback_query_plan("什么是 BM25？", "fact")
+        plan = build_fallback_query_plan("什么是 BM25？")
         assert plan.retrieval_required is True
         assert plan.action == "single_retrieval"
         assert plan.reason_code == "PLANNER_FALLBACK"
         assert plan.subqueries == ()
         assert plan.fallback_policy == QUERY_PLAN_FALLBACK_POLICY
+        assert plan.query_type == QUERY_PLAN_FALLBACK_QUERY_TYPE
 
     def test_to_dict_from_dict_roundtrip(self):
         plan = _decomposed()
@@ -779,7 +782,7 @@ class TestCreateStrictness:
 
 class TestFallbackFactory:
     def test_fallback_legal_fields(self):
-        plan = build_fallback_query_plan("什么是 BM25？", "fact")
+        plan = build_fallback_query_plan("什么是 BM25？")
         assert plan.retrieval_required is True
         assert plan.action == "single_retrieval"
         assert plan.reason_code == "PLANNER_FALLBACK"
@@ -787,40 +790,105 @@ class TestFallbackFactory:
         assert plan.fallback_policy == QUERY_PLAN_FALLBACK_POLICY
         assert plan.schema_version == QUERY_PLAN_SCHEMA_VERSION
 
-    def test_fallback_preserves_query_type(self):
-        for qt in QUERY_PLAN_QUERY_TYPES:
-            plan = build_fallback_query_plan("某问题", qt)
-            assert plan.query_type == qt
+    def test_fallback_uses_system_unknown_query_type(self):
+        plan = build_fallback_query_plan("什么是 BM25？")
+        assert plan.query_type == QUERY_PLAN_FALLBACK_QUERY_TYPE
+        assert plan.query_type == "unknown"
+
+    def test_fallback_does_not_accept_query_type_param(self):
+        with pytest.raises(TypeError):
+            build_fallback_query_plan("x", "fact")
 
     def test_fallback_plan_id_stable(self):
-        a = build_fallback_query_plan("什么是 BM25？", "fact")
-        b = build_fallback_query_plan("什么是 BM25？", "fact")
+        a = build_fallback_query_plan("什么是 BM25？")
+        b = build_fallback_query_plan("什么是 BM25？")
         assert a.plan_id == b.plan_id
         assert len(a.plan_id) == 12
 
     def test_fallback_plan_id_changes_with_query(self):
-        a = build_fallback_query_plan("什么是 BM25？", "fact")
-        b = build_fallback_query_plan("什么是 Dense？", "fact")
+        a = build_fallback_query_plan("什么是 BM25？")
+        b = build_fallback_query_plan("什么是 Dense？")
         assert a.plan_id != b.plan_id
-
-    def test_fallback_plan_id_changes_with_query_type(self):
-        a = build_fallback_query_plan("比较 A 和 B", "comparison")
-        b = build_fallback_query_plan("比较 A 和 B", "fact")
-        assert a.plan_id != b.plan_id
-
-    def test_fallback_invalid_query_type_rejected(self):
-        with pytest.raises(ValueError) as ei:
-            build_fallback_query_plan("x", "mystery")
-        assert "mystery" in str(ei.value)
-
-    def test_fallback_query_type_wrong_type(self):
-        with pytest.raises(TypeError):
-            build_fallback_query_plan("x", 123)
 
     def test_fallback_empty_query_rejected(self):
         with pytest.raises(ValueError):
-            build_fallback_query_plan("", "fact")
+            build_fallback_query_plan("")
 
     def test_fallback_whitespace_query_rejected(self):
         with pytest.raises(ValueError):
-            build_fallback_query_plan("  ", "fact")
+            build_fallback_query_plan("  ")
+
+    def test_fallback_original_query_wrong_type(self):
+        with pytest.raises(TypeError):
+            build_fallback_query_plan(42)
+
+
+class TestQueryTypeConstants:
+    def test_classified_types_are_exactly_seven(self):
+        assert QUERY_PLAN_CLASSIFIED_QUERY_TYPES == (
+            "fact",
+            "comparison",
+            "causal",
+            "multi_entity",
+            "code_symbol",
+            "troubleshooting",
+            "unanswerable_or_no_retrieval",
+        )
+
+    def test_fallback_type_is_unknown(self):
+        assert QUERY_PLAN_FALLBACK_QUERY_TYPE == "unknown"
+
+    def test_total_enum_contains_classified_and_unknown(self):
+        assert QUERY_PLAN_QUERY_TYPES == (
+            QUERY_PLAN_CLASSIFIED_QUERY_TYPES
+            + (QUERY_PLAN_FALLBACK_QUERY_TYPE,)
+        )
+        assert QUERY_PLAN_FALLBACK_QUERY_TYPE in QUERY_PLAN_QUERY_TYPES
+        assert all(q in QUERY_PLAN_QUERY_TYPES for q in QUERY_PLAN_CLASSIFIED_QUERY_TYPES)
+
+
+class TestUnknownFallbackInvariants:
+    def test_unknown_with_planner_fallback_legal(self):
+        plan = build_fallback_query_plan("x")
+        assert plan.query_type == "unknown"
+        assert plan.reason_code == "PLANNER_FALLBACK"
+
+    def test_unknown_with_simple_fact_rejected(self):
+        with pytest.raises(ValueError) as ei:
+            QueryPlan.create(
+                original_query="x", query_type="unknown",
+                retrieval_required=True, action="single_retrieval",
+                reason_code="SIMPLE_FACT", subqueries=(),
+            )
+        assert "unknown" in str(ei.value)
+
+    def test_unknown_with_decomposed_rejected(self):
+        with pytest.raises(ValueError):
+            QueryPlan.create(
+                original_query="比较 A 和 B", query_type="unknown",
+                retrieval_required=True, action="decomposed_retrieval",
+                reason_code="COMPARISON_EVIDENCE",
+                subqueries=(
+                    Subquery(id="sq1", query="A 是什么？",
+                             evidence_target="A 的机制", required=True),
+                    Subquery(id="sq2", query="B 是什么？",
+                             evidence_target="B 的机制", required=True),
+                ),
+            )
+
+    def test_fact_with_planner_fallback_rejected(self):
+        with pytest.raises(ValueError) as ei:
+            QueryPlan.create(
+                original_query="x", query_type="fact",
+                retrieval_required=True, action="single_retrieval",
+                reason_code="PLANNER_FALLBACK", subqueries=(),
+            )
+        assert "PLANNER_FALLBACK" in str(ei.value)
+
+    def test_comparison_with_planner_fallback_rejected(self):
+        with pytest.raises(ValueError):
+            QueryPlan.create(
+                original_query="x", query_type="comparison",
+                retrieval_required=True, action="single_retrieval",
+                reason_code="PLANNER_FALLBACK", subqueries=(),
+            )

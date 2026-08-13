@@ -155,3 +155,14 @@ G3-DESIGN-01-R1 收口了 schema 版本、身份哈希与数据不变量。以�
 - 数据构建 / Gold 审核阶段的正当职责就是**读取待封存 Case**（标注 Gold、拍板 split）。此时允许访问。
 - sealed 之后，任何"读取过 holdout 内容"的实现会话都等于用测试集信息调参——指标不再能证明泛化。因此数据构建 Agent 必须停止，后续 G3-PLAN/G3-DECOMP/G3-ADAPT 必须开**新的执行会话**，且新会话不接收 holdout 的 Query/Gold/文件/逐 Case 结果。
 - 这是**流程隔离**（谁在哪个阶段能碰什么），不声称操作系统级访问控制。它的效力来自纪律：一旦同一实现会话读入 holdout，该 holdout 立即失效。
+
+## 决定 D9（accepted clarification）：fallback query_type 使用 system-only unknown sentinel
+
+**决定**：Planner 失败（超时、空输出、非法 JSON 等）时，fallback QueryPlan 的 `query_type` 固定为系统专属 `unknown`。禁止用 Gold 标签、Dev 标签、部分非法模型输出或任意语义类型填充 fallback query_type。
+
+**理由**：
+- Planner 失败时**不存在可信分类结果**——模型没有产出可用的 query_type，调用方也没有能力判断"这题本该是什么类型"。用任何语义类型填充都是伪造分类。
+- `unknown` 是 system-only sentinel：它不是模型输出类别、不属于 Gate3Case 标签、不参与正常分类准确率；`query_type = unknown` ⇔ `reason_code = PLANNER_FALLBACK` 双向强约束，模型无权主动声明。
+- 这让 Router 看见 `PLANNER_FALLBACK` 时能确定性走原问题单次 BM25，而不是对 `unknown` 做普通路由。
+
+**后果**：`build_fallback_query_plan` 收口为单参（不再接受调用方 query_type）；`parse_planner_output` 不再要求 fallback_query_type；正常 QueryPlan 的 schema_version 保持 `query_plan_v1`，两个已冻结的正常 plan_id 不变，fallback plan_id 因 query_type 变为 unknown 而合理变化。
