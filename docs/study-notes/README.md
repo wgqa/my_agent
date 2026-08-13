@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（24 份）
+## CURRENT（25 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -50,6 +50,7 @@
 | 67 | [67-Gate3有界Planner输出解析与Fallback.md](67-Gate3有界Planner输出解析与Fallback.md) | G3-DECOMP-04A：Planner 抽象接口、严格 JSON 解析、错误分类与统一 fallback（BaseQueryPlanner/PlannerOutcome/parse_planner_output；未接真实 LLM） |
 | 68 | [68-Gate3真实Planner调用、Prompt版本与超时回退.md](68-Gate3真实Planner调用、Prompt版本与超时回退.md) | G3-DECOMP-04B-01：正式 Planner Prompt v1、OpenAI-compatible Provider、单次调用边界、超时/Provider 错误回退、PlannerCallMetadata（只经 Fake Client 验证，未调真实模型） |
 | 69 | [69-Gate3-Planner-Dev真实调用与校准评测.md](69-Gate3-Planner-Dev真实调用与校准评测.md) | G3-DECOMP-04B-02A：公开 Dev 24 Case 真实 DeepSeek baseline（run_id 497808269bdd）、可复现校准 Runner、Planning 指标与人工语义审查（调优前快照，未改 Prompt） |
+| 70 | [70-Gate3最小Agent-Runtime与执行轨迹.md](70-Gate3最小Agent-Runtime与执行轨迹.md) | G3-RUNTIME-05A：最小离线 Agent Runtime（RouteDecision/EvidenceBundle/VerificationResult/RunTrace + AgentRuntime，direct/single 执行、decomposed 只路由、预算/异常/脱敏 Trace） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -116,6 +117,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–69 共 **70 份**，每份只出现一次：CURRENT 24 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 70。
+- 编号覆盖 00–70 共 **71 份**，每份只出现一次：CURRENT 25 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 71。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-13。
