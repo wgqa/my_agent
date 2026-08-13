@@ -168,6 +168,15 @@ Gate 3 分成四层，禁止把 Planner、Router 或 Evidence 业务逻辑直接
 - **PlannerCallMetadata**：记录 provider/model/prompt_version/prompt_sha256/call_count/tokens/latency_ms，作为观测事实，**不进入 plan_id**。
 - **当前未实现**：运行时语义新实体检测、比较对象语义保持检测、语义近义子问题检测（属 04B-02）；**当前未运行** Dev/Holdout 指标；04B-01/R1 仍为 REVIEW PENDING。
 
+#### 4.1.2 04B-02A 实现事实（Dev Planner 校准与真实 baseline）
+
+- **可复现 Runner**：`evaluation/gate3/planner_dev.py`（Gate3PlannerDevConfig/CaseResult/Metrics/DevResult/Runner）+ `scripts/run_gate3_planner_dev.py`；按 case_id 升序、每 Case 恰好一次 `planner.plan(case.query)`；Gold 只在模型调用后用于指标。
+- **run identity**：`planner_dev_run_id` = canonical JSON（schema_version/source_commit/corpus_id/evaluation_set_id/dev_jsonl_sha256/provider/model/prompt_version/prompt_sha256/temperature/max_tokens/timeout/max_retries）SHA-256[:12]；不绑定 API Key/base_url/路径/时间/latency。
+- **真实 baseline（run_id 497808269bdd）**：provider=deepseek、model=deepseek-chat、Prompt gate3_planner_prompt_v1、source_commit=ede4ec6d；24/24 Case、24 次 Planner 调用、0 timeout、0 provider_error；schema validity 0.875、fallback 0.125（全 PLAN_INVALID_SCHEMA）、query_type exact all 0.667 / non-fallback 0.762、retrieval_required 0.958、action 0.833、unnecessary 0.083、missed 0.042。
+- **外部 Artifact**：`benchmark_work/gate3/dev_runs/497808269bdd/`（run_config/planner_results/planner_metrics/planner_semantic_review/result），canonical JSON + 原子写入 + 防覆盖，不入 git。
+- **人工语义审查**：24 Case 逐条人工（new_entity/comparison/duplicate/evidence_target）；未引入新实体、comparison 两侧均保留、无重复子问题；3 条 fallback 标记 N/A。
+- **当前边界**：未改 Prompt、未运行 Retriever/Holdout、未算检索/答案指标、未把人工判断当自动指标；04B-02A 为调优前快照，修复决策属 04B-02B。
+
 ### 4.2 Adaptive Routing
 
 未来目录：`core/adaptive_retrieval/`
