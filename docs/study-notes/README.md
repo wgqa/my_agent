@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（21 份）
+## CURRENT（22 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -47,6 +47,7 @@
 | 64 | [64-Gate3Case与评测集身份.md](64-Gate3Case与评测集身份.md) | G3-DATA-02A：Gate3Case 与 Gate3EvaluationSet 强类型契约（数据 Schema 基础设施；36 条问题与 sealed holdout 尚未创建） |
 | 65 | [65-Gate3数据集划分、Holdout封存与泄漏防护.md](65-Gate3数据集划分、Holdout封存与泄漏防护.md) | G3-DATA-02C：24/12 分层划分、Holdout 封存与泄漏防护（Goodhart/数据泄漏/预注册 split/语义身份 vs 字节身份/canonicalization/sealed 流程；不含 Holdout case_id 或题目） |
 | 66 | [66-Gate3-QueryPlan强类型契约.md](66-Gate3-QueryPlan强类型契约.md) | G3-PLAN-03：QueryPlan/Subquery 强类型契约（frozen dataclass、字段级校验、跨字段不变量、plan_id、fallback factory；只做 Schema，不含 Planner/Router/Evidence） |
+| 67 | [67-Gate3有界Planner输出解析与Fallback.md](67-Gate3有界Planner输出解析与Fallback.md) | G3-DECOMP-04A：Planner 抽象接口、严格 JSON 解析、错误分类与统一 fallback（BaseQueryPlanner/PlannerOutcome/parse_planner_output；未接真实 LLM） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -113,6 +114,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–66 共 **67 份**，每份只出现一次：CURRENT 21 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 67。
+- 编号覆盖 00–67 共 **68 份**，每份只出现一次：CURRENT 22 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 68。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-13。
