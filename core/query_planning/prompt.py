@@ -46,16 +46,29 @@ subqueries 规则：
 - 不允许主动声明 fallback：PLANNER_FALLBACK 由系统决定，模型不得输出"""
 
 
-def _compute_prompt_sha256() -> str:
-    """Prompt 身份哈希：绑定 prompt version、system prompt 全文、user payload 模板版本。
+# 稳定的内部 user payload 模板身份：original_query 用占位符，运行时值不进哈希。
+# R1 收口：Prompt 身份必须绑定 user payload 的字段结构与 canonicalization，
+# 仅靠 payload_version 无法约束模板结构本身。
+_PLANNER_USER_PAYLOAD_TEMPLATE = {
+    "original_query": "<runtime-original-query>",
+    "payload_version": PLANNER_USER_PAYLOAD_VERSION,
+}
+_PLANNER_USER_PAYLOAD_CANONICALIZATION = "python_json_sort_keys_compact_v1"
 
+
+def _compute_prompt_sha256() -> str:
+    """Prompt 身份哈希：绑定 prompt version、system prompt 全文、user payload 模板。
+
+    user payload 模板绑定其字段结构（original_query + payload_version）与
+    canonicalization 标识；原始 query 的运行时值不进入模板哈希。
     使用 canonical JSON（ensure_ascii=False / sort_keys=True / separators=(",", ":") /
-    UTF-8）+ SHA-256 完整 64 位小写十六进制。原始 query 不进入模板哈希。
+    UTF-8）+ SHA-256 完整 64 位小写十六进制。
     """
     payload = {
         "prompt_version": PLANNER_PROMPT_VERSION,
         "system_prompt": PLANNER_SYSTEM_PROMPT,
-        "user_payload_version": PLANNER_USER_PAYLOAD_VERSION,
+        "user_payload_template": _PLANNER_USER_PAYLOAD_TEMPLATE,
+        "user_payload_canonicalization": _PLANNER_USER_PAYLOAD_CANONICALIZATION,
     }
     canonical = json.dumps(
         payload,
@@ -77,10 +90,16 @@ def build_planner_messages(original_query: str) -> list[dict]:
     作为数据字段原样保留，转义由 JSON 序列化保证。
     """
     user_payload = {
-        "payload_version": PLANNER_USER_PAYLOAD_VERSION,
         "original_query": original_query,
+        "payload_version": PLANNER_USER_PAYLOAD_VERSION,
     }
+    user_content = json.dumps(
+        user_payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     return [
         {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
-        {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+        {"role": "user", "content": user_content},
     ]

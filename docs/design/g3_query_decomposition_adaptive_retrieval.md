@@ -158,14 +158,15 @@ Gate 3 分成四层，禁止把 Planner、Router 或 Evidence 业务逻辑直接
 
 #### 4.1.1 04B-01 实现事实（OpenAI-compatible Planner Provider）
 
-以下为 04B-01 已实现的固定执行事实（非实验效果，不登记任何指标）：
+以下为 04B-01 + R1 已实现的固定执行事实（非实验效果，不登记任何指标）：
 
-- **Prompt v1**：`PLANNER_PROMPT_VERSION = gate3_planner_prompt_v1`；System Prompt 全文与 user payload 模板版本绑定为 `PLANNER_PROMPT_SHA256`（canonical JSON + SHA-256 64 位小写十六进制）；原始 query 是运行时输入，不进入模板哈希。
-- **OpenAI-compatible Provider**：`OpenAICompatibleQueryPlanner`（`core/query_planning/openai_compatible.py`）实现 `BaseQueryPlanner`，生产默认构造 openai SDK client，测试用 Fake Client 注入。
+- **Prompt v1（R1 收口身份）**：`PLANNER_PROMPT_VERSION = gate3_planner_prompt_v1`；user payload 是真正 canonical JSON（`ensure_ascii=False / sort_keys=True / separators=(",", ":")`），字段结构 `{original_query, payload_version}`；`PLANNER_PROMPT_SHA256` 绑定 prompt version、system prompt 全文、user payload 模板结构（`original_query` 占位符 + `payload_version` 固定值）与 canonicalization 标识 `python_json_sort_keys_compact_v1`；R1 前旧 SHA `043860f8...`，R1 收紧后新 SHA `5b209054...`（此前版本未 push/正式运行，version 保持不变）；原始 query 运行时值不进入模板哈希。
+- **OpenAI-compatible Provider**：`OpenAICompatibleQueryPlanner`（`core/query_planning/openai_compatible.py`）实现 `BaseQueryPlanner`，生产默认构造 openai SDK client（`api_key`/`timeout=20`/`max_retries=0`/可选 `base_url`），测试用 Fake Client 注入。
 - **固定参数**：`temperature=0`、`max_tokens=800`、`timeout=20s`、`max_retries=0`；每个问题最多一次模型调用，无重试循环、无 sleep。
-- **失败代码**：新增 `PLANNER_PROVIDER_ERROR`；超时用 `PLANNER_TIMEOUT`；非法/空模型文本仍交 `parse_planner_output` 分类（PLAN_EMPTY/INVALID_SCHEMA/OVER_DECOMPOSE/UNDER_DECOMPOSE/DUPLICATE_SUBQUERY）。
+- **失败代码**：`PLANNER_PROVIDER_ERROR` 与 `PLANNER_TIMEOUT` 由 04B-01 Provider 主动产生；非法/空模型文本仍交 `parse_planner_output` 分类（PLAN_EMPTY/INVALID_SCHEMA/OVER_DECOMPOSE/UNDER_DECOMPOSE/DUPLICATE_SUBQUERY）。
+- **响应结构缺损完整映射**：`_extract_content` 逐层检查（choices 存在 / 是 list / 非空 / choices[0].message 存在且非 None / message.content 存在 / content 是 str）；任何缺损统一映射 `PLANNER_PROVIDER_ERROR`；`usage` 畸形同样映射；不宽泛捕获 AttributeError/TypeError，content 属性内部抛的未知编程错误向上传播。
 - **PlannerCallMetadata**：记录 provider/model/prompt_version/prompt_sha256/call_count/tokens/latency_ms，作为观测事实，**不进入 plan_id**。
-- **当前未实现**：运行时语义新实体检测、比较对象语义保持检测、语义近义子问题检测（属 04B-02）；**当前未运行** Dev/Holdout 指标。
+- **当前未实现**：运行时语义新实体检测、比较对象语义保持检测、语义近义子问题检测（属 04B-02）；**当前未运行** Dev/Holdout 指标；04B-01/R1 仍为 REVIEW PENDING。
 
 ### 4.2 Adaptive Routing
 

@@ -96,10 +96,17 @@ _KNOWN_PROVIDER_EXCEPTIONS = (
 
 
 def _extract_content(response: object) -> str:
+    """逐层检查 response 结构；任何缺损统一抛 _ProviderResponseError。
+
+    只对“属性访问缺失”捕获 AttributeError；不宽泛捕获整个函数。若
+    content 属性内部主动抛出 RuntimeError 等未知编程错误，则向上传播。
+    """
     try:
         choices = response.choices
     except AttributeError as exc:
         raise _ProviderResponseError("response.choices 缺失") from exc
+    if not isinstance(choices, list):
+        raise _ProviderResponseError("response.choices 必须是数组")
     if not choices:
         raise _ProviderResponseError("choices 为空")
     try:
@@ -108,7 +115,10 @@ def _extract_content(response: object) -> str:
         raise _ProviderResponseError("choice.message 缺失") from exc
     if message is None:
         raise _ProviderResponseError("choice.message 缺失")
-    content = message.content
+    try:
+        content = message.content
+    except AttributeError as exc:
+        raise _ProviderResponseError("message.content 缺失") from exc
     if type(content) is not str:
         raise _ProviderResponseError("message.content 非字符串")
     return content

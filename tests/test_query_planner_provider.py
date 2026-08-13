@@ -181,6 +181,24 @@ class _FakeMalformedUsage:
         self.usage = _FakeUsage(True, 5)  # prompt_tokens 是 bool → malformed
 
 
+class _FakeMissingContentMessage:
+    """没有任何 content 属性：访问 message.content 会抛 AttributeError → 结构缺损。"""
+
+
+class _FakeMissingContent:
+    def __init__(self):
+        # message 对象缺少 content 属性
+        self.choices = [_FakeChoice(_FakeMissingContentMessage())]
+        self.usage = None
+
+
+class _FakeChoicesNotList:
+    def __init__(self):
+        # choices 是 truthy 但非 list
+        self.choices = "not-a-list"
+        self.usage = None
+
+
 class FakeCompletions:
     def __init__(self, response=None, error=None):
         self.calls = []
@@ -247,7 +265,7 @@ class TestPrompt:
 
     def test_prompt_sha_fixed_vector(self):
         assert PLANNER_PROMPT_SHA256 == (
-            "043860f850e8a6e707d385bcd776835642870c3321d35c2d130e1ccb56d58293"
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
         )
 
     def test_hash_stable_across_queries(self):
@@ -255,7 +273,7 @@ class TestPrompt:
         build_planner_messages("问题 A")
         build_planner_messages("问题 B")
         assert PLANNER_PROMPT_SHA256 == (
-            "043860f850e8a6e707d385bcd776835642870c3321d35c2d130e1ccb56d58293"
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
         )
 
     def test_messages_system_and_user(self):
@@ -265,6 +283,12 @@ class TestPrompt:
     def test_user_payload_is_json(self):
         parsed = json.loads(build_planner_messages("x")[1]["content"])
         assert parsed["payload_version"] == PLANNER_USER_PAYLOAD_VERSION
+
+    def test_user_payload_exact_bytes(self):
+        # R1：硬编码字节串，验证 canonical JSON（sort_keys/separators）精确输出
+        assert build_planner_messages("x")[1]["content"] == (
+            '{"original_query":"x","payload_version":"planner_user_payload_v1"}'
+        )
 
     def test_original_query_preserved(self):
         parsed = json.loads(build_planner_messages("什么是 BM25？")[1]["content"])
@@ -614,6 +638,26 @@ class TestProviderFailure:
         o = _plan_with(FakeClient(response=_FakeMalformedUsage()))
         assert o.failure_code == "PLANNER_PROVIDER_ERROR"
 
+    def test_message_missing_content(self):
+        fake = FakeClient(response=_FakeMissingContent())
+        o = _plan_with(fake)
+        assert o.failure_code == "PLANNER_PROVIDER_ERROR"
+        assert len(fake.calls) == 1
+
+    def test_choices_truthy_non_list(self):
+        fake = FakeClient(response=_FakeChoicesNotList())
+        o = _plan_with(fake)
+        assert o.failure_code == "PLANNER_PROVIDER_ERROR"
+        assert len(fake.calls) == 1
+
+    def test_structure_error_no_exception_text_leak(self):
+        for response in (_FakeMissingContent(), _FakeChoicesNotList()):
+            fake = FakeClient(response=response)
+            o = _plan_with(fake)
+            serialized = json.dumps(o.to_dict(), ensure_ascii=False)
+            assert "message.content" not in serialized
+            assert "response.choices" not in serialized
+
     def test_each_failure_call_count_one(self):
         for error in (PlannerTimeoutError("t"), PlannerProviderError("p")):
             fake = FakeClient(error=error)
@@ -691,6 +735,75 @@ class TestCallerErrorBeforeCall:
             client=FakeClient(),
         )
         assert "sk-super-secret" not in repr(planner)
+
+
+# ---------------------------------------------------------------------------
+# default OpenAI client construction kwargs (monkeypatch, no network)
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultClientConstruction:
+    def test_default_client_kwargs(self, monkeypatch):
+        recorded = {}
+
+        class _FakeOpenAI:
+            def __init__(self, **kwargs):
+                recorded.update(kwargs)
+
+        monkeypatch.setattr(
+            "core.query_planning.openai_compatible.OpenAI", _FakeOpenAI
+        )
+        OpenAICompatibleQueryPlanner(
+            provider="p", model="m", api_key="sk-test"
+        )
+        assert recorded["api_key"] == "sk-test"
+        assert recorded["timeout"] == PLANNER_TIMEOUT_SECONDS
+        assert recorded["max_retries"] == PLANNER_MAX_RETRIES
+        assert "base_url" not in recorded
+
+    def test_default_client_base_url_passed(self, monkeypatch):
+        recorded = {}
+
+        class _FakeOpenAI:
+            def __init__(self, **kwargs):
+                recorded.update(kwargs)
+
+        monkeypatch.setattr(
+            "core.query_planning.openai_compatible.OpenAI", _FakeOpenAI
+        )
+        OpenAICompatibleQueryPlanner(
+            provider="p", model="m", api_key="sk-test",
+            base_url="https://api.example.com/v1",
+        )
+        assert recorded["base_url"] == "https://api.example.com/v1"
+
+    def test_default_client_constructed_only_when_no_fake(self, monkeypatch):
+        built = []
+
+        class _FakeOpenAI:
+            def __init__(self, **kwargs):
+                built.append(kwargs)
+
+        monkeypatch.setattr(
+            "core.query_planning.openai_compatible.OpenAI", _FakeOpenAI
+        )
+        # 注入 Fake client 时不构造默认 SDK client
+        planner = OpenAICompatibleQueryPlanner(
+            provider="p", model="m", api_key="sk-test", client=FakeClient()
+        )
+        assert planner._client is not None
+        assert built == []
+
+    def test_api_key_not_in_repr_or_metadata(self):
+        fake = FakeClient(response=_FakeResponse(_single_raw()))
+        planner = OpenAICompatibleQueryPlanner(
+            provider="p", model="m", api_key="sk-super-secret", client=fake
+        )
+        assert "sk-super-secret" not in repr(planner)
+        o = planner.plan("什么是 BM25？")
+        serialized = json.dumps(o.call_metadata.to_dict(), ensure_ascii=False)
+        assert "sk-super-secret" not in serialized
+        assert "sk-test" not in serialized
 
 
 # ---------------------------------------------------------------------------

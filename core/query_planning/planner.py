@@ -27,10 +27,11 @@ PLANNER_FAILURE_CODES = (
     "PLAN_OVER_DECOMPOSE",
     "PLAN_UNDER_DECOMPOSE",
     "PLAN_DUPLICATE_SUBQUERY",
-    "PLANNER_PROVIDER_ERROR",
-    # 后续任务使用，本文件只声明不主动产生：
-    "PLAN_NEW_ENTITY",
+    # 04B-01 Provider 主动产生：
     "PLANNER_TIMEOUT",
+    "PLANNER_PROVIDER_ERROR",
+    # 预留给 04B-02 语义检查，本文件只声明不主动产生：
+    "PLAN_NEW_ENTITY",
 )
 
 # 模型输出顶层的唯一允许字段集合；其余任何字段（含 original_query /
