@@ -84,6 +84,18 @@ def _validate_text(value: object, label: str, max_chars: int) -> None:
         raise ValueError(f"{label} 超过 {max_chars} 字符上限")
 
 
+def _check_type_str(value: object, label: str) -> None:
+    """严格字符串类型校验：类型错误统一抛 TypeError（含字段名）。"""
+    if type(value) is not str:
+        raise TypeError(f"{label} 必须是字符串，实际 {type(value).__name__}")
+
+
+def _check_type_bool(value: object, label: str) -> None:
+    """严格 bool 类型校验：类型错误统一抛 TypeError（含字段名）。"""
+    if type(value) is not bool:
+        raise TypeError(f"{label} 必须是严格 bool，实际 {type(value).__name__}")
+
+
 def _compute_plan_id(identity_payload: dict) -> str:
     """规范化 JSON + SHA-256 取前 12 位小写十六进制。
 
@@ -184,62 +196,42 @@ class QueryPlan:
     fallback_policy: str
 
     def __post_init__(self) -> None:
-        if type(self.schema_version) is not str:
-            raise TypeError(
-                f"schema_version 必须是字符串，实际 "
-                f"{type(self.schema_version).__name__}"
-            )
+        _check_type_str(self.schema_version, "schema_version")
         if self.schema_version != QUERY_PLAN_SCHEMA_VERSION:
             raise ValueError(
                 f"schema_version 必须是 {QUERY_PLAN_SCHEMA_VERSION!r}，"
                 f"实际 {self.schema_version!r}"
             )
 
+        _check_type_str(self.original_query, "original_query")
         _validate_text(
             self.original_query, "original_query", _MAX_ORIGINAL_QUERY_CHARS
         )
 
-        if type(self.query_type) is not str:
-            raise TypeError(
-                f"query_type 必须是字符串，实际 {type(self.query_type).__name__}"
-            )
+        _check_type_str(self.query_type, "query_type")
         if self.query_type not in QUERY_PLAN_QUERY_TYPES:
             raise ValueError(
                 f"query_type 必须是 {', '.join(QUERY_PLAN_QUERY_TYPES)} 之一，"
                 f"实际 {self.query_type!r}"
             )
 
-        if type(self.retrieval_required) is not bool:
-            raise TypeError(
-                f"retrieval_required 必须是严格 bool，"
-                f"实际 {type(self.retrieval_required).__name__}"
-            )
+        _check_type_bool(self.retrieval_required, "retrieval_required")
 
-        if type(self.action) is not str:
-            raise TypeError(
-                f"action 必须是字符串，实际 {type(self.action).__name__}"
-            )
+        _check_type_str(self.action, "action")
         if self.action not in QUERY_PLAN_ACTIONS:
             raise ValueError(
                 f"action 必须是 {', '.join(QUERY_PLAN_ACTIONS)} 之一，"
                 f"实际 {self.action!r}"
             )
 
-        if type(self.reason_code) is not str:
-            raise TypeError(
-                f"reason_code 必须是字符串，实际 {type(self.reason_code).__name__}"
-            )
+        _check_type_str(self.reason_code, "reason_code")
         if self.reason_code not in QUERY_PLAN_REASON_CODES:
             raise ValueError(
                 f"reason_code 必须是 {', '.join(QUERY_PLAN_REASON_CODES)} 之一，"
                 f"实际 {self.reason_code!r}"
             )
 
-        if type(self.fallback_policy) is not str:
-            raise TypeError(
-                f"fallback_policy 必须是字符串，实际 "
-                f"{type(self.fallback_policy).__name__}"
-            )
+        _check_type_str(self.fallback_policy, "fallback_policy")
         if self.fallback_policy != QUERY_PLAN_FALLBACK_POLICY:
             raise ValueError(
                 f"fallback_policy 必须是 {QUERY_PLAN_FALLBACK_POLICY!r}，"
@@ -253,10 +245,11 @@ class QueryPlan:
         if not all(isinstance(s, Subquery) for s in self.subqueries):
             raise TypeError("subqueries 每项必须是 Subquery")
 
-        if (
-            type(self.plan_id) is not str
-            or _PLAN_ID_RE.fullmatch(self.plan_id) is None
-        ):
+        if type(self.plan_id) is not str:
+            raise TypeError(
+                f"plan_id 必须是字符串，实际 {type(self.plan_id).__name__}"
+            )
+        if _PLAN_ID_RE.fullmatch(self.plan_id) is None:
             raise ValueError(
                 f"plan_id 必须是12位小写十六进制，实际 {self.plan_id!r}"
             )
@@ -310,11 +303,20 @@ class QueryPlan:
         subqueries: Sequence[Subquery] = (),
         fallback_policy: str = QUERY_PLAN_FALLBACK_POLICY,
     ) -> "QueryPlan":
-        """规范化构造：把 subqueries 归一化为 tuple，计算 plan_id 后构造。
+        """规范化构造：先做字段类型校验，再归一化 subqueries 并计算 plan_id。
 
-        字段值与跨字段不变量在 __post_init__ 中校验，非法输入 fail-fast，
-        不会返回半成品。
+        类型校验在哈希之前执行，避免不可 JSON 序列化的错误类型把异常
+        暴露成通用 json.dumps 错误；值/枚举/跨字段不变量仍由
+        __post_init__ 统一 fail-fast，不会返回半成品。
         """
+        _check_type_str(schema_version, "schema_version")
+        _check_type_str(original_query, "original_query")
+        _check_type_str(query_type, "query_type")
+        _check_type_bool(retrieval_required, "retrieval_required")
+        _check_type_str(action, "action")
+        _check_type_str(reason_code, "reason_code")
+        _check_type_str(fallback_policy, "fallback_policy")
+
         if isinstance(subqueries, tuple):
             normalized = subqueries
         elif isinstance(subqueries, list):

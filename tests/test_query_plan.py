@@ -414,6 +414,40 @@ class TestFieldErrors:
             QueryPlan.from_dict(d)
         assert "plan_id" in str(ei.value)
 
+    def test_from_dict_plan_id_non_string_raises_typeerror(self):
+        d = _single().to_dict()
+        for bad in (123, None):
+            bad_d = dict(d)
+            bad_d["plan_id"] = bad
+            with pytest.raises(TypeError) as ei:
+                QueryPlan.from_dict(bad_d)
+            assert "plan_id" in str(ei.value)
+
+    def test_create_non_serializable_fields_raise_field_typeerror(self):
+        base = {
+            "original_query": "什么是 BM25？",
+            "query_type": "fact",
+            "retrieval_required": True,
+            "action": "single_retrieval",
+            "reason_code": "SIMPLE_FACT",
+        }
+        fields = (
+            "schema_version",
+            "original_query",
+            "query_type",
+            "retrieval_required",
+            "action",
+            "reason_code",
+            "fallback_policy",
+        )
+        for field in fields:
+            kwargs = dict(base)
+            kwargs[field] = {1, 2, 3}  # set 不可 JSON 序列化
+            with pytest.raises(TypeError) as ei:
+                QueryPlan.create(**kwargs)
+            assert field in str(ei.value)
+            assert "not JSON serializable" not in str(ei.value)
+
     def test_query_plan_unknown_field_rejected(self):
         d = _single().to_dict()
         d["selected_strategy"] = "bm25"
