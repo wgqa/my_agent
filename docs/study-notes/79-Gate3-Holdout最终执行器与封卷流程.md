@@ -244,6 +244,10 @@ else:                         judge_status = not_generated
 
 "invalid_infrastructure 表示实验基础设施无法形成有效观测，且不是数据/模型结果。它不允许自动重跑；Reviewer 审查后可以显式授权一次 replacement——原 invalid-infrastructure attempt 永久保留，新 attempt 带 replacement_of_attempt_id 的显式 provenance，成为第二条可审计记录。普通 one-shot 逻辑从不放宽。"
 
+### 09C-R3-R1：preflight 目标绑定
+
+replacement preflight 的 replacement 分支在 ledger eligibility validation 之前就校验 `replacement_of_attempt_id == EXPECTED_REPLACEMENT_OF_ATTEMPT_ID`——传错目标（如任意别的 attempt_id）直接 fail-closed，且无副作用（ledger 不变、output 不创建、sealed 不读、0 LLM/检索/embedding）。正确目标（41c991a839cb）的 preflight PASS 行为保持不变。
+
 ---
 
 ## 边界声明
@@ -253,5 +257,5 @@ else:                         judge_status = not_generated
 - 09C-R1 forensic 只读 private manifest 结构元数据（raw SHA 已验）；09C-R2 只改字段名 + harness 测试 + 文档。
 - 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Dev rerun。
 - replacement attempt 未创建、未授权；原 attempt 41c991a839cb 永久保留。
-- 09C-R3 只实现 replacement 授权 gate（常量 / eligibility / 原子创建 / CLI 绑定）；真实 ledger read=0、modification=0；未设置 HOLDOUT_EXECUTION_AUTHORIZED / HOLDOUT_REPLACEMENT_AUTHORIZED_FOR；未创建 replacement attempt。
+- 09C-R3 只实现 replacement 授权 gate（常量 / eligibility / 原子创建 / CLI 绑定）；09C-R3-R1 只加 preflight 目标绑定校验；真实 ledger read=0、modification=0；未设置 HOLDOUT_EXECUTION_AUTHORIZED / HOLDOUT_REPLACEMENT_AUTHORIZED_FOR；未创建 replacement attempt。
 - 下一步由 Reviewer 审计 09B-R3 / 09C-R2 / 09C-R3 后决定是否显式授权 replacement Holdout。

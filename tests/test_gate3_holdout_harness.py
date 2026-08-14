@@ -1559,3 +1559,24 @@ class TestReplacementAuthorization:
         assert report["sealed_read"] is False
         # 不新增 ledger entry、不创建 attempt
         assert len(read_attempt_ledger(str(ledger))["attempts"]) == 1
+
+    def test_replacement_preflight_wrong_target_rejected_no_side_effects(self, tmp_path):
+        """replacement preflight 传错目标 attempt → RuntimeError 且无副作用。
+
+        ledger 仍 1 条、output 不存在、sealed 未读（_preflight_args 的 holdout/
+        manifest 路径不存在，若被读取会以别的错误失败；match 命中目标绑定错误证明
+        在读取前失败）、LLM/retrieval/embedding 均 0（preflight 从不调用）。
+        """
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        out = tmp_path / "out"
+        with pytest.raises(RuntimeError,
+                           match="replacement_of_attempt_id 必须是 Reviewer 冻结的"):
+            preflight_holdout(**{**_preflight_args(tmp_path),
+                                  "attempt_ledger_path": str(ledger),
+                                  "output_root": str(out),
+                                  "replacement_of_attempt_id": "999999999999"})
+        # ledger entries 仍 = 1
+        assert len(read_attempt_ledger(str(ledger))["attempts"]) == 1
+        # output 不存在
+        assert not out.exists()

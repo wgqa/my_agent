@@ -629,7 +629,13 @@ def preflight_holdout(
         check_attempt_allowed(attempt_ledger_path)
     else:
         # replacement preflight：只做 eligibility validation，不创建 attempt、
-        # 不读 sealed、不调用任何模型。
+        # 不读 sealed、不调用任何模型。先绑定 Reviewer 目标 attempt。
+        if replacement_of_attempt_id != EXPECTED_REPLACEMENT_OF_ATTEMPT_ID:
+            raise RuntimeError(
+                f"replacement_of_attempt_id 必须是 Reviewer 冻结的 "
+                f"{EXPECTED_REPLACEMENT_OF_ATTEMPT_ID!r}，"
+                f"实际 {replacement_of_attempt_id!r}"
+            )
         _validate_replacement_authorization_ledger(attempt_ledger_path, config)
 
     report = {
