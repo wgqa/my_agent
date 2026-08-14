@@ -58,6 +58,7 @@
 | 75 | [75-Gate3子查询RRF合并实验.md](75-Gate3子查询RRF合并实验.md) | G3-ADAPT-06C-MERGE：round-robin v1 → subquery_rrf_merge_v2 单变量 merge 实验，run_id 57811e77ecfa；C/D final obligation 32/44→37/44、merge-drop 5→0、调用不变、零回归（正结果） |
 | 76 | [76-Gate3真实E2E答案与引用评测.md](76-Gate3真实E2E答案与引用评测.md) | G3-E2E-07A：Dev 24 真实 Planner+Generator 端到端答案评测（两阶段 Gold 隔离 + LLM Judge），run_id 4172f6cc1d6f；answer_pass 8/20、answer_obligation 21/44、4 case generator 空输出失败 |
 | 77 | [77-Gate3系统冻结与Holdout前置审计.md](77-Gate3系统冻结与Holdout前置审计.md) | G3-FREEZE-08-SYSTEM：Gate 3 Dev 侧系统 Freeze Candidate（gate3_system_freeze_id=2ec11a69b173、frozen baseline fed9d15）；机器可核验 freeze JSON、known_limitations、holdout_execution_contract（Holdout=BLOCKED）；面向面试复习 |
+| 78 | [78-Gate3-Holdout一次性执行协议.md](78-Gate3-Holdout一次性执行协议.md) | G3-HOLDOUT-09A-HARNESS：一次性 Freeze-bound Holdout harness（独立 Gate3HoldoutConfig、freeze 唯一配置来源、无 CLI override、attempt ledger、preflight 0 LLM/sealed）；holdout_run_id a1dc0a4bab03 |
 
 ## FROZEN_EVIDENCE（10 份）
 
