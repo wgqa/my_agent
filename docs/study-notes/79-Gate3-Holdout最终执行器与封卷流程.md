@@ -222,6 +222,30 @@ else:                         judge_status = not_generated
 
 ---
 
+## 09C-R3：invalid_infrastructure 与 Reviewer-gated replacement
+
+> G3-HOLDOUT-09C-R3-REPLACEMENT-AUTHORIZATION：实现 Reviewer 授权机制（gate），不是授权第二次执行。这一层讲清"invalid_infrastructure 之后怎么正确重试"。
+
+### 概念：replacement ≠ 删除重跑
+
+- invalid_infrastructure 是 terminal 状态，普通 one-shot 逻辑（ledger 存在任何合法 attempt 即拒绝第二次创建）**保持不放宽**。
+- 只有 Reviewer 在审查过那次 invalid-infrastructure attempt 之后，才能**显式授权一次 replacement**。
+- replacement 不是"把第一次删掉再跑一次"——原 attempt **永久原样保留**，replacement 是带显式 `replacement_of_attempt_id` provenance 的**第二条独立审计记录**（`reviewer_authorized_invalid_infrastructure_replacement`）。
+
+### 授权被钉死
+
+- 目标 attempt 被 Reviewer-frozen 常量钉死：`EXPECTED_REPLACEMENT_OF_ATTEMPT_ID=41c991a839cb`、`SOURCE_COMMIT=f5dba77...`、`FAILURE_REASON=private manifest case_count 与配置不一致`。
+- replacement 前必须通过 `_validate_replacement_authorization_ledger`：ledger 恰好只有那 1 个已审计 invalid_infrastructure attempt、无 formal identity、freeze 身份与当前 config 一致——任一不符 fail-closed。
+- CLI 侧：正式 replacement 必须同时满足 `--replacement-of-attempt-id 41c991a839cb` + `HOLDOUT_EXECUTION_AUTHORIZED=1` + `HOLDOUT_REPLACEMENT_AUTHORIZED_FOR=41c991a839cb`（env 绑定具体 attempt，不是泛化的 `HOLDOUT_REPLACEMENT_AUTHORIZED=1`）；env != CLI 值在创建 attempt / 读取 sealed 之前退出。
+- 第二次 replacement 被永久阻止：replacement 一旦追加，`len(attempts)==2`，任何第三次 attempt 自动拒绝；不允许 A→B→C 链。
+- 不 bump ledger schema：`holdout_attempt_ledger_v1` 不变，新增 `replacement_of_attempt_id` / `replacement_authorization` 为可选 provenance 字段，既存真实 ledger 仍可读。
+
+### 面试怎么讲
+
+"invalid_infrastructure 表示实验基础设施无法形成有效观测，且不是数据/模型结果。它不允许自动重跑；Reviewer 审查后可以显式授权一次 replacement——原 invalid-infrastructure attempt 永久保留，新 attempt 带 replacement_of_attempt_id 的显式 provenance，成为第二条可审计记录。普通 one-shot 逻辑从不放宽。"
+
+---
+
 ## 边界声明
 
 - 09C-R2 只读公开材料 + synthetic fixture；未读取/搜索 gate3/sealed（Holdout JSONL 与真实 private manifest 均未再访问）。
@@ -229,4 +253,5 @@ else:                         judge_status = not_generated
 - 09C-R1 forensic 只读 private manifest 结构元数据（raw SHA 已验）；09C-R2 只改字段名 + harness 测试 + 文档。
 - 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Dev rerun。
 - replacement attempt 未创建、未授权；原 attempt 41c991a839cb 永久保留。
-- 下一步由 Reviewer 审计 09B-R3 / 09C-R2 后决定是否显式授权 replacement Holdout。
+- 09C-R3 只实现 replacement 授权 gate（常量 / eligibility / 原子创建 / CLI 绑定）；真实 ledger read=0、modification=0；未设置 HOLDOUT_EXECUTION_AUTHORIZED / HOLDOUT_REPLACEMENT_AUTHORIZED_FOR；未创建 replacement attempt。
+- 下一步由 Reviewer 审计 09B-R3 / 09C-R2 / 09C-R3 后决定是否显式授权 replacement Holdout。

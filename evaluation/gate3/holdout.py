@@ -72,6 +72,19 @@ EXPECTED_PRIVATE_MANIFEST_SHA256 = (
     "b34bb2d16d29dcd22c5d096dda370b044ffc64c81c9c590df7086926db2205c0"
 )
 
+# 09C-R3：Reviewer 冻结的 replacement 目标（第一次正式 invalid_infrastructure
+# attempt，永久保留；replacement 只允许 Reviewer 显式授权一次，非删除重跑）。
+EXPECTED_REPLACEMENT_OF_ATTEMPT_ID = "41c991a839cb"
+EXPECTED_REPLACEMENT_OF_SOURCE_COMMIT = (
+    "f5dba77c8908a83a1d6bd995ab659dd4d1414edc"
+)
+EXPECTED_REPLACEMENT_FAILURE_REASON = (
+    "private manifest case_count 与配置不一致"
+)
+REPLACEMENT_AUTHORIZATION_TAG = (
+    "reviewer_authorized_invalid_infrastructure_replacement"
+)
+
 # attempt 状态：prepared / running / completed / invalid_infrastructure / failed_system。
 # 最保守规则：ledger 存在任何合法 attempt（含 prepared）即禁止自动创建另一个；
 # invalid_infrastructure 的替代由 Reviewer 单独放行，不留自动后门。
@@ -392,6 +405,62 @@ def check_attempt_allowed(path: str) -> None:
     _check_attempt_allowed_ledger(read_attempt_ledger(path))
 
 
+def _validate_replacement_authorization_ledger(
+    path: str, config: Gate3HoldoutConfig
+) -> dict:
+    """Reviewer-gated replacement eligibility（fail-closed）。
+
+    只允许对"恰好唯一一个、已审计的 invalid_infrastructure attempt"创建 replacement；
+    原 attempt 的 attempt_id / source_commit / reason / 无 formal identity / freeze
+    身份全部与 Reviewer-frozen 常量及当前 config 一致。任何一项不满足 → raise。
+    返回原 attempt（供 atomic_create_replacement_attempt 追加 provenance）。
+    """
+    ledger = read_attempt_ledger(path)
+    attempts = ledger.get("attempts", [])
+    if len(attempts) != 1:
+        raise RuntimeError(
+            f"replacement 前置条件失败：ledger 必须恰好只有 1 个历史 attempt，"
+            f"实际 {len(attempts)}；禁止第三次/链式 attempt"
+        )
+    a = attempts[0]
+    if a.get("attempt_id") != EXPECTED_REPLACEMENT_OF_ATTEMPT_ID:
+        raise RuntimeError(
+            f"replacement 目标 attempt_id {a.get('attempt_id')!r} "
+            f"!= Reviewer 冻结 {EXPECTED_REPLACEMENT_OF_ATTEMPT_ID!r}"
+        )
+    if a.get("status") != "invalid_infrastructure":
+        raise RuntimeError(
+            "replacement 目标 status 必须 invalid_infrastructure，"
+            f"实际 {a.get('status')!r}"
+        )
+    if a.get("actual_execution_source_commit") != EXPECTED_REPLACEMENT_OF_SOURCE_COMMIT:
+        raise RuntimeError(
+            "replacement 目标 actual_execution_source_commit 与 Reviewer 冻结值不一致"
+        )
+    if a.get("reason") != EXPECTED_REPLACEMENT_FAILURE_REASON:
+        raise RuntimeError(
+            "replacement 目标 reason 与本次已审计 infrastructure failure 不一致"
+        )
+    if a.get("formal_holdout_run_id"):
+        raise RuntimeError(
+            "replacement 目标已绑定 formal_holdout_run_id，禁止 replacement"
+        )
+    if a.get("holdout_jsonl_sha256"):
+        raise RuntimeError(
+            "replacement 目标已绑定 holdout_jsonl_sha256，禁止 replacement"
+        )
+    for field_name, expected in (
+        ("gate3_system_freeze_id", config.gate3_system_freeze_id),
+        ("gate3_dataset_freeze_id", config.gate3_dataset_freeze_id),
+        ("holdout_evaluation_set_id", config.holdout_evaluation_set_id),
+    ):
+        if a.get(field_name) != expected:
+            raise RuntimeError(
+                f"replacement 目标 {field_name} 与当前 config 不一致"
+            )
+    return a
+
+
 def atomic_create_attempt(path: str, config: Gate3HoldoutConfig) -> dict:
     """09B 首次访问 sealed 前原子登记 attempt；09A preflight 不得调用。
 
@@ -435,6 +504,72 @@ def atomic_create_attempt(path: str, config: Gate3HoldoutConfig) -> dict:
     return attempt
 
 
+def atomic_create_replacement_attempt(
+    path: str,
+    config: Gate3HoldoutConfig,
+    *,
+    replacement_of_attempt_id: str,
+) -> dict:
+    """09C-R3：Reviewer 显式授权的 replacement attempt 原子创建（只允许一次）。
+
+    与原 attempt 相同的跨进程互斥：sibling lock O_CREAT|O_EXCL|O_WRONLY，持锁期间
+    read → validate replacement eligibility → check → append → atomic write；正常
+    完成释放锁，异常保留 lock（fail-closed，交 Reviewer 判断）。
+
+    replacement 前必须通过 _validate_replacement_authorization_ledger（ledger 恰好
+    只有那一个 Reviewer 冻结的 invalid_infrastructure attempt 才允许）。新 attempt
+    增加可选 provenance 字段 replacement_of_attempt_id / replacement_authorization，
+    不 bump ledger schema；原 attempt 一个字节语义都不改。第二次 replacement 因
+    len(attempts)==2 被拒（无 replacement chain）。
+    """
+    if replacement_of_attempt_id != EXPECTED_REPLACEMENT_OF_ATTEMPT_ID:
+        raise RuntimeError(
+            f"replacement_of_attempt_id 必须是 Reviewer 冻结的 "
+            f"{EXPECTED_REPLACEMENT_OF_ATTEMPT_ID!r}，实际 {replacement_of_attempt_id!r}"
+        )
+    lock_path = str(Path(path)) + ".lock"
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise RuntimeError(
+            f"ledger 锁已存在: {lock_path}（可能是异常残留，Reviewer 判断）"
+        ) from None
+    try:
+        os.close(fd)
+        original = _validate_replacement_authorization_ledger(path, config)
+        if original["attempt_id"] != replacement_of_attempt_id:
+            raise RuntimeError(
+                "replacement_of_attempt_id 与 ledger 原 attempt 不一致"
+            )
+        started_at = datetime.now(timezone.utc).isoformat()
+        attempt = {
+            "attempt_id": _sha256_bytes(_canonical({
+                "gate3_system_freeze_id": config.gate3_system_freeze_id,
+                "gate3_dataset_freeze_id": config.gate3_dataset_freeze_id,
+                "holdout_evaluation_set_id": config.holdout_evaluation_set_id,
+                "actual_execution_source_commit": config.actual_execution_source_commit,
+                "replacement_of_attempt_id": replacement_of_attempt_id,
+            }))[:12],
+            "gate3_system_freeze_id": config.gate3_system_freeze_id,
+            "gate3_dataset_freeze_id": config.gate3_dataset_freeze_id,
+            "holdout_evaluation_set_id": config.holdout_evaluation_set_id,
+            "actual_execution_source_commit": config.actual_execution_source_commit,
+            "started_at": started_at,
+            "status": "prepared",
+            "replacement_of_attempt_id": replacement_of_attempt_id,
+            "replacement_authorization": REPLACEMENT_AUTHORIZATION_TAG,
+        }
+        ledger = read_attempt_ledger(path)
+        ledger.setdefault("attempts", []).append(attempt)
+        write_text_atomic(Path(path), _canonical(ledger).decode("utf-8"))
+    except BaseException:
+        # fail-closed：保留 lock，不当作没发生，交 Reviewer 判断。
+        raise
+    else:
+        os.unlink(lock_path)  # 正常完成释放锁
+    return attempt
+
+
 def assert_no_forbidden_overrides(argv: list) -> None:
     """Runner 禁止提供性能 override；CLI 不应包含这些参数。"""
     for arg in argv:
@@ -458,6 +593,7 @@ def preflight_holdout(
     corpus_root: str,
     output_root: str,
     attempt_ledger_path: str,
+    replacement_of_attempt_id: str | None = None,
 ) -> dict:
     """09A dry-run/preflight：不读 holdout 内容、不开 private manifest、不创建
     LLM client、不建 index；0 LLM / 0 retrieval / 0 embedding。
@@ -489,9 +625,14 @@ def preflight_holdout(
 
     if Path(output_root).exists():
         raise FileExistsError(f"output-root 已存在，禁止覆盖: {output_root}")
-    check_attempt_allowed(attempt_ledger_path)
+    if replacement_of_attempt_id is None:
+        check_attempt_allowed(attempt_ledger_path)
+    else:
+        # replacement preflight：只做 eligibility validation，不创建 attempt、
+        # 不读 sealed、不调用任何模型。
+        _validate_replacement_authorization_ledger(attempt_ledger_path, config)
 
-    return {
+    report = {
         "preflight": "ok",
         "holdout_run_id": config.holdout_run_id,
         "gate3_system_freeze_id": config.gate3_system_freeze_id,
@@ -505,6 +646,10 @@ def preflight_holdout(
         "embedding_calls": 0,
         "sealed_read": False,
     }
+    if replacement_of_attempt_id is not None:
+        report["replacement_candidate"] = True
+        report["replacement_of_attempt_id"] = replacement_of_attempt_id
+    return report
 
 
 # ---------------------------------------------------------------------------
@@ -738,6 +883,7 @@ def execute_holdout(
     sealed_read_fn=None,
     run_generation_fn=None,
     run_evaluation_fn=None,
+    replacement_of_attempt_id: str | None = None,
 ) -> dict:
     """09C 正式执行顺序（写死）。steps 1-6 之前绝不开 sealed；formal identity
     只在验证 sealed manifest 后产生。
@@ -795,10 +941,18 @@ def execute_holdout(
     out = Path(output_root)
     if out.exists():
         raise FileExistsError(f"output-root 已存在: {output_root}")
-    # 5 check ledger/lock
-    check_attempt_allowed(attempt_ledger_path)
-    # 6 atomic_create_attempt(prepared)
-    attempt = atomic_create_attempt(attempt_ledger_path, config)
+    # 5-6 check ledger/lock + atomic create attempt。普通路径保持原 one-shot
+    # 逻辑（任何合法 attempt 即拒绝，不弱化）；replacement 由
+    # atomic_create_replacement_attempt 在持锁期间做 Reviewer eligibility
+    # validation（恰好唯一已审计 invalid_infrastructure attempt 才允许）。
+    if replacement_of_attempt_id is None:
+        check_attempt_allowed(attempt_ledger_path)
+        attempt = atomic_create_attempt(attempt_ledger_path, config)
+    else:
+        attempt = atomic_create_replacement_attempt(
+            attempt_ledger_path, config,
+            replacement_of_attempt_id=replacement_of_attempt_id,
+        )
     attempt_id = attempt["attempt_id"]
     try:
         # ========== 此后才第一次允许访问 sealed ==========

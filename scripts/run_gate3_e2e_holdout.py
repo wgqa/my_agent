@@ -51,6 +51,13 @@ def main(argv=None) -> int:
     parser.add_argument("--corpus-root", required=True)
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--attempt-ledger", required=True)
+    # 09C-R3：Reviewer replacement 目标。正式 replacement 必须同时满足：
+    #   --replacement-of-attempt-id <id>
+    #   + HOLDOUT_EXECUTION_AUTHORIZED=1
+    #   + HOLDOUT_REPLACEMENT_AUTHORIZED_FOR=<id>（与 CLI 值一致，绑定具体 attempt）
+    # 本实现只提供 gate，不自行授权。不提供该参数时普通 --execute 仍走原始
+    # one-shot 路径，真实旧 ledger 会继续阻止执行。
+    parser.add_argument("--replacement-of-attempt-id", default=None)
     # 明确不提供任何性能 override（frozen）。
     args = parser.parse_args(argv)
 
@@ -64,6 +71,18 @@ def main(argv=None) -> int:
                 "Holdout 执行未授权：需 Reviewer 09C 放行 "
                 "(HOLDOUT_EXECUTION_AUTHORIZED=1)"
             )
+        # 09C-R3：replacement 执行必须把 Reviewer 授权对象绑定到具体 attempt。
+        # env 值 != CLI --replacement-of-attempt-id → 在创建 attempt / 读取
+        # sealed 之前退出（0 attempt / 0 sealed）。
+        if args.replacement_of_attempt_id is not None:
+            env_target = os.getenv("HOLDOUT_REPLACEMENT_AUTHORIZED_FOR")
+            if env_target != args.replacement_of_attempt_id:
+                raise SystemExit(
+                    "replacement 授权对象不匹配：HOLDOUT_REPLACEMENT_AUTHORIZED_FOR="
+                    f"{env_target!r} != --replacement-of-attempt-id "
+                    f"{args.replacement_of_attempt_id!r}；"
+                    "拒绝创建 attempt / 读取 sealed"
+                )
         config = build_holdout_config_from_freeze(
             args.freeze_json,
             actual_execution_source_commit=_git_head(args.repo),
@@ -83,6 +102,7 @@ def main(argv=None) -> int:
             sealed_read_fn=lambda: read_real_sealed_inputs(config),
             run_generation_fn=run_holdout_generation,
             run_evaluation_fn=run_holdout_evaluation,
+            replacement_of_attempt_id=args.replacement_of_attempt_id,
         )
         for key, value in report.items():
             print(f"{key}={value}")
@@ -102,6 +122,7 @@ def main(argv=None) -> int:
         corpus_root=args.corpus_root,
         output_root=args.output_root,
         attempt_ledger_path=args.attempt_ledger,
+        replacement_of_attempt_id=args.replacement_of_attempt_id,
     )
     for key, value in report.items():
         print(f"{key}={value}")

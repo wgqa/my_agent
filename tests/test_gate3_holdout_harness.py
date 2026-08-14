@@ -30,10 +30,13 @@ from evaluation.gate3.e2e import (
 from evaluation.gate3.holdout import (
     EXPECTED_HOLDOUT_JSONL_SHA256,
     EXPECTED_PRIVATE_MANIFEST_SHA256,
+    EXPECTED_REPLACEMENT_OF_ATTEMPT_ID,
     HoldoutInfrastructureFailure,
     _parse_generation_cases_from_holdout,
+    _validate_replacement_authorization_ledger,
     assert_no_forbidden_overrides,
     atomic_create_attempt,
+    atomic_create_replacement_attempt,
     bind_attempt_formal_identity,
     build_holdout_config_from_freeze,
     check_attempt_allowed,
@@ -1362,3 +1365,197 @@ class TestManifestCountFieldContract:
         assert "holdout_case_count" not in manifest
         with pytest.raises(HoldoutInfrastructureFailure):
             validate_sealed(manifest, holdout_text, _holdout_config(tmp_path))
+
+
+def _write_attempt_ledger(path, attempts):
+    path.write_text(json.dumps({
+        "schema_version": "holdout_attempt_ledger_v1",
+        "attempts": attempts,
+    }, ensure_ascii=False), encoding="utf-8")
+
+
+def _invalid_infra_attempt(**kw):
+    a = {
+        "attempt_id": EXPECTED_REPLACEMENT_OF_ATTEMPT_ID,
+        "gate3_system_freeze_id": "2ec11a69b173",
+        "gate3_dataset_freeze_id": "257fa0d0a6d6",
+        "holdout_evaluation_set_id": "79a6bc0814a3",
+        "actual_execution_source_commit": "f5dba77c8908a83a1d6bd995ab659dd4d1414edc",
+        "started_at": "2026-08-14T11:18:48.140637+00:00",
+        "status": "invalid_infrastructure",
+        "reason": "private manifest case_count 与配置不一致",
+    }
+    a.update(kw)
+    return a
+
+
+class TestReplacementAuthorization:
+    """09C-R3：Reviewer-gated replacement attempt。
+
+    普通 one-shot 逻辑不弱化；replacement 只允许对"恰好唯一一个已审计
+    invalid_infrastructure attempt"、在 Reviewer 授权下创建一次；原 attempt
+    永久原样保留；第二次 replacement 永久阻止（无 chain）。
+    """
+
+    def test_eligibility_pass_exact_invalid_infra(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        original = _validate_replacement_authorization_ledger(
+            str(ledger), _holdout_config(tmp_path))
+        assert original["attempt_id"] == EXPECTED_REPLACEMENT_OF_ATTEMPT_ID
+        assert original["status"] == "invalid_infrastructure"
+
+    def test_wrong_attempt_id_rejected(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt(attempt_id="0" * 12)])
+        with pytest.raises(RuntimeError):
+            _validate_replacement_authorization_ledger(
+                str(ledger), _holdout_config(tmp_path))
+
+    @pytest.mark.parametrize("status",
+                             ["completed", "failed_system", "prepared", "running"])
+    def test_non_invalid_infrastructure_status_rejected(self, tmp_path, status):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt(status=status)])
+        with pytest.raises(RuntimeError):
+            _validate_replacement_authorization_ledger(
+                str(ledger), _holdout_config(tmp_path))
+
+    def test_has_formal_identity_rejected(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt(
+            formal_holdout_run_id="ab12cd34ef56")])
+        with pytest.raises(RuntimeError):
+            _validate_replacement_authorization_ledger(
+                str(ledger), _holdout_config(tmp_path))
+
+    def test_has_holdout_sha_rejected(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt(
+            holdout_jsonl_sha256="ab" * 32)])
+        with pytest.raises(RuntimeError):
+            _validate_replacement_authorization_ledger(
+                str(ledger), _holdout_config(tmp_path))
+
+    def test_wrong_reason_rejected(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt(
+            reason="some other failure")])
+        with pytest.raises(RuntimeError):
+            _validate_replacement_authorization_ledger(
+                str(ledger), _holdout_config(tmp_path))
+
+    def test_two_attempts_rejected(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [
+            _invalid_infra_attempt(),
+            _invalid_infra_attempt(attempt_id="999999999999"),
+        ])
+        with pytest.raises(RuntimeError):
+            _validate_replacement_authorization_ledger(
+                str(ledger), _holdout_config(tmp_path))
+
+    def test_atomic_replacement_preserves_original_and_adds_provenance(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        config = _holdout_config(tmp_path)  # source_commit=DEV_COMMIT != f5dba77
+        new = atomic_create_replacement_attempt(
+            str(ledger), config,
+            replacement_of_attempt_id=EXPECTED_REPLACEMENT_OF_ATTEMPT_ID,
+        )
+        attempts = read_attempt_ledger(str(ledger))["attempts"]
+        assert len(attempts) == 2
+        # 原 attempt 完整保留，语义字段逐一相等，未加 replacement 字段
+        original = attempts[0]
+        assert original["attempt_id"] == EXPECTED_REPLACEMENT_OF_ATTEMPT_ID
+        assert original["status"] == "invalid_infrastructure"
+        assert original["reason"] == "private manifest case_count 与配置不一致"
+        assert "replacement_of_attempt_id" not in original
+        assert "replacement_authorization" not in original
+        # 新 attempt：prepared + replacement provenance
+        repl = attempts[1]
+        assert repl["status"] == "prepared"
+        assert repl["replacement_of_attempt_id"] == EXPECTED_REPLACEMENT_OF_ATTEMPT_ID
+        assert repl["replacement_authorization"] == \
+            "reviewer_authorized_invalid_infrastructure_replacement"
+        assert repl["attempt_id"] != EXPECTED_REPLACEMENT_OF_ATTEMPT_ID
+        assert repl["attempt_id"] != original["attempt_id"]
+        assert new == repl
+        # lock 已释放
+        assert not (tmp_path / "ledger.json.lock").exists()
+
+    def test_second_replacement_rejected(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        config = _holdout_config(tmp_path)
+        atomic_create_replacement_attempt(
+            str(ledger), config,
+            replacement_of_attempt_id=EXPECTED_REPLACEMENT_OF_ATTEMPT_ID)
+        with pytest.raises(RuntimeError):
+            atomic_create_replacement_attempt(
+                str(ledger), config,
+                replacement_of_attempt_id=EXPECTED_REPLACEMENT_OF_ATTEMPT_ID)
+
+    def test_cli_replacement_execute_requires_env(self, tmp_path, monkeypatch):
+        import scripts.run_gate3_e2e_holdout as cli
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        sealed = tmp_path / "sealed"
+        sealed.mkdir()
+        (sealed / "manifest.json").write_text("{}", encoding="utf-8")
+        (sealed / "holdout.jsonl").write_text("", encoding="utf-8")
+        monkeypatch.setenv("HOLDOUT_EXECUTION_AUTHORIZED", "1")
+        monkeypatch.delenv("HOLDOUT_REPLACEMENT_AUTHORIZED_FOR", raising=False)
+        args = [
+            "--execute",
+            "--repo", str(Path.cwd()),
+            "--freeze-json", _freeze(tmp_path),
+            "--holdout-jsonl", str(sealed / "holdout.jsonl"),
+            "--private-manifest", str(sealed / "manifest.json"),
+            "--frozen-index-manifest", "m", "--corpus-root", "c",
+            "--output-root", str(tmp_path / "o"),
+            "--attempt-ledger", str(ledger),
+            "--replacement-of-attempt-id", EXPECTED_REPLACEMENT_OF_ATTEMPT_ID,
+        ]
+        with pytest.raises(SystemExit):
+            cli.main(args)
+        # 0 attempt：ledger 未新增 entry
+        assert len(read_attempt_ledger(str(ledger))["attempts"]) == 1
+
+    def test_cli_replacement_env_wrong_target(self, tmp_path, monkeypatch):
+        import scripts.run_gate3_e2e_holdout as cli
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        monkeypatch.setenv("HOLDOUT_EXECUTION_AUTHORIZED", "1")
+        monkeypatch.setenv("HOLDOUT_REPLACEMENT_AUTHORIZED_FOR", "999999999999")
+        args = [
+            "--execute",
+            "--repo", str(Path.cwd()),
+            "--freeze-json", _freeze(tmp_path),
+            "--holdout-jsonl", "h", "--private-manifest", "p",
+            "--frozen-index-manifest", "m", "--corpus-root", "c",
+            "--output-root", str(tmp_path / "o"),
+            "--attempt-ledger", str(ledger),
+            "--replacement-of-attempt-id", EXPECTED_REPLACEMENT_OF_ATTEMPT_ID,
+        ]
+        with pytest.raises(SystemExit):
+            cli.main(args)
+        assert len(read_attempt_ledger(str(ledger))["attempts"]) == 1
+
+    def test_replacement_preflight_no_side_effects(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+        _write_attempt_ledger(ledger, [_invalid_infra_attempt()])
+        report = preflight_holdout(**{**_preflight_args(tmp_path),
+                                      "attempt_ledger_path": str(ledger),
+                                      "replacement_of_attempt_id":
+                                          EXPECTED_REPLACEMENT_OF_ATTEMPT_ID})
+        assert report["preflight"] == "ok"
+        assert report["replacement_candidate"] is True
+        assert report["replacement_of_attempt_id"] == EXPECTED_REPLACEMENT_OF_ATTEMPT_ID
+        assert "replacement_executed" not in report
+        assert report["llm_calls"] == 0
+        assert report["retrieval_calls"] == 0
+        assert report["embedding_calls"] == 0
+        assert report["sealed_read"] is False
+        # 不新增 ledger entry、不创建 attempt
+        assert len(read_attempt_ledger(str(ledger))["attempts"]) == 1
