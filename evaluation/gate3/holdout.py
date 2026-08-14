@@ -25,6 +25,8 @@ from core.generator.deepseek_gen import DeepSeekGenerator
 from core.query_planning.openai_compatible import OpenAICompatibleQueryPlanner
 from evaluation.experiment_corpus import ExperimentCorpus
 from evaluation.gate3.adaptive_dev import (
+    EXPECTED_CORPUS_FILE_COUNT,
+    EXPECTED_CORPUS_ID,
     _canonical_json,
     _check_hex,
     _check_nonempty_no_ws,
@@ -61,6 +63,14 @@ EXPECTED_FROZEN_BASELINE = "fed9d15b950fe543d1afc99a2a21a5ad5d299320"
 EXPECTED_GATE3_DATASET_FREEZE_ID = "257fa0d0a6d6"
 EXPECTED_HOLDOUT_EVALUATION_SET_ID = "79a6bc0814a3"
 EXPECTED_HOLDOUT_CASE_COUNT = 12
+# 预先公开的冻结值（来源 docs/experiments/gate3_data_freeze.json，已核对一致）。
+# expected 必须来自公开冻结材料 / Reviewer-frozen constants，禁止从 sealed 推导。
+EXPECTED_HOLDOUT_JSONL_SHA256 = (
+    "00bfcac2fe553f3edeefcc281db5c2aecaa380e9f41fd3ecfb98ec7a4796fe61"
+)
+EXPECTED_PRIVATE_MANIFEST_SHA256 = (
+    "b34bb2d16d29dcd22c5d096dda370b044ffc64c81c9c590df7086926db2205c0"
+)
 
 # attempt 状态：prepared / running / completed / invalid_infrastructure / failed_system。
 # 最保守规则：ledger 存在任何合法 attempt（含 prepared）即禁止自动创建另一个；
@@ -104,6 +114,12 @@ class Gate3HoldoutConfig:
     planner: dict = field(default_factory=dict)
     generator: dict = field(default_factory=dict)
     judge: dict = field(default_factory=dict)
+    # 预先公开的冻结值（来源 docs/experiments/gate3_data_freeze.json /
+    # Reviewer-frozen constants）；执行前必须验证，不进 run 身份。
+    expected_corpus_id: str = ""
+    expected_corpus_file_count: int = 0
+    expected_holdout_jsonl_sha256: str = ""
+    expected_private_manifest_sha256: str = ""
     # 执行位置（不进身份）
     holdout_jsonl_path: str = ""
     private_manifest_path: str = ""
@@ -123,6 +139,16 @@ class Gate3HoldoutConfig:
             raise ValueError("holdout_case_count 必须是严格正整数")
         if self.holdout_jsonl_sha256:
             _check_hex(self.holdout_jsonl_sha256, 64, "holdout_jsonl_sha256")
+        if self.expected_corpus_id:
+            _check_hex(self.expected_corpus_id, 12, "expected_corpus_id")
+        if (type(self.expected_corpus_file_count) is not int
+                or isinstance(self.expected_corpus_file_count, bool)
+                or self.expected_corpus_file_count < 0):
+            raise ValueError("expected_corpus_file_count 必须是整数（非负）")
+        for name in ("expected_holdout_jsonl_sha256",
+                     "expected_private_manifest_sha256"):
+            if getattr(self, name):
+                _check_hex(getattr(self, name), 64, name)
         for label in ("evaluation_schema_version", "schema_version"):
             _check_nonempty_no_ws(getattr(self, label), label)
         for section in ("retrieval", "planner", "generator", "judge"):
@@ -241,6 +267,10 @@ def build_holdout_config_from_freeze(
         planner=dict(freeze["planner"]),
         generator=dict(freeze["generator"]),
         judge=dict(freeze["judge"]),
+        expected_corpus_id=EXPECTED_CORPUS_ID,
+        expected_corpus_file_count=EXPECTED_CORPUS_FILE_COUNT,
+        expected_holdout_jsonl_sha256=EXPECTED_HOLDOUT_JSONL_SHA256,
+        expected_private_manifest_sha256=EXPECTED_PRIVATE_MANIFEST_SHA256,
         holdout_jsonl_path=holdout_jsonl_path,
         private_manifest_path=private_manifest_path,
         frozen_index_manifest_path=frozen_index_manifest_path,
@@ -642,6 +672,64 @@ def _parse_generation_cases_from_holdout(holdout_text: str) -> list[GenerationCa
     return cases
 
 
+def _verify_public_data_freeze(repo: str) -> None:
+    """公开 dataset freeze（docs/experiments/gate3_data_freeze.json）交叉验证。
+
+    文件存在则校验冻结值与 Reviewer-frozen constants 一致；缺失（如临时测试仓库）
+    则跳过。确保最终 executor 绑定的是已公开冻结材料，而不是从 sealed 推导。
+    """
+    p = Path(repo) / "docs" / "experiments" / "gate3_data_freeze.json"
+    if not p.is_file():
+        return
+    d = json.loads(p.read_text("utf-8"))
+    for key, expected in (
+        ("gate3_dataset_freeze_id", EXPECTED_GATE3_DATASET_FREEZE_ID),
+        ("corpus_id", EXPECTED_CORPUS_ID),
+        ("corpus_file_count", EXPECTED_CORPUS_FILE_COUNT),
+        ("private_manifest_sha256", EXPECTED_PRIVATE_MANIFEST_SHA256),
+    ):
+        if d.get(key) != expected:
+            raise RuntimeError(
+                f"公开 data freeze {key} 不一致: {d.get(key)!r} != {expected!r}"
+            )
+    holdout = d.get("holdout")
+    if not isinstance(holdout, dict):
+        raise RuntimeError("公开 data freeze holdout 段缺失")
+    if (holdout.get("evaluation_set_id") != EXPECTED_HOLDOUT_EVALUATION_SET_ID
+            or holdout.get("case_count") != EXPECTED_HOLDOUT_CASE_COUNT
+            or holdout.get("jsonl_sha256") != EXPECTED_HOLDOUT_JSONL_SHA256):
+        raise RuntimeError("公开 data freeze holdout 段与冻结常量不一致")
+
+
+def _validate_frozen_corpus_identity(config: Gate3HoldoutConfig) -> None:
+    """attempt 创建前验证 frozen corpus identity（只算 corpus_id，不建索引）。
+
+    读取 frozen index manifest → relative_paths → ExperimentCorpus.build(...) →
+    actual corpus_id / file count；必须匹配公开冻结值，否则 reject（attempt 不创建、
+    sealed 未读取、LLM 0 次）。不构建 embedding/index。
+    """
+    frozen = json.loads(Path(config.frozen_index_manifest_path).read_text("utf-8"))
+    relative_paths = [
+        entry["relative_path"] for entry in frozen.get("corpus_entries", [])
+    ]
+    if len(relative_paths) != config.expected_corpus_file_count:
+        raise RuntimeError(
+            f"frozen index manifest 文件数 {len(relative_paths)} != 公开冻结 "
+            f"{config.expected_corpus_file_count}"
+        )
+    corpus = ExperimentCorpus.build(config.corpus_root, relative_paths)
+    if corpus.corpus_id != config.expected_corpus_id:
+        raise RuntimeError(
+            f"corpus_id {corpus.corpus_id} != 公开冻结 "
+            f"{config.expected_corpus_id}（frozen corpus 被改动？）"
+        )
+    if len(corpus.entries) != config.expected_corpus_file_count:
+        raise RuntimeError(
+            f"corpus 实际文件数 {len(corpus.entries)} != 公开冻结 "
+            f"{config.expected_corpus_file_count}"
+        )
+
+
 def execute_holdout(
     config: Gate3HoldoutConfig,
     *,
@@ -693,6 +781,18 @@ def execute_holdout(
         raise HoldoutInfrastructureFailure(
             "未注入 sealed_read_fn / run_generation_fn；真实 sealed/生成链待 09C 授权"
         )
+    # 3b 公开 dataset freeze 交叉验证（文件存在则校验常量一致）
+    _verify_public_data_freeze(repo)
+    # 3c 真实路径：API Key 前置检查（缺失 → NO attempt / NO sealed / 禁止输出 key）
+    if run_generation_fn is run_holdout_generation and not os.getenv(
+        "DEEPSEEK_API_KEY"
+    ):
+        raise RuntimeError(
+            "缺少 DEEPSEEK_API_KEY 环境变量：不创建 attempt、不读取 sealed"
+        )
+    # 3d 真实路径：attempt 前验证 frozen corpus identity
+    if run_generation_fn is run_holdout_generation:
+        _validate_frozen_corpus_identity(config)
     # 4 check output not exist
     out = Path(output_root)
     if out.exists():
@@ -772,7 +872,9 @@ def read_real_sealed_inputs(config: Gate3HoldoutConfig) -> tuple[dict, str]:
     """09C 真实 sealed reader：只从 config 读取 private manifest + Holdout JSONL。
 
     路径只来自 config（private_manifest_path / holdout_jsonl_path）；不得 list
-    sealed 目录、不得猜文件名。09B-R1 只实现与单测，不调用；09C 授权后才允许。
+    sealed 目录、不得猜文件名。读取 raw bytes 后先校验公开冻结的 raw SHA
+    （expected 来自公开 dataset freeze / Reviewer-frozen constants，禁止从 sealed
+    推导 expected），再解析返回。09B-R1 只实现与单测，不调用；09C 授权后才允许。
     """
     manifest_path = Path(config.private_manifest_path)
     jsonl_path = Path(config.holdout_jsonl_path)
@@ -782,15 +884,39 @@ def read_real_sealed_inputs(config: Gate3HoldoutConfig) -> tuple[dict, str]:
     if not jsonl_path.is_file():
         raise HoldoutInfrastructureFailure(f"Holdout JSONL 不存在: {jsonl_path}")
     try:
-        manifest = json.loads(manifest_path.read_text("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+        manifest_raw = manifest_path.read_bytes()
+    except OSError as exc:
         raise HoldoutInfrastructureFailure(
             f"private manifest 读取失败: {exc}") from exc
     try:
-        holdout_text = jsonl_path.read_text("utf-8")
-    except (UnicodeDecodeError, OSError) as exc:
+        holdout_raw = jsonl_path.read_bytes()
+    except OSError as exc:
         raise HoldoutInfrastructureFailure(
             f"Holdout JSONL 读取失败: {exc}") from exc
+    if config.expected_private_manifest_sha256:
+        actual = _sha256_bytes(manifest_raw)
+        if actual != config.expected_private_manifest_sha256:
+            raise HoldoutInfrastructureFailure(
+                f"private manifest raw SHA {actual} != 公开冻结 "
+                f"{config.expected_private_manifest_sha256}"
+            )
+    if config.expected_holdout_jsonl_sha256:
+        actual = _sha256_bytes(holdout_raw)
+        if actual != config.expected_holdout_jsonl_sha256:
+            raise HoldoutInfrastructureFailure(
+                f"Holdout raw SHA {actual} != 公开冻结 "
+                f"{config.expected_holdout_jsonl_sha256}"
+            )
+    try:
+        manifest = json.loads(manifest_raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HoldoutInfrastructureFailure(
+            f"private manifest 解析失败: {exc}") from exc
+    try:
+        holdout_text = holdout_raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HoldoutInfrastructureFailure(
+            f"Holdout JSONL 解码失败: {exc}") from exc
     return manifest, holdout_text
 
 
@@ -981,14 +1107,24 @@ def run_holdout_evaluation(
         entry["relative_path"] for entry in frozen.get("corpus_entries", [])
     ]
     corpus = ExperimentCorpus.build(config.corpus_root, relative_paths)
+    # SHA guard：Generation 与 Evaluation 之间 Holdout 不得被改动（fail-closed）
+    current_holdout_sha = _sha256_file(Path(config.holdout_jsonl_path))
+    if current_holdout_sha != config.holdout_jsonl_sha256:
+        raise HoldoutInfrastructureFailure(
+            f"当前 Holdout 文件 SHA {current_holdout_sha} != 已绑定 formal SHA "
+            f"{config.holdout_jsonl_sha256}（Generation 后被改动？）"
+        )
     # Gold 只在 evaluation 阶段读取（生成已落盘）
     holdout_set = Gate3EvaluationSet.load_jsonl(
         config.holdout_jsonl_path, corpus)
     case_by_id = {c.case_id: c for c in holdout_set.cases}
-    if len(holdout_set.cases) != config.holdout_case_count:
+    gen_ids = {r["case_id"] for r in records}
+    holdout_ids = {c.case_id for c in holdout_set.cases}
+    if gen_ids != holdout_ids:
         raise HoldoutInfrastructureFailure(
-            f"Holdout Gold case 数 {len(holdout_set.cases)} 与配置 "
-            f"{config.holdout_case_count} 不一致"
+            f"evaluation case ID 集合与 generation 不一致："
+            f"gen 独有 {sorted(gen_ids - holdout_ids)}、"
+            f"holdout 独有 {sorted(holdout_ids - gen_ids)}"
         )
 
     judge_view = types.SimpleNamespace(
@@ -1008,7 +1144,12 @@ def run_holdout_evaluation(
             for o in case.evidence_obligations
         ]
         cited = cited_map.get(rec["case_id"], [])
-        if should_call_judge(rec, bool(case.evidence_obligations)):
+        if not case.evidence_obligations:
+            # 零 obligation（unanswerable/no_retrieval/direct）不调 Judge：
+            # 不允许凭空造 obligation，单独上报为 not_required / zero_obligation。
+            judge_result = {"judge_status": "not_required",
+                            "reason": "zero_obligation"}
+        elif should_call_judge(rec, True):
             judge_result = judge.judge(
                 rec["query"], rec["answer"], cited, gold_obligations)
         else:

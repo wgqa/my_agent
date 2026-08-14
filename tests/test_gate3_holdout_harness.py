@@ -17,15 +17,19 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import types
 from pathlib import Path
 
 import pytest
 
+from evaluation.experiment_corpus import ExperimentCorpus
 from evaluation.gate3.e2e import (
     GATE3_ANSWER_JUDGE_PROMPT_SHA256,
     Gate3E2EConfig,
 )
 from evaluation.gate3.holdout import (
+    EXPECTED_HOLDOUT_JSONL_SHA256,
+    EXPECTED_PRIVATE_MANIFEST_SHA256,
     HoldoutInfrastructureFailure,
     _parse_generation_cases_from_holdout,
     assert_no_forbidden_overrides,
@@ -703,13 +707,18 @@ class TestRealWiring:
         manifest = _synthetic_manifest(holdout_text)
         sealed = tmp_path / "sealed"
         sealed.mkdir()
-        (sealed / "manifest.json").write_text(
-            json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
-        (sealed / "holdout.jsonl").write_text(holdout_text, encoding="utf-8")
+        (sealed / "manifest.json").write_bytes(
+            json.dumps(manifest, ensure_ascii=False).encode("utf-8"))
+        (sealed / "holdout.jsonl").write_bytes(holdout_text.encode("utf-8"))
         (sealed / "decoy.json").write_text("not referenced", encoding="utf-8")
+        manifest_sha = hashlib.sha256(
+            (sealed / "manifest.json").read_bytes()).hexdigest()
+        holdout_sha = hashlib.sha256(holdout_text.encode("utf-8")).hexdigest()
         cfg = replace(_holdout_config(tmp_path),
                       holdout_jsonl_path=str(sealed / "holdout.jsonl"),
-                      private_manifest_path=str(sealed / "manifest.json"))
+                      private_manifest_path=str(sealed / "manifest.json"),
+                      expected_private_manifest_sha256=manifest_sha,
+                      expected_holdout_jsonl_sha256=holdout_sha)
         got_manifest, got_text = read_real_sealed_inputs(cfg)
         assert got_manifest == manifest
         assert got_text == holdout_text
@@ -885,3 +894,380 @@ class TestRealWiring:
         assert captured.get("run_generation_fn") is run_holdout_generation
         assert captured.get("run_evaluation_fn") is run_holdout_evaluation
         assert not out.exists()
+
+
+# ---------------------------------------------------------------------------
+# 09B-R2：FINAL-INTEGRITY（公开冻结 bytes 绑定 + evaluation SHA guard +
+# zero-obligation judgment；全部 synthetic/public fixture）
+# ---------------------------------------------------------------------------
+
+
+def _obligation(oid, path="a.md"):
+    return {"obligation_id": oid, "description": f"desc-{oid}",
+            "relevant_files": [path], "required": True}
+
+
+def _frozen_manifest(tmp_path, relative_paths):
+    p = tmp_path / "index_manifest.json"
+    p.write_text(json.dumps({
+        "schema_version": "gate3_e2e_index_manifest_v1",
+        "corpus_entries": [{"relative_path": r} for r in relative_paths],
+    }, ensure_ascii=False), encoding="utf-8")
+    return str(p)
+
+
+def _holdout_case_line(case_id, *, obligations, answerability="answerable"):
+    """合法 gate3_case_v1 行（answerable 带 obligation；unanswerable 零 obligation）。"""
+    if answerability == "answerable":
+        query_type = "fact"
+        retrieval_required = True
+        relevant_files = sorted({p for o in obligations
+                                 for p in o.get("relevant_files", [])})
+    else:
+        query_type = "unanswerable_or_no_retrieval"
+        retrieval_required = (answerability == "unanswerable")
+        relevant_files = []
+    return json.dumps({
+        "schema_version": "gate3_case_v1",
+        "case_id": case_id,
+        "query": f"question {case_id}",
+        "query_type": query_type,
+        "answerability": answerability,
+        "decomposition_expected": "forbidden",
+        "retrieval_required": retrieval_required,
+        "evidence_obligations": obligations,
+        "relevant_files": relevant_files,
+        "tags": ["fact"],
+    }, ensure_ascii=False)
+
+
+def _build_eval_fixture(tmp_path, *, holdout_cases, records):
+    """合成 corpus + frozen index manifest + holdout jsonl + run_dir 生成/eval Artifact。"""
+    from dataclasses import replace
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "a.md").write_text("# a\ncontent-a\n", encoding="utf-8")
+    manifest_path = _frozen_manifest(tmp_path, ["a.md"])
+    holdout_lines = [
+        _holdout_case_line(c["case_id"],
+                           obligations=c.get("obligations", []),
+                           answerability=c.get(
+                               "answerability", "answerable"
+                               if c.get("obligations") else "unanswerable"))
+        for c in holdout_cases
+    ]
+    holdout_text = "\n".join(holdout_lines) + "\n"
+    holdout_path = tmp_path / "holdout.jsonl"
+    # write_bytes（不做换行翻译）：磁盘 bytes 与 holdout_sha 逐字节一致
+    holdout_path.write_bytes(holdout_text.encode("utf-8"))
+
+    run_dir = tmp_path / "run_dir"
+    run_dir.mkdir()
+    case_lines = []
+    cited_lines = []
+    for r in records:
+        rec = {
+            "case_id": r["case_id"], "query": f"question {r['case_id']}",
+            "status": r.get("status", "completed"),
+            "error_code": r.get("error_code"),
+            "plan_id": "x" * 12,
+            "plan": {"query_type": "fact", "action": "direct",
+                     "reason_code": None, "subquery_count": 0},
+            "route": "direct", "retrieval_call_count": 1,
+            "candidate_canonical_paths": ["a.md"],
+            "retrieved_canonical_paths": ["a.md"],
+            "evidence_count": 1, "fallback_used": False,
+            "failure_code": r.get("failure_code"),
+            "answer": r.get("answer", ""),
+            "cited_citation_ids": [1] if r.get("answer") else [],
+            "evidence_citation_ids": [1],
+        }
+        case_lines.append(json.dumps(rec, ensure_ascii=False))
+        cited_lines.append(json.dumps({"case_id": r["case_id"], "items": []},
+                                      ensure_ascii=False))
+    (run_dir / "case_results.jsonl").write_text(
+        "\n".join(case_lines) + "\n", encoding="utf-8")
+    (run_dir / "cited_evidence.jsonl").write_text(
+        "\n".join(cited_lines) + "\n", encoding="utf-8")
+
+    holdout_sha = hashlib.sha256(holdout_text.encode("utf-8")).hexdigest()
+    config = replace(_holdout_config(tmp_path),
+                     corpus_root=str(corpus),
+                     frozen_index_manifest_path=manifest_path,
+                     holdout_jsonl_path=str(holdout_path),
+                     holdout_jsonl_sha256=holdout_sha,
+                     holdout_case_count=len(holdout_cases))
+    return config, run_dir, holdout_path
+
+
+class _FakeJudgeClient:
+    """AnswerJudge 注入的 fake client：返回固定 covered judge JSON。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    @property
+    def chat(self):
+        return _FakeChat(self)
+
+
+class _FakeChat:
+    def __init__(self, judge):
+        self.completions = _FakeCompletions(judge)
+
+
+class _FakeCompletions:
+    def __init__(self, judge):
+        self._judge = judge
+
+    def create(self, **kwargs):
+        self._judge.calls += 1
+        content = ('{"obligation_coverage": {"o1": "covered"}, '
+                   '"unsupported_material_claims": []}')
+        return types.SimpleNamespace(choices=[
+            types.SimpleNamespace(message=types.SimpleNamespace(content=content))])
+
+
+class TestFinalIntegrity:
+    def _real_read_config(self, tmp_path, holdout_text, manifest,
+                          expected_holdout_sha=None, expected_manifest_sha=None,
+                          actual_commit=DEV_COMMIT):
+        """写入 synthetic sealed，构建 config（expected 冻结 SHA 可覆盖）。"""
+        from dataclasses import replace
+        sealed = tmp_path / "sealed"
+        sealed.mkdir()
+        (sealed / "holdout.jsonl").write_bytes(holdout_text.encode("utf-8"))
+        (sealed / "manifest.json").write_bytes(
+            json.dumps(manifest, ensure_ascii=False).encode("utf-8"))
+        manifest_sha = hashlib.sha256(
+            (sealed / "manifest.json").read_bytes()).hexdigest()
+        holdout_sha = hashlib.sha256(holdout_text.encode("utf-8")).hexdigest()
+        return replace(_holdout_config(tmp_path, actual_commit=actual_commit),
+                       holdout_jsonl_path=str(sealed / "holdout.jsonl"),
+                       private_manifest_path=str(sealed / "manifest.json"),
+                       expected_private_manifest_sha256=(
+                           expected_manifest_sha or manifest_sha),
+                       expected_holdout_jsonl_sha256=(
+                           expected_holdout_sha or holdout_sha))
+
+    def _exec_repo(self, tmp_path):
+        repo = _clean_git_repo(tmp_path)
+        head = subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+        return repo, head
+
+    def test_holdout_sha_mismatch_public_frozen_reject(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        repo, head = self._exec_repo(tmp_path)
+        # manifest 与 holdout 自洽（expected manifest SHA = 实际），但 expected
+        # holdout SHA 用公开冻结 00bfcac2（合成 ≠ 公开 → reject）
+        cfg = self._real_read_config(
+            tmp_path, holdout_text, manifest,
+            expected_holdout_sha=EXPECTED_HOLDOUT_JSONL_SHA256,
+            actual_commit=head)
+        ledger = tmp_path / "ledger.json"
+        with pytest.raises(HoldoutInfrastructureFailure):
+            execute_holdout(cfg, repo=str(repo), freeze_json_path=_freeze(tmp_path),
+                            output_root=str(tmp_path / "out"),
+                            attempt_ledger_path=str(ledger),
+                            sealed_read_fn=lambda: read_real_sealed_inputs(cfg),
+                            run_generation_fn=_fake_gen)
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
+            "invalid_infrastructure"
+
+    def test_private_manifest_raw_sha_mismatch_reject(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        repo, head = self._exec_repo(tmp_path)
+        cfg = self._real_read_config(
+            tmp_path, holdout_text, manifest,
+            expected_manifest_sha=EXPECTED_PRIVATE_MANIFEST_SHA256,
+            actual_commit=head)
+        ledger = tmp_path / "ledger.json"
+        with pytest.raises(HoldoutInfrastructureFailure):
+            execute_holdout(cfg, repo=str(repo), freeze_json_path=_freeze(tmp_path),
+                            output_root=str(tmp_path / "out"),
+                            attempt_ledger_path=str(ledger),
+                            sealed_read_fn=lambda: read_real_sealed_inputs(cfg),
+                            run_generation_fn=_fake_gen)
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
+            "invalid_infrastructure"
+
+    def test_corpus_byte_change_rejects_no_attempt(self, tmp_path, monkeypatch):
+        from dataclasses import replace
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-09br2-corpus")
+        repo, head = self._exec_repo(tmp_path)
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+        (corpus / "a.md").write_text("# a\ncontent-a\n", encoding="utf-8")
+        (corpus / "b.md").write_text("# b\ncontent-b\n", encoding="utf-8")
+        relative_paths = ["a.md", "b.md"]
+        c0 = ExperimentCorpus.build(str(corpus), relative_paths)
+        manifest_path = _frozen_manifest(tmp_path, relative_paths)
+        # corpus 某文件改 1 byte → corpus_id 变化 → reject
+        (corpus / "a.md").write_text("# a\ncontent-A\n", encoding="utf-8")
+        cfg = replace(_holdout_config(tmp_path, actual_commit=head),
+                      corpus_root=str(corpus),
+                      frozen_index_manifest_path=manifest_path,
+                      expected_corpus_id=c0.corpus_id,
+                      expected_corpus_file_count=2)
+        ledger = tmp_path / "ledger.json"
+        out = tmp_path / "out"
+        sealed_calls = []
+
+        def spy():
+            sealed_calls.append(1)
+            return (None, None)
+
+        with pytest.raises(RuntimeError):
+            execute_holdout(cfg, repo=str(repo), freeze_json_path=_freeze(tmp_path),
+                            output_root=str(out), attempt_ledger_path=str(ledger),
+                            sealed_read_fn=spy,
+                            run_generation_fn=run_holdout_generation)
+        assert not ledger.exists()
+        assert not out.exists()
+        assert sealed_calls == []
+
+    def test_corpus_file_count_mismatch_rejects(self, tmp_path, monkeypatch):
+        from dataclasses import replace
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-09br2-count")
+        repo, head = self._exec_repo(tmp_path)
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+        (corpus / "a.md").write_text("# a\n", encoding="utf-8")
+        # frozen manifest 列 3 个文件，但 expected_corpus_file_count=2
+        manifest_path = _frozen_manifest(tmp_path, ["a.md", "b.md", "c.md"])
+        cfg = replace(_holdout_config(tmp_path, actual_commit=head),
+                      corpus_root=str(corpus),
+                      frozen_index_manifest_path=manifest_path,
+                      expected_corpus_id="870e5864df67",
+                      expected_corpus_file_count=2)
+        ledger = tmp_path / "ledger.json"
+        out = tmp_path / "out"
+        sealed_calls = []
+
+        def spy():
+            sealed_calls.append(1)
+            return (None, None)
+
+        with pytest.raises(RuntimeError):
+            execute_holdout(cfg, repo=str(repo), freeze_json_path=_freeze(tmp_path),
+                            output_root=str(out), attempt_ledger_path=str(ledger),
+                            sealed_read_fn=spy,
+                            run_generation_fn=run_holdout_generation)
+        assert not ledger.exists()
+        assert not out.exists()
+        assert sealed_calls == []
+
+    def test_missing_api_key_no_attempt_no_sealed(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+        repo, head = self._exec_repo(tmp_path)
+        cfg = _holdout_config(tmp_path, actual_commit=head)
+        ledger = tmp_path / "ledger.json"
+        out = tmp_path / "out"
+        sealed_calls = []
+
+        def spy():
+            sealed_calls.append(1)
+            return (None, None)
+
+        with pytest.raises(RuntimeError):
+            execute_holdout(cfg, repo=str(repo), freeze_json_path=_freeze(tmp_path),
+                            output_root=str(out), attempt_ledger_path=str(ledger),
+                            sealed_read_fn=spy,
+                            run_generation_fn=run_holdout_generation)
+        assert not ledger.exists()
+        assert not out.exists()
+        assert sealed_calls == []
+
+    def test_holdout_changed_between_gen_eval_fails(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-09br2-eval")
+        cases = [
+            {"case_id": f"g3q5{i:02d}", "obligations": [_obligation("o1")],
+             "status": "completed", "answer": "answer"}
+            for i in range(1, 13)
+        ]
+        config, run_dir, holdout_path = _build_eval_fixture(
+            tmp_path, holdout_cases=cases, records=cases)
+        with holdout_path.open("a", encoding="utf-8") as f:
+            f.write("\n")  # Generation 后 Holdout 被改动（多 1 字节）→ SHA guard
+        with pytest.raises(HoldoutInfrastructureFailure):
+            run_holdout_evaluation({}, config, str(run_dir),
+                                   judge_client=_FakeJudgeClient())
+
+    def test_evaluation_case_id_set_mismatch_rejects(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-09br2-eval")
+        records = [
+            {"case_id": f"g3q5{i:02d}", "obligations": [_obligation("o1")],
+             "status": "completed", "answer": "answer"}
+            for i in range(1, 13)
+        ]
+        # holdout 集合平移一位（数量一致但集合不同）→ reject
+        holdout_cases = [
+            {"case_id": f"g3q5{i:02d}", "obligations": [_obligation("o1")],
+             "answerability": "answerable"}
+            for i in range(2, 14)
+        ]
+        config, run_dir, _ = _build_eval_fixture(
+            tmp_path, holdout_cases=holdout_cases, records=records)
+        with pytest.raises(HoldoutInfrastructureFailure):
+            run_holdout_evaluation({}, config, str(run_dir),
+                                   judge_client=_FakeJudgeClient())
+
+    def test_zero_obligation_judgment_not_required(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-09br2-eval")
+        zero_case = {"case_id": "g3q599", "obligations": [],
+                     "answerability": "unanswerable", "status": "completed",
+                     "answer": "irrelevant"}
+        answerable = [
+            {"case_id": f"g3q5{i:02d}", "obligations": [_obligation("o1")],
+             "status": "completed", "answer": "answer"}
+            for i in range(1, 12)
+        ]
+        records = answerable + [zero_case]
+        holdout_cases = [
+            {"case_id": c["case_id"],
+             "obligations": c.get("obligations", []),
+             "answerability": c.get("answerability", "answerable"
+                                    if c.get("obligations") else "unanswerable")}
+            for c in records
+        ]
+        config, run_dir, _ = _build_eval_fixture(
+            tmp_path, holdout_cases=holdout_cases, records=records)
+        fake = _FakeJudgeClient()
+        run_holdout_evaluation({}, config, str(run_dir), judge_client=fake)
+        judgments = [json.loads(l) for l in
+                     (run_dir / "answer_judgments.jsonl").read_text("utf-8").splitlines()
+                     if l.strip()]
+        by_case = {j["case_id"]: j for j in judgments}
+        assert by_case["g3q599"]["judge_output"]["judge_status"] == "not_required"
+        assert by_case["g3q599"]["judge_output"]["reason"] == "zero_obligation"
+        assert fake.calls == 11  # zero-obligation 不调 Judge
+
+    def test_answerable_no_answer_judgment_not_generated(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test-09br2-eval")
+        no_answer = {"case_id": "g3q598", "obligations": [_obligation("o1")],
+                     "status": "failed", "failure_code": "GENERATION_FAILED",
+                     "error_code": "GENERATION_FAILED", "answer": ""}
+        answerable = [
+            {"case_id": f"g3q5{i:02d}", "obligations": [_obligation("o1")],
+             "status": "completed", "answer": "answer"}
+            for i in range(1, 12)
+        ]
+        records = answerable + [no_answer]
+        holdout_cases = [
+            {"case_id": c["case_id"], "obligations": c.get("obligations", []),
+             "answerability": "answerable"}
+            for c in records
+        ]
+        config, run_dir, _ = _build_eval_fixture(
+            tmp_path, holdout_cases=holdout_cases, records=records)
+        fake = _FakeJudgeClient()
+        run_holdout_evaluation({}, config, str(run_dir), judge_client=fake)
+        judgments = [json.loads(l) for l in
+                     (run_dir / "answer_judgments.jsonl").read_text("utf-8").splitlines()
+                     if l.strip()]
+        by_case = {j["case_id"]: j for j in judgments}
+        assert by_case["g3q598"]["judge_output"]["judge_status"] == "not_generated"
+        assert fake.calls == 11

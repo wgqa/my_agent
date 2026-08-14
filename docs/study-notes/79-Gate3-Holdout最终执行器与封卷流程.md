@@ -117,9 +117,60 @@
 
 ---
 
+## 09B-R2：把 final executor 绑定到公开冻结 dataset bytes
+
+> G3-HOLDOUT-09B-R2-FINAL-INTEGRITY-MICRO：不再扩架构，只把 final executor 真正钉到**公开冻结**的 dataset bytes——expected 全部预先公开，禁止从 sealed 自己推导 expected。
+
+### 1. 公开冻结常量（来源 `docs/experiments/gate3_data_freeze.json`，已核对一致）
+
+```
+gate3_dataset_freeze_id  = 257fa0d0a6d6
+corpus_id                = 870e5864df67
+corpus_file_count        = 37
+holdout_evaluation_set_id= 79a6bc0814a3
+holdout_case_count       = 12
+holdout_jsonl_sha256     = 00bfcac2fe553f3e...  (Holdout raw bytes SHA)
+private_manifest_sha256  = b34bb2d16d29dcd2... (private manifest raw bytes SHA)
+```
+
+`expected_*` 进入 `Gate3HoldoutConfig`（不进 run 身份），`build_holdout_config_from_freeze` 统一填充；`_verify_public_data_freeze(repo)` 在公开 freeze 文件存在时把常量与文件逐项交叉校验（fail-fast）。
+
+### 2. attempt 前验证 frozen corpus identity（只算 corpus_id，不建索引）
+
+`_validate_frozen_corpus_identity(config)`：读 frozen index manifest → relative_paths → `ExperimentCorpus.build(...)` → actual corpus_id / file count；必须匹配 870e5864df67 / 37，否则 **reject（attempt 不创建、sealed 未读取、LLM 0 次）**。不构建 embedding/index。
+
+### 3. sealed 后验证真正 frozen bytes（不靠猜的 schema）
+
+`read_real_sealed_inputs` 读取 raw bytes 后，先校验 `raw private_manifest SHA == b34bb2…`、`raw Holdout SHA == 00bfcac…`（expected 预先公开），再解析；`validate_sealed` 仍做结构校验（dataset freeze id / eval id / case count / duplicate case_id / manifest recorded Holdout SHA）。不为了确认一个无法从公开材料证明的 schema 字符串去提前读真实 sealed——**Exact raw SHA + 必需字段校验本身更强**。
+
+### 4. Evaluation SHA guard + case ID 集合相等
+
+`run_holdout_evaluation`：在 `Gate3EvaluationSet.load_jsonl(...)` 前验证 `当前 holdout 文件 SHA == config.holdout_jsonl_sha256 == 00bfcac…`（Generation 与 Evaluation 之间被改动 → fail-closed）；加载后要求 `set(case_results.case_id) == set(holdout_set.case_id)` **精确相等**（多一个或少一个都 fail）。
+
+### 5. zero-obligation judgment 修正
+
+固定逻辑（不再把 zero-obligation 写成 not_generated）：
+
+```
+if no obligations:            judge_status = not_required, reason = zero_obligation
+elif completed + 非空 answer:  调 Judge
+else:                         judge_status = not_generated
+```
+
+### 6. API Key 前置检查
+
+真实路径（`run_generation_fn is run_holdout_generation`）在创建 attempt 前检查 `DEEPSEEK_API_KEY` **仅是否存在**；缺失 → **NO attempt / NO sealed**，禁止输出 key。
+
+### 7. 验证
+
+- 9 个新 harness 测试（`TestFinalIntegrity`）：holdout SHA ≠ 公开冻结 → reject；private manifest raw SHA ≠ 冻结 → reject；corpus 某文件改 1 byte → attempt 不创建；corpus 文件数不一致 → attempt 不创建；Holdout 在 Generation 与 Evaluation 之间被改 → eval fail-closed；case ID 集合不一致 → reject；zero obligation → not_required/zero_obligation；answerable 无 answer → not_generated；缺 API key → 0 attempt / 0 sealed。
+- 全量 **1353 passed**（原 1344 + 9）。
+
+---
+
 ## 边界声明
 
-- 未读取/搜索 gate3/sealed；R1 只用 tmp_path / synthetic fixture / 公开 freeze JSON；`read_real_sealed_inputs` 已实现但从未被调用。
+- 未读取/搜索 gate3/sealed；R2 只用 tmp_path / synthetic fixture / 公开 freeze JSON；`read_real_sealed_inputs` 已实现但从未被调用。
 - 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Holdout/sealed。
 - 未运行 --execute；未设置 HOLDOUT_EXECUTION_AUTHORIZED；未创建正式 attempt ledger entry。
-- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B-R1 后决定 09C。
+- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B-R2 后决定 09C。
