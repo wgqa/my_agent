@@ -33,6 +33,7 @@ from evaluation.gate3.adaptive_dev import (
     EXPECTED_PLANNER_PROMPT_SHA256,
     EXPECTED_PLANNER_RUN_ID,
     Gate3AdaptiveDevConfig,
+    check_git_tracked_clean,
     run_adaptive_dev,
 )
 
@@ -55,6 +56,13 @@ def main(argv=None) -> int:
     parser.add_argument("--corpus-root", required=True)
     parser.add_argument("--output-root", required=True)
     args = parser.parse_args(argv)
+
+    # 绑定到干净源码提交：任何 tracked modification 立即拒绝（untracked 允许），
+    # 此时尚未创建任何实验目录。
+    try:
+        check_git_tracked_clean(args.repo)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc))
 
     result_obj = json.loads(Path(args.planner_result_json).read_text("utf-8"))
     recorded = result_obj.get("artifact_sha256", {}).get("planner_results.jsonl")

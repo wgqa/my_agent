@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -28,12 +29,14 @@ from evaluation.gate3.adaptive_dev import (
     SnapshotPlanner,
     build_shared_index,
     canonical_paths_from_documents,
+    check_git_tracked_clean,
     compute_document_metrics,
     compute_group_metrics,
     compute_obligation_metrics,
     finalize_adaptive_dev,
     load_corpus,
     load_planner_snapshot,
+    run_adaptive_dev,
     run_group_original,
     run_group_queryplan,
     validate_identity,
@@ -175,6 +178,29 @@ def _rdoc(source_name):
                 content="x", score=0.5, rank=1)
 
 
+def _make_git_repo(tmp_path, name="repo"):
+    repo = tmp_path / name
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "test@example.com"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.name", "test"], check=True
+    )
+    return repo
+
+
+def _git_add_commit(repo, filename, text):
+    target = repo / filename
+    target.write_text(text, encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", filename], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "init"],
+                   check=True)
+    return target
+
+
 # ---------------------------------------------------------------------------
 # 配置身份
 # ---------------------------------------------------------------------------
@@ -285,6 +311,27 @@ class TestCorpusAndSnapshot:
         with pytest.raises(ValueError):
             load_planner_snapshot(str(pr), dev_set)
 
+    def test_snapshot_duplicate_case_id_rejected(self, tmp_path):
+        dev_set = _dev_set()
+        pr = tmp_path / "planner_results.jsonl"
+        snap = _snapshot(dev_set)
+        lines = []
+        for case_id, item in sorted(snap.items()):
+            o = item["outcome"]
+            lines.append(json.dumps({
+                "case_id": case_id, "query": item["query"],
+                "plan": o.plan.to_dict(), "fallback_used": o.fallback_used,
+                "failure_code": o.failure_code,
+                "predicted": {"action": o.plan.action, "query_type": o.plan.query_type,
+                              "reason_code": o.plan.reason_code,
+                              "retrieval_required": o.plan.retrieval_required},
+            }, ensure_ascii=False))
+        # 复制最后一条记录 → 产生重复 case_id，必须在覆盖 snapshot 前拒绝
+        lines.append(lines[-1])
+        pr.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        with pytest.raises(ValueError):
+            load_planner_snapshot(str(pr), dev_set)
+
 
 # ---------------------------------------------------------------------------
 # 指标
@@ -363,8 +410,12 @@ class TestGroups:
                                  basename_map, adaptive=False)
         rd = run_group_queryplan("D", idx.retriever, dev_set.cases, snap, 5,
                                  basename_map, adaptive=True)
-        # 同一份快照：g3q001 plan_id 相同
-        assert snap["g3q001"]["outcome"].plan.plan_id == snap["g3q001"]["outcome"].plan.plan_id
+        # 同一份冻结快照：逐 case 验证 C/D 使用同一 plan_id，且与快照一致
+        for c_case in rc:
+            d_case = next(r for r in rd if r["case_id"] == c_case["case_id"])
+            expected_plan_id = snap[c_case["case_id"]]["outcome"].plan.plan_id
+            assert c_case["plan_id"] == d_case["plan_id"]
+            assert c_case["plan_id"] == expected_plan_id
         c_case = next(r for r in rc if r["case_id"] == "g3q001")
         d_case = next(r for r in rd if r["case_id"] == "g3q001")
         assert c_case["strategy_distribution"] == {"bm25": 1}
@@ -413,6 +464,57 @@ class TestAdapters:
         assert out.plan.action == "single_retrieval"
         with pytest.raises(ValueError):
             sp.plan("不存在的 query")
+
+
+# ---------------------------------------------------------------------------
+# 源码身份绑定（source_commit == git HEAD）
+# ---------------------------------------------------------------------------
+
+
+class TestSourceCommitBinding:
+    def test_run_rejects_when_source_commit_ne_head(self):
+        cfg = _config(source_commit="a" * 40)
+        with pytest.raises(ValueError):
+            run_adaptive_dev(cfg, "b" * 40)
+
+
+# ---------------------------------------------------------------------------
+# tracked-clean 检查（untracked 允许，tracked modification 拒绝）
+# ---------------------------------------------------------------------------
+
+
+class TestGitTrackedClean:
+    def test_tracked_modification_rejected(self, tmp_path):
+        repo = _make_git_repo(tmp_path)
+        tracked = _git_add_commit(repo, "tracked.txt", "v1")
+        tracked.write_text("v2", encoding="utf-8")
+        with pytest.raises(RuntimeError):
+            check_git_tracked_clean(str(repo))
+
+    def test_untracked_only_allowed(self, tmp_path):
+        repo = _make_git_repo(tmp_path)
+        _git_add_commit(repo, "tracked.txt", "v1")
+        (repo / "untracked.txt").write_text("u", encoding="utf-8")
+        check_git_tracked_clean(str(repo))
+
+    def test_cli_rejects_tracked_dirty_without_run_dir(self, tmp_path):
+        import scripts.run_gate3_adaptive_dev as cli
+        repo = _make_git_repo(tmp_path)
+        tracked = _git_add_commit(repo, "tracked.txt", "v1")
+        tracked.write_text("v2", encoding="utf-8")
+        out_root = tmp_path / "out"
+        args = [
+            "--repo", str(repo),
+            "--dev-jsonl", str(tmp_path / "dev.jsonl"),
+            "--planner-results", str(tmp_path / "pr.jsonl"),
+            "--planner-result-json", str(tmp_path / "result.json"),
+            "--frozen-index-manifest", str(tmp_path / "manifest.json"),
+            "--corpus-root", str(tmp_path / "corpus"),
+            "--output-root", str(out_root),
+        ]
+        with pytest.raises(SystemExit):
+            cli.main(args)
+        assert not out_root.exists()
 
 
 # ---------------------------------------------------------------------------

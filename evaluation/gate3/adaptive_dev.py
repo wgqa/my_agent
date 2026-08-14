@@ -19,6 +19,7 @@ import hashlib
 import json
 import math
 import os
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -101,6 +102,23 @@ def _check_nonempty_no_ws(value: object, label: str) -> None:
         raise ValueError(f"{label} 不能为空或只含空白")
     if value != value.strip():
         raise ValueError(f"{label} 首尾不允许空白")
+
+
+def check_git_tracked_clean(repo: str) -> None:
+    """拒绝任何 tracked modification；untracked 文件允许存在。
+
+    实验运行必须绑定到干净源码提交。检查失败 raise RuntimeError，调用方
+    必须在构建索引与运行实验之前执行（此时尚未创建实验目录）。
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", repo, "status", "--porcelain"], text=True
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"无法读取 Git 工作区状态: {repo}") from exc
+    for line in out.splitlines():
+        if not line.startswith("??"):
+            raise RuntimeError(f"tracked modification 拒绝运行: {line!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +381,7 @@ def load_planner_snapshot(
     query_by_id = {c.case_id: c.query for c in dev_set.cases}
     snapshot: dict[str, dict] = {}
     actual_ids = set()
+    seen_ids: set[str] = set()
     with open(planner_results_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -370,6 +389,9 @@ def load_planner_snapshot(
                 continue
             rec = json.loads(line)
             case_id = rec["case_id"]
+            if case_id in seen_ids:
+                raise ValueError(f"Planner 快照重复 case_id: {case_id}")
+            seen_ids.add(case_id)
             actual_ids.add(case_id)
             plan = QueryPlan.from_dict(rec["plan"])
             if plan.original_query != rec["query"]:
@@ -654,6 +676,12 @@ def run_group_queryplan(
             {
                 "case_id": case.case_id,
                 "group": group,
+                "plan_id": (
+                    result.planner_outcome.plan.plan_id
+                    if result.planner_outcome is not None
+                    and result.planner_outcome.plan is not None
+                    else None
+                ),
                 "status": result.status,
                 "route": (
                     result.route_decision.route
