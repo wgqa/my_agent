@@ -54,9 +54,9 @@ def _git_head(repo: str) -> str:
     ).strip()
 
 
-def _base_config(args, planner_prompt_sha: str) -> Gate3E2EConfig:
+def _base_config(args, planner_prompt_sha: str, source_commit: str) -> Gate3E2EConfig:
     return Gate3E2EConfig(
-        source_commit="",  # generate 阶段由 git_head 填充
+        source_commit=source_commit,
         corpus_id=EXPECTED_CORPUS_ID,
         corpus_file_count=EXPECTED_CORPUS_FILE_COUNT,
         gate3_dataset_freeze_id=EXPECTED_FREEZE_ID,
@@ -102,9 +102,9 @@ def main(argv=None) -> int:
         except RuntimeError as exc:
             raise SystemExit(str(exc))
         git_head = _git_head(args.repo)
-        base = _base_config(args, PLANNER_PROMPT_SHA256)
+        base = _base_config(args, PLANNER_PROMPT_SHA256, git_head)
         run_dir = Path(args.output_root) / base.run_id
-        config = replace(base, source_commit=git_head, output_dir=str(run_dir))
+        config = replace(base, output_dir=str(run_dir))
         print(f"run_id={config.run_id}")
         print(f"output_dir={run_dir}")
         summary = run_e2e_generation(config, git_head)
