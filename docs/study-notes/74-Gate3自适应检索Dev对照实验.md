@@ -1,10 +1,49 @@
 # 74-Gate3自适应检索Dev对照实验
 
 > G3-ADAPT-06B：在公开 Dev 24 Case 上，用同一份冻结 Planner 输出与冻结 37 文件语料、同一份共享新建索引，完成四组真实检索对照（A/B/C/D）。
-> 日期：2026-08-13
-> run_id：`4d29b9e0b2cc`；source_commit：fb295dd；corpus：870e5864df67（37 files）；Dev：f2144030d754（24 Case）；Planner run：497808269bdd。
-> 权威来源：实现 `evaluation/gate3/adaptive_dev.py`、`scripts/run_gate3_adaptive_dev.py`、`tests/test_gate3_adaptive_dev.py`；外部 Artifact `benchmark_work/gate3/adaptive_dev_runs/4d29b9e0b2cc/`（不入 Git）。
+> 日期：2026-08-13；R1 可复现重跑：2026-08-14。
+> R1（绑定）run_id：`9afdb70e5c48`；source_commit：`8c6d822650653d8238b1ee00c27e77b9b8857124`（提交 E，tracked-clean 绑定）。
+> R0 旧 run `4d29b9e0b2cc` = **historical pre-binding run / superseded**（source_commit=fb295dd 指向尚不包含 06B 实现的父提交；不删除，见 §R1）。
+> corpus：870e5864df67（37 files）；Dev：f2144030d754（24 Case）；Planner run：497808269bdd。
+> 权威来源：实现 `evaluation/gate3/adaptive_dev.py`、`scripts/run_gate3_adaptive_dev.py`、`tests/test_gate3_adaptive_dev.py`；外部 Artifact `benchmark_work/gate3/adaptive_dev_runs/9afdb70e5c48/`（R1，不入 Git）；旧 R0 在 `adaptive_dev_runs/4d29b9e0b2cc/`（保留）。
 > 范围声明：只评估检索/证据覆盖/路由/调用成本；不调用真实 Planner、不调用 Generator（C/D 用 No-op AnswerPort）、不做答案正确性评测；不读 Holdout。
+
+---
+
+## R1（2026-08-14）：从 clean commit 可复现重跑
+
+**为什么 R1**：旧 run `4d29b9e0b2cc` 的 `source_commit=fb295dd` 指向**尚不包含 06B 实现**的父提交（06B 代码当时只是未提交的工作区改动），属于 pre-binding run，源码身份不成立。实验必须绑定到**包含 06B 实现的干净源码提交**。
+
+**R1 修复（commit `8c6d822`，`fix: bind adaptive dev runs to clean source commit`）**：
+- 正式 CLI 增加 **tracked-clean 检查**：对 `git status --porcelain` 逐行判断，任何非 `??`（untracked）行都代表 tracked modification，在构建索引与运行实验前立即拒绝；untracked 文件允许存在；source_commit 必须等于实际 git HEAD；检查失败不生成实验目录。
+- `load_planner_snapshot` 在覆盖 snapshot 前**拒绝重复 case_id**（重复立即 ValueError），保留"实际集合必须与 Dev 精确相等"检查。
+- C/D case record 登记 **plan_id**；测试改为**逐 case 验证** `C.plan_id == D.plan_id == 冻结 snapshot.plan_id`（修复原 `object == object` 恒真断言）。
+- 新增 5 测试（tracked dirty CLI 拒绝且无 run 目录 / 仅 untracked 不阻塞 / source_commit≠HEAD 拒绝 / 快照重复 case_id 拒绝 / C/D 每 Case plan_id 真正相同）；全量 **1232 passed**。
+
+**R1 重跑（run_id `9afdb70e5c48`，source_commit `8c6d822650653d8238b1ee00c27e77b9b8857124`）**：用与 R0 完全一致的 corpus/Dev/Planner snapshot/分块参数/Embedding/A-D 策略/top_k/Evidence budget，从 clean commit 重跑。
+
+**结果：与旧 run 逐项一致（负结果复现）**
+
+| 项 | R0（pre-binding） | R1（bound） |
+|---|---|---|
+| run_id | 4d29b9e0b2cc | 9afdb70e5c48 |
+| source_commit | fb295dd（父提交） | 8c6d822…7124 |
+| obligation 覆盖 A/B/C/D | 0.818/0.818/0.727/0.727 | 0.818/0.818/0.727/0.727 |
+| full coverage A/B/C/D | 0.75/0.65/0.65/0.65 | 0.75/0.65/0.65/0.65 |
+| multi-obligation 完整 A/B/C/D | 0.688/0.563/0.563/0.563 | 0.688/0.563/0.563/0.563 |
+| Hit@5 A/B/C/D | 0.95/1.00/0.90/0.90 | 0.95/1.00/0.90/0.90 |
+| Recall@5 A/B/C/D | 0.842/0.833/0.783/0.783 | 0.842/0.833/0.783/0.783 |
+| MRR A/B/C/D | 0.875/0.904/0.775/0.775 | 0.875/0.904/0.775/0.775 |
+| nDCG@5 A/B/C/D | 0.805/0.815/0.738/0.738 | 0.805/0.815/0.738/0.738 |
+| 检索调用总数 A/B/C/D | 24/24/49/49 | 24/24/49/49 |
+| rescue used | 0 | 0 |
+| fallback | 3 | 3 |
+| merge-drop | 5 | 5 |
+| refused | 0 | 0 |
+
+`retrieval_metrics.json` / `index_manifest.json` / `comparison_report.md` 新旧**字节相同**；`result.json` metrics 相同；`case_results.jsonl` 唯一差异是 C/D 记录新增 `plan_id` 字段（48 条），去掉该字段后逐字节相同。旧 run `4d29b9e0b2cc` **未删除、未覆盖**。C/D plan_id 逐 case 全部等于冻结 snapshot 的 plan_id（0 处不一致），C 与 D 除 `group` 标签外逐 case 全字段一致（C==D 复现）。
+
+> 因此原负结论在可复现源码绑定下成立：Decomposition + Adaptive 在 Dev 上仍没跑赢原问题 BM25，反而更贵一倍。以下各节数字来自 R1（与 R0 一致）。
 
 ---
 
@@ -104,3 +143,4 @@ C/D 必须走完 Runtime（规划→检索→合并→覆盖检查→生成）�
 - 未调用真实 Planner / Generator；未运行 API Key。
 - answer_generation=not_evaluated；不做答案正确性评测。
 - 结果为单次受控观测，不宣称 Gate 3 完成或全局规律。
+- R1（2026-08-14）从 clean commit 8c6d822…7124 重跑，指标与 R0 逐项一致（负结果复现）；旧 run 4d29b9e0b2cc 标记为 historical pre-binding / superseded 但未删除。
