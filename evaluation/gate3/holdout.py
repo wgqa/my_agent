@@ -14,19 +14,43 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import types
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+from core.generator.deepseek_gen import DeepSeekGenerator
+from core.query_planning.openai_compatible import OpenAICompatibleQueryPlanner
+from evaluation.experiment_corpus import ExperimentCorpus
 from evaluation.gate3.adaptive_dev import (
     _canonical_json,
     _check_hex,
     _check_nonempty_no_ws,
     _sha256_bytes,
+    _sha256_file,
+    build_shared_index,
     check_git_tracked_clean,
+    load_corpus,
     write_text_atomic,
 )
-from evaluation.gate3.e2e import GATE3_E2E_METRICS_SCHEMA_VERSION, GenerationCase
+from evaluation.gate3.e2e import (
+    GATE3_E2E_METRICS_SCHEMA_VERSION,
+    GATE3_E2E_RESULT_SCHEMA_VERSION,
+    AnswerJudge,
+    E2EGroundedAnswerPort,
+    GenerationCase,
+    _count_statuses,
+    assert_no_secrets,
+    compute_answer_metrics,
+    compute_deterministic_metrics,
+    load_run_case_results,
+    load_run_cited_evidence,
+    run_generation_cases,
+    should_call_judge,
+)
+from evaluation.gate3.evaluation_set import Gate3EvaluationSet
 
 GATE3_HOLDOUT_SCHEMA_VERSION = "gate3_holdout_run_v1"
 HOLDOUT_ATTEMPT_LEDGER_SCHEMA = "holdout_attempt_ledger_v1"
@@ -512,6 +536,49 @@ def update_attempt_status(path: str, attempt_id: str, new_status: str,
         os.unlink(lock_path)
 
 
+def bind_attempt_formal_identity(
+    path: str,
+    attempt_id: str,
+    *,
+    formal_holdout_run_id: str,
+    holdout_jsonl_sha256: str,
+) -> None:
+    """sealed 校验成功后、进入 running 前，把 formal identity 原子绑定进 attempt。
+
+    只在 prepared 状态可绑定；一旦绑定不允许再修改；重复绑定直接拒绝（fail-closed）。
+    状态序列：prepared → bind formal identity → running → completed。
+    """
+    _check_hex(formal_holdout_run_id, 12, "formal_holdout_run_id")
+    _check_hex(holdout_jsonl_sha256, 64, "holdout_jsonl_sha256")
+    lock_path = str(Path(path)) + ".lock"
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise RuntimeError(f"ledger 锁已存在: {lock_path}") from None
+    try:
+        os.close(fd)
+        ledger = read_attempt_ledger(path)
+        idx, attempt = _find_attempt(ledger, attempt_id)
+        if attempt["status"] != "prepared":
+            raise ValueError(
+                f"formal identity 只能在 prepared 状态绑定，当前 "
+                f"{attempt['status']!r}"
+            )
+        if attempt.get("formal_holdout_run_id") or attempt.get(
+            "holdout_jsonl_sha256"
+        ):
+            raise RuntimeError(
+                f"attempt {attempt_id} formal identity 已绑定，禁止重绑"
+            )
+        ledger["attempts"][idx]["formal_holdout_run_id"] = formal_holdout_run_id
+        ledger["attempts"][idx]["holdout_jsonl_sha256"] = holdout_jsonl_sha256
+        write_text_atomic(Path(path), _canonical(ledger).decode("utf-8"))
+    except BaseException:
+        raise
+    else:
+        os.unlink(lock_path)
+
+
 def validate_sealed(manifest: dict, holdout_text: str,
                     config: Gate3HoldoutConfig) -> dict:
     """验证 sealed private manifest + Holdout JSONL（仅 09C 授权后调用）。
@@ -523,6 +590,10 @@ def validate_sealed(manifest: dict, holdout_text: str,
         raise HoldoutInfrastructureFailure("private manifest 不是 JSON object")
     if manifest.get("schema_version") != HOLDOUT_PRIVATE_MANIFEST_SCHEMA:
         raise HoldoutInfrastructureFailure("private manifest schema_version 不一致")
+    if manifest.get("gate3_dataset_freeze_id") != config.gate3_dataset_freeze_id:
+        raise HoldoutInfrastructureFailure(
+            "private manifest gate3_dataset_freeze_id 与配置不一致"
+        )
     if manifest.get("holdout_evaluation_set_id") != config.holdout_evaluation_set_id:
         raise HoldoutInfrastructureFailure(
             "private manifest holdout_evaluation_set_id 与配置不一致"
@@ -585,18 +656,39 @@ def execute_holdout(
     """09C 正式执行顺序（写死）。steps 1-6 之前绝不开 sealed；formal identity
     只在验证 sealed manifest 后产生。
 
-    sealed_read_fn / run_generation_fn / run_evaluation_fn 用于 09B synthetic
-    测试注入；None 表示真实 sealed / 真实链（09C 授权后）。系统行为性失败
-    （如 generator 空输出）不终止——仍 completed，失败 case 记入正式结果；
-    只有真正无法形成有效实验的基础设施故障才抛 HoldoutInfrastructureFailure
-    并持久化为 invalid_infrastructure（不自动重跑）。
+    sealed_read_fn / run_generation_fn / run_evaluation_fn 用于 synthetic 测试注入；
+    真实调用链（read_real_sealed_inputs / run_holdout_generation /
+    run_holdout_evaluation）由 CLI 在 09C 授权后注入。系统行为性失败（如 generator
+    空输出）不终止——仍 completed，失败 case 记入正式结果；只有真正无法形成有效
+    实验的基础设施故障才抛 HoldoutInfrastructureFailure 并持久化为
+    invalid_infrastructure（不自动重跑）；未知异常一律 fail-closed 原样上抛，保留
+    attempt，不自动重跑，交 Reviewer 判断。
     """
     # 1 tracked-clean
     check_git_tracked_clean(repo)
     # 2 actual git HEAD
     head = _git_head(repo)
-    # 3 validate Freeze ID/config；缺少 provider 时在创建 attempt 前即 fail-closed
+    # 3 attempt 创建前 re-validate freeze_json_path 并要求
+    #   actual_execution_source_commit == actual git HEAD；不一致 fail-fast，
+    #   不创建 attempt。
     validate_frozen_knobs(config)
+    freeze = json.loads(Path(freeze_json_path).read_text("utf-8"))
+    _validate_freeze_json(freeze)
+    for section, label in (("retrieval_runtime_config", "retrieval"),
+                           ("planner", "planner"),
+                           ("generator", "generator"),
+                           ("judge", "judge")):
+        if getattr(config, label) != freeze[section]:
+            raise RuntimeError(
+                f"config.{label} 与 freeze {label} 不一致；拒绝创建 attempt"
+            )
+    if config.actual_execution_source_commit != head:
+        raise RuntimeError(
+            f"config.actual_execution_source_commit "
+            f"{config.actual_execution_source_commit} != actual git HEAD {head}；"
+            "拒绝创建 attempt"
+        )
+    # 缺少 provider 时在创建 attempt 前即 fail-closed（防止绕过真实 sealed 访问）
     if sealed_read_fn is None or run_generation_fn is None:
         raise HoldoutInfrastructureFailure(
             "未注入 sealed_read_fn / run_generation_fn；真实 sealed/生成链待 09C 授权"
@@ -621,6 +713,12 @@ def execute_holdout(
             config, holdout_jsonl_sha256=verified["holdout_jsonl_sha256"]
         )
         formal_id = formal_config.formal_holdout_run_id
+        # 10b formal identity 原子绑定进 ledger（prepared→bind→running；不可再改）
+        bind_attempt_formal_identity(
+            attempt_ledger_path, attempt_id,
+            formal_holdout_run_id=formal_id,
+            holdout_jsonl_sha256=verified["holdout_jsonl_sha256"],
+        )
         # 11 status → running
         update_attempt_status(attempt_ledger_path, attempt_id, "running")
         # 12 Generation 仅加载 case_id + query
@@ -650,3 +748,310 @@ def execute_holdout(
             reason=str(exc),
         )
         raise
+
+
+# ---------------------------------------------------------------------------
+# 09B-R1：真实 sealed reader + 真实 Holdout Generation/Evaluation wiring
+# （本阶段只实现并注入；HOLDOUT_EXECUTION_AUTHORIZED 未设置时不会执行）
+# ---------------------------------------------------------------------------
+
+
+def _formal_config_dict(config: Gate3HoldoutConfig) -> dict:
+    """formal config 的落盘字典：identity + holdout_run_id + formal_holdout_run_id
+    + holdout_jsonl_sha256（sealed 校验通过后即不可变）。"""
+    payload = dict(config.identity_payload())
+    payload["schema_version"] = config.schema_version
+    payload["evaluation_schema_version"] = config.evaluation_schema_version
+    payload["holdout_run_id"] = config.holdout_run_id
+    payload["formal_holdout_run_id"] = config.formal_holdout_run_id
+    payload["holdout_jsonl_sha256"] = config.holdout_jsonl_sha256
+    return payload
+
+
+def read_real_sealed_inputs(config: Gate3HoldoutConfig) -> tuple[dict, str]:
+    """09C 真实 sealed reader：只从 config 读取 private manifest + Holdout JSONL。
+
+    路径只来自 config（private_manifest_path / holdout_jsonl_path）；不得 list
+    sealed 目录、不得猜文件名。09B-R1 只实现与单测，不调用；09C 授权后才允许。
+    """
+    manifest_path = Path(config.private_manifest_path)
+    jsonl_path = Path(config.holdout_jsonl_path)
+    if not manifest_path.is_file():
+        raise HoldoutInfrastructureFailure(
+            f"private manifest 不存在: {manifest_path}")
+    if not jsonl_path.is_file():
+        raise HoldoutInfrastructureFailure(f"Holdout JSONL 不存在: {jsonl_path}")
+    try:
+        manifest = json.loads(manifest_path.read_text("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+        raise HoldoutInfrastructureFailure(
+            f"private manifest 读取失败: {exc}") from exc
+    try:
+        holdout_text = jsonl_path.read_text("utf-8")
+    except (UnicodeDecodeError, OSError) as exc:
+        raise HoldoutInfrastructureFailure(
+            f"Holdout JSONL 读取失败: {exc}") from exc
+    return manifest, holdout_text
+
+
+def run_holdout_generation(
+    generation_cases,
+    config: Gate3HoldoutConfig,
+    run_dir: str,
+) -> dict:
+    """真实 Holdout Generation 链：Frozen Corpus → 冻结索引 → Real Planner →
+    Adaptive Runtime → Retrieval → RRF merge v2 → Verifier → Real Generator →
+    Citation。签名只接收 generation_cases(case_id+query) / formal config /
+    run_dir，绝不接收 Holdout Gold。Generation Artifact 先落盘后才返回。
+
+    复用现有生产能力（build_shared_index / run_generation_cases /
+    OpenAICompatibleQueryPlanner / DeepSeekGenerator / E2EGroundedAnswerPort），
+    不复制任何新 RAG 算法。
+    """
+    if not generation_cases:
+        raise HoldoutInfrastructureFailure("Holdout generation cases 为空")
+    if not config.holdout_jsonl_sha256:
+        raise RuntimeError("formal config 未绑定 holdout_jsonl_sha256")
+
+    load_dotenv()
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise RuntimeError("缺少 DEEPSEEK_API_KEY 环境变量")
+
+    corpus_path = Path(config.corpus_root)
+    frozen_manifest = json.loads(
+        Path(config.frozen_index_manifest_path).read_text("utf-8"))
+    relative_paths = [
+        entry["relative_path"] for entry in frozen_manifest.get("corpus_entries", [])
+    ]
+    if not relative_paths:
+        raise HoldoutInfrastructureFailure("冻结索引 corpus_entries 为空")
+    corpus = ExperimentCorpus.build(str(corpus_path), relative_paths)
+    basename_map = load_corpus(str(corpus_path), relative_paths)
+
+    run = Path(run_dir)
+    if run.exists():
+        raise FileExistsError(f"输出目录已存在，禁止覆盖: {run}")
+    run.mkdir(parents=True)
+
+    workspace = run.parent / "workspaces" / config.formal_holdout_run_id
+    index = build_shared_index(
+        str(corpus_path), relative_paths, str(workspace / "vector_store"))
+    index_manifest = dict(index.build_manifest)
+    index_manifest["index_sha256"] = _sha256_bytes(_canonical_json(index_manifest))
+
+    retrieval = config.retrieval
+    planner = OpenAICompatibleQueryPlanner(
+        provider=config.planner["provider"],
+        model=config.planner["model"],
+        api_key=api_key,
+        base_url="https://api.deepseek.com/v1",
+    )
+    generator = DeepSeekGenerator(
+        api_key=api_key,
+        model=config.generator["model"],
+        temperature=config.generator["temperature"],
+        timeout_seconds=config.generator["timeout"],
+        max_retries=config.generator["max_retries"],
+        max_total_tokens=4096,
+        max_output_tokens=config.generator["max_tokens"],
+    )
+    answer_port = E2EGroundedAnswerPort(
+        generator,
+        direct_model=config.planner["model"],
+        direct_api_key=api_key,
+        direct_base_url="https://api.deepseek.com/v1",
+    )
+    records, cited_evidence_records = run_generation_cases(
+        generation_cases,
+        index=index, basename_map=basename_map,
+        planner=planner, generator=generator, answer_port=answer_port,
+        top_k=retrieval["top_k"],
+        max_retrieval_calls=retrieval["max_retrieval_calls"],
+        max_evidence_items=retrieval["max_evidence_items"],
+        merge_policy=retrieval["merge_policy"],
+        merge_rrf_k=retrieval["merge_rrf_k"],
+    )
+    write_text_atomic(
+        run / "run_config.json",
+        _canonical_json(_formal_config_dict(config)).decode("utf-8"),
+    )
+    write_text_atomic(
+        run / "index_manifest.json",
+        _canonical_json(index_manifest).decode("utf-8"),
+    )
+    case_lines = "\n".join(
+        _canonical_json(r).decode("utf-8") for r in records
+    )
+    write_text_atomic(run / "case_results.jsonl", case_lines + "\n")
+    cited_lines = "\n".join(
+        _canonical_json(r).decode("utf-8") for r in cited_evidence_records
+    )
+    write_text_atomic(run / "cited_evidence.jsonl", cited_lines + "\n")
+    for f in ("run_config.json", "index_manifest.json", "case_results.jsonl",
+              "cited_evidence.jsonl"):
+        assert_no_secrets((run / f).read_text("utf-8"))
+    return {
+        "formal_holdout_run_id": config.formal_holdout_run_id,
+        "case_count": len(records),
+        "status_counts": _count_statuses(records),
+    }
+
+
+def build_holdout_comparison_report(
+    config: Gate3HoldoutConfig, metrics: dict
+) -> str:
+    """Holdout 一次性的 Markdown 评测报告（presentation，非指标定义）。"""
+    d = metrics["deterministic"]
+    a = metrics["answer"]
+    lines = ["# G3-HOLDOUT-09C 一次性 Holdout 答案评测报告", ""]
+    lines.append(f"- formal_holdout_run_id = {config.formal_holdout_run_id}")
+    lines.append(
+        f"- holdout_evaluation_set_id = {config.holdout_evaluation_set_id}"
+    )
+    lines.append(f"- case_count = {metrics['case_count']}")
+    lines.append("")
+    lines.append("## 核心 Answer 指标")
+    lines.append("")
+    lines.append("| 指标 | 值 |")
+    lines.append("|---|---|")
+    lines.append(
+        f"| answer_obligation 覆盖 | {a['answer_obligation_covered']}/"
+        f"{a['answer_obligation_total']} = {a['answer_obligation_coverage_rate']:.4f} |"
+    )
+    lines.append(
+        f"| answer full coverage | {a['answer_full_coverage_case_count']}/"
+        f"{a['answerable_case_count']} = {a['answer_full_coverage_rate']:.4f} |"
+    )
+    lines.append(
+        f"| citation valid case | {a['citation_valid_case_count']}/"
+        f"{a['citation_valid_denominator']} = {a['citation_valid_case_rate']:.4f} |"
+    )
+    lines.append(f"| unsupported claim case | {a['unsupported_claim_case_count']} |")
+    lines.append(f"| answer pass case | {a['answer_pass_case_count']} |")
+    lines.append(f"| invalid judge | {a['invalid_judge_case_count']} |")
+    lines.append(f"| no-answer | {a['no_answer_case_count']} |")
+    lines.append(f"| zero-obligation | {a['zero_obligation_case_count']} |")
+    lines.append("")
+    lines.append("## 检索（确定性）层")
+    lines.append("")
+    lines.append(
+        f"- obligation 覆盖（retrieval）：{d['obligation']['obligation_covered']}"
+        f"/{d['obligation']['obligation_total']} = "
+        f"{d['obligation']['obligation_coverage_rate']:.4f}"
+    )
+    lines.append("")
+    lines.append("> 一次性 Holdout 封卷评测；evaluation schema "
+                 "gate3_e2e_metrics_v1 不改数学定义。")
+    return "\n".join(lines)
+
+
+def run_holdout_evaluation(
+    gen_output,
+    config: Gate3HoldoutConfig,
+    run_dir: str,
+    *,
+    judge_client=None,
+) -> dict:
+    """Holdout-specific evaluation：生成已落盘后离线读取 + LLM Judge。
+
+    不直接调用 run_e2e_evaluation()（其绑定 Dev identity / dev_jsonl_path）；
+    复用公共计算能力：AnswerJudge / should_call_judge / evaluate_citations /
+    compute_deterministic_metrics / compute_answer_metrics。evaluation schema 仍
+    gate3_e2e_metrics_v1，不改数学定义。Gold 只在 evaluation 阶段读取（生成已
+    落盘，阶段边界成立）。
+    """
+    load_dotenv()
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise RuntimeError("缺少 DEEPSEEK_API_KEY 环境变量")
+
+    run = Path(run_dir)
+    records = load_run_case_results(run)
+    cited_map = load_run_cited_evidence(run)
+    if len(records) != config.holdout_case_count:
+        raise HoldoutInfrastructureFailure(
+            f"case_results 数量 {len(records)} 与 holdout 配置 "
+            f"{config.holdout_case_count} 不一致"
+        )
+
+    frozen = json.loads(
+        Path(config.frozen_index_manifest_path).read_text("utf-8"))
+    relative_paths = [
+        entry["relative_path"] for entry in frozen.get("corpus_entries", [])
+    ]
+    corpus = ExperimentCorpus.build(config.corpus_root, relative_paths)
+    # Gold 只在 evaluation 阶段读取（生成已落盘）
+    holdout_set = Gate3EvaluationSet.load_jsonl(
+        config.holdout_jsonl_path, corpus)
+    case_by_id = {c.case_id: c for c in holdout_set.cases}
+    if len(holdout_set.cases) != config.holdout_case_count:
+        raise HoldoutInfrastructureFailure(
+            f"Holdout Gold case 数 {len(holdout_set.cases)} 与配置 "
+            f"{config.holdout_case_count} 不一致"
+        )
+
+    judge_view = types.SimpleNamespace(
+        judge_timeout=float(config.judge["timeout"]),
+        judge_max_retries=int(config.judge["max_retries"]),
+        judge_model=config.judge["model"],
+        judge_temperature=float(config.judge["temperature"]),
+        judge_max_tokens=int(config.judge["max_tokens"]),
+    )
+    judge = AnswerJudge(config=judge_view, api_key=api_key, client=judge_client)
+
+    judgments = []
+    for rec in records:
+        case = case_by_id[rec["case_id"]]
+        gold_obligations = [
+            {"obligation_id": o.obligation_id, "description": o.description}
+            for o in case.evidence_obligations
+        ]
+        cited = cited_map.get(rec["case_id"], [])
+        if should_call_judge(rec, bool(case.evidence_obligations)):
+            judge_result = judge.judge(
+                rec["query"], rec["answer"], cited, gold_obligations)
+        else:
+            judge_result = {"judge_status": "not_generated"}
+        judgments.append({
+            "case_id": rec["case_id"],
+            "judge_input": {
+                "query": rec["query"],
+                "answer": rec.get("answer"),
+                "cited_evidence": cited,
+                "gold_obligations": gold_obligations,
+            },
+            "judge_output": judge_result,
+        })
+
+    det = compute_deterministic_metrics(records, holdout_set, case_by_id)
+    ans = compute_answer_metrics(records, judgments, holdout_set, case_by_id)
+    metrics = {
+        "schema_version": GATE3_E2E_METRICS_SCHEMA_VERSION,
+        "deterministic": det,
+        "answer": ans,
+        "answerable_case_count": ans["answerable_case_count"],
+        "case_count": len(records),
+    }
+    comparison = build_holdout_comparison_report(config, metrics)
+    write_text_atomic(
+        run / "answer_judgments.jsonl",
+        "\n".join(_canonical_json(j).decode("utf-8") for j in judgments) + "\n",
+    )
+    write_text_atomic(
+        run / "metrics.json", _canonical_json(metrics).decode("utf-8"))
+    write_text_atomic(run / "comparison_report.md", comparison)
+    write_text_atomic(
+        run / "result.json",
+        _canonical_json({
+            "schema_version": GATE3_E2E_RESULT_SCHEMA_VERSION,
+            "formal_holdout_run_id": config.formal_holdout_run_id,
+            "holdout_run_id": config.holdout_run_id,
+            "config": _formal_config_dict(config),
+            "metrics": metrics,
+        }).decode("utf-8"),
+    )
+    for f in ("answer_judgments.jsonl", "metrics.json", "comparison_report.md",
+              "result.json"):
+        assert_no_secrets((run / f).read_text("utf-8"))
+    return metrics

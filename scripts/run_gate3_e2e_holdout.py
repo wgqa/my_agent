@@ -31,6 +31,9 @@ from evaluation.gate3.holdout import (
     build_holdout_config_from_freeze,
     execute_holdout,
     preflight_holdout,
+    read_real_sealed_inputs,
+    run_holdout_evaluation,
+    run_holdout_generation,
 )
 
 
@@ -76,9 +79,10 @@ def main(argv=None) -> int:
             freeze_json_path=args.freeze_json,
             output_root=args.output_root,
             attempt_ledger_path=args.attempt_ledger,
-            sealed_read_fn=None,  # 09C 注入真实 sealed reader
-            run_generation_fn=None,  # 09C 注入真实生成链
-            run_evaluation_fn=None,
+            # 09C：真实 sealed reader / 真实生成链 / 真实 evaluation wiring。
+            sealed_read_fn=lambda: read_real_sealed_inputs(config),
+            run_generation_fn=run_holdout_generation,
+            run_evaluation_fn=run_holdout_evaluation,
         )
         for key, value in report.items():
             print(f"{key}={value}")

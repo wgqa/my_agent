@@ -30,11 +30,15 @@ from evaluation.gate3.holdout import (
     _parse_generation_cases_from_holdout,
     assert_no_forbidden_overrides,
     atomic_create_attempt,
+    bind_attempt_formal_identity,
     build_holdout_config_from_freeze,
     check_attempt_allowed,
     execute_holdout,
     preflight_holdout,
     read_attempt_ledger,
+    read_real_sealed_inputs,
+    run_holdout_evaluation,
+    run_holdout_generation,
     update_attempt_status,
     validate_frozen_knobs,
     validate_sealed,
@@ -467,18 +471,31 @@ def _fake_gen_failures(cases, formal_config, out_dir):
             "failed_count": 2}
 
 
+def _exec_run(tmp_path, *, sealed_read_fn, run_generation_fn=_fake_gen,
+              output_root=None, ledger_path=None, run_evaluation_fn=None):
+    """TestExecutor / TestRealWiring 共用：以真实 clean-repo HEAD 绑定 config 后执行。"""
+    repo = _clean_git_repo(tmp_path)
+    head = subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    return execute_holdout(
+        _holdout_config(tmp_path, actual_commit=head),
+        repo=str(repo),
+        freeze_json_path=_freeze(tmp_path),
+        output_root=str(output_root or tmp_path / "out"),
+        attempt_ledger_path=str(ledger_path or tmp_path / "ledger.json"),
+        sealed_read_fn=sealed_read_fn,
+        run_generation_fn=run_generation_fn,
+        run_evaluation_fn=run_evaluation_fn,
+    )
+
+
 class TestExecutor:
     def _run(self, tmp_path, *, sealed_read_fn, run_generation_fn=_fake_gen,
              output_root=None, ledger_path=None, run_evaluation_fn=None):
-        return execute_holdout(
-            _holdout_config(tmp_path),
-            repo=str(_clean_git_repo(tmp_path)),
-            freeze_json_path=_freeze(tmp_path),
-            output_root=str(output_root or tmp_path / "out"),
-            attempt_ledger_path=str(ledger_path or tmp_path / "ledger.json"),
-            sealed_read_fn=sealed_read_fn,
-            run_generation_fn=run_generation_fn,
-            run_evaluation_fn=run_evaluation_fn,
+        return _exec_run(
+            tmp_path, sealed_read_fn=sealed_read_fn,
+            run_generation_fn=run_generation_fn, output_root=output_root,
+            ledger_path=ledger_path, run_evaluation_fn=run_evaluation_fn,
         )
 
     def test_attempt_created_before_sealed_read(self, tmp_path):
@@ -493,7 +510,7 @@ class TestExecutor:
             assert l["attempts"][0]["status"] == "prepared"
             return manifest, holdout_text
 
-        result = self._run(tmp_path, sealed_read_fn=sealed_read,
+        result = _exec_run(tmp_path, sealed_read_fn=sealed_read,
                            ledger_path=ledger)
         assert result["status"] == "completed"
         assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == "completed"
@@ -503,7 +520,7 @@ class TestExecutor:
         manifest = _synthetic_manifest(holdout_text, sha="ab" * 32)
         ledger = tmp_path / "ledger.json"
         with pytest.raises(HoldoutInfrastructureFailure):
-            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
                       ledger_path=ledger)
         assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
             "invalid_infrastructure"
@@ -512,13 +529,13 @@ class TestExecutor:
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text, eval_id="0" * 12)
         with pytest.raises(HoldoutInfrastructureFailure):
-            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
 
     def test_case_count_mismatch_fails(self, tmp_path):
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text, case_count=11)
         with pytest.raises(HoldoutInfrastructureFailure):
-            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
 
     def test_duplicate_case_id_fails(self, tmp_path):
         holdout_text = _synthetic_holdout_text()
@@ -531,21 +548,24 @@ class TestExecutor:
         }, ensure_ascii=False) + "\n"
         manifest = _synthetic_manifest(holdout_text, case_count=13)
         with pytest.raises(HoldoutInfrastructureFailure):
-            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
 
     def test_generation_sentinel_not_leak(self, tmp_path):
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text)
-        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+        result = _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
                            run_generation_fn=_fake_gen_sentinel)
         assert result["status"] == "completed"
 
     def test_formal_run_id_includes_holdout_sha(self, tmp_path):
         from dataclasses import replace
+        repo = _clean_git_repo(tmp_path)
+        head = subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text)
-        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
-        formal = replace(_holdout_config(tmp_path),
+        result = _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+        formal = replace(_holdout_config(tmp_path, actual_commit=head),
                          holdout_jsonl_sha256=result["holdout_jsonl_sha256"])
         assert result["formal_holdout_run_id"] == formal.formal_holdout_run_id
         assert result["formal_holdout_run_id"] != result["preflight_holdout_run_id"]
@@ -554,7 +574,7 @@ class TestExecutor:
     def test_actual_source_commit_in_identity(self, tmp_path):
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text)
-        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+        result = _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
         assert len(result["actual_execution_source_commit"]) == 40
 
     def test_freeze_id_in_identity(self, tmp_path):
@@ -568,7 +588,7 @@ class TestExecutor:
         manifest = _synthetic_manifest(holdout_text)
         ledger = tmp_path / "ledger.json"
         with pytest.raises(FileExistsError):
-            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
                       output_root=out, ledger_path=ledger)
         assert not ledger.exists()
 
@@ -576,7 +596,7 @@ class TestExecutor:
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text)
         ledger = tmp_path / "ledger.json"
-        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+        result = _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
                            run_generation_fn=_fake_gen_failures,
                            ledger_path=ledger)
         assert result["status"] == "completed"
@@ -590,18 +610,278 @@ class TestExecutor:
             raise HoldoutInfrastructureFailure("manifest 损坏")
 
         with pytest.raises(HoldoutInfrastructureFailure):
-            self._run(tmp_path, sealed_read_fn=boom, ledger_path=ledger)
+            _exec_run(tmp_path, sealed_read_fn=boom, ledger_path=ledger)
         assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
             "invalid_infrastructure"
         with pytest.raises(RuntimeError):
-            self._run(tmp_path, sealed_read_fn=boom, ledger_path=ledger)
+            _exec_run(tmp_path, sealed_read_fn=boom, ledger_path=ledger)
 
     def test_second_execution_after_terminal_rejected(self, tmp_path):
         holdout_text = _synthetic_holdout_text()
         manifest = _synthetic_manifest(holdout_text)
         ledger = tmp_path / "ledger.json"
-        self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+        _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
                   ledger_path=ledger)
         with pytest.raises(RuntimeError):
-            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
                       ledger_path=ledger)
+
+
+# ---------------------------------------------------------------------------
+# 09B-R1：真实 wiring（synthetic sealed + fake chain 写全 8 个正式 Artifact）
+# ---------------------------------------------------------------------------
+
+
+def _fake_gen_artifacts(cases, config, out_dir):
+    """fake 生成链：真实落盘 4 个 generation Artifact（不含任何 Gold）。"""
+    out = Path(out_dir)
+    out.mkdir(parents=True)
+    run_cfg = config.to_dict()
+    run_cfg["formal_holdout_run_id"] = config.formal_holdout_run_id
+    run_cfg["holdout_jsonl_sha256"] = config.holdout_jsonl_sha256
+    (out / "run_config.json").write_text(
+        json.dumps(run_cfg, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    (out / "index_manifest.json").write_text(json.dumps({
+        "schema_version": "gate3_e2e_index_manifest_v1",
+        "corpus_id": "x", "index_sha256": "ab" * 32,
+        "corpus_entries": [], "index_entries": [],
+    }, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    case_lines = "\n".join(json.dumps({
+        "case_id": c.case_id, "query": c.query, "status": "completed",
+        "error_code": None, "plan_id": "x" * 12,
+        "plan": {"query_type": "fact", "action": "direct",
+                 "reason_code": None, "subquery_count": 0},
+        "route": "direct", "retrieval_call_count": 1,
+        "candidate_canonical_paths": [], "retrieved_canonical_paths": [],
+        "evidence_count": 1, "fallback_used": False, "failure_code": None,
+        "answer": "synthetic answer [C1]", "cited_citation_ids": [1],
+        "evidence_citation_ids": [1],
+    }, ensure_ascii=False) for c in cases)
+    (out / "case_results.jsonl").write_text(case_lines + "\n", encoding="utf-8")
+    cited_lines = "\n".join(json.dumps({
+        "case_id": c.case_id,
+        "items": [{"citation_id": "[C1]", "source_name": "s.md",
+                   "canonical_path": "s.md", "content": "synthetic evidence"}],
+    }, ensure_ascii=False) for c in cases)
+    (out / "cited_evidence.jsonl").write_text(cited_lines + "\n", encoding="utf-8")
+    return {"case_count": len(cases),
+            "formal_holdout_run_id": config.formal_holdout_run_id}
+
+
+def _fake_eval_artifacts(gen_output, config, out_dir):
+    """fake evaluation：真实落盘 4 个 evaluation Artifact。"""
+    out = Path(out_dir)
+    n = gen_output["case_count"]
+    judgments = "\n".join(json.dumps({
+        "case_id": f"h{i:02d}",
+        "judge_output": {"judge_status": "ok",
+                         "obligation_coverage": {"o1": "covered"},
+                         "unsupported_material_claims": []},
+    }, ensure_ascii=False) for i in range(1, n + 1))
+    (out / "answer_judgments.jsonl").write_text(judgments + "\n", encoding="utf-8")
+    metrics = {"schema_version": "gate3_e2e_metrics_v1",
+               "deterministic": {}, "answer": {}, "case_count": n}
+    (out / "metrics.json").write_text(
+        json.dumps(metrics, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    (out / "comparison_report.md").write_text("# Holdout report\n", encoding="utf-8")
+    result = {
+        "schema_version": "gate3_e2e_result_v1",
+        "formal_holdout_run_id": config.formal_holdout_run_id,
+        "holdout_run_id": config.holdout_run_id,
+        "config": config.to_dict(),
+        "metrics": metrics,
+    }
+    (out / "result.json").write_text(
+        json.dumps(result, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    return {"case_count": n}
+
+
+class TestRealWiring:
+    def test_read_real_sealed_inputs_only_config_paths(self, tmp_path):
+        from dataclasses import replace
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        sealed = tmp_path / "sealed"
+        sealed.mkdir()
+        (sealed / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+        (sealed / "holdout.jsonl").write_text(holdout_text, encoding="utf-8")
+        (sealed / "decoy.json").write_text("not referenced", encoding="utf-8")
+        cfg = replace(_holdout_config(tmp_path),
+                      holdout_jsonl_path=str(sealed / "holdout.jsonl"),
+                      private_manifest_path=str(sealed / "manifest.json"))
+        got_manifest, got_text = read_real_sealed_inputs(cfg)
+        assert got_manifest == manifest
+        assert got_text == holdout_text
+
+    def test_read_real_sealed_inputs_missing_file_infra(self, tmp_path):
+        from dataclasses import replace
+        cfg = replace(_holdout_config(tmp_path),
+                      holdout_jsonl_path=str(tmp_path / "no.jsonl"),
+                      private_manifest_path=str(tmp_path / "no.json"))
+        with pytest.raises(HoldoutInfrastructureFailure):
+            read_real_sealed_inputs(cfg)
+
+    def test_full_fake_integration_8_artifacts_no_gold_leak(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        ledger = tmp_path / "ledger.json"
+        out = tmp_path / "out"
+        result = _exec_run(
+            tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+            run_generation_fn=_fake_gen_artifacts,
+            run_evaluation_fn=_fake_eval_artifacts,
+            output_root=out, ledger_path=ledger,
+        )
+        assert result["status"] == "completed"
+        expected = ("run_config.json", "index_manifest.json", "case_results.jsonl",
+                    "cited_evidence.jsonl", "answer_judgments.jsonl",
+                    "metrics.json", "comparison_report.md", "result.json")
+        for name in expected:
+            assert (out / name).is_file(), f"缺少正式 Artifact: {name}"
+        gen_blob = "\n".join((out / n).read_text("utf-8") for n in
+                             ("run_config.json", "index_manifest.json",
+                              "case_results.jsonl", "cited_evidence.jsonl"))
+        assert "SECRET_GOLD_SENTINEL" not in gen_blob
+        run_cfg = json.loads((out / "run_config.json").read_text("utf-8"))
+        res = json.loads((out / "result.json").read_text("utf-8"))
+        assert run_cfg["formal_holdout_run_id"] == result["formal_holdout_run_id"]
+        assert run_cfg["holdout_jsonl_sha256"] == result["holdout_jsonl_sha256"]
+        assert res["formal_holdout_run_id"] == result["formal_holdout_run_id"]
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == "completed"
+
+    def test_wrong_actual_head_no_attempt(self, tmp_path):
+        repo = _clean_git_repo(tmp_path)
+        head = subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+        wrong_head = ("f" if head[0] != "f" else "a") + head[1:]
+        ledger = tmp_path / "ledger.json"
+        out = tmp_path / "out"
+        with pytest.raises(RuntimeError):
+            execute_holdout(
+                _holdout_config(tmp_path, actual_commit=wrong_head),
+                repo=str(repo), freeze_json_path=_freeze(tmp_path),
+                output_root=str(out), attempt_ledger_path=str(ledger),
+                sealed_read_fn=lambda: (None, None), run_generation_fn=_fake_gen)
+        assert not ledger.exists()
+        assert not out.exists()
+
+    def test_wrong_freeze_no_attempt(self, tmp_path):
+        repo = _clean_git_repo(tmp_path)
+        head = subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+        bad = tmp_path / "bad_freeze.json"
+        freeze = _freeze_json()
+        freeze["gate3_system_freeze_id"] = "0" * 12
+        bad.write_text(json.dumps(freeze, ensure_ascii=False), encoding="utf-8")
+        ledger = tmp_path / "ledger.json"
+        out = tmp_path / "out"
+        with pytest.raises(ValueError):
+            execute_holdout(
+                _holdout_config(tmp_path, actual_commit=head),
+                repo=str(repo), freeze_json_path=str(bad),
+                output_root=str(out), attempt_ledger_path=str(ledger),
+                sealed_read_fn=lambda: (None, None), run_generation_fn=_fake_gen)
+        assert not ledger.exists()
+        assert not out.exists()
+
+    def test_manifest_wrong_dataset_freeze_invalid_infra(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        manifest["gate3_dataset_freeze_id"] = "0" * 12
+        ledger = tmp_path / "ledger.json"
+        with pytest.raises(HoldoutInfrastructureFailure):
+            _exec_run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                      ledger_path=ledger)
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
+            "invalid_infrastructure"
+
+    def test_running_ledger_entry_binds_formal_identity(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        ledger = tmp_path / "ledger.json"
+
+        def gen_checks_running(cases, config, out_dir):
+            entry = read_attempt_ledger(str(ledger))["attempts"][0]
+            assert entry["status"] == "running"
+            assert entry.get("formal_holdout_run_id") == \
+                config.formal_holdout_run_id
+            assert entry.get("holdout_jsonl_sha256") == \
+                config.holdout_jsonl_sha256
+            return _fake_gen(cases, config, out_dir)
+
+        result = _exec_run(tmp_path,
+                           sealed_read_fn=lambda: (manifest, holdout_text),
+                           run_generation_fn=gen_checks_running, ledger_path=ledger)
+        assert result["status"] == "completed"
+        entry = read_attempt_ledger(str(ledger))["attempts"][0]
+        assert entry["status"] == "completed"
+        assert entry["formal_holdout_run_id"] == result["formal_holdout_run_id"]
+
+    def test_formal_identity_cannot_rebind(self, tmp_path):
+        path = str(tmp_path / "ledger.json")
+        cfg = _holdout_config(tmp_path)
+        attempt = atomic_create_attempt(path, cfg)
+        aid = attempt["attempt_id"]
+        bind_attempt_formal_identity(path, aid, formal_holdout_run_id="a" * 12,
+                                     holdout_jsonl_sha256="b" * 64)
+        with pytest.raises(RuntimeError):
+            bind_attempt_formal_identity(path, aid, formal_holdout_run_id="c" * 12,
+                                         holdout_jsonl_sha256="d" * 64)
+
+    def test_cli_execute_auth_missing_zero_sealed_read(self, tmp_path, monkeypatch):
+        import scripts.run_gate3_e2e_holdout as cli
+        monkeypatch.delenv("HOLDOUT_EXECUTION_AUTHORIZED", raising=False)
+        calls = []
+
+        def spy(config):
+            calls.append(1)
+            return read_real_sealed_inputs(config)
+
+        monkeypatch.setattr(cli, "read_real_sealed_inputs", spy)
+        out = tmp_path / "out"
+        ledger = tmp_path / "ledger.json"
+        args = [
+            "--execute",
+            "--repo", str(Path.cwd()),
+            "--freeze-json", _freeze(tmp_path),
+            "--holdout-jsonl", str(tmp_path / "no_such_holdout.jsonl"),
+            "--private-manifest", str(tmp_path / "no_such_manifest.json"),
+            "--frozen-index-manifest", "m.json",
+            "--corpus-root", "c",
+            "--output-root", str(out),
+            "--attempt-ledger", str(ledger),
+        ]
+        with pytest.raises(SystemExit):
+            cli.main(args)
+        assert calls == []
+        assert not out.exists()
+        assert not ledger.exists()
+
+    def test_cli_execute_wires_real_adapters(self, tmp_path, monkeypatch):
+        import scripts.run_gate3_e2e_holdout as cli
+        monkeypatch.setenv("HOLDOUT_EXECUTION_AUTHORIZED", "1")
+        captured = {}
+
+        def fake_execute(config, **kwargs):
+            captured.update(kwargs)
+            return {"status": "not_run", "formal_holdout_run_id": "a" * 12}
+
+        monkeypatch.setattr(cli, "execute_holdout", fake_execute)
+        out = tmp_path / "out"
+        args = [
+            "--execute",
+            "--repo", str(Path.cwd()),
+            "--freeze-json", _freeze(tmp_path),
+            "--holdout-jsonl", str(tmp_path / "h.jsonl"),
+            "--private-manifest", str(tmp_path / "p.json"),
+            "--frozen-index-manifest", "m.json",
+            "--corpus-root", "c",
+            "--output-root", str(out),
+            "--attempt-ledger", str(tmp_path / "l.json"),
+        ]
+        cli.main(args)
+        assert captured.get("sealed_read_fn") is not None
+        assert captured.get("run_generation_fn") is run_holdout_generation
+        assert captured.get("run_evaluation_fn") is run_holdout_evaluation
+        assert not out.exists()
