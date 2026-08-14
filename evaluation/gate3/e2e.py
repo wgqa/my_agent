@@ -648,6 +648,98 @@ class _RecordingRetrievalPort:
         return docs
 
 
+def run_generation_cases(
+    generation_cases,
+    *,
+    index,
+    basename_map,
+    planner,
+    generator,
+    answer_port,
+    top_k,
+    max_retrieval_calls,
+    max_evidence_items,
+    merge_policy,
+    merge_rrf_k,
+) -> tuple[list[dict], list[dict]]:
+    """split-agnostic per-case generation loop（Dev 与 Holdout 共用）。
+
+    只接触 (case_id, query)；返回 (records, cited_evidence_records)。
+    """
+    retrieval_port = PipelineRetrievalAdapter(index.retriever)
+    records: list[dict] = []
+    cited_evidence_records: list[dict] = []
+    for gcase in sorted(generation_cases, key=lambda c: c.case_id):
+        sink: list[dict] = []
+        runtime = AgentRuntime(
+            planner=planner,
+            retrieval_port=_RecordingRetrievalPort(retrieval_port, sink),
+            answer_port=answer_port,
+            budget=AgentRunBudget(
+                max_retrieval_calls=max_retrieval_calls,
+                max_evidence_items=max_evidence_items,
+            ),
+            merge_policy=merge_policy,
+            merge_rrf_k=merge_rrf_k,
+        )
+        result = runtime.run(gcase.query, top_k=top_k)
+        outcome = result.planner_outcome
+        bundle = result.evidence_bundle
+        evidence_items = list(bundle.items) if bundle is not None else []
+        candidates = canonical_paths_from_documents(
+            [d for entry in sink for d in entry["docs"]], basename_map
+        )
+        final_paths = canonical_paths_from_documents(evidence_items, basename_map)
+        cited_ids = parse_citations(result.answer) if result.answer else set()
+        cited_items = [
+            item for item in evidence_items
+            if _citation_int(item.citation_id) in cited_ids
+        ]
+        record = {
+            "case_id": gcase.case_id,
+            "query": gcase.query,
+            "status": result.status,
+            "error_code": result.error_code,
+            "plan_id": outcome.plan.plan_id if outcome is not None else None,
+            "plan": _redacted_plan(outcome.plan if outcome is not None else None),
+            "route": (
+                result.route_decision.route
+                if result.route_decision is not None else None
+            ),
+            "retrieval_call_count": len(sink),
+            "candidate_canonical_paths": candidates,
+            "retrieved_canonical_paths": final_paths,
+            "evidence_count": len(evidence_items),
+            "fallback_used": (
+                outcome.fallback_used if outcome is not None else None
+            ),
+            "failure_code": (
+                outcome.failure_code if outcome is not None else None
+            ),
+            "answer": result.answer,
+            "cited_citation_ids": sorted(cited_ids),
+            "evidence_citation_ids": sorted(
+                _citation_int(item.citation_id) for item in evidence_items
+            ),
+        }
+        records.append(record)
+        cited_evidence_records.append(
+            {
+                "case_id": gcase.case_id,
+                "items": [
+                    {
+                        "citation_id": item.citation_id,
+                        "source_name": item.source_name,
+                        "canonical_path": basename_map[item.source_name],
+                        "content": (item.content or "")[:300],
+                    }
+                    for item in cited_items
+                ],
+            }
+        )
+    return records, cited_evidence_records
+
+
 def run_e2e_generation(config: Gate3E2EConfig, git_head: str) -> dict:
     """Generation stage：真实 Planner→Router→Retrieval→merge v2→Verifier→
     真实 Generator→Answer；只接触 (case_id, query)，先持久化原始生成结果。"""
@@ -713,78 +805,16 @@ def run_e2e_generation(config: Gate3E2EConfig, git_head: str) -> dict:
         direct_api_key=api_key,
         direct_base_url="https://api.deepseek.com/v1",
     )
-    retrieval_port = PipelineRetrievalAdapter(index.retriever)
-
-    records = []
-    cited_evidence_records = []
-    for gcase in sorted(generation_cases, key=lambda c: c.case_id):
-        sink: list[dict] = []
-        runtime = AgentRuntime(
-            planner=planner,
-            retrieval_port=_RecordingRetrievalPort(retrieval_port, sink),
-            answer_port=answer_port,
-            budget=AgentRunBudget(
-                max_retrieval_calls=config.max_retrieval_calls,
-                max_evidence_items=config.max_evidence_items,
-            ),
-            merge_policy=config.merge_policy,
-            merge_rrf_k=config.merge_rrf_k,
-        )
-        result = runtime.run(gcase.query, top_k=config.top_k)
-        outcome = result.planner_outcome
-        bundle = result.evidence_bundle
-        evidence_items = list(bundle.items) if bundle is not None else []
-        candidates = canonical_paths_from_documents(
-            [d for entry in sink for d in entry["docs"]], basename_map
-        )
-        final_paths = canonical_paths_from_documents(evidence_items, basename_map)
-        cited_ids = parse_citations(result.answer) if result.answer else set()
-        cited_items = [
-            item for item in evidence_items
-            if _citation_int(item.citation_id) in cited_ids
-        ]
-        record = {
-            "case_id": gcase.case_id,
-            "query": gcase.query,
-            "status": result.status,
-            "error_code": result.error_code,
-            "plan_id": outcome.plan.plan_id if outcome is not None else None,
-            "plan": _redacted_plan(outcome.plan if outcome is not None else None),
-            "route": (
-                result.route_decision.route
-                if result.route_decision is not None else None
-            ),
-            "retrieval_call_count": len(sink),
-            "candidate_canonical_paths": candidates,
-            "retrieved_canonical_paths": final_paths,
-            "evidence_count": len(evidence_items),
-            "fallback_used": (
-                outcome.fallback_used if outcome is not None else None
-            ),
-            "failure_code": (
-                outcome.failure_code if outcome is not None else None
-            ),
-            "answer": result.answer,
-            "cited_citation_ids": sorted(cited_ids),
-            "evidence_citation_ids": sorted(
-                _citation_int(item.citation_id) for item in evidence_items
-            ),
-        }
-        records.append(record)
-        cited_evidence_records.append(
-            {
-                "case_id": gcase.case_id,
-                "items": [
-                    {
-                        "citation_id": item.citation_id,
-                        "source_name": item.source_name,
-                        "canonical_path": basename_map[item.source_name],
-                        "content": (item.content or "")[:300],
-                    }
-                    for item in cited_items
-                ],
-            }
-        )
+    records, cited_evidence_records = run_generation_cases(
+        generation_cases,
+        index=index, basename_map=basename_map,
+        planner=planner, generator=generator, answer_port=answer_port,
+        top_k=config.top_k,
+        max_retrieval_calls=config.max_retrieval_calls,
+        max_evidence_items=config.max_evidence_items,
+        merge_policy=config.merge_policy,
+        merge_rrf_k=config.merge_rrf_k,
+    )
 
     write_text_atomic(
         run_dir / "run_config.json",
