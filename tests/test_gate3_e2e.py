@@ -25,6 +25,7 @@ from evaluation.gate3.e2e import (
     load_generation_cases,
     parse_citations,
     parse_judge_output,
+    should_call_judge,
 )
 from evaluation.gate3.evaluation_set import (
     EvidenceObligation,
@@ -333,6 +334,16 @@ class TestSecretRedaction:
             )
         with pytest.raises(ValueError):
             assert_no_secrets("DEEPSEEK_API_KEY=sk-abcdefghijklmnop")
+
+
+class TestJudgeGating:
+    def test_should_call_judge_requires_answer_and_obligations(self):
+        rec = {"status": "completed", "answer": "答案"}
+        assert should_call_judge(rec, True) is True
+        assert should_call_judge(rec, False) is False
+        assert should_call_judge({"status": "failed", "answer": None}, True) is False
+        assert should_call_judge({"status": "completed", "answer": None}, True) is False
+        assert should_call_judge({"status": "completed", "answer": ""}, True) is False
 
 
 # ---------------------------------------------------------------------------

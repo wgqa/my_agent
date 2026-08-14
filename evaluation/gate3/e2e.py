@@ -845,6 +845,15 @@ def load_run_cited_evidence(run_dir: Path) -> dict:
     return out
 
 
+def should_call_judge(record: dict, has_obligations: bool) -> bool:
+    """Judge 只在生成完成、有答案且有 Gold obligation 的 case 上调用。"""
+    return (
+        has_obligations
+        and record.get("status") == "completed"
+        and bool(record.get("answer"))
+    )
+
+
 def run_e2e_evaluation(
     config: Gate3E2EConfig,
     run_dir: Path,
@@ -884,7 +893,9 @@ def run_e2e_evaluation(
             for o in case.evidence_obligations
         ]
         cited = cited_map.get(rec["case_id"], [])
-        if rec.get("answer") and rec.get("status") == "completed":
+        # 零 obligation（unanswerable/no_retrieval/direct）的 case 不调 Judge：
+        # 不允许凭空造 obligation，单独上报。
+        if should_call_judge(rec, bool(case.evidence_obligations)):
             judge_result = judge.judge(
                 rec["query"], rec["answer"], cited, gold_obligations
             )
