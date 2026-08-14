@@ -33,7 +33,9 @@ Freeze 通过了不等于能马上跑 Holdout——你还需要一个**一次性
 
 - Holdout 只能跑一次。**ledger 是"这一次"的持久化证据**：谁、在哪个 freeze 下、哪个实际 commit、什么时候开始、什么状态。
 - 状态机：prepared → running → completed / failed_system / invalid_infrastructure。
-- **running / completed / failed_system 出现即禁止第二次开始**；invalid_infrastructure 也不允许自动重跑。
+- **最保守规则（09A-R1-LEDGER-MICRO 硬化）**：只要 ledger 存在**任何合法 attempt（含 prepared）**，就禁止自动创建另一个；invalid_infrastructure 的替代由 Reviewer 单独放行，本层不留自动后门。
+- **read_attempt_ledger 严格校验**：schema / attempts 类型 / 每条 attempt 结构 / 合法 status，未知或损坏一律 fail-closed（ValueError）。
+- **atomic_create_attempt 跨进程互斥**：sibling lock 文件 `O_CREAT|O_EXCL|O_WRONLY`，持锁期间完成 read→validate→check→append→write；异常残留 lock 不自动删除（fail-closed，交 Reviewer 判断）；`started_at` 写入真实 UTC 时间。
 - 09A 的 preflight 只检查 ledger"尚未消费"，**绝不创建正式 attempt**——否则还没跑就把唯一机会消耗了。
 
 ## 5. system failure 与 infrastructure-invalid 的区别

@@ -244,7 +244,14 @@ class TestPreflight:
         ledger = tmp_path / "ledger.json"
         ledger.write_text(json.dumps({
             "schema_version": "holdout_attempt_ledger_v1",
-            "attempts": [{"attempt_id": "x", "status": "completed"}],
+            "attempts": [{
+                "attempt_id": "x", "status": "completed",
+                "gate3_system_freeze_id": "2ec11a69b173",
+                "gate3_dataset_freeze_id": "257fa0d0a6d6",
+                "holdout_evaluation_set_id": "79a6bc0814a3",
+                "actual_execution_source_commit": "f" * 40,
+                "started_at": "2026-08-14T00:00:00+00:00",
+            }],
         }, ensure_ascii=False), encoding="utf-8")
         with pytest.raises(RuntimeError):
             preflight_holdout(**{**_preflight_args(tmp_path),
@@ -258,11 +265,22 @@ class TestPreflight:
 
 
 class TestAttemptLedger:
-    def _ledger(self, tmp_path, attempts):
+    def _ledger(self, tmp_path, attempts, *, strict=True):
+        # 默认补全必填字段使 read_attempt_ledger 严格校验通过（status 由调用方给定）；
+        # strict=False 时原样写入（用于 malformed 测试）。
+        full = []
+        for a in attempts:
+            d = dict(a)
+            if strict:
+                d.setdefault("gate3_system_freeze_id", "2ec11a69b173")
+                d.setdefault("gate3_dataset_freeze_id", "257fa0d0a6d6")
+                d.setdefault("holdout_evaluation_set_id", "79a6bc0814a3")
+                d.setdefault("actual_execution_source_commit", "f" * 40)
+                d.setdefault("started_at", "2026-08-14T00:00:00+00:00")
+            full.append(d)
         p = tmp_path / "ledger.json"
         p.write_text(json.dumps({
-            "schema_version": "holdout_attempt_ledger_v1",
-            "attempts": attempts,
+            "schema_version": "holdout_attempt_ledger_v1", "attempts": full,
         }, ensure_ascii=False), encoding="utf-8")
         return str(p)
 
@@ -289,6 +307,53 @@ class TestAttemptLedger:
         with pytest.raises(RuntimeError):
             check_attempt_allowed(path)
 
+    def test_existing_prepared_rejects(self, tmp_path):
+        path = self._ledger(tmp_path, [{"attempt_id": "a1", "status": "prepared"}])
+        with pytest.raises(RuntimeError):
+            check_attempt_allowed(path)
+        with pytest.raises(RuntimeError):
+            atomic_create_attempt(path, _holdout_config(tmp_path))
+
+    def test_consecutive_create_second_rejects(self, tmp_path):
+        path = str(tmp_path / "ledger.json")
+        atomic_create_attempt(path, _holdout_config(tmp_path))
+        with pytest.raises(RuntimeError):
+            atomic_create_attempt(path, _holdout_config(tmp_path))
+        ledger = read_attempt_ledger(path)
+        assert len(ledger["attempts"]) == 1
+
+    def test_unknown_status_fail_closed(self, tmp_path):
+        path = self._ledger(tmp_path, [{"attempt_id": "a1", "status": "bogus"}])
+        with pytest.raises(ValueError):
+            read_attempt_ledger(path)
+
+    def test_malformed_attempt_fail_closed(self, tmp_path):
+        path = self._ledger(tmp_path, [{"attempt_id": "a1"}], strict=False)
+        with pytest.raises(ValueError):
+            read_attempt_ledger(path)
+
+    def test_attempts_not_list_fail_closed(self, tmp_path):
+        p = tmp_path / "ledger.json"
+        p.write_text(json.dumps({"schema_version": "holdout_attempt_ledger_v1",
+                                 "attempts": "not_a_list"}, ensure_ascii=False),
+                     encoding="utf-8")
+        with pytest.raises(ValueError):
+            read_attempt_ledger(str(p))
+
+    def test_existing_exclusive_lock_rejects(self, tmp_path):
+        path = str(tmp_path / "ledger.json")
+        Path(path + ".lock").write_text("", encoding="utf-8")
+        with pytest.raises(RuntimeError):
+            atomic_create_attempt(path, _holdout_config(tmp_path))
+
+    def test_started_at_real_utc(self, tmp_path):
+        from datetime import datetime
+        path = str(tmp_path / "ledger.json")
+        attempt = atomic_create_attempt(path, _holdout_config(tmp_path))
+        parsed = datetime.fromisoformat(attempt["started_at"])
+        assert parsed.tzinfo is not None
+        assert parsed.utcoffset() is not None
+
     def test_empty_ledger_allows_first_attempt(self, tmp_path):
         path = str(tmp_path / "ledger.json")
         check_attempt_allowed(path)
@@ -297,8 +362,10 @@ class TestAttemptLedger:
         assert attempt["status"] == "prepared"
         assert attempt["gate3_system_freeze_id"] == "2ec11a69b173"
         assert attempt["actual_execution_source_commit"] == DEV_COMMIT
+        assert attempt["started_at"] is not None
         ledger = read_attempt_ledger(path)
         assert len(ledger["attempts"]) == 1
+        assert not Path(path + ".lock").exists()  # 正常完成释放锁
 
 
 class TestGoldIsolation:

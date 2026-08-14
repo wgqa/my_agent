@@ -12,8 +12,10 @@ tmp_path / synthetic fixture / 公开 Dev fixture。实际执行（09B）在授�
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from evaluation.gate3.adaptive_dev import (
@@ -37,14 +39,12 @@ EXPECTED_HOLDOUT_EVALUATION_SET_ID = "79a6bc0814a3"
 EXPECTED_HOLDOUT_CASE_COUNT = 12
 
 # attempt 状态：prepared / running / completed / invalid_infrastructure / failed_system。
+# 最保守规则：ledger 存在任何合法 attempt（含 prepared）即禁止自动创建另一个；
+# invalid_infrastructure 的替代由 Reviewer 单独放行，不留自动后门。
 HOLDOUT_ATTEMPT_STATUSES = (
     "prepared", "running", "completed",
     "invalid_infrastructure", "failed_system",
 )
-# 一旦出现这些状态即禁止第二次开始。
-_ACTIVE_BLOCKING_STATUSES = ("running", "completed", "failed_system")
-# invalid_infrastructure：不得自动重跑，必须 Reviewer audit 后显式授权/拒绝替代 attempt。
-_REVIEWER_GATED_STATUS = "invalid_infrastructure"
 
 # Runner 禁止提供的性能 override 参数名（必须在 CLI 中缺失）。
 FORBIDDEN_OVERRIDE_ARGS = (
@@ -265,57 +265,98 @@ def _git_head(repo: str) -> str:
 
 
 def read_attempt_ledger(path: str) -> dict:
+    """严格读取并校验 ledger：schema、attempts 类型、每条 attempt 结构、合法 status。
+
+    任何损坏/未知/缺失一律 fail-closed（ValueError）。
+    """
     p = Path(path)
     if not p.exists():
         return {"schema_version": HOLDOUT_ATTEMPT_LEDGER_SCHEMA, "attempts": []}
-    ledger = json.loads(p.read_text("utf-8"))
+    try:
+        ledger = json.loads(p.read_text("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"attempt ledger 损坏：{exc}") from exc
+    if not isinstance(ledger, dict):
+        raise ValueError("attempt ledger 必须是 JSON object")
     if ledger.get("schema_version") != HOLDOUT_ATTEMPT_LEDGER_SCHEMA:
-        raise ValueError("attempt ledger schema_version 不一致")
+        raise ValueError("attempt ledger schema_version 不一致或缺失")
+    attempts = ledger.get("attempts")
+    if not isinstance(attempts, list):
+        raise ValueError("attempt ledger attempts 必须是数组")
+    required = ("attempt_id", "gate3_system_freeze_id", "gate3_dataset_freeze_id",
+                "holdout_evaluation_set_id", "actual_execution_source_commit",
+                "started_at", "status")
+    for i, a in enumerate(attempts):
+        if not isinstance(a, dict):
+            raise ValueError(f"attempt[{i}] 必须是 object")
+        missing = [f for f in required if f not in a]
+        if missing:
+            raise ValueError(f"attempt[{i}] 缺少字段: {missing}")
+        if a["status"] not in HOLDOUT_ATTEMPT_STATUSES:
+            raise ValueError(
+                f"attempt[{i}] 非法 status {a['status']!r}（fail-closed）"
+            )
     return ledger
 
 
-def check_attempt_allowed(path: str) -> None:
-    """正式运行前调用：任何 running/completed/failed_system → 禁止第二次开始；
-    invalid_infrastructure → 不得自动重跑（需 Reviewer audit）。"""
-    ledger = read_attempt_ledger(path)
+def _check_attempt_allowed_ledger(ledger: dict) -> None:
+    """最保守：ledger 存在任何合法 attempt（含 prepared）即禁止自动创建另一个。
+
+    invalid_infrastructure 的替代由 Reviewer 单独放行，本层不留自动后门。
+    """
     for attempt in ledger.get("attempts", []):
-        status = attempt.get("status")
-        if status in _ACTIVE_BLOCKING_STATUSES:
-            raise RuntimeError(
-                f"attempt {attempt.get('attempt_id')} 状态 {status}："
-                "已有 active/terminal attempt，禁止第二次开始"
-            )
-        if status == _REVIEWER_GATED_STATUS:
-            raise RuntimeError(
-                "invalid_infrastructure attempt：不得自动重跑；"
-                "需 Reviewer audit 后显式授权/拒绝替代 attempt"
-            )
+        raise RuntimeError(
+            f"attempt {attempt.get('attempt_id')} 状态 {attempt.get('status')}："
+            "ledger 已存在合法 attempt，禁止自动创建另一个；"
+            "invalid_infrastructure 替代需 Reviewer 单独放行"
+        )
+
+
+def check_attempt_allowed(path: str) -> None:
+    """正式运行前调用：ledger 存在任何合法 attempt 即拒绝（含 prepared）。"""
+    _check_attempt_allowed_ledger(read_attempt_ledger(path))
 
 
 def atomic_create_attempt(path: str, config: Gate3HoldoutConfig) -> dict:
     """09B 首次访问 sealed 前原子登记 attempt；09A preflight 不得调用。
 
-    一旦存在任何 running/completed/failed_system：拒绝第二次开始；
-    invalid_infrastructure：拒绝自动重跑。
+    跨进程互斥：sibling lock 文件 O_CREAT|O_EXCL|O_WRONLY；持锁期间完成
+    read → validate → check → append → write。异常残留 lock 不自动删除
+    （fail-closed，交 Reviewer 判断）；正常完成才释放锁。
     """
-    check_attempt_allowed(path)
-    attempt = {
-        "attempt_id": _sha256_bytes(_canonical({
+    lock_path = str(Path(path)) + ".lock"
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise RuntimeError(
+            f"ledger 锁已存在: {lock_path}（可能是异常残留，Reviewer 判断）"
+        ) from None
+    try:
+        os.close(fd)
+        ledger = read_attempt_ledger(path)  # 严格校验
+        _check_attempt_allowed_ledger(ledger)  # 任何合法 attempt 均拒绝
+        started_at = datetime.now(timezone.utc).isoformat()
+        attempt = {
+            "attempt_id": _sha256_bytes(_canonical({
+                "gate3_system_freeze_id": config.gate3_system_freeze_id,
+                "gate3_dataset_freeze_id": config.gate3_dataset_freeze_id,
+                "holdout_evaluation_set_id": config.holdout_evaluation_set_id,
+                "actual_execution_source_commit": config.actual_execution_source_commit,
+            }))[:12],
             "gate3_system_freeze_id": config.gate3_system_freeze_id,
             "gate3_dataset_freeze_id": config.gate3_dataset_freeze_id,
             "holdout_evaluation_set_id": config.holdout_evaluation_set_id,
             "actual_execution_source_commit": config.actual_execution_source_commit,
-        }))[:12],
-        "gate3_system_freeze_id": config.gate3_system_freeze_id,
-        "gate3_dataset_freeze_id": config.gate3_dataset_freeze_id,
-        "holdout_evaluation_set_id": config.holdout_evaluation_set_id,
-        "actual_execution_source_commit": config.actual_execution_source_commit,
-        "started_at": None,
-        "status": "prepared",
-    }
-    ledger = read_attempt_ledger(path)
-    ledger.setdefault("attempts", []).append(attempt)
-    write_text_atomic(Path(path), _canonical(ledger).decode("utf-8"))
+            "started_at": started_at,
+            "status": "prepared",
+        }
+        ledger.setdefault("attempts", []).append(attempt)
+        write_text_atomic(Path(path), _canonical(ledger).decode("utf-8"))
+    except BaseException:
+        # fail-closed：保留 lock，不当作没发生，交 Reviewer 判断。
+        raise
+    else:
+        os.unlink(lock_path)  # 正常完成释放锁
     return attempt
 
 
