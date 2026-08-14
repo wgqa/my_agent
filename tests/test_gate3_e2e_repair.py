@@ -10,6 +10,7 @@ run bundle and no network.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 
@@ -17,6 +18,7 @@ import pytest
 
 from evaluation.gate3.e2e import (
     GATE3_ANSWER_JUDGE_PROMPT_SHA256,
+    E2ERepairConfig,
     Gate3E2EConfig,
     build_repair_config,
     compute_answer_metrics,
@@ -146,9 +148,20 @@ def _make_parent_bundle(tmp_path):
     (tmp_path / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False), encoding="utf-8"
     )
+    lock = {
+        "parent_run_id": cfg.run_id,
+        "run_config_sha256": hashlib.sha256(
+            (parent / "run_config.json").read_bytes()).hexdigest(),
+        "case_results_sha256": hashlib.sha256(
+            (parent / "case_results.jsonl").read_bytes()).hexdigest(),
+        "cited_evidence_sha256": hashlib.sha256(
+            (parent / "cited_evidence.jsonl").read_bytes()).hexdigest(),
+        "source_answer_judgments_sha256": hashlib.sha256(
+            (parent / "answer_judgments.jsonl").read_bytes()).hexdigest(),
+    }
     return {
         "parent": parent, "dev": str(dev_path), "corpus": str(corpus_root),
-        "manifest": str(tmp_path / "manifest.json"),
+        "manifest": str(tmp_path / "manifest.json"), "lock": lock,
         "records": records, "judgments": judgments,
     }
 
@@ -160,13 +173,14 @@ def _dev_set(bundle):
     return Gate3EvaluationSet.load_jsonl(bundle["dev"], corpus)
 
 
-def _repair(bundle, tmp_path, eval_commit=EVAL_COMMIT, **kw):
+def _repair(bundle, tmp_path, eval_commit=EVAL_COMMIT, lock=None, **kw):
     return reevaluate_existing_e2e_run(
         bundle["parent"], tmp_path / "repairs",
         evaluation_source_commit=eval_commit,
         dev_jsonl_path=bundle["dev"],
         frozen_index_manifest_path=bundle["manifest"],
         corpus_root=bundle["corpus"],
+        source_lock=lock if lock is not None else bundle["lock"],
         **kw,
     )
 
@@ -215,12 +229,12 @@ class TestRepairOffline:
 
 class TestRepairRejects:
     def test_dev_sha_mismatch_rejects(self, bundle_factory, tmp_path):
-        # 篡改 run_config 中 dev_jsonl_sha256 → 与实际文件不符 → 拒绝
+        # 篡改 run_config（dev_jsonl_sha256）→ run_config SHA 与冻结 lock 不符 → 拒绝
         cfg_path = bundle_factory["parent"] / "run_config.json"
         pc = json.loads(cfg_path.read_text("utf-8"))
         pc["dev_jsonl_sha256"] = "ab" * 32
         cfg_path.write_text(json.dumps(pc, ensure_ascii=False), encoding="utf-8")
-        with pytest.raises(ValueError):
+        with pytest.raises(RuntimeError):
             _repair(bundle_factory, tmp_path)
 
     def test_judge_input_mismatch_rejects(self, bundle_factory, tmp_path):
@@ -279,43 +293,131 @@ class TestZeroObligation:
         assert a["citation_valid_denominator"] == 1
         assert a["citation_valid_case_count"] == 1
 
+    def test_zero_obligation_case_count_computed(self, bundle_factory, tmp_path):
+        result = _repair(bundle_factory, tmp_path)
+        a = result["metrics"]["answer"]
+        # 合成父 bundle 恰有 1 个零 obligation case（g3q002）
+        assert a["zero_obligation_case_count"] == 1
+        assert "zero_obligation_case_count" in result["metrics"]["answer"]
+
+
+class TestReport:
+    def test_report_has_no_fixed_numbers(self, bundle_factory, tmp_path):
+        from evaluation.gate3.e2e import build_repair_report
+        result = _repair(bundle_factory, tmp_path)
+        repair_dir = tmp_path / "repairs" / result["repair_id"]
+        text = (repair_dir / "comparison_report.md").read_text("utf-8")
+        for forbidden in ("4172f6cc1d6f", "/44", "/20", "16/20", "21/44",
+                          "8/20", "reusable judgments = 16", "Planner calls = 24"):
+            assert forbidden not in text, f"report 含硬编码: {forbidden}"
+
+    def test_report_counts_from_metrics(self, bundle_factory, tmp_path):
+        from evaluation.gate3.e2e import build_repair_report
+        result = _repair(bundle_factory, tmp_path)
+        repair_dir = tmp_path / "repairs" / result["repair_id"]
+        text = (repair_dir / "comparison_report.md").read_text("utf-8")
+        a = result["metrics"]["answer"]
+        assert f"{a['answer_pass_case_count']}/{a['answerable_case_count']}" in text
+        assert f"{a['zero_obligation_case_count']}" in text
+
+
+class TestPaths:
+    def test_no_local_absolute_paths_in_artifacts(self, bundle_factory, tmp_path):
+        result = _repair(bundle_factory, tmp_path)
+        repair_dir = tmp_path / "repairs" / result["repair_id"]
+        import re
+        drive = re.compile(r"^[A-Za-z]:[\\/]", re.MULTILINE)
+        for f in repair_dir.iterdir():
+            if f.is_file():
+                text = f.read_text("utf-8")
+                assert not drive.search(text), f"{f.name} 含 Windows 绝对路径"
+                assert str(bundle_factory["parent"]) not in text, (
+                    f"{f.name} 泄露父 run 本地路径"
+                )
+                assert not text.startswith("/"), f"{f.name} 以绝对路径开头"
+
+    def test_source_artifacts_has_no_path_field(self, bundle_factory, tmp_path):
+        result = _repair(bundle_factory, tmp_path)
+        repair_dir = tmp_path / "repairs" / result["repair_id"]
+        sa = json.loads((repair_dir / "source_artifacts.json").read_text("utf-8"))
+        assert "parent_run_dir" not in sa
+        for k in ("parent_run_id", "generation_source_commit",
+                  "case_results_sha256", "cited_evidence_sha256",
+                  "source_answer_judgments_sha256", "run_config_sha256"):
+            assert k in sa
+
 
 class TestIdentity:
     def test_dual_source_commits_bound(self, bundle_factory):
         rc1 = build_repair_config(bundle_factory["parent"],
                                   evaluation_source_commit=EVAL_COMMIT,
-                                  judge_model="deepseek-chat")
+                                  source_lock=bundle_factory["lock"])
         rc2 = build_repair_config(bundle_factory["parent"],
                                   evaluation_source_commit="f" * 40,
-                                  judge_model="deepseek-chat")
+                                  source_lock=bundle_factory["lock"])
         assert rc1.repair_id != rc2.repair_id
         assert rc1.generation_source_commit == GEN_COMMIT
         assert rc1.evaluation_source_commit == EVAL_COMMIT
 
-    def test_generation_artifact_hash_changes_identity(self, bundle_factory):
-        rc_before = build_repair_config(bundle_factory["parent"],
-                                        evaluation_source_commit=EVAL_COMMIT,
-                                        judge_model="deepseek-chat")
+    def test_prepinned_source_sha_mismatch_rejects(self, bundle_factory):
+        # 篡改父 case_results 但保留冻结 lock → 实际 SHA 与冻结不符 → fail-fast
         with open(bundle_factory["parent"] / "case_results.jsonl", "a",
                   encoding="utf-8") as f:
             f.write("{}")
-        rc_after = build_repair_config(bundle_factory["parent"],
-                                       evaluation_source_commit=EVAL_COMMIT,
-                                       judge_model="deepseek-chat")
-        assert rc_before.repair_id != rc_after.repair_id
-        assert rc_before.case_results_sha256 != rc_after.case_results_sha256
+        with pytest.raises(RuntimeError):
+            build_repair_config(bundle_factory["parent"],
+                                evaluation_source_commit=EVAL_COMMIT,
+                                source_lock=bundle_factory["lock"])
+
+    def test_judge_config_inherited_from_parent(self, bundle_factory):
+        # Judge provenance 完全继承父 run_config，无法 override
+        rc = build_repair_config(bundle_factory["parent"],
+                                 evaluation_source_commit=EVAL_COMMIT,
+                                 source_lock=bundle_factory["lock"])
+        pc = json.loads((bundle_factory["parent"] / "run_config.json")
+                        .read_text("utf-8"))
+        assert rc.judge_model == pc["judge_model"]
+        assert rc.judge_provider == pc["judge_provider"]
+        assert rc.judge_temperature == pc["judge_temperature"]
+        assert rc.judge_max_tokens == pc["judge_max_tokens"]
+        assert rc.judge_prompt_sha256 == GATE3_ANSWER_JUDGE_PROMPT_SHA256
+        assert "judge_model" not in _signature_names(build_repair_config)
+
+    def test_judge_config_changes_identity(self, bundle_factory):
+        from evaluation.gate3.e2e import E2ERepairConfig
+        base = E2ERepairConfig(
+            parent_generation_run_id=bundle_factory["lock"]["parent_run_id"],
+            generation_source_commit=GEN_COMMIT,
+            evaluation_source_commit=EVAL_COMMIT,
+            case_results_sha256=bundle_factory["lock"]["case_results_sha256"],
+            cited_evidence_sha256=bundle_factory["lock"]["cited_evidence_sha256"],
+            source_answer_judgments_sha256=bundle_factory["lock"][
+                "source_answer_judgments_sha256"],
+            dev_evaluation_set_id="f2144030d754",
+            dev_jsonl_sha256="0b" * 32,
+            gate3_dataset_freeze_id="257fa0d0a6d6",
+            judge_prompt_sha256=GATE3_ANSWER_JUDGE_PROMPT_SHA256,
+        )
+        other = E2ERepairConfig(
+            **{**dataclasses.asdict(base),
+               "judge_model": "deepseek-v4-flash",
+               "judge_prompt_version": "gate3_answer_judge_prompt_v1"})
+        assert base.repair_id != other.repair_id
 
     def test_parent_run_identity_bound(self, bundle_factory):
         rc = build_repair_config(bundle_factory["parent"],
                                  evaluation_source_commit=EVAL_COMMIT,
-                                 judge_model="deepseek-chat")
-        pc = json.loads((bundle_factory["parent"] / "run_config.json")
-                        .read_text("utf-8"))
-        assert rc.parent_generation_run_id == pc["run_id"]
+                                 source_lock=bundle_factory["lock"])
+        assert rc.parent_generation_run_id == bundle_factory["lock"]["parent_run_id"]
 
     def test_should_call_judge_gating(self):
         assert should_call_judge({"status": "completed", "answer": "a"}, True)
         assert not should_call_judge({"status": "completed", "answer": "a"}, False)
+
+
+def _signature_names(func):
+    import inspect
+    return list(inspect.signature(func).parameters)
 
 
 class TestSecrets:

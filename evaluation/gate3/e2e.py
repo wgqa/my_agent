@@ -1018,9 +1018,6 @@ def compute_answer_metrics(records, judgments, dev_set, case_by_id) -> dict:
     for case in answerable:
         rec = by_case[case.case_id]
         j = by_judge.get(case.case_id, {})
-        if not case.evidence_obligations:
-            zero_obligation_cases += 1
-            continue
         total_obligations += len(case.evidence_obligations)
         has_answer = rec.get("status") == "completed" and bool(rec.get("answer"))
         if not has_answer:
@@ -1051,6 +1048,9 @@ def compute_answer_metrics(records, judgments, dev_set, case_by_id) -> dict:
             pass_cases += 1
 
     non_answerable = [c for c in dev_set.cases if c.answerability != "answerable"]
+    zero_obligation_case_count = sum(
+        1 for c in dev_set.cases if not c.evidence_obligations
+    )
     return {
         "answer_obligation_covered": covered_obligations,
         "answer_obligation_total": total_obligations,
@@ -1068,6 +1068,7 @@ def compute_answer_metrics(records, judgments, dev_set, case_by_id) -> dict:
         "answer_pass_rate": _safe_rate(pass_cases, len(answerable)),
         "invalid_judge_case_count": invalid_judge_cases,
         "no_answer_case_count": no_answer_cases,
+        "zero_obligation_case_count": zero_obligation_case_count,
         "non_answerable_case_count": len(non_answerable),
         "non_answerable_cases": sorted(c.case_id for c in non_answerable),
     }
@@ -1161,13 +1162,14 @@ class E2ERepairConfig:
     dev_jsonl_sha256: str = ""
     gate3_dataset_freeze_id: str = ""
     judge_prompt_sha256: str = ""
-    # Judge provenance（复用既有判断，记录其配置）
+    # Judge provenance（复用既有判断，完全继承父 run_config，不可覆盖）
     judge_provider: str = "deepseek"
     judge_model: str = "deepseek-chat"
     judge_temperature: float = 0.0
     judge_timeout: float = 60.0
     judge_max_tokens: int = 800
     judge_max_retries: int = 2
+    judge_prompt_version: str = GATE3_ANSWER_JUDGE_PROMPT_VERSION
     # 执行路径（不进 repair_id）
     parent_run_dir: str = ""
     output_dir: str = ""
@@ -1183,6 +1185,21 @@ class E2ERepairConfig:
         _check_hex(self.dev_evaluation_set_id, 12, "dev_evaluation_set_id")
         _check_hex(self.gate3_dataset_freeze_id, 12, "gate3_dataset_freeze_id")
         _check_nonempty_no_ws(self.judge_model, "judge_model")
+        _check_nonempty_no_ws(self.judge_prompt_version, "judge_prompt_version")
+        for label, value in (
+            ("judge_temperature", self.judge_temperature),
+            ("judge_timeout", self.judge_timeout),
+        ):
+            if isinstance(value, bool) or type(value) not in (int, float):
+                raise TypeError(f"{label} 必须是 int/float（不允许 bool）")
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{label} 必须是有界非负数")
+        for label in ("judge_max_tokens", "judge_max_retries"):
+            value = getattr(self, label)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"{label} 必须是整数（不允许 bool）")
+            if value < 0:
+                raise ValueError(f"{label} 取值非法：{value}")
         for label in ("evaluation_schema_version", "schema_version"):
             _check_nonempty_no_ws(getattr(self, label), label)
 
@@ -1199,6 +1216,13 @@ class E2ERepairConfig:
             "dev_evaluation_set_id": self.dev_evaluation_set_id,
             "dev_jsonl_sha256": self.dev_jsonl_sha256,
             "gate3_dataset_freeze_id": self.gate3_dataset_freeze_id,
+            "judge_provider": self.judge_provider,
+            "judge_model": self.judge_model,
+            "judge_temperature": self.judge_temperature,
+            "judge_timeout": self.judge_timeout,
+            "judge_max_tokens": self.judge_max_tokens,
+            "judge_max_retries": self.judge_max_retries,
+            "judge_prompt_version": self.judge_prompt_version,
             "judge_prompt_sha256": self.judge_prompt_sha256,
         }
 
@@ -1209,12 +1233,6 @@ class E2ERepairConfig:
     def to_dict(self) -> dict:
         payload = dict(self.identity_payload())
         payload["repair_id"] = self.repair_id
-        payload["judge_provider"] = self.judge_provider
-        payload["judge_model"] = self.judge_model
-        payload["judge_temperature"] = self.judge_temperature
-        payload["judge_timeout"] = self.judge_timeout
-        payload["judge_max_tokens"] = self.judge_max_tokens
-        payload["judge_max_retries"] = self.judge_max_retries
         payload["parent_run_dir"] = "set" if self.parent_run_dir else ""
         payload["output_dir"] = "set" if self.output_dir else ""
         return payload
@@ -1224,31 +1242,69 @@ def build_repair_config(
     parent_run_dir: Path,
     *,
     evaluation_source_commit: str,
-    judge_model: str,
+    source_lock: dict,
 ) -> E2ERepairConfig:
-    """从父 run 持久化 Artifact 构建 repair 配置（不调用任何 LLM/检索）。"""
+    """从父 run 持久化 Artifact 构建 repair 配置（不调用任何 LLM/检索）。
+
+    source_lock 是**事先冻结**的 expected hashes（parent_run_id /
+    run_config_sha256 / case_results_sha256 / cited_evidence_sha256 /
+    source_answer_judgments_sha256）。本函数只做"实际 vs 冻结"校验，
+    不得读取文件后自己生成 expected SHA；任一 mismatch fail-fast。
+    Judge provenance 完全继承父 run_config.json，不可覆盖。
+    """
     parent = Path(parent_run_dir)
     run_config_path = parent / "run_config.json"
     for required in ("run_config.json", "case_results.jsonl",
                      "cited_evidence.jsonl", "answer_judgments.jsonl"):
         if not (parent / required).is_file():
             raise FileNotFoundError(f"父 run 缺少 {required}: {parent}")
+    lock_keys = ("parent_run_id", "run_config_sha256", "case_results_sha256",
+                 "cited_evidence_sha256", "source_answer_judgments_sha256")
+    missing_lock = [k for k in lock_keys if k not in source_lock]
+    if missing_lock:
+        raise ValueError(f"source_lock 缺少字段: {missing_lock}")
+
     pc = json.loads(run_config_path.read_text("utf-8"))
+    if pc.get("run_id") != source_lock["parent_run_id"]:
+        raise RuntimeError(
+            f"source lock parent_run_id 不匹配：冻结 {source_lock['parent_run_id']} "
+            f"vs 实际 {pc.get('run_id')}"
+        )
+    actual = {
+        "run_config_sha256": _sha256_file(parent / "run_config.json"),
+        "case_results_sha256": _sha256_file(parent / "case_results.jsonl"),
+        "cited_evidence_sha256": _sha256_file(parent / "cited_evidence.jsonl"),
+        "source_answer_judgments_sha256": _sha256_file(
+            parent / "answer_judgments.jsonl"),
+    }
+    for key in ("run_config_sha256", "case_results_sha256",
+                "cited_evidence_sha256", "source_answer_judgments_sha256"):
+        if actual[key] != source_lock[key]:
+            raise RuntimeError(
+                f"source lock mismatch [{key}]: 冻结 {source_lock[key]} "
+                f"vs 实际 {actual[key]}"
+            )
     if pc.get("judge_prompt_sha256") != GATE3_ANSWER_JUDGE_PROMPT_SHA256:
         raise ValueError("父 run judge_prompt_sha256 与冻结 judge prompt 不一致")
     return E2ERepairConfig(
-        parent_generation_run_id=pc["run_id"],
+        parent_generation_run_id=source_lock["parent_run_id"],
         generation_source_commit=pc["source_commit"],
         evaluation_source_commit=evaluation_source_commit,
-        case_results_sha256=_sha256_file(parent / "case_results.jsonl"),
-        cited_evidence_sha256=_sha256_file(parent / "cited_evidence.jsonl"),
-        source_answer_judgments_sha256=_sha256_file(
-            parent / "answer_judgments.jsonl"),
+        case_results_sha256=source_lock["case_results_sha256"],
+        cited_evidence_sha256=source_lock["cited_evidence_sha256"],
+        source_answer_judgments_sha256=source_lock[
+            "source_answer_judgments_sha256"],
         dev_evaluation_set_id=pc["dev_evaluation_set_id"],
         dev_jsonl_sha256=pc["dev_jsonl_sha256"],
         gate3_dataset_freeze_id=pc["gate3_dataset_freeze_id"],
+        judge_provider=pc["judge_provider"],
+        judge_model=pc["judge_model"],
+        judge_temperature=pc["judge_temperature"],
+        judge_timeout=pc["judge_timeout"],
+        judge_max_tokens=pc["judge_max_tokens"],
+        judge_max_retries=pc["judge_max_retries"],
+        judge_prompt_version=pc["judge_prompt_version"],
         judge_prompt_sha256=GATE3_ANSWER_JUDGE_PROMPT_SHA256,
-        judge_model=judge_model,
         parent_run_dir=str(parent),
     )
 
@@ -1339,13 +1395,14 @@ def reevaluate_existing_e2e_run(
     dev_jsonl_path: str,
     frozen_index_manifest_path: str,
     corpus_root: str,
-    judge_model: str = "deepseek-chat",
+    source_lock: dict,
 ) -> dict:
     """纯离线 evaluation repair：复用父 run 持久化生成/Judge 结果，用当前
-    evaluator 重算指标。禁止任何 LLM/embedding/retrieval 调用；不修改父 run。"""
+    evaluator 重算指标。禁止任何 LLM/embedding/retrieval 调用；不修改父 run。
+    source_lock 为事先冻结的 expected hashes（独立校验，非读取文件后自算）。"""
     repair = build_repair_config(
         parent_run_dir, evaluation_source_commit=evaluation_source_commit,
-        judge_model=judge_model,
+        source_lock=source_lock,
     )
     if _sha256_file(Path(dev_jsonl_path)) != repair.dev_jsonl_sha256:
         raise ValueError("dev jsonl 实际 SHA 与父 run 记录不一致")
@@ -1399,13 +1456,12 @@ def reevaluate_existing_e2e_run(
 
     parent = Path(parent_run_dir)
     source_artifacts = {
-        "parent_run_dir": str(parent),
         "parent_run_id": repair.parent_generation_run_id,
         "generation_source_commit": repair.generation_source_commit,
         "case_results_sha256": repair.case_results_sha256,
         "cited_evidence_sha256": repair.cited_evidence_sha256,
         "source_answer_judgments_sha256": repair.source_answer_judgments_sha256,
-        "run_config_sha256": _sha256_file(parent / "run_config.json"),
+        "run_config_sha256": source_lock["run_config_sha256"],
     }
     write_text_atomic(
         output_dir / "repair_config.json",
@@ -1456,6 +1512,7 @@ def reevaluate_existing_e2e_run(
 def build_repair_report(repair, metrics, *, reusable_count, input_mismatch) -> str:
     d = metrics["deterministic"]
     a = metrics["answer"]
+    failed_count = d["status_counts"].get("failed", 0)
     lines = ["# G3-E2E-07A-R1 离线 Evaluation Provenance Repair（Dev）", ""]
     lines.append(
         "> **R1 is an offline evaluation provenance repair — NOT a "
@@ -1463,7 +1520,7 @@ def build_repair_report(repair, metrics, *, reusable_count, input_mismatch) -> s
         "Retrieval/Generator/Judge/embedding；不改 prompt/model；不改父 run。"
     )
     lines.append("")
-    lines.append("## 父 run 4172f6cc1d6f 身份")
+    lines.append(f"## 父 run {repair.parent_generation_run_id} 身份")
     lines.append("")
     lines.append("- **generation_valid = true**：generation/retrieval 观测有效")
     lines.append("- **final_evaluation_superseded = true**")
@@ -1473,8 +1530,9 @@ def build_repair_report(repair, metrics, *, reusable_count, input_mismatch) -> s
         "after recorded generation source commit"
     )
     lines.append(
-        "- 4 个 GENERATION_FAILED / live Planner drift / retrieval 35/44 "
-        "为真实发生行为，原样保留，不被抹掉"
+        f"- {failed_count} 个 GENERATION_FAILED / live Planner drift / "
+        f"retrieval {d['obligation']['obligation_covered']}/"
+        f"{d['obligation']['obligation_total']} 为真实发生行为，原样保留，不被抹掉"
     )
     lines.append("")
     lines.append("## 双来源绑定")
@@ -1486,12 +1544,18 @@ def build_repair_report(repair, metrics, *, reusable_count, input_mismatch) -> s
     lines.append("")
     lines.append("## Online observations inherited unchanged")
     lines.append("")
-    lines.append(f"- Planner calls = 24；retrieval calls = "
-                 f"{d['retrieval_call_count_total']}")
-    lines.append(f"- status 分布 = {d['status_counts']}（4 个 GENERATION_FAILED "
-                 "原样保留，未重跑生成）")
-    lines.append(f"- planner fallback = {d['planner_fallback_count']}（均 "
-                 "PLAN_INVALID_SCHEMA → single_retrieval）")
+    lines.append(
+        f"- Planner calls = {metrics['case_count']}；retrieval calls = "
+        f"{d['retrieval_call_count_total']}"
+    )
+    lines.append(
+        f"- status 分布 = {d['status_counts']}（{failed_count} 个 "
+        "GENERATION_FAILED 原样保留，未重跑生成）"
+    )
+    lines.append(
+        f"- planner fallback = {d['planner_fallback_count']}（均 "
+        "PLAN_INVALID_SCHEMA → single_retrieval）"
+    )
     lines.append(
         f"- retrieval obligation 覆盖 = {d['obligation']['obligation_covered']}/"
         f"{d['obligation']['obligation_total']} = "
@@ -1503,8 +1567,9 @@ def build_repair_report(repair, metrics, *, reusable_count, input_mismatch) -> s
     lines.append("")
     lines.append("## Offline metrics recomputed（修正后 evaluator）")
     lines.append("")
-    lines.append(f"- reusable judgments = {reusable_count}/16；"
-                 f"input mismatch = {input_mismatch}")
+    lines.append(
+        f"- reusable judgments = {reusable_count}；input mismatch = {input_mismatch}"
+    )
     lines.append(
         "- Judge gating：零 obligation case judge_not_required "
         "(reason=zero_obligation)，不进任何分母"
@@ -1531,38 +1596,15 @@ def build_repair_report(repair, metrics, *, reusable_count, input_mismatch) -> s
     lines.append(f"| unsupported claim case | {a['unsupported_claim_case_count']} |")
     lines.append(f"| invalid judge | {a['invalid_judge_case_count']} |")
     lines.append(f"| no-answer | {a['no_answer_case_count']} |")
+    lines.append(f"| zero-obligation | {a['zero_obligation_case_count']} |")
     lines.append(
         f"| answer pass | {a['answer_pass_case_count']}/"
         f"{a['answerable_case_count']} = {a['answer_pass_rate']:.4f} |"
     )
     lines.append("")
-    lines.append("## 4172 → R1 对照（reproducibility repair，非性能 A/B）")
-    lines.append("")
-    lines.append("| 指标 | 4172（在线，初报） | R1（离线 repair 重算） |")
-    lines.append("|---|---|---|")
-    lines.append("| generation failures | 4 | 4（继承，未重跑） |")
     lines.append(
-        f"| retrieval obligation | {d['obligation']['obligation_covered']}/44 | "
-        f"{d['obligation']['obligation_covered']}/44（继承） |"
-    )
-    lines.append(
-        f"| answer obligation | 21/44 | {a['answer_obligation_covered']}/44（重算） |"
-    )
-    lines.append(
-        f"| answer pass | 8/20 | {a['answer_pass_case_count']}/20（重算） |"
-    )
-    lines.append(
-        f"| citation valid | 16/20* | {a['citation_valid_case_count']}（重算，"
-        "denominator 修正） |"
-    )
-    lines.append("")
-    lines.append(
-        "* 4172 初报 citation_valid 分母曾含 4 个 no-answer；R1 修正分母只计"
-        "实际生成且可评价的 answerable case。"
-    )
-    lines.append("")
-    lines.append(
-        "> LLM 非确定性说明：本 repair 为纯离线，未调用任何 LLM；指标全部由"
-        "持久化 per-case/judgment 用修正后 evaluator 独立重算。"
+        "> 本 repair 为纯离线，未调用任何 LLM；指标全部由持久化 per-case/"
+        "judgment 用修正后 evaluator 独立重算。generation/retrieval 观测全部"
+        "继承父 run，无新在线调用。"
     )
     return "\n".join(lines)
