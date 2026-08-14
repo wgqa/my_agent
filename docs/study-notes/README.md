@@ -59,6 +59,7 @@
 | 76 | [76-Gate3真实E2E答案与引用评测.md](76-Gate3真实E2E答案与引用评测.md) | G3-E2E-07A：Dev 24 真实 Planner+Generator 端到端答案评测（两阶段 Gold 隔离 + LLM Judge），run_id 4172f6cc1d6f；answer_pass 8/20、answer_obligation 21/44、4 case generator 空输出失败 |
 | 77 | [77-Gate3系统冻结与Holdout前置审计.md](77-Gate3系统冻结与Holdout前置审计.md) | G3-FREEZE-08-SYSTEM：Gate 3 Dev 侧系统 Freeze Candidate（gate3_system_freeze_id=2ec11a69b173、frozen baseline fed9d15）；机器可核验 freeze JSON、known_limitations、holdout_execution_contract（Holdout=BLOCKED）；面向面试复习 |
 | 78 | [78-Gate3-Holdout一次性执行协议.md](78-Gate3-Holdout一次性执行协议.md) | G3-HOLDOUT-09A-HARNESS：一次性 Freeze-bound Holdout harness（独立 Gate3HoldoutConfig、freeze 唯一配置来源、无 CLI override、attempt ledger、preflight 0 LLM/sealed）；holdout_run_id a1dc0a4bab03 |
+| 79 | [79-Gate3-Holdout最终执行器与封卷流程.md](79-Gate3-Holdout最终执行器与封卷流程.md) | G3-HOLDOUT-09B-FINAL-EXECUTOR：execute_holdout 写死 09C 顺序 + sealed 边界 + formal identity（含 holdout_jsonl_sha256）；attempt prepared→running→completed；系统失败 vs 基础设施失败；synthetic 验证 |
 
 ## FROZEN_EVIDENCE（10 份）
 
