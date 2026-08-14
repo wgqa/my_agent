@@ -1008,8 +1008,12 @@ def compute_answer_metrics(records, judgments, dev_set, case_by_id) -> dict:
         rec = by_case[case.case_id]
         j = by_judge.get(case.case_id, {})
         if not case.evidence_obligations:
+            zero_obligation_cases += 1
             continue
         total_obligations += len(case.evidence_obligations)
+        has_answer = rec.get("status") == "completed" and bool(rec.get("answer"))
+        if not has_answer:
+            no_answer_cases += 1
         coverage = j.get("obligation_coverage", {})
         covered = sum(1 for o in case.evidence_obligations
                       if coverage.get(o.obligation_id) == JUDGE_COVERED)
@@ -1022,15 +1026,16 @@ def compute_answer_metrics(records, judgments, dev_set, case_by_id) -> dict:
             unsupported_cases += 1
         if j.get("judge_status") == "invalid":
             invalid_judge_cases += 1
-        if rec.get("status") != "completed" or not rec.get("answer"):
-            no_answer_cases += 1
-        cit = evaluate_citations(
-            rec.get("answer"), rec.get("evidence_citation_ids", [])
-        )
-        citation_ok = cit["invalid_count"] == 0 and bool(rec.get("answer"))
-        citation_valid_denom += 1
-        if citation_ok:
-            citation_valid_cases += 1
+        # citation 有效性只对实际产出答案的 case 计分母；no-answer 单独上报。
+        citation_ok = False
+        if has_answer:
+            citation_valid_denom += 1
+            cit = evaluate_citations(
+                rec.get("answer"), rec.get("evidence_citation_ids", [])
+            )
+            if cit["invalid_count"] == 0:
+                citation_valid_cases += 1
+                citation_ok = True
         if all_covered and citation_ok and not unsupported:
             pass_cases += 1
 
