@@ -13,6 +13,36 @@
 
 ---
 
+## R1（2026-08-14）：离线 Evaluation Provenance Repair
+
+**为什么 R1**：4172 的 evaluator（citation denominator / Judge gating）在 generation 之后才修正，导致 metrics 不是由 source_commit 对应代码算出。R1 是**纯离线 evaluation provenance repair**，不调用任何 LLM/检索/embedding、不重跑 Planner/Retrieval/Generator/Judge、不改 prompt/model。
+
+**旧 run 4172f6cc1d6f 身份（永久保留，不覆盖不删除）**：
+- `generation_valid = true`（generation/retrieval 观测有效；4 个 GENERATION_FAILED、live Planner drift、retrieval 35/44 都是真实发生的行为，不被抹掉）
+- `final_evaluation_superseded = true`
+- `superseded_reason = post-run evaluator correctness fixes changed zero-obligation Judge gating and citation denominator after recorded generation source commit`
+
+**双来源绑定（不再用单一 source_commit 假装整条链同源）**：
+
+| 字段 | 值 |
+|---|---|
+| parent_generation_run_id | 4172f6cc1d6f |
+| generation_source_commit | 6a783c4862b18d7dc9f35069dd6cde0fad507925 |
+| evaluation_source_commit | 19f57c23f655e6cff4524de6042e4374d35c964f（R1-1，tracked-clean） |
+| repair_id | 0db1f50b63cb |
+
+repair_id 同时绑定 parent_generation_run_id / 两个 source_commit / case_results+cited_evidence+answer_judgments 三个上游 Artifact SHA / dev+frzee 身份 / judge prompt SHA。上游 SHA 记在 `source_artifacts.json`，防止"悄悄换上游文件"。
+
+**复用 Judge 结果**：16/16 可复用判断逐条做输入一致性校验（case_id/query/answer/cited evidence/Gold obligation IDs/judge prompt SHA 对齐），`input mismatch = 0`；任何 mismatch 会停止 repair 并报告，禁止自动重跑 Judge。4 个零 obligation case（g3q031/g3q033/g3q034/g3q036）标记 `judge_not_required (reason=zero_obligation)`，不进任何分母。4 个 GENERATION_FAILED 原样保留。
+
+**重算指标（修正后 evaluator，独立于旧报告）**：answer_obligation 21/44=0.477、answer full 8/20、citation valid 16/16（分母只含实际生成且可评价的 answerable case）、unsupported 0、no-answer 4、**answer_pass 8/20=0.40**；retrieval obligation 35/44 继承不变。
+
+**consistency checks**：result.config==repair_config ✓；metrics 可由 persisted per-case/judgment 独立重算 ✓；case count=24 ✓；Judge 只对 obligation>0 ✓；citation denominator 只含可评价 ✓；Gold 不入 generation ✓；Holdout NOT ACCESSED ✓；secret scan clean ✓。
+
+**Repair Artifact**：`benchmark_work/gate3/e2e_dev_repairs/0db1f50b63cb/`（repair_config/source_artifacts/answer_judgments/metrics/comparison_report/result）。**这不是性能复现实验，是 offline evaluation provenance repair**；4172 → R1 对照只反映 evaluator 修正（citation denominator 16/20→16/16），generation/retrieval 观测全部继承。
+
+---
+
 ## 0. 结论先行（真实数字）
 
 **Dev 24 上真实 E2E：20/24 completed、4/24 GENERATION_FAILED；answer_pass=8/20、answer_obligation=21/44=0.477。**
