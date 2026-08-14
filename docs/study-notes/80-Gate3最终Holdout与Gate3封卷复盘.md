@@ -2,7 +2,7 @@
 
 > G3-CLOSE-10-HOLDOUT-OFFLINE-SEAL：把唯一一次正式 Holdout 结果（formal_holdout_run_id=cb157fd3837f）离线封档。本任务 0 LLM / 0 retrieval / 0 embedding / 0 Judge / 0 Holdout rerun，只读已产生 artifact 与 ledger。
 > 日期：2026-08-14
-> 状态：G3-HOLDOUT-09C-R5 = Reviewer accepted / CLOSED；Gate 3 final Holdout = VALID；G3-CLOSE-10 = REVIEW PENDING；Gate 3 = FINAL CLOSE PENDING（未自行写成 CLOSED）。
+> 状态：G3-HOLDOUT-09C-R5 = Reviewer accepted / CLOSED；Gate 3 final Holdout = VALID；G3-CLOSE-10 = ✅ Reviewer accepted / CLOSED；Gate 3 = ✅ CLOSED / FROZEN。
 
 ---
 
@@ -47,5 +47,5 @@ Gate 3 唯一一次正式 Holdout 跑完了，结果是 `completed`。这一步�
 
 - G3-HOLDOUT-09C-R5 = **Reviewer accepted / CLOSED**
 - Gate 3 final Holdout = **VALID**（formal_holdout_run_id=cb157fd3837f）
-- G3-CLOSE-10-HOLDOUT-OFFLINE-SEAL = **REVIEW PENDING**
-- Gate 3 = **FINAL CLOSE PENDING**（待 Reviewer 审完本封档提交后正式签发 CLOSED / FROZEN）
+- G3-CLOSE-10-HOLDOUT-OFFLINE-SEAL = **✅ Reviewer accepted / CLOSED**
+- Gate 3 = **✅ CLOSED / FROZEN**（G3-CLOSE-11-FINAL-STATUS 正式签发）
