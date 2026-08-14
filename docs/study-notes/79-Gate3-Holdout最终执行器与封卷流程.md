@@ -168,9 +168,21 @@ else:                         judge_status = not_generated
 
 ---
 
+## 09B-R3：为什么 frozen raw SHA 比未经注册的 schema 字符串更权威
+
+> G3-HOLDOUT-09B-R3-MANIFEST-SCHEMA-MICRO：删除未经公开冻结证明的 `gate3_holdout_private_manifest_v1` schema hard gate。这不是放松校验，而是让 frozen raw SHA 成为 private manifest 文件身份的权威。
+
+- **raw SHA 是什么**：SHA-256 对整份 private manifest **原始字节**做身份绑定。文件任意一个字节变化，SHA 都会变化。`b34bb2d16d29dcd2...` 是公开冻结的 private manifest raw SHA，`00bfcac2fe553f3e...` 是 Holdout raw SHA。
+- **schema 是什么**：`schema_version` 是文件中的一个语义字段。只有在 schema 本身被公开预注册、写入 Freeze contract 时，它才适合作为独立 hard gate。
+- **为什么这里删除 hard schema reject**：当前已有 Reviewer-frozen raw SHA，却没有公开冻结材料证明 `gate3_holdout_private_manifest_v1` 是必须值。所以正确边界是 **raw SHA = 文件身份、required fields = 结构语义**，而不是 **猜测的 schema string = 文件身份**。
+- **保持的校验（全部保留）**：required fields（dataset freeze id / holdout eval id / case_count / manifest recorded Holdout SHA）、Holdout raw SHA、duplicate case_id reject、Holdout case 数=12。
+- **面试说法**："最终 Holdout 使用事先登记的 SHA-256 锁定 private manifest 和 Holdout 的原始字节，并进一步校验 dataset freeze、evaluation set、case count 等结构字段。没有把未预注册的 schema 字符串当成更高优先级约束，避免一次性评测因为实现侧猜测导致假性 infrastructure failure。"
+
+---
+
 ## 边界声明
 
-- 未读取/搜索 gate3/sealed；R2 只用 tmp_path / synthetic fixture / 公开 freeze JSON；`read_real_sealed_inputs` 已实现但从未被调用。
+- 未读取/搜索 gate3/sealed；R3 只用 tmp_path / synthetic fixture / 公开 freeze JSON；`read_real_sealed_inputs` 已实现但从未被调用。
 - 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Holdout/sealed。
 - 未运行 --execute；未设置 HOLDOUT_EXECUTION_AUTHORIZED；未创建正式 attempt ledger entry。
-- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B-R2 后决定 09C。
+- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B-R3 后决定 09B CLOSE / 09C。

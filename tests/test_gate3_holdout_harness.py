@@ -1271,3 +1271,41 @@ class TestFinalIntegrity:
         by_case = {j["case_id"]: j for j in judgments}
         assert by_case["g3q598"]["judge_output"]["judge_status"] == "not_generated"
         assert fake.calls == 11
+
+    def test_private_manifest_schema_not_authoritative_when_raw_sha_matches(
+        self, tmp_path
+    ):
+        """schema 字符串不同但 frozen raw SHA + required fields + Holdout 全对 → PASS。
+
+        证明：private manifest 文件身份由预公开 frozen raw SHA 锁定，而不是一个未经
+        公开冻结证明的 schema 字符串。schema_version != 旧 gate3_holdout_private_manifest_v1
+        时仍必须通过 read_real_sealed_inputs + validate_sealed。
+        """
+        from dataclasses import replace
+        holdout_text = _synthetic_holdout_text()
+        manifest = {
+            "schema_version": "some_unregistered_manifest_schema_v99",
+            "gate3_dataset_freeze_id": "257fa0d0a6d6",
+            "holdout_evaluation_set_id": "79a6bc0814a3",
+            "case_count": 12,
+            "holdout_jsonl_sha256": hashlib.sha256(
+                holdout_text.encode("utf-8")).hexdigest(),
+        }
+        sealed = tmp_path / "sealed"
+        sealed.mkdir()
+        (sealed / "manifest.json").write_bytes(
+            json.dumps(manifest, ensure_ascii=False).encode("utf-8"))
+        (sealed / "holdout.jsonl").write_bytes(holdout_text.encode("utf-8"))
+        manifest_sha = hashlib.sha256(
+            (sealed / "manifest.json").read_bytes()).hexdigest()
+        cfg = replace(_holdout_config(tmp_path),
+                      holdout_jsonl_path=str(sealed / "holdout.jsonl"),
+                      private_manifest_path=str(sealed / "manifest.json"),
+                      expected_private_manifest_sha256=manifest_sha,
+                      expected_holdout_jsonl_sha256=hashlib.sha256(
+                          holdout_text.encode("utf-8")).hexdigest())
+        got_manifest, got_text = read_real_sealed_inputs(cfg)
+        assert got_manifest == manifest
+        assert got_text == holdout_text
+        verified = validate_sealed(got_manifest, got_text, cfg)
+        assert verified["case_count"] == 12

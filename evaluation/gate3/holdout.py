@@ -511,8 +511,6 @@ def preflight_holdout(
 # 09B：正式执行器（09C 写死顺序；注入 provider 供 synthetic 测试）
 # ---------------------------------------------------------------------------
 
-HOLDOUT_PRIVATE_MANIFEST_SCHEMA = "gate3_holdout_private_manifest_v1"
-
 
 class HoldoutInfrastructureFailure(RuntimeError):
     """只有真正无法形成有效实验的基础设施故障才抛出；持久化为 invalid_infrastructure。"""
@@ -613,13 +611,13 @@ def validate_sealed(manifest: dict, holdout_text: str,
                     config: Gate3HoldoutConfig) -> dict:
     """验证 sealed private manifest + Holdout JSONL（仅 09C 授权后调用）。
 
-    校验 manifest schema、holdout evaluation_set_id、case_count、Holdout JSONL
-    SHA、duplicate case_id。返回 verified 信息（含 holdout_jsonl_sha256）。
+    private manifest 文件身份由公开冻结 raw SHA 锁定（read_real_sealed_inputs
+    校验），本函数只做结构字段校验：dataset freeze id、holdout evaluation_set_id、
+    case_count、manifest recorded Holdout SHA、duplicate case_id、Holdout case 数。
+    返回 verified 信息（含 holdout_jsonl_sha256）。
     """
     if not isinstance(manifest, dict):
         raise HoldoutInfrastructureFailure("private manifest 不是 JSON object")
-    if manifest.get("schema_version") != HOLDOUT_PRIVATE_MANIFEST_SCHEMA:
-        raise HoldoutInfrastructureFailure("private manifest schema_version 不一致")
     if manifest.get("gate3_dataset_freeze_id") != config.gate3_dataset_freeze_id:
         raise HoldoutInfrastructureFailure(
             "private manifest gate3_dataset_freeze_id 与配置不一致"
