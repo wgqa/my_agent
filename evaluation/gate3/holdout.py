@@ -626,9 +626,9 @@ def validate_sealed(manifest: dict, holdout_text: str,
         raise HoldoutInfrastructureFailure(
             "private manifest holdout_evaluation_set_id 与配置不一致"
         )
-    if manifest.get("case_count") != config.holdout_case_count:
+    if manifest.get("holdout_case_count") != config.holdout_case_count:
         raise HoldoutInfrastructureFailure(
-            "private manifest case_count 与配置不一致"
+            "private manifest holdout_case_count 与配置不一致"
         )
     holdout_sha = _sha256_bytes(holdout_text.encode("utf-8"))
     recorded_sha = manifest.get("holdout_jsonl_sha256")

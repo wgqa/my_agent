@@ -180,9 +180,53 @@ else:                         judge_status = not_generated
 
 ---
 
+## 09C-R0：基础设施失败与 schema compatibility
+
+> G3-HOLDOUT-09C-FINAL-SEALED-RUN（唯一一次正式执行）在进入模型执行前 fail-closed。随后 09C-R1 对 frozen private manifest 做 metadata forensic，R2 修复 executor 字段名假设。本节约定如何讲清"这不是数据被换，也不是性能结果"。
+
+### 1. raw SHA 证明拿到的是原冻结文件
+
+正式执行在 `validate_sealed` 之前先经 `read_real_sealed_inputs`：private manifest raw SHA= b34bb2d16d29dcd2...、Holdout raw SHA= 00bfcac2fe553f3e...，均与公开冻结常量一致。所以读到的就是 2026-08-13 封存的原始 sealed 文件，字节级未变。
+
+### 2. 失败不是数据被换
+
+- forensic（09C-R1）确认：真实 manifest 顶层字段是 `holdout_case_count: int = 12`，数值与冻结配置 `holdout_case_count=12` **完全一致**；字面键 `case_count` 不存在。
+- 数据/封存没有被动过；是校验代码读错了字段名。
+
+### 3. 是 executor 对字段名的实现假设错误
+
+- executor 在 `validate_sealed` 里写的是 `manifest.get("case_count")` → 返回 `None`；
+- `None != 12` → 抛 `HoldoutInfrastructureFailure("private manifest case_count 与配置不一致")`；
+- 根因是 09B-R2/R3 时代实现的硬编码字面 `"case_count"` 与冻结 manifest 真实字段 `holdout_case_count` 不一致。09C-R2 把契约对齐为 `manifest.get("holdout_case_count")`，不加 fallback、不兼容旧 schema、不重新设计 schema。
+
+### 4. Holdout 尚未产生任何性能观测
+
+- 失败发生在 sealed manifest validation 阶段，在 formal identity binding 与 generation 之前；
+- generation / Planner / Retrieval / Generator / Judge / Metrics 全部 = 0；
+- **Holdout performance result = NOT PRODUCED**。不要讲成"Gate 3 failed"或"Holdout 得分差"。
+
+### 5. invalid_infrastructure 不等于可以自动重跑
+
+- 该 attempt（41c991a839cb）被 ledger 持久化为 `invalid_infrastructure`，是 terminal 状态；
+- `check_attempt_allowed` 据此拒绝任何自动第二 attempt——这是设计的 fail-closed 行为，不能为了跑第二次去删 ledger / 改 ledger / 换 ledger。
+
+### 6. replacement 必须由 Reviewer 显式授权并保留原 attempt
+
+- 原 attempt 41c991a839cb **永久保留**；
+- 只有 Reviewer 显式授权的 replacement attempt（明确 supersedes 41c991a839cb、只允许一次）才能重新发起 Holdout；
+- 授权前，一切 Dev rerun / 手动重跑 / 删现场都是禁止的。
+
+### 面试怎么讲
+
+"第一次 sealed Holdout 在进入模型执行前，因为 evaluator 对历史 private manifest 字段名存在错误假设而 fail-closed。由于 manifest 和 Holdout 的 frozen SHA 均已验证，确认不是数据篡改；同时没有产生任何模型性能观测。我们保留原 invalid-infrastructure attempt，并通过独立审计修复 executor，而不是删除现场直接重跑。"
+
+---
+
 ## 边界声明
 
-- 未读取/搜索 gate3/sealed；R3 只用 tmp_path / synthetic fixture / 公开 freeze JSON；`read_real_sealed_inputs` 已实现但从未被调用。
-- 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Holdout/sealed。
-- 未运行 --execute；未设置 HOLDOUT_EXECUTION_AUTHORIZED；未创建正式 attempt ledger entry。
-- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B-R3 后决定 09B CLOSE / 09C。
+- 09C-R2 只读公开材料 + synthetic fixture；未读取/搜索 gate3/sealed（Holdout JSONL 与真实 private manifest 均未再访问）。
+- 09C 唯一一次正式执行 = invalid_infrastructure（attempt 41c991a839cb，failure stage=sealed manifest validation before formal identity/generation），0 performance observation。
+- 09C-R1 forensic 只读 private manifest 结构元数据（raw SHA 已验）；09C-R2 只改字段名 + harness 测试 + 文档。
+- 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Dev rerun。
+- replacement attempt 未创建、未授权；原 attempt 41c991a839cb 永久保留。
+- 下一步由 Reviewer 审计 09B-R3 / 09C-R2 后决定是否显式授权 replacement Holdout。

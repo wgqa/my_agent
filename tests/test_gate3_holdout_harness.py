@@ -450,7 +450,7 @@ def _synthetic_manifest(holdout_text, eval_id="79a6bc0814a3", case_count=12,
         "schema_version": "gate3_holdout_private_manifest_v1",
         "gate3_dataset_freeze_id": "257fa0d0a6d6",
         "holdout_evaluation_set_id": eval_id,
-        "case_count": case_count,
+        "holdout_case_count": case_count,
         "holdout_jsonl_sha256": sha or hashlib.sha256(
             holdout_text.encode("utf-8")).hexdigest(),
         "holdout_jsonl_file": "gate3_holdout_v1.jsonl",
@@ -1287,7 +1287,7 @@ class TestFinalIntegrity:
             "schema_version": "some_unregistered_manifest_schema_v99",
             "gate3_dataset_freeze_id": "257fa0d0a6d6",
             "holdout_evaluation_set_id": "79a6bc0814a3",
-            "case_count": 12,
+            "holdout_case_count": 12,
             "holdout_jsonl_sha256": hashlib.sha256(
                 holdout_text.encode("utf-8")).hexdigest(),
         }
@@ -1309,3 +1309,56 @@ class TestFinalIntegrity:
         assert got_text == holdout_text
         verified = validate_sealed(got_manifest, got_text, cfg)
         assert verified["case_count"] == 12
+
+
+class TestManifestCountFieldContract:
+    """09C-R2：executor 绑定真实冻结 private manifest 的 holdout_case_count 字段。
+
+    第一次正式 Holdout（attempt 41c991a839cb）因 executor 读取字面 "case_count"
+    （冻结 manifest 中不存在该键）而 fail-closed。本组测试把契约钉死在
+    holdout_case_count，并拒绝旧错误字段 case_count。
+    """
+
+    def test_validate_sealed_accepts_frozen_manifest_holdout_case_count_field(
+        self, tmp_path
+    ):
+        """真实冻结 manifest 形态：只有 holdout_case_count（无字面 case_count）→ PASS。"""
+        holdout_text = _synthetic_holdout_text()
+        manifest = {
+            "gate3_dataset_freeze_id": "257fa0d0a6d6",
+            "holdout_evaluation_set_id": "79a6bc0814a3",
+            "holdout_case_count": 12,
+            "holdout_jsonl_sha256": hashlib.sha256(
+                holdout_text.encode("utf-8")).hexdigest(),
+        }
+        assert "case_count" not in manifest
+        verified = validate_sealed(manifest, holdout_text,
+                                   _holdout_config(tmp_path))
+        assert verified["case_count"] == 12
+
+    def test_wrong_holdout_case_count_rejected(self, tmp_path):
+        """holdout_case_count=11 与配置 12 不符 → reject。"""
+        holdout_text = _synthetic_holdout_text()
+        manifest = {
+            "gate3_dataset_freeze_id": "257fa0d0a6d6",
+            "holdout_evaluation_set_id": "79a6bc0814a3",
+            "holdout_case_count": 11,
+            "holdout_jsonl_sha256": hashlib.sha256(
+                holdout_text.encode("utf-8")).hexdigest(),
+        }
+        with pytest.raises(HoldoutInfrastructureFailure):
+            validate_sealed(manifest, holdout_text, _holdout_config(tmp_path))
+
+    def test_legacy_case_count_only_manifest_rejected(self, tmp_path):
+        """旧错误字段 case_count（无 holdout_case_count）必须拒绝，禁止旧 schema 偷偷通过。"""
+        holdout_text = _synthetic_holdout_text()
+        manifest = {
+            "gate3_dataset_freeze_id": "257fa0d0a6d6",
+            "holdout_evaluation_set_id": "79a6bc0814a3",
+            "case_count": 12,
+            "holdout_jsonl_sha256": hashlib.sha256(
+                holdout_text.encode("utf-8")).hexdigest(),
+        }
+        assert "holdout_case_count" not in manifest
+        with pytest.raises(HoldoutInfrastructureFailure):
+            validate_sealed(manifest, holdout_text, _holdout_config(tmp_path))
