@@ -1,0 +1,111 @@
+{
+  "schema_version": "gate3_holdout_final_seal_v1",
+  "formal_holdout_run_id": "cb157fd3837f",
+  "source_commit": "e97f576f4f4e49367f33f4cbb8eb35e9fdf22e8b",
+  "gate3_system_freeze_id": "2ec11a69b173",
+  "gate3_dataset_freeze_id": "257fa0d0a6d6",
+  "holdout_evaluation_set_id": "79a6bc0814a3",
+  "holdout_jsonl_sha256": "00bfcac2fe553f3edeefcc281db5c2aecaa380e9f41fd3ecfb98ec7a4796fe61",
+  "case_count": 12,
+  "attempts": {
+    "original": {
+      "attempt_id": "41c991a839cb",
+      "status": "invalid_infrastructure"
+    },
+    "replacement": {
+      "attempt_id": "5f5f0c7bef9b",
+      "status": "completed",
+      "replacement_of_attempt_id": "41c991a839cb"
+    }
+  },
+  "artifacts": {
+    "run_config.json": {
+      "sha256": "c281bade2df8de0e604e00fa261895f543eadb2db979d668bd42fa939b703425",
+      "size_bytes": 1510
+    },
+    "index_manifest.json": {
+      "sha256": "274078ee4d6d68a2cf64b348f93aef5a26e01f8182eaeb6d0b38155256f0933e",
+      "size_bytes": 627
+    },
+    "case_results.jsonl": {
+      "sha256": "a9c4880240234da303ea443bdfe40f3e7f03f1c94f582af372a369dde7ab88f6",
+      "size_bytes": 17142
+    },
+    "cited_evidence.jsonl": {
+      "sha256": "1bf43925f3a67f3bdb6dc4d2496584144b058ccf3952bfaa9ae64ff2b52df09f",
+      "size_bytes": 6312
+    },
+    "answer_judgments.jsonl": {
+      "sha256": "8a1e7de52ef9b24676960628cd667e1939c2f3094556c4f4bbaf86cc469f3884",
+      "size_bytes": 20723
+    },
+    "metrics.json": {
+      "sha256": "d352b4203ab1d643e97ff0a1a4ed1c6ad01a3942648a0c7c409736c449dbbbe1",
+      "size_bytes": 3250
+    },
+    "comparison_report.md": {
+      "sha256": "2e38e47c5d218a16cb812c3ded458ad307666b901e2096f5f0e634265dc6e874",
+      "size_bytes": 654
+    },
+    "result.json": {
+      "sha256": "d16980bb8c824ffec3d47d38ce16fbb911c456e2d60dfcfe89745cbbc892e486",
+      "size_bytes": 4892
+    }
+  },
+  "metrics": {
+    "generation": {
+      "status_counts": {
+        "completed": 8,
+        "failed": 4
+      },
+      "planner_fallback_count": 1,
+      "planner_schema_failure_count": 1,
+      "retrieval_call_count_total": 27,
+      "evidence_count_total": 57
+    },
+    "retrieval": {
+      "denominator_case_count": 10,
+      "hit_at_5": 1.0,
+      "recall_at_5": 0.9,
+      "mrr": 0.775,
+      "ndcg_at_5": 0.7954391269240244,
+      "hit_count": 10,
+      "full_recall_count": 8,
+      "obligation_total": 21,
+      "obligation_covered": 18,
+      "obligation_coverage_rate": 0.8571428571428571,
+      "full_coverage_case_count": 8,
+      "full_coverage_rate": 0.8,
+      "multi_obligation_case_count": 8,
+      "multi_obligation_complete_count": 6,
+      "multi_obligation_complete_rate": 0.75,
+      "citation_valid_case_count": 8,
+      "evaluable_case_count": 8,
+      "invalid_citation_total": 0,
+      "uncited_evidence_total": 30
+    },
+    "answer": {
+      "answerable_case_count": 10,
+      "answer_obligation_total": 21,
+      "answer_obligation_covered": 8,
+      "answer_obligation_coverage_rate": 0.38095238095238093,
+      "answer_full_coverage_case_count": 4,
+      "answer_full_coverage_rate": 0.4,
+      "answer_pass_case_count": 4,
+      "answer_pass_rate": 0.4,
+      "citation_valid_case_count": 6,
+      "citation_valid_denominator": 6,
+      "citation_valid_case_rate": 1.0,
+      "unsupported_claim_case_count": 0,
+      "invalid_judge_case_count": 0,
+      "no_answer_case_count": 4,
+      "zero_obligation_case_count": 2,
+      "non_answerable_case_count": 2
+    }
+  },
+  "discipline": {
+    "rerun_count_after_final": 0,
+    "post_holdout_tuning": false,
+    "holdout_content_public": false
+  }
+}
