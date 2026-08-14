@@ -41,6 +41,18 @@ repair_id 同时绑定 parent_generation_run_id / 两个 source_commit / case_re
 
 **Repair Artifact**：`benchmark_work/gate3/e2e_dev_repairs/0db1f50b63cb/`（repair_config/source_artifacts/answer_judgments/metrics/comparison_report/result）。**这不是性能复现实验，是 offline evaluation provenance repair**；4172 → R1 对照只反映 evaluator 修正（citation denominator 16/20→16/16），generation/retrieval 观测全部继承。
 
+### R1-MICRO（2026-08-14）：source lock + Judge provenance 加固
+
+修复 4 个 blocker + 本地路径泄露，产出最终 repair `91ae2c27a6d3`（旧 0db1f50b63cb 保留）：
+
+1. **独立 source lock**：repair 必须拿**事先冻结**的 expected hashes（parent run id / run_config SHA / case_results SHA / cited_evidence SHA / answer_judgments SHA）校验，任一 mismatch fail-fast、不生成 repair；不得"读取待验证文件后自算 expected"。锁文件：`e2e_dev_repairs/source_locks/4172f6cc1d6f.lock.json`。
+2. **Judge provenance 完全继承父 run_config.json**：删除 `--judge-model` override；judge provider/model/temp/max_tokens/retries/prompt version/prompt SHA 全部进入 repair identity，禁止用户改历史 Judge 身份。
+3. **zero_obligation_case_count**：修掉未初始化死变量，metrics 显式输出该值；正式 Dev 独立重算 = 4（不硬编码）。
+4. **build_repair_report 去硬编码**：删除所有 /16 /20 /44 /21 /8 /24 字面量与旧 4172 对照表，denominator/counts 全部来自 metrics 或程序计算。
+5. **source_artifacts.json 禁绝对路径**：只记 parent_run_id + 各 SHA，不写本地路径。
+
+MICRO repair：evaluation_source_commit=`a9e2d9a`（MICRO-1）、repair_id=`91ae2c27a6d3`；16/16 Judge 复用、mismatch=0；重算 answer_obligation 21/44、answer_pass 8/20、citation valid 16/16、zero_obligation 4、no-answer 4；consistency 全过（case count=24、metrics 独立可重算、Gold 不入 generation、Holdout NOT ACCESSED、secret clean、Artifact 无绝对路径）。
+
 ---
 
 ## 0. 结论先行（真实数字）
