@@ -67,9 +67,59 @@
 
 ---
 
+## 09B-R1：把协议接到真实 frozen E2E pipeline（只差授权）
+
+> G3-HOLDOUT-09B-R1-REAL-WIRING：09B 造好"执行顺序骨架"，R1 把真实 sealed reader、真实生成链、真实 evaluator 接到 `execute_holdout`，并修正式 provenance 绑定——**只差 Reviewer 09C 授权就能真正执行**。R1 阶段仍不访问 sealed、不调用任何 LLM。
+
+### 1. 真实 sealed reader
+
+- `read_real_sealed_inputs(config)`：只从 `config.private_manifest_path` / `config.holdout_jsonl_path` 读取 private manifest + Holdout JSONL；不 list sealed 目录、不猜文件名；文件缺失/损坏抛 `HoldoutInfrastructureFailure`。
+- R1 **实现并单测，不调用**；09C 授权后 CLI 才注入。
+
+### 2. 真实 Holdout Generation 链（复用现有生产能力，不复制算法）
+
+- `run_holdout_generation(generation_cases, config, run_dir)`：签名只接收 `(case_id, query)` 的 `GenerationCase` 列表 / formal config / run_dir，**绝不接收 Holdout Gold**。
+- 链路保持冻结生产链：Frozen Corpus → 冻结索引 manifest → `build_shared_index` → `OpenAICompatibleQueryPlanner` → Adaptive Runtime → Retrieval → RRF merge v2 → Verifier → `DeepSeekGenerator`（`E2EGroundedAnswerPort`）→ Citation。
+- **阶段边界**：先落盘 `run_config.json` / `index_manifest.json` / `case_results.jsonl` / `cited_evidence.jsonl`，close/flush 后才返回，之后才允许 Evaluation 读 Gold——Gold isolation 是文件级边界，不是"Python 对象没传过去"。
+
+### 3. Holdout-specific evaluator（不调 Dev-bound 的 run_e2e_evaluation）
+
+- `run_holdout_evaluation(gen_output, config, run_dir, *, judge_client=None)`：复用公共计算能力 `AnswerJudge` / `should_call_judge` / `evaluate_citations` / `compute_deterministic_metrics` / `compute_answer_metrics`。
+- Judge 配置从 freeze 的 `judge` 段构造（`types.SimpleNamespace`，不改变 `AnswerJudge` 契约）。
+- 产出 4 个正式 Artifact：`answer_judgments.jsonl` / `metrics.json` / `comparison_report.md` / `result.json`；evaluation schema 仍 `gate3_e2e_metrics_v1`，**不改任何数学定义**。
+
+### 4. 正式 provenance binding（fail-fast）
+
+- attempt 创建前：re-validate `freeze_json_path`（freeze_id 重算 + 四个 frozen section 与 config 逐一相等）+ 要求 `config.actual_execution_source_commit == actual git HEAD`；**任一不一致 → 直接抛错，不创建 attempt**。
+- sealed 打开后：验 manifest `gate3_dataset_freeze_id=257fa0d0a6d6` / `holdout_evaluation_set_id=79a6bc0814a3` / `case_count=12` / 实际 Holdout JSON SHA == manifest SHA。
+
+### 5. formal identity 写进 ledger（prepared → bind → running → completed）
+
+- `bind_attempt_formal_identity(...)`：sealed 校验成功、进入 running 前，把 `formal_holdout_run_id` + `holdout_jsonl_sha256` 原子绑定进当前 attempt；只在 `prepared` 可绑定，**绑定后不可修改、不可重绑**。
+
+### 6. 真实异常归类（绝不写 `except Exception: invalid_infrastructure`）
+
+| 情形 | 归类 |
+|---|---|
+| 单 case Planner/Generator 行为失败（如 generator 空输出） | case result，实验继续，最终 `completed` |
+| Judge 输出 invalid | 指标 `invalid_judge`，不是 rerun 理由 |
+| 文件损坏 / frozen corpus 缺失 / index 无法构建 / API 完全不可用（整场无法形成观测） | `invalid_infrastructure`（不自动重跑） |
+| 未知异常 | fail-closed 原样上抛，保留 attempt，不自动重跑，交 Reviewer 判断 |
+
+### 7. CLI real wiring
+
+- `HOLDOUT_EXECUTION_AUTHORIZED=1` 下 `--execute` 现在真的注入 `read_real_sealed_inputs` / `run_holdout_generation` / `run_holdout_evaluation`（不再是 `None`）。R1 **不设置授权变量、不执行**。
+
+### 8. 验证
+
+- 新增 10 个 harness 测试（`TestRealWiring`）：全 fake integration（synthetic sealed → attempt prepared → validate sealed → formal ID → running → fake Planner/Index/Generator → 4 generation Artifact → fake Judge/evaluation → 4 evaluation Artifact → completed，8 个正式 Artifact 全部存在、身份一致、**无 Gold 泄漏到 generation Artifact**）、wrong actual HEAD → 不创建 attempt、wrong freeze → 不创建 attempt、private manifest 错 dataset freeze → `invalid_infrastructure`、ledger running entry 含 formal ID + Holdout SHA、formal identity 不可重绑、CLI 授权缺失 0 sealed read、CLI `--execute` 接真实 adapter。
+- 全量 **1344 passed**（原 1334 + 10）。
+
+---
+
 ## 边界声明
 
-- 未读取/搜索 gate3/sealed；09B 只用 tmp_path / synthetic fixture / 公开 freeze JSON。
+- 未读取/搜索 gate3/sealed；R1 只用 tmp_path / synthetic fixture / 公开 freeze JSON；`read_real_sealed_inputs` 已实现但从未被调用。
 - 0 real Planner/Generator/Judge/Retriever/Embedding/Index/Holdout/sealed。
-- 未运行 --execute；未创建正式 attempt ledger entry。
-- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B 后决定 09C。
+- 未运行 --execute；未设置 HOLDOUT_EXECUTION_AUTHORIZED；未创建正式 attempt ledger entry。
+- Holdout execution 仍 BLOCKED；待 Reviewer 审计 09B-R1 后决定 09C。

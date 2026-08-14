@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（29 份）
+## CURRENT（34 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -59,7 +59,7 @@
 | 76 | [76-Gate3真实E2E答案与引用评测.md](76-Gate3真实E2E答案与引用评测.md) | G3-E2E-07A：Dev 24 真实 Planner+Generator 端到端答案评测（两阶段 Gold 隔离 + LLM Judge），run_id 4172f6cc1d6f；answer_pass 8/20、answer_obligation 21/44、4 case generator 空输出失败 |
 | 77 | [77-Gate3系统冻结与Holdout前置审计.md](77-Gate3系统冻结与Holdout前置审计.md) | G3-FREEZE-08-SYSTEM：Gate 3 Dev 侧系统 Freeze Candidate（gate3_system_freeze_id=2ec11a69b173、frozen baseline fed9d15）；机器可核验 freeze JSON、known_limitations、holdout_execution_contract（Holdout=BLOCKED）；面向面试复习 |
 | 78 | [78-Gate3-Holdout一次性执行协议.md](78-Gate3-Holdout一次性执行协议.md) | G3-HOLDOUT-09A-HARNESS：一次性 Freeze-bound Holdout harness（独立 Gate3HoldoutConfig、freeze 唯一配置来源、无 CLI override、attempt ledger、preflight 0 LLM/sealed）；holdout_run_id a1dc0a4bab03 |
-| 79 | [79-Gate3-Holdout最终执行器与封卷流程.md](79-Gate3-Holdout最终执行器与封卷流程.md) | G3-HOLDOUT-09B-FINAL-EXECUTOR：execute_holdout 写死 09C 顺序 + sealed 边界 + formal identity（含 holdout_jsonl_sha256）；attempt prepared→running→completed；系统失败 vs 基础设施失败；synthetic 验证 |
+| 79 | [79-Gate3-Holdout最终执行器与封卷流程.md](79-Gate3-Holdout最终执行器与封卷流程.md) | G3-HOLDOUT-09B-FINAL-EXECUTOR + R1-REAL-WIRING：execute_holdout 写死 09C 顺序 + sealed 边界 + formal identity（含 holdout_jsonl_sha256）；attempt prepared→running→completed；系统失败 vs 基础设施失败；synthetic 验证；R1 把 read_real_sealed_inputs / run_holdout_generation / run_holdout_evaluation 接到真实 frozen E2E pipeline、formal provenance binding 与 ledger formal-identity 绑定、CLI --execute 真实 wiring（只差 09C 授权） |
 
 ## FROZEN_EVIDENCE（10 份）
 
@@ -126,6 +126,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–74 共 **75 份**，每份只出现一次：CURRENT 29 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 75。
+- 编号覆盖 00–79 共 **80 份**，每份只出现一次：CURRENT 34 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 80。
 - 原始笔记一律未修改。
-- 当前日期：2026-08-13。
+- 当前日期：2026-08-14。
