@@ -20,6 +20,11 @@ from pathlib import Path
 
 import pytest
 
+from core.agent_runtime import (
+    DEFAULT_MERGE_RRF_K,
+    SUBQUERY_ROUND_ROBIN_V1,
+    SUBQUERY_RRF_MERGE_V2,
+)
 from core.query_planning import PlannerOutcome, QueryPlan, Subquery
 from evaluation.gate3.adaptive_dev import (
     GATE3_ADAPTIVE_DEV_SCHEMA_VERSION,
@@ -214,6 +219,23 @@ class TestConfigIdentity:
         base = _config()
         assert base.run_id != _config(planner_results_sha256="cd" * 32).run_id
         assert base.run_id != _config(dev_evaluation_set_id="ab" * 6).run_id
+
+    def test_run_id_distinguishes_merge_v1_v2(self):
+        v1 = _config(merge_policy=SUBQUERY_ROUND_ROBIN_V1)
+        v2 = _config(merge_policy=SUBQUERY_RRF_MERGE_V2)
+        assert v1.run_id != v2.run_id
+        assert v2.merge_rrf_k == DEFAULT_MERGE_RRF_K
+        assert v2.run_id != _config(
+            merge_policy=SUBQUERY_RRF_MERGE_V2, merge_rrf_k=30.0
+        ).run_id
+
+    def test_invalid_merge_policy_and_rrf_k_rejected(self):
+        with pytest.raises(ValueError):
+            _config(merge_policy="bogus_v9")
+        with pytest.raises(ValueError):
+            _config(merge_rrf_k=0)
+        with pytest.raises(TypeError):
+            _config(merge_rrf_k=True)
 
     def test_run_id_ignores_output_path(self):
         base = _config(output_dir="some/abs/path")
@@ -437,6 +459,29 @@ class TestGroups:
         m = compute_group_metrics(rc, dev_set.cases)
         assert "candidate_obligation_coverage_rate" in m
         assert "merge_drop_obligation_count" in m
+
+    def test_cd_records_use_same_merge_config(self, tmp_path):
+        root, basename_map, idx = _index(tmp_path)
+        dev_set = _dev_set()
+        snap = _snapshot(dev_set)
+        rc = run_group_queryplan(
+            "C", idx.retriever, dev_set.cases, snap, 5, basename_map,
+            adaptive=False, merge_policy=SUBQUERY_RRF_MERGE_V2,
+            merge_rrf_k=DEFAULT_MERGE_RRF_K,
+        )
+        rd = run_group_queryplan(
+            "D", idx.retriever, dev_set.cases, snap, 5, basename_map,
+            adaptive=True, merge_policy=SUBQUERY_RRF_MERGE_V2,
+            merge_rrf_k=DEFAULT_MERGE_RRF_K,
+        )
+        for r in rc + rd:
+            assert r["merge_policy"] == SUBQUERY_RRF_MERGE_V2
+            assert r["merge_rrf_k"] == DEFAULT_MERGE_RRF_K
+        c_map = {r["case_id"]: r for r in rc}
+        d_map = {r["case_id"]: r for r in rd}
+        for cid in c_map:
+            assert c_map[cid]["merge_policy"] == d_map[cid]["merge_policy"]
+            assert c_map[cid]["merge_rrf_k"] == d_map[cid]["merge_rrf_k"]
 
 
 # ---------------------------------------------------------------------------

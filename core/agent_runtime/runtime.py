@@ -9,6 +9,7 @@ AnswerPort 注入；本模块不调用真实模型/检索/生成，不读 Holdou
 
 from __future__ import annotations
 
+import math
 import uuid
 from typing import Optional, Protocol, Sequence, runtime_checkable
 
@@ -16,7 +17,12 @@ from core.adaptive_retrieval import (
     ADAPTIVE_RETRIEVAL_POLICY_VERSION,
     resolve_initial_strategy,
 )
-from core.agent_runtime.evidence import SUBQUERY_ROUND_ROBIN_V1, merge_subquery_results
+from core.agent_runtime.evidence import (
+    DEFAULT_MERGE_RRF_K,
+    MERGE_POLICIES,
+    SUBQUERY_ROUND_ROBIN_V1,
+    merge_subquery_results_policy,
+)
 from core.agent_runtime.models import (
     AGENT_REFUSAL_ANSWER,
     ROUTE_DECISION_SCHEMA_VERSION,
@@ -221,6 +227,8 @@ class AgentRuntime:
         retrieval_port: RetrievalPort,
         answer_port: AnswerPort,
         budget: Optional[AgentRunBudget] = None,
+        merge_policy: str = SUBQUERY_ROUND_ROBIN_V1,
+        merge_rrf_k: float = DEFAULT_MERGE_RRF_K,
         run_id_factory=None,
     ) -> None:
         if not isinstance(planner, BaseQueryPlanner):
@@ -235,12 +243,23 @@ class AgentRuntime:
             raise TypeError(
                 f"budget 必须是 AgentRunBudget，实际 {type(budget).__name__}"
             )
+        if merge_policy not in MERGE_POLICIES:
+            raise ValueError(
+                f"merge_policy 必须是 {'、'.join(MERGE_POLICIES)} 之一，"
+                f"实际 {merge_policy!r}"
+            )
+        if isinstance(merge_rrf_k, bool) or type(merge_rrf_k) not in (int, float):
+            raise TypeError("merge_rrf_k 必须是数字（不允许 bool）")
+        if not math.isfinite(merge_rrf_k) or merge_rrf_k <= 0:
+            raise ValueError("merge_rrf_k 必须是有限正数")
         if run_id_factory is not None and not callable(run_id_factory):
             raise TypeError("run_id_factory 必须是可调用对象")
         self._planner = planner
         self._retrieval_port = retrieval_port
         self._answer_port = answer_port
         self._budget = budget if budget is not None else AgentRunBudget()
+        self._merge_policy = merge_policy
+        self._merge_rrf_k = float(merge_rrf_k)
         self._run_id_factory = run_id_factory
         self._router = DeterministicRouter()
         self._verifier = MinimalEvidenceVerifier()
@@ -660,9 +679,11 @@ class AgentRuntime:
 
         merge_stats: dict = {}
         try:
-            bundle = merge_subquery_results(
+            bundle = merge_subquery_results_policy(
                 query_results,
                 max_items=self._budget.max_evidence_items,
+                merge_policy=self._merge_policy,
+                merge_rrf_k=self._merge_rrf_k,
                 stats=merge_stats,
             )
         except Exception as exc:

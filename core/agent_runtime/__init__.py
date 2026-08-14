@@ -45,8 +45,13 @@ from core.agent_runtime.adapters import (
     build_pipeline_agent_runtime,
 )
 from core.agent_runtime.evidence import (
+    DEFAULT_MERGE_RRF_K,
+    MERGE_POLICIES,
     SUBQUERY_ROUND_ROBIN_V1,
+    SUBQUERY_RRF_MERGE_V2,
     merge_subquery_results,
+    merge_subquery_results_policy,
+    merge_subquery_results_rrf,
 )
 
 __all__ = [
@@ -83,5 +88,10 @@ __all__ = [
     "PipelineAnswerAdapter",
     "build_pipeline_agent_runtime",
     "SUBQUERY_ROUND_ROBIN_V1",
+    "SUBQUERY_RRF_MERGE_V2",
+    "DEFAULT_MERGE_RRF_K",
+    "MERGE_POLICIES",
     "merge_subquery_results",
+    "merge_subquery_results_rrf",
+    "merge_subquery_results_policy",
 ]

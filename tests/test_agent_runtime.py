@@ -18,6 +18,10 @@ from core.agent_runtime import (
     AGENT_ANSWER_MODES,
     AGENT_REFUSAL_ANSWER,
     AGENT_RUNTIME_ERROR_CODES,
+    DEFAULT_MERGE_RRF_K,
+    MERGE_POLICIES,
+    SUBQUERY_ROUND_ROBIN_V1,
+    SUBQUERY_RRF_MERGE_V2,
     AgentRunBudget,
     AgentRunResult,
     DeterministicRouter,
@@ -30,6 +34,8 @@ from core.agent_runtime import (
     validate_answer_mode,
     AgentRuntime,
     merge_subquery_results,
+    merge_subquery_results_policy,
+    merge_subquery_results_rrf,
 )
 from core.query_planning import (
     BaseQueryPlanner,
@@ -188,6 +194,8 @@ def _runtime(
     answer_error=None,
     answer="合成的答案。",
     budget=None,
+    merge_policy=None,
+    merge_rrf_k=None,
     run_id_factory=None,
 ):
     if planner_outcome is None:
@@ -195,13 +203,18 @@ def _runtime(
     planner = _FakePlanner(planner_outcome, error=planner_error)
     retriever = _FakeRetriever(documents=docs, error=retriever_error)
     answerer = _FakeAnswerer(answer=answer, error=answer_error)
-    runtime = AgentRuntime(
+    kwargs = dict(
         planner=planner,
         retrieval_port=retriever,
         answer_port=answerer,
         budget=budget,
         run_id_factory=run_id_factory,
     )
+    if merge_policy is not None:
+        kwargs["merge_policy"] = merge_policy
+    if merge_rrf_k is not None:
+        kwargs["merge_rrf_k"] = merge_rrf_k
+    runtime = AgentRuntime(**kwargs)
     return runtime, planner, retriever, answerer
 
 
@@ -806,6 +819,197 @@ class TestEvidenceMerge:
         sq2 = [_doc("C", "c.md", "中分C", 1, document_id="dC", score=0.5)]
         bundle = merge_subquery_results([("sq1", sq1), ("sq2", sq2)], max_items=5)
         assert [i.chunk_id for i in bundle.items] == ["A", "C", "B"]
+
+
+# ---------------------------------------------------------------------------
+# 8b. Evidence Merge v2（subquery_rrf_merge_v2）
+# ---------------------------------------------------------------------------
+
+
+class TestEvidenceMergeV2:
+    def test_v1_behavior_unchanged(self):
+        sq1 = [
+            _doc("A", "a.md", "内容A", 1, document_id="dA"),
+            _doc("B", "b.md", "内容B", 2, document_id="dB"),
+        ]
+        sq2 = [_doc("C", "c.md", "内容C", 1, document_id="dC")]
+        direct = merge_subquery_results([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        dispatched = merge_subquery_results_policy(
+            [("sq1", sq1), ("sq2", sq2)],
+            max_items=5,
+            merge_policy=SUBQUERY_ROUND_ROBIN_V1,
+        )
+        assert [i.chunk_id for i in dispatched.items] == ["A", "C", "B"]
+        assert dispatched == direct
+
+    def test_v2_deterministic_same_input(self):
+        sq1 = [_doc("A", "a.md", "A", 1), _doc("B", "b.md", "B", 2)]
+        sq2 = [_doc("B", "b.md", "B", 1), _doc("C", "c.md", "C", 2)]
+        first = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        second = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        assert first == second
+
+    def test_rrf_hand_computed_exact_example(self):
+        # sq1: A@1 B@2 C@3；sq2: B@1 A@2 D@3；k=60
+        # score(A)=1/61+1/62、score(B)=1/62+1/61（并列，best_rank=1）→ source ASC a<b
+        # score(C)=1/63、score(D)=1/63（并列，best_rank=3）→ source ASC c<d
+        sq1 = [
+            _doc("A", "a.md", "A1", 1, document_id="dA"),
+            _doc("B", "b.md", "B1", 2, document_id="dB"),
+            _doc("C", "c.md", "C1", 3, document_id="dC"),
+        ]
+        sq2 = [
+            _doc("B", "b.md", "B1", 1, document_id="dB"),
+            _doc("A", "a.md", "A1", 2, document_id="dA"),
+            _doc("D", "d.md", "D1", 3, document_id="dD"),
+        ]
+        bundle = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        assert [i.source_name for i in bundle.items] == [
+            "a.md", "b.md", "c.md", "d.md",
+        ]
+        assert [i.citation_id for i in bundle.items] == [
+            "[C1]", "[C2]", "[C3]", "[C4]",
+        ]
+
+    def test_cross_subquery_accumulation(self):
+        # A 出现在 sq1@1 与 sq2@2 → score 高于只出现一次的 X/Y
+        sq1 = [_doc("A", "a.md", "A", 1), _doc("X", "x.md", "X", 2)]
+        sq2 = [_doc("A", "a.md", "A", 2), _doc("Y", "y.md", "Y", 1)]
+        bundle = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        names = [i.source_name for i in bundle.items]
+        assert names.index("a.md") < names.index("x.md")
+        assert names.index("a.md") < names.index("y.md")
+
+    def test_absent_subquery_contributes_zero(self):
+        # A 只在 sq1；追加不含 A 的 sq2 不改变 A 的分数相对序
+        sq1 = [_doc("A", "a.md", "A", 1), _doc("B", "b.md", "B", 2)]
+        base = merge_subquery_results_rrf([("sq1", sq1)], max_items=5)
+        sq2 = [_doc("C", "c.md", "C", 1)]
+        with_extra = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        assert [i.source_name for i in base.items] == ["a.md", "b.md"]
+        # A=1/61、C=1/61 并列 best_rank=1 → source ASC a<c
+        assert [i.source_name for i in with_extra.items] == [
+            "a.md", "c.md", "b.md",
+        ]
+
+    def test_duplicate_document_output_once(self):
+        sq1 = [_doc("A", "a.md", "A", 1, document_id="dA")]
+        sq2 = [_doc("A", "a.md", "A", 1, document_id="dA")]
+        sq3 = [_doc("B", "b.md", "B", 1, document_id="dB")]
+        bundle = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2), ("sq3", sq3)], max_items=5
+        )
+        assert [i.source_name for i in bundle.items] == ["a.md", "b.md"]
+
+    def test_best_rank_tie_break(self):
+        # k=1 构造精确等分：X 两次 rank1（score=1，best_rank=1）、Y 三次 rank2（score=1，best_rank=2）
+        sq1 = [_doc("X", "x.md", "X", 1), _doc("Y", "y.md", "Y", 2)]
+        sq2 = [_doc("X", "x.md", "X", 1), _doc("Y", "y.md", "Y", 2)]
+        sq3 = [_doc("Y", "y.md", "Y", 2)]
+        bundle = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2), ("sq3", sq3)],
+            max_items=5, merge_rrf_k=1,
+        )
+        assert [i.source_name for i in bundle.items] == ["x.md", "y.md"]
+
+    def test_source_name_tie_break_deterministic(self):
+        # A 与 B 各只在一次检索出现且同为 rank1 → score 并列、best_rank 并列 → source ASC
+        sq1 = [_doc("B", "b.md", "B", 1, document_id="dB")]
+        sq2 = [_doc("A", "a.md", "A", 1, document_id="dA")]
+        bundle = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        assert [i.source_name for i in bundle.items] == ["a.md", "b.md"]
+
+    def test_max_items_enforced(self):
+        sq1 = [_doc(chr(65 + i), f"{chr(97 + i)}.md", "x", i + 1) for i in range(4)]
+        sq2 = [_doc(chr(69 + i), f"{chr(101 + i)}.md", "x", i + 1) for i in range(4)]
+        bundle = merge_subquery_results_rrf(
+            [("sq1", sq1), ("sq2", sq2)], max_items=5
+        )
+        assert len(bundle.items) == 5
+
+    def test_input_candidate_lists_not_mutated(self):
+        sq1 = [_doc("A", "a.md", "A", 1), _doc("B", "b.md", "B", 2)]
+        sq2 = [_doc("A", "a.md", "A", 1)]
+        snapshot = lambda lst: [(d.source_name, d.rank, d.content) for d in lst]
+        sq1_before, sq2_before = snapshot(sq1), snapshot(sq2)
+        merge_subquery_results_rrf([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        assert snapshot(sq1) == sq1_before
+        assert snapshot(sq2) == sq2_before
+
+    def test_ignores_raw_retriever_score(self):
+        sq1 = [_doc("A", "a.md", "A", 1, score=0.9), _doc("B", "b.md", "B", 2, score=0.1)]
+        sq2 = [_doc("C", "c.md", "C", 1, score=0.2), _doc("D", "d.md", "D", 2, score=0.9)]
+        a = merge_subquery_results_rrf([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        sq1b = [_doc("A", "a.md", "A", 1, score=0.1), _doc("B", "b.md", "B", 2, score=0.9)]
+        sq2b = [_doc("C", "c.md", "C", 1, score=0.9), _doc("D", "d.md", "D", 2, score=0.1)]
+        b = merge_subquery_results_rrf([("sq1", sq1b), ("sq2", sq2b)], max_items=5)
+        assert [i.source_name for i in a.items] == [i.source_name for i in b.items]
+
+    def test_v1_and_v2_differ_on_reordering(self):
+        # v1 轮转：B,A,C；v2 RRF：A,B,C（A、B 并列 score=1/61 → source ASC）
+        sq1 = [_doc("B", "b.md", "B", 1), _doc("C", "c.md", "C", 2)]
+        sq2 = [_doc("A", "a.md", "A", 1)]
+        v1 = merge_subquery_results([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        v2 = merge_subquery_results_rrf([("sq1", sq1), ("sq2", sq2)], max_items=5)
+        assert [i.source_name for i in v1.items] == ["b.md", "a.md", "c.md"]
+        assert [i.source_name for i in v2.items] == ["a.md", "b.md", "c.md"]
+
+    def test_unknown_policy_and_bad_rrf_k(self):
+        with pytest.raises(ValueError):
+            merge_subquery_results_policy(
+                [("sq1", [])], max_items=5, merge_policy="bogus_v9"
+            )
+        with pytest.raises(ValueError):
+            merge_subquery_results_rrf([], max_items=5, merge_rrf_k=0)
+        with pytest.raises(TypeError):
+            merge_subquery_results_rrf([], max_items=5, merge_rrf_k=True)
+
+    def test_runtime_v2_uses_rrf_and_trace(self):
+        sq1 = [
+            _doc("A", "a.md", "A", 1, document_id="dA"),
+            _doc("C", "c.md", "C", 2, document_id="dC"),
+        ]
+        sq2 = [
+            _doc("B", "b.md", "B", 1, document_id="dB"),
+            _doc("A", "a.md", "A", 2, document_id="dA"),
+        ]
+        retriever = _SequenceRetriever([sq1, sq2], supported=("bm25",))
+        planner = _FakePlanner(
+            _plan("decomposed_retrieval", subqueries=_subqueries("甲", "乙"))
+        )
+        runtime = AgentRuntime(
+            planner=planner,
+            retrieval_port=retriever,
+            answer_port=_FakeAnswerer(),
+            merge_policy=SUBQUERY_RRF_MERGE_V2,
+        )
+        result = runtime.run("问题")
+        merged = [t for t in result.trace if t.event_type == "evidence_merged"]
+        assert merged[0].data["merge_policy"] == SUBQUERY_RRF_MERGE_V2
+        # A=1/61+1/62；B=1/61；C=1/62 → A,B,C
+        sources = [i.source_name for i in result.evidence_bundle.items]
+        assert sources == ["a.md", "b.md", "c.md"]
+
+    def test_runtime_rejects_unknown_merge_policy(self):
+        with pytest.raises(ValueError):
+            AgentRuntime(
+                planner=_FakePlanner(_plan("decomposed_retrieval", subqueries=_subqueries("甲"))),
+                retrieval_port=_FakeRetriever(supported=("bm25",)),
+                answer_port=_FakeAnswerer(),
+                merge_policy="bogus_v9",
+            )
 
 
 # ---------------------------------------------------------------------------

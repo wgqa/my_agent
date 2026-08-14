@@ -27,6 +27,11 @@ from typing import Optional, Sequence
 
 from core.adaptive_retrieval import ADAPTIVE_RETRIEVAL_POLICY_VERSION
 from core.agent_runtime import (
+    DEFAULT_MERGE_RRF_K,
+    MERGE_POLICIES,
+    SUBQUERY_ROUND_ROBIN_V1,
+    SUBQUERY_RRF_MERGE_V2,
+    AgentRunBudget,
     AgentRuntime,
     Document as RuntimeDocument,
     EvidenceBundle,
@@ -154,7 +159,8 @@ class Gate3AdaptiveDevConfig:
     rrf_tie_breaker: str = "chunk_id_asc"
     top_k: int = 5
     reranker_enabled: bool = False
-    merge_policy: str = "subquery_round_robin_v1"
+    merge_policy: str = SUBQUERY_ROUND_ROBIN_V1
+    merge_rrf_k: float = DEFAULT_MERGE_RRF_K
     max_retrieval_calls: int = 4
     max_evidence_items: int = 5
     group_a_policy: str = "original_bm25_v1"
@@ -215,6 +221,17 @@ class Gate3AdaptiveDevConfig:
             raise TypeError("rrf_k 必须是 int 或 float（不允许 bool）")
         if self.rrf_k <= 0:
             raise ValueError("rrf_k 必须 > 0")
+        if self.merge_policy not in MERGE_POLICIES:
+            raise ValueError(
+                f"merge_policy 必须是 {'、'.join(MERGE_POLICIES)} 之一，"
+                f"实际 {self.merge_policy!r}"
+            )
+        if type(self.merge_rrf_k) not in (int, float) or isinstance(
+            self.merge_rrf_k, bool
+        ):
+            raise TypeError("merge_rrf_k 必须是 int 或 float（不允许 bool）")
+        if not math.isfinite(self.merge_rrf_k) or self.merge_rrf_k <= 0:
+            raise ValueError("merge_rrf_k 必须是有界正数")
         if type(self.reranker_enabled) is not bool:
             raise TypeError("reranker_enabled 必须是严格 bool")
 
@@ -245,6 +262,7 @@ class Gate3AdaptiveDevConfig:
             "top_k": self.top_k,
             "reranker_enabled": self.reranker_enabled,
             "merge_policy": self.merge_policy,
+            "merge_rrf_k": self.merge_rrf_k,
             "max_retrieval_calls": self.max_retrieval_calls,
             "max_evidence_items": self.max_evidence_items,
             "group_a_policy": self.group_a_policy,
@@ -645,6 +663,11 @@ def run_group_queryplan(
     top_k: int,
     basename_map: dict,
     adaptive: bool,
+    *,
+    merge_policy: str = SUBQUERY_ROUND_ROBIN_V1,
+    merge_rrf_k: float = DEFAULT_MERGE_RRF_K,
+    max_retrieval_calls: int = 4,
+    max_evidence_items: int = 5,
 ) -> list[dict]:
     """C（bm25 不 rescue）与 D（adaptive）：冻结 QueryPlan + Runtime。"""
     records = []
@@ -659,6 +682,12 @@ def run_group_queryplan(
             planner=SnapshotPlanner(snapshot),
             retrieval_port=recording,
             answer_port=DeterministicNoopAnswerPort(),
+            budget=AgentRunBudget(
+                max_retrieval_calls=max_retrieval_calls,
+                max_evidence_items=max_evidence_items,
+            ),
+            merge_policy=merge_policy,
+            merge_rrf_k=merge_rrf_k,
         )
         result = runtime.run(case.query, top_k=top_k)
 
@@ -676,6 +705,8 @@ def run_group_queryplan(
             {
                 "case_id": case.case_id,
                 "group": group,
+                "merge_policy": merge_policy,
+                "merge_rrf_k": merge_rrf_k,
                 "plan_id": (
                     result.planner_outcome.plan.plan_id
                     if result.planner_outcome is not None
@@ -1134,12 +1165,22 @@ def run_adaptive_dev(config: Gate3AdaptiveDevConfig, git_head: str) -> dict:
                                    config.top_k, basename_map)
     records_b = run_group_original("B", index.retriever, dev_set.cases,
                                    config.top_k, basename_map)
-    records_c = run_group_queryplan("C", index.retriever, dev_set.cases,
-                                    snapshot, config.top_k, basename_map,
-                                    adaptive=False)
-    records_d = run_group_queryplan("D", index.retriever, dev_set.cases,
-                                    snapshot, config.top_k, basename_map,
-                                    adaptive=True)
+    records_c = run_group_queryplan(
+        "C", index.retriever, dev_set.cases,
+        snapshot, config.top_k, basename_map, adaptive=False,
+        merge_policy=config.merge_policy,
+        merge_rrf_k=config.merge_rrf_k,
+        max_retrieval_calls=config.max_retrieval_calls,
+        max_evidence_items=config.max_evidence_items,
+    )
+    records_d = run_group_queryplan(
+        "D", index.retriever, dev_set.cases,
+        snapshot, config.top_k, basename_map, adaptive=True,
+        merge_policy=config.merge_policy,
+        merge_rrf_k=config.merge_rrf_k,
+        max_retrieval_calls=config.max_retrieval_calls,
+        max_evidence_items=config.max_evidence_items,
+    )
 
     case_records = {"A": records_a, "B": records_b, "C": records_c, "D": records_d}
     metrics = {

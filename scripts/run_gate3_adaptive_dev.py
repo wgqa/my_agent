@@ -23,6 +23,7 @@ import subprocess
 from dataclasses import replace
 from pathlib import Path
 
+from core.agent_runtime import DEFAULT_MERGE_RRF_K, SUBQUERY_ROUND_ROBIN_V1
 from evaluation.gate3.adaptive_dev import (
     EXPECTED_CORPUS_FILE_COUNT,
     EXPECTED_CORPUS_ID,
@@ -55,6 +56,8 @@ def main(argv=None) -> int:
     parser.add_argument("--frozen-index-manifest", required=True)
     parser.add_argument("--corpus-root", required=True)
     parser.add_argument("--output-root", required=True)
+    parser.add_argument("--merge-policy", default=SUBQUERY_ROUND_ROBIN_V1)
+    parser.add_argument("--merge-rrf-k", type=float, default=DEFAULT_MERGE_RRF_K)
     args = parser.parse_args(argv)
 
     # 绑定到干净源码提交：任何 tracked modification 立即拒绝（untracked 允许），
@@ -86,6 +89,8 @@ def main(argv=None) -> int:
         planner_result_json_path=args.planner_result_json,
         frozen_index_manifest_path=args.frozen_index_manifest,
         corpus_root=args.corpus_root,
+        merge_policy=args.merge_policy,
+        merge_rrf_k=args.merge_rrf_k,
     )
     run_dir = Path(args.output_root) / base.run_id
     config = replace(base, output_dir=str(run_dir))
