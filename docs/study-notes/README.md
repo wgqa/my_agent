@@ -57,6 +57,7 @@
 | 74 | [74-Gate3自适应检索Dev对照实验.md](74-Gate3自适应检索Dev对照实验.md) | G3-ADAPT-06B：Dev 24 真实四组检索对照（A 原问题BM25/B 原问题Hybrid/C Plan+BM25/D Plan+Adaptive），run_id 4d29b9e0b2cc；结果为负（C/D 覆盖 0.727 < A 0.818、调用 49 vs 24、C==D） |
 | 75 | [75-Gate3子查询RRF合并实验.md](75-Gate3子查询RRF合并实验.md) | G3-ADAPT-06C-MERGE：round-robin v1 → subquery_rrf_merge_v2 单变量 merge 实验，run_id 57811e77ecfa；C/D final obligation 32/44→37/44、merge-drop 5→0、调用不变、零回归（正结果） |
 | 76 | [76-Gate3真实E2E答案与引用评测.md](76-Gate3真实E2E答案与引用评测.md) | G3-E2E-07A：Dev 24 真实 Planner+Generator 端到端答案评测（两阶段 Gold 隔离 + LLM Judge），run_id 4172f6cc1d6f；answer_pass 8/20、answer_obligation 21/44、4 case generator 空输出失败 |
+| 77 | [77-Gate3系统冻结与Holdout前置审计.md](77-Gate3系统冻结与Holdout前置审计.md) | G3-FREEZE-08-SYSTEM：Gate 3 Dev 侧系统 Freeze Candidate（gate3_system_freeze_id=2ec11a69b173、frozen baseline fed9d15）；机器可核验 freeze JSON、known_limitations、holdout_execution_contract（Holdout=BLOCKED）；面向面试复习 |
 
 ## FROZEN_EVIDENCE（10 份）
 
