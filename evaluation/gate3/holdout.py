@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,7 +26,7 @@ from evaluation.gate3.adaptive_dev import (
     check_git_tracked_clean,
     write_text_atomic,
 )
-from evaluation.gate3.e2e import GATE3_E2E_METRICS_SCHEMA_VERSION
+from evaluation.gate3.e2e import GATE3_E2E_METRICS_SCHEMA_VERSION, GenerationCase
 
 GATE3_HOLDOUT_SCHEMA_VERSION = "gate3_holdout_run_v1"
 HOLDOUT_ATTEMPT_LEDGER_SCHEMA = "holdout_attempt_ledger_v1"
@@ -73,6 +73,8 @@ class Gate3HoldoutConfig:
     holdout_evaluation_set_id: str = ""
     holdout_case_count: int = 0
     actual_execution_source_commit: str = ""
+    # 执行时验证 sealed 后才填入的 Holdout JSONL SHA；空时身份为 preflight（09A）。
+    holdout_jsonl_sha256: str = ""
     # 全部继承自 gate3_system_freeze.json（唯一配置来源）
     retrieval: dict = field(default_factory=dict)
     planner: dict = field(default_factory=dict)
@@ -95,6 +97,8 @@ class Gate3HoldoutConfig:
                 or isinstance(self.holdout_case_count, bool)
                 or self.holdout_case_count <= 0):
             raise ValueError("holdout_case_count 必须是严格正整数")
+        if self.holdout_jsonl_sha256:
+            _check_hex(self.holdout_jsonl_sha256, 64, "holdout_jsonl_sha256")
         for label in ("evaluation_schema_version", "schema_version"):
             _check_nonempty_no_ws(getattr(self, label), label)
         for section in ("retrieval", "planner", "generator", "judge"):
@@ -120,7 +124,24 @@ class Gate3HoldoutConfig:
 
     @property
     def holdout_run_id(self) -> str:
+        # preflight / registration 身份（不含 Holdout JSONL SHA）。
         return _sha256_bytes(_canonical(self.identity_payload()))[:12]
+
+    def formal_identity_payload(self) -> dict:
+        """正式 Holdout 身份：在验证 sealed manifest 后，把 holdout_jsonl_sha256
+        纳入身份。此时 holdout_run_id（a1dc0a4bab03）只属历史 09A preflight，
+        不是最终 Holdout run ID。"""
+        if not self.holdout_jsonl_sha256:
+            raise ValueError(
+                "holdout_jsonl_sha256 未验证，无法生成 formal identity"
+            )
+        payload = dict(self.identity_payload())
+        payload["holdout_jsonl_sha256"] = self.holdout_jsonl_sha256
+        return payload
+
+    @property
+    def formal_holdout_run_id(self) -> str:
+        return _sha256_bytes(_canonical(self.formal_identity_payload()))[:12]
 
     def to_dict(self) -> dict:
         payload = dict(self.identity_payload())
@@ -430,3 +451,202 @@ def preflight_holdout(
         "embedding_calls": 0,
         "sealed_read": False,
     }
+
+
+# ---------------------------------------------------------------------------
+# 09B：正式执行器（09C 写死顺序；注入 provider 供 synthetic 测试）
+# ---------------------------------------------------------------------------
+
+HOLDOUT_PRIVATE_MANIFEST_SCHEMA = "gate3_holdout_private_manifest_v1"
+
+
+class HoldoutInfrastructureFailure(RuntimeError):
+    """只有真正无法形成有效实验的基础设施故障才抛出；持久化为 invalid_infrastructure。"""
+
+
+def _find_attempt(ledger: dict, attempt_id: str) -> tuple[int, dict]:
+    for i, a in enumerate(ledger.get("attempts", [])):
+        if a.get("attempt_id") == attempt_id:
+            return i, a
+    raise KeyError(f"attempt {attempt_id} 不存在")
+
+
+_VALID_TRANSITIONS = {
+    "prepared": ("running", "invalid_infrastructure", "failed_system"),
+    "running": ("completed", "invalid_infrastructure", "failed_system"),
+    "completed": (),
+    "invalid_infrastructure": (),
+    "failed_system": (),
+}
+
+
+def update_attempt_status(path: str, attempt_id: str, new_status: str,
+                          reason=None) -> None:
+    """跨进程互斥地更新 attempt 状态（prepared→running→completed 等）。
+
+    非法/终端状态后继续迁移一律拒绝。系统行为性失败（如 generator 空输出）不
+    属于此处：那类 case 仍以 completed 收尾，把失败 case 记入正式结果。
+    """
+    if new_status not in HOLDOUT_ATTEMPT_STATUSES:
+        raise ValueError(f"非法 status {new_status!r}")
+    lock_path = str(Path(path)) + ".lock"
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise RuntimeError(f"ledger 锁已存在: {lock_path}") from None
+    try:
+        os.close(fd)
+        ledger = read_attempt_ledger(path)
+        idx, attempt = _find_attempt(ledger, attempt_id)
+        if new_status not in _VALID_TRANSITIONS.get(attempt["status"], ()):
+            raise ValueError(
+                f"attempt {attempt_id} 非法迁移 {attempt['status']} -> {new_status}"
+            )
+        ledger["attempts"][idx]["status"] = new_status
+        if reason is not None:
+            ledger["attempts"][idx]["reason"] = reason
+        write_text_atomic(Path(path), _canonical(ledger).decode("utf-8"))
+    except BaseException:
+        raise
+    else:
+        os.unlink(lock_path)
+
+
+def validate_sealed(manifest: dict, holdout_text: str,
+                    config: Gate3HoldoutConfig) -> dict:
+    """验证 sealed private manifest + Holdout JSONL（仅 09C 授权后调用）。
+
+    校验 manifest schema、holdout evaluation_set_id、case_count、Holdout JSONL
+    SHA、duplicate case_id。返回 verified 信息（含 holdout_jsonl_sha256）。
+    """
+    if not isinstance(manifest, dict):
+        raise HoldoutInfrastructureFailure("private manifest 不是 JSON object")
+    if manifest.get("schema_version") != HOLDOUT_PRIVATE_MANIFEST_SCHEMA:
+        raise HoldoutInfrastructureFailure("private manifest schema_version 不一致")
+    if manifest.get("holdout_evaluation_set_id") != config.holdout_evaluation_set_id:
+        raise HoldoutInfrastructureFailure(
+            "private manifest holdout_evaluation_set_id 与配置不一致"
+        )
+    if manifest.get("case_count") != config.holdout_case_count:
+        raise HoldoutInfrastructureFailure(
+            "private manifest case_count 与配置不一致"
+        )
+    holdout_sha = _sha256_bytes(holdout_text.encode("utf-8"))
+    recorded_sha = manifest.get("holdout_jsonl_sha256")
+    if not recorded_sha or recorded_sha != holdout_sha:
+        raise HoldoutInfrastructureFailure(
+            "Holdout JSONL SHA 与 private manifest 不一致"
+        )
+    case_ids: list[str] = []
+    for line in holdout_text.splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        cid = rec.get("case_id")
+        if cid in case_ids:
+            raise HoldoutInfrastructureFailure(f"Holdout JSONL 重复 case_id: {cid}")
+        case_ids.append(cid)
+    if len(case_ids) != config.holdout_case_count:
+        raise HoldoutInfrastructureFailure(
+            f"Holdout case 数 {len(case_ids)} 与配置 {config.holdout_case_count} 不一致"
+        )
+    return {"holdout_jsonl_sha256": holdout_sha, "case_count": len(case_ids)}
+
+
+def _parse_generation_cases_from_holdout(holdout_text: str) -> list[GenerationCase]:
+    """Generation 只加载 case_id + query（Gold 隔离，复用 GenerationCase）。"""
+    cases: list[GenerationCase] = []
+    seen: set[str] = set()
+    for line in holdout_text.splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        cid, query = rec.get("case_id"), rec.get("query")
+        if type(cid) is not str or type(query) is not str:
+            raise HoldoutInfrastructureFailure("Holdout case 缺少 case_id/query")
+        if cid in seen:
+            raise HoldoutInfrastructureFailure(f"Holdout JSONL 重复 case_id: {cid}")
+        seen.add(cid)
+        cases.append(GenerationCase(case_id=cid, query=query))
+    return cases
+
+
+def execute_holdout(
+    config: Gate3HoldoutConfig,
+    *,
+    repo: str,
+    freeze_json_path: str,
+    output_root: str,
+    attempt_ledger_path: str,
+    sealed_read_fn=None,
+    run_generation_fn=None,
+    run_evaluation_fn=None,
+) -> dict:
+    """09C 正式执行顺序（写死）。steps 1-6 之前绝不开 sealed；formal identity
+    只在验证 sealed manifest 后产生。
+
+    sealed_read_fn / run_generation_fn / run_evaluation_fn 用于 09B synthetic
+    测试注入；None 表示真实 sealed / 真实链（09C 授权后）。系统行为性失败
+    （如 generator 空输出）不终止——仍 completed，失败 case 记入正式结果；
+    只有真正无法形成有效实验的基础设施故障才抛 HoldoutInfrastructureFailure
+    并持久化为 invalid_infrastructure（不自动重跑）。
+    """
+    # 1 tracked-clean
+    check_git_tracked_clean(repo)
+    # 2 actual git HEAD
+    head = _git_head(repo)
+    # 3 validate Freeze ID/config；缺少 provider 时在创建 attempt 前即 fail-closed
+    validate_frozen_knobs(config)
+    if sealed_read_fn is None or run_generation_fn is None:
+        raise HoldoutInfrastructureFailure(
+            "未注入 sealed_read_fn / run_generation_fn；真实 sealed/生成链待 09C 授权"
+        )
+    # 4 check output not exist
+    out = Path(output_root)
+    if out.exists():
+        raise FileExistsError(f"output-root 已存在: {output_root}")
+    # 5 check ledger/lock
+    check_attempt_allowed(attempt_ledger_path)
+    # 6 atomic_create_attempt(prepared)
+    attempt = atomic_create_attempt(attempt_ledger_path, config)
+    attempt_id = attempt["attempt_id"]
+    try:
+        # ========== 此后才第一次允许访问 sealed ==========
+        # 7 read + validate private manifest；8 hash Holdout JSONL
+        # 9 verify evaluation_set_id / case_count / SHA
+        manifest, holdout_text = sealed_read_fn()
+        verified = validate_sealed(manifest, holdout_text, config)
+        # 10 把 Holdout JSON SHA 纳入最终正式 run identity
+        formal_config = replace(
+            config, holdout_jsonl_sha256=verified["holdout_jsonl_sha256"]
+        )
+        formal_id = formal_config.formal_holdout_run_id
+        # 11 status → running
+        update_attempt_status(attempt_ledger_path, attempt_id, "running")
+        # 12 Generation 仅加载 case_id + query
+        generation_cases = _parse_generation_cases_from_holdout(holdout_text)
+        # 13 Planner → Runtime → Retrieval → Generator；14 generation artifact 持久化
+        gen_output = run_generation_fn(generation_cases, formal_config, str(out))
+        # 15 再读取 Gold 做 deterministic evaluation + Judge
+        eval_output = {}
+        if run_evaluation_fn is not None:
+            eval_output = run_evaluation_fn(gen_output, formal_config, str(out))
+        # 16 写最终 artifacts（由 run_generation_fn / run_evaluation_fn 内完成写入）
+        # 17 status → completed
+        update_attempt_status(attempt_ledger_path, attempt_id, "completed")
+        return {
+            "formal_holdout_run_id": formal_id,
+            "preflight_holdout_run_id": config.holdout_run_id,
+            "holdout_jsonl_sha256": verified["holdout_jsonl_sha256"],
+            "actual_execution_source_commit": head,
+            "generation_cases": len(generation_cases),
+            "generation_output": gen_output,
+            "evaluation_output": eval_output,
+            "status": "completed",
+        }
+    except HoldoutInfrastructureFailure as exc:
+        update_attempt_status(
+            attempt_ledger_path, attempt_id, "invalid_infrastructure",
+            reason=str(exc),
+        )
+        raise

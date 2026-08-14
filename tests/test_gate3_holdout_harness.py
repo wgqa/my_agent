@@ -26,13 +26,18 @@ from evaluation.gate3.e2e import (
     Gate3E2EConfig,
 )
 from evaluation.gate3.holdout import (
+    HoldoutInfrastructureFailure,
+    _parse_generation_cases_from_holdout,
     assert_no_forbidden_overrides,
     atomic_create_attempt,
     build_holdout_config_from_freeze,
     check_attempt_allowed,
+    execute_holdout,
     preflight_holdout,
     read_attempt_ledger,
+    update_attempt_status,
     validate_frozen_knobs,
+    validate_sealed,
 )
 
 FREEZE_SRC = Path(__file__).resolve().parent.parent / "docs/experiments" / "gate3_system_freeze.json"
@@ -90,6 +95,8 @@ def _make_dirty_git_repo(tmp_path):
 
 def _clean_git_repo(tmp_path):
     repo = tmp_path / "clean_repo"
+    if (repo / ".git").exists():
+        return repo  # 幂等：多次执行复用同一 clean repo
     repo.mkdir()
     subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@t"],
@@ -403,3 +410,198 @@ class TestDevIdentityCompatibility:
         assert hashlib.sha256(canon).hexdigest() == (
             "9df3c2ea44c8dfaeb950d07cfaa447b89a12c901c5e6be4aaed64538da344d99"
         )
+
+
+# ---------------------------------------------------------------------------
+# 09B：正式执行器（synthetic sealed + fake chain）
+# ---------------------------------------------------------------------------
+
+
+def _synthetic_holdout_text():
+    lines = []
+    for i in range(1, 13):
+        cid = f"h{i:02d}"
+        lines.append(json.dumps({
+            "schema_version": "gate3_case_v1", "case_id": cid,
+            "query": f"question {cid}",
+            "query_type": "fact", "answerability": "answerable",
+            "decomposition_expected": "forbidden", "retrieval_required": True,
+            "evidence_obligations": [{
+                "obligation_id": "o1",
+                "description": "SECRET_GOLD_SENTINEL_09B" + cid,
+                "relevant_files": ["a.md"], "required": True,
+            }],
+            "relevant_files": ["a.md"], "tags": ["fact"],
+        }, ensure_ascii=False))
+    return "\n".join(lines) + "\n"
+
+
+def _synthetic_manifest(holdout_text, eval_id="79a6bc0814a3", case_count=12,
+                        sha=None):
+    return {
+        "schema_version": "gate3_holdout_private_manifest_v1",
+        "gate3_dataset_freeze_id": "257fa0d0a6d6",
+        "holdout_evaluation_set_id": eval_id,
+        "case_count": case_count,
+        "holdout_jsonl_sha256": sha or hashlib.sha256(
+            holdout_text.encode("utf-8")).hexdigest(),
+        "holdout_jsonl_file": "gate3_holdout_v1.jsonl",
+    }
+
+
+def _fake_gen(cases, formal_config, out_dir):
+    return {"case_count": len(cases), "cases": [c.case_id for c in cases],
+            "formal_holdout_run_id": formal_config.formal_holdout_run_id}
+
+
+def _fake_gen_sentinel(cases, formal_config, out_dir):
+    for c in cases:
+        assert "SECRET_GOLD_SENTINEL" not in c.case_id
+        assert "SECRET_GOLD_SENTINEL" not in c.query
+    return _fake_gen(cases, formal_config, out_dir)
+
+
+def _fake_gen_failures(cases, formal_config, out_dir):
+    return {"case_count": len(cases),
+            "failed_cases": [c.case_id for c in cases[:2]],
+            "failed_count": 2}
+
+
+class TestExecutor:
+    def _run(self, tmp_path, *, sealed_read_fn, run_generation_fn=_fake_gen,
+             output_root=None, ledger_path=None, run_evaluation_fn=None):
+        return execute_holdout(
+            _holdout_config(tmp_path),
+            repo=str(_clean_git_repo(tmp_path)),
+            freeze_json_path=_freeze(tmp_path),
+            output_root=str(output_root or tmp_path / "out"),
+            attempt_ledger_path=str(ledger_path or tmp_path / "ledger.json"),
+            sealed_read_fn=sealed_read_fn,
+            run_generation_fn=run_generation_fn,
+            run_evaluation_fn=run_evaluation_fn,
+        )
+
+    def test_attempt_created_before_sealed_read(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        ledger = tmp_path / "ledger.json"
+
+        def sealed_read():
+            # 执行到 sealed 读取时，attempt 必须已创建为 prepared
+            l = read_attempt_ledger(str(ledger))
+            assert len(l["attempts"]) == 1
+            assert l["attempts"][0]["status"] == "prepared"
+            return manifest, holdout_text
+
+        result = self._run(tmp_path, sealed_read_fn=sealed_read,
+                           ledger_path=ledger)
+        assert result["status"] == "completed"
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == "completed"
+
+    def test_holdout_sha_mismatch_fails(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text, sha="ab" * 32)
+        ledger = tmp_path / "ledger.json"
+        with pytest.raises(HoldoutInfrastructureFailure):
+            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                      ledger_path=ledger)
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
+            "invalid_infrastructure"
+
+    def test_evaluation_set_id_mismatch_fails(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text, eval_id="0" * 12)
+        with pytest.raises(HoldoutInfrastructureFailure):
+            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+
+    def test_case_count_mismatch_fails(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text, case_count=11)
+        with pytest.raises(HoldoutInfrastructureFailure):
+            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+
+    def test_duplicate_case_id_fails(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        holdout_text += json.dumps({
+            "schema_version": "gate3_case_v1", "case_id": "h01",
+            "query": "dup", "query_type": "fact", "answerability": "answerable",
+            "decomposition_expected": "forbidden", "retrieval_required": True,
+            "evidence_obligations": [], "relevant_files": ["a.md"],
+            "tags": ["fact"],
+        }, ensure_ascii=False) + "\n"
+        manifest = _synthetic_manifest(holdout_text, case_count=13)
+        with pytest.raises(HoldoutInfrastructureFailure):
+            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+
+    def test_generation_sentinel_not_leak(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                           run_generation_fn=_fake_gen_sentinel)
+        assert result["status"] == "completed"
+
+    def test_formal_run_id_includes_holdout_sha(self, tmp_path):
+        from dataclasses import replace
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+        formal = replace(_holdout_config(tmp_path),
+                         holdout_jsonl_sha256=result["holdout_jsonl_sha256"])
+        assert result["formal_holdout_run_id"] == formal.formal_holdout_run_id
+        assert result["formal_holdout_run_id"] != result["preflight_holdout_run_id"]
+        assert "holdout_jsonl_sha256" in formal.formal_identity_payload()
+
+    def test_actual_source_commit_in_identity(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text))
+        assert len(result["actual_execution_source_commit"]) == 40
+
+    def test_freeze_id_in_identity(self, tmp_path):
+        cfg = _holdout_config(tmp_path)
+        assert cfg.identity_payload()["gate3_system_freeze_id"] == "2ec11a69b173"
+
+    def test_output_not_overwritable(self, tmp_path):
+        out = tmp_path / "out"
+        out.mkdir()
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        ledger = tmp_path / "ledger.json"
+        with pytest.raises(FileExistsError):
+            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                      output_root=out, ledger_path=ledger)
+        assert not ledger.exists()
+
+    def test_system_case_failure_still_completed(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        ledger = tmp_path / "ledger.json"
+        result = self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                           run_generation_fn=_fake_gen_failures,
+                           ledger_path=ledger)
+        assert result["status"] == "completed"
+        assert result["generation_output"]["failed_count"] == 2
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == "completed"
+
+    def test_infrastructure_exception_terminal_state(self, tmp_path):
+        ledger = tmp_path / "ledger.json"
+
+        def boom():
+            raise HoldoutInfrastructureFailure("manifest 损坏")
+
+        with pytest.raises(HoldoutInfrastructureFailure):
+            self._run(tmp_path, sealed_read_fn=boom, ledger_path=ledger)
+        assert read_attempt_ledger(str(ledger))["attempts"][0]["status"] == \
+            "invalid_infrastructure"
+        with pytest.raises(RuntimeError):
+            self._run(tmp_path, sealed_read_fn=boom, ledger_path=ledger)
+
+    def test_second_execution_after_terminal_rejected(self, tmp_path):
+        holdout_text = _synthetic_holdout_text()
+        manifest = _synthetic_manifest(holdout_text)
+        ledger = tmp_path / "ledger.json"
+        self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                  ledger_path=ledger)
+        with pytest.raises(RuntimeError):
+            self._run(tmp_path, sealed_read_fn=lambda: (manifest, holdout_text),
+                      ledger_path=ledger)
