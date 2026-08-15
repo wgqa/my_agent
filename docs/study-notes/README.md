@@ -5,7 +5,7 @@
 **分类规则**
 
 - `CURRENT`：描述当前仍适用的契约、状态、基础设施或方法论，直接指导后续任务。
-- `FROZEN_EVIDENCE`：记录 Gate 2 冻结实验/评测证据；其中数字一律以 `docs/experiments/gate2_freeze.json` 为权威来源，本类笔记是证据链与学习参考，不是可更新的现状文档。
+- `FROZEN_EVIDENCE`：记录已冻结实验/评测证据（Gate 2 与 Gate 3）；其中数字分别以 `docs/experiments/gate2_freeze.json` 与 `docs/experiments/gate3_holdout_final.json` 为权威来源，本类笔记是证据链与学习参考，不是可更新的现状文档。
 - `SUPERSEDED`：行为已被后续修复取代，标注替代目标（见各条）。
 - `HISTORY`：早期模块学习笔记与阶段/修复过程记录，非当前权威参考；当前行为以代码、测试与 `docs/status.md` 为准。
 
@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（34 份）
+## CURRENT（35 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -60,8 +60,9 @@
 | 77 | [77-Gate3系统冻结与Holdout前置审计.md](77-Gate3系统冻结与Holdout前置审计.md) | G3-FREEZE-08-SYSTEM：Gate 3 Dev 侧系统 Freeze Candidate（gate3_system_freeze_id=2ec11a69b173、frozen baseline fed9d15）；机器可核验 freeze JSON、known_limitations、holdout_execution_contract（Holdout=BLOCKED）；面向面试复习 |
 | 78 | [78-Gate3-Holdout一次性执行协议.md](78-Gate3-Holdout一次性执行协议.md) | G3-HOLDOUT-09A-HARNESS：一次性 Freeze-bound Holdout harness（独立 Gate3HoldoutConfig、freeze 唯一配置来源、无 CLI override、attempt ledger、preflight 0 LLM/sealed）；holdout_run_id a1dc0a4bab03 |
 | 79 | [79-Gate3-Holdout最终执行器与封卷流程.md](79-Gate3-Holdout最终执行器与封卷流程.md) | G3-HOLDOUT-09B-FINAL-EXECUTOR + R1-REAL-WIRING：execute_holdout 写死 09C 顺序 + sealed 边界 + formal identity（含 holdout_jsonl_sha256）；attempt prepared→running→completed；系统失败 vs 基础设施失败；synthetic 验证；R1 把 read_real_sealed_inputs / run_holdout_generation / run_holdout_evaluation 接到真实 frozen E2E pipeline、formal provenance binding 与 ledger formal-identity 绑定、CLI --execute 真实 wiring（只差 09C 授权） |
+| 81 | [81-Gate4结构化ToolAgent设计与执行模型.md](81-Gate4结构化ToolAgent设计与执行模型.md) | G4-DESIGN-01：Gate 4 Structured Tool Agent 设计契约的面向学习讲解（Gate3 vs Gate4 / Tool / Structured Tool Call / ToolSpec / ToolCall / Observation / 为什么不让 LLM 直接执行 / Registry 与 Executor 分层 / Bounded Loop / Tool error vs Agent failure / Observation 反哺决策 / Trace vs CoT / 首批 3 个只读工具 / multi-tool 示例 / 常见错误 / 面试问答 / 代码阅读路线）；Gate 4 = IN PROGRESS，0 Tool 实现 |
 
-## FROZEN_EVIDENCE（10 份）
+## FROZEN_EVIDENCE（11 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -75,6 +76,7 @@
 | 58 | [58-Tokenizer对齐与Embedding截断.md](58-Tokenizer对齐与Embedding截断.md) | Tokenizer 对齐与 Embedding 截断（G2-DIAG-18） |
 | 59 | [59-BGE对齐分块与干预实验.md](59-BGE对齐分块与干预实验.md) | BGE 对齐分块与干预实验（G2-ABL-21） |
 | 60 | [60-Gate2评测体系与RAG实验方法总结.md](60-Gate2评测体系与RAG实验方法总结.md) | Gate 2 评测体系与 RAG 实验方法总结（G2-CLOSE-22） |
+| 80 | [80-Gate3最终Holdout与Gate3封卷复盘.md](80-Gate3最终Holdout与Gate3封卷复盘.md) | G3-CLOSE-10-HOLDOUT-OFFLINE-SEAL：记录的是 **Gate 3 冻结结论**（唯一一次正式 Holdout formal_holdout_run_id=cb157fd3837f 与封卷复盘，含 attempt 41c991a839cb 永久保留、replacement 5f5f0c7bef9b）；数字以 `docs/experiments/gate3_holdout_final.json` 为权威来源 |
 
 ## SUPERSEDED（1 份）
 
@@ -126,6 +128,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–79 共 **80 份**，每份只出现一次：CURRENT 34 + FROZEN_EVIDENCE 10 + SUPERSEDED 1 + HISTORY 35 = 80。
+- 编号覆盖 00–81 共 **82 份**，每份只出现一次：CURRENT 35 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 82。
 - 原始笔记一律未修改。
-- 当前日期：2026-08-14。
+- 当前日期：2026-08-15。

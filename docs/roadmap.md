@@ -1,10 +1,10 @@
-# 可评测 RAG Agent 项目主路线图 v3
+# 可评测 RAG Agent 项目主路线图 v4
 
-> 项目：wgqa/my_agent  
-> 版本：v3  
-> 更新日期：2026-08-09  
-> 审计基线：d8bcbe47f15e70dec4411050c10aada945aaebcf  
-> 基线提交：G2-FINAL-CLOSE  
+> 项目：wgqa/my_agent<br>
+> 版本：v4<br>
+> 更新日期：2026-08-15<br>
+> 审计基线：c2cf0d724d5ade31a4bac9b504c6897480d3df95<br>
+> 基线提交：docs: close Gate 3 after final holdout seal<br>
 > 项目目标：面向大厂校招，完成一个正确、可评测、可复现、可解释、可展示的 RAG Agent 项目
 
 ---
@@ -19,9 +19,22 @@
 |---|---|---|
 | Gate 1：基础 RAG 正确性 | CLOSED | 核心数据、分块、检索、上下文和引用契约已经过系统修复 |
 | Gate 2：检索评测与消融 | CLOSED / FROZEN | 已形成可复现、可审计、可冻结的检索实验体系 |
-| Gate 3：Query Decomposition + Adaptive Retrieval | READY / NOT STARTED | 下一技术主线，尚无实现 |
-| Gate 4：结构化 Tool Agent | NOT STARTED | 不得在简历或 README 中声称已实现 |
-| Gate 5：端到端评测与工程收口 | PARTIAL | API、UI 等有基础能力，但安全、依赖锁定、CI、Docker、Trace 和公开展示未收口 |
+| Gate 3：Query Decomposition + Adaptive Retrieval | CLOSED / FROZEN | 系统/数据/唯一一次 formal Holdout 已冻结封档，冻结成绩不再重写 |
+| Gate 4：结构化 Tool Agent | READY / NEXT | 下一技术主线；仅 G4-DESIGN-01 = IN PROGRESS，其余 NOT STARTED，不得提前声称已实现 |
+| Gate 5：端到端评测与工程收口 | NOT STARTED / PARTIAL INFRASTRUCTURE | API、UI 等有基础能力，但安全、依赖锁定、CI、Docker、Trace 和公开展示未收口 |
+
+### Gate 3 冻结摘要（CLOSED / FROZEN，权威来源 `docs/experiments/gate3_holdout_final.json`）
+
+| 冻结身份 | 值 |
+|---|---|
+| gate3_system_freeze_id | `2ec11a69b173` |
+| gate3_dataset_freeze_id | `257fa0d0a6d6` |
+| formal_holdout_run_id | `cb157fd3837f` |
+| holdout eval / case_count | `79a6bc0814a3` / 12 |
+
+- Gate 3 已正式 CLOSED / FROZEN（G3-CLOSE-11-FINAL-STATUS 签发）；冻结成绩只读，**不得重新解释或修改**；
+- 唯一一次 formal Holdout 已执行并离线封档（attempt 41c991a839cb 永久保留、replacement 5f5f0c7bef9b completed）；聚合结果见 `docs/experiments/gate3_holdout_final.json` 与学习笔记 80；
+- 数据构建 Agent 已停止；Gate 3 的 dev 公开 / holdout 私有边界维持不变。
 
 当前项目最强的部分是：
 
@@ -43,14 +56,14 @@
 
 因此下一阶段不是直接堆 Agent 框架，也不是立刻做 GraphRAG，而是：
 
-    文档与安全预检
-    → 先冻结 Gate 3 评测协议和新数据
-    → Query Decomposition
-    → Multi-query Retrieval
-    → Adaptive Retrieval
-    → 正式对照实验
-    → 结构化 Tool Agent
-    → 端到端评测与工程收口
+    文档与安全预检      ✅ 完成
+    → 冻结 Gate 3 评测协议和新数据   ✅ 完成
+    → Query Decomposition           ✅ 完成
+    → Multi-query Retrieval         ✅ 完成
+    → Adaptive Retrieval            ✅ 完成
+    → 正式对照实验 + formal Holdout  ✅ 完成（Gate 3 = CLOSED / FROZEN）
+    → 结构化 Tool Agent             ← 当前（Gate 4 = READY / NEXT，G4-DESIGN-01 = IN PROGRESS）
+    → 端到端评测与工程收口          （Gate 5，后续）
 
 ---
 
@@ -452,22 +465,22 @@ Pipeline 内部已经有 citation_id 和 citation_validation，但 API SourceIte
 
 除 P0 Bug 外，不并行跨项。
 
-| 顺序 | 任务 | 目标 | 预计工作单元 |
-|---:|---|---|---:|
-| 1 | DOC-HOUSEKEEP-01 | 修正文档陈旧状态，不重开 Gate 2 | 0.5 |
-| 2 | SEC-P0-01 | 收紧 API 上传和默认暴露边界 | 1～2 |
-| 3 | G3-DESIGN-01 | 冻结 Gate 3 问题、Baseline、Schema、指标和停止条件 | 1～2 |
-| 4 | G3-DATA-02 | 建立复杂问题开发集与 sealed holdout | 3～5 |
-| 5 | G3-PLAN-03 | 问题类型与 QueryPlan 结构化契约 | 2～3 |
-| 6 | G3-DECOMP-04 | 有界问题分解与失败回退 | 2～4 |
-| 7 | G3-MRETR-05 | Multi-query Retrieval 与证据映射 | 2～4 |
-| 8 | G3-ADAPT-06 | 可解释 Adaptive Router | 2～4 |
-| 9 | G3-CORRECT-07 | 仅在证据支持时加入一次有限补检索 | 1～3 |
-| 10 | G3-EVAL-08 | Dev 调整、冻结实现、sealed holdout 正式评测 | 3～5 |
-| 11 | G3-CLOSE-09 | 失败分析、结论边界、冻结 Gate 3 | 1～2 |
-| 12 | DATA-CONSIST-01 | 删除一致性、文档身份、API Citation 契约 | 2～4 |
-| 13 | Gate 4 | 结构化 Tool Agent | 12～20 |
-| 14 | Gate 5 | 端到端评测与工程收口 | 10～18 |
+| 顺序 | 任务 | 目标 | 状态 |
+|---:|---|---|---|
+| 1 | DOC-HOUSEKEEP-01 | 修正文档陈旧状态，不重开 Gate 2 | CLOSED |
+| 2 | SEC-P0-01 | 收紧 API 上传和默认暴露边界 | CLOSED |
+| 3 | G3-DESIGN-01 | 冻结 Gate 3 问题、Baseline、Schema、指标和停止条件 | CLOSED |
+| 4 | G3-DATA-02 | 建立复杂问题开发集与 sealed holdout | CLOSED / SEALED |
+| 5 | G3-PLAN-03 | 问题类型与 QueryPlan 结构化契约 | CLOSED |
+| 6 | G3-DECOMP-04 | 有界问题分解与失败回退 | CLOSED |
+| 7 | G3-MRETR-05 | Multi-query Retrieval 与证据映射 | CLOSED（并入 G3-RUNTIME-05） |
+| 8 | G3-ADAPT-06 | 可解释 Adaptive Router | CLOSED |
+| 9 | G3-CORRECT-07 | 仅在证据支持时加入一次有限补检索 | CLOSED（以 G3-ADAPT-06A 单次 Evidence Rescue 收敛） |
+| 10 | G3-EVAL-08 | Dev 调整、冻结实现、sealed holdout 正式评测 | CLOSED（G3-E2E-07A 等） |
+| 11 | G3-CLOSE-09 | 失败分析、结论边界、冻结 Gate 3 | CLOSED（G3-CLOSE-10/11） |
+| 12 | DATA-CONSIST-01 | 删除一致性、文档身份、API Citation 契约 | P1（Gate 4 期间可选前置，非阻塞） |
+| 13 | Gate 4 | 结构化 Tool Agent（冻结阶段路线见 §9.8） | READY / NEXT |
+| 14 | Gate 5 | 端到端评测与工程收口 | NOT STARTED / PARTIAL INFRASTRUCTURE |
 
 工作单元定义：
 
@@ -477,9 +490,13 @@ DOC-HOUSEKEEP-01 是纯文档清理，不修改冻结 JSON，不重新运行 Gat
 
 SEC-P0-01 是安全插单。完成前不要将当前 API 暴露到公网。
 
+Gate 3 已 CLOSED / FROZEN，其上冻结数字只读，不再为追求更好数字反复调参。
+
 ---
 
 # 7. Gate 3：Query Decomposition + Adaptive Retrieval
+
+> 本历史章节保留 Gate 3 的设计要求与实施路径。当前 Gate 3 = **CLOSED / FROZEN**：冻结身份见 §0「Gate 3 冻结摘要」，冻结成绩以 `docs/experiments/gate3_holdout_final.json` 为准，本小节不再更新。
 
 ## 7.1 Gate 3 目标
 
@@ -850,56 +867,29 @@ Agent 必须满足：
 
 > Tool Agent 会放大底层数据契约问题。底层状态可能分叉时，Agent Trace 再漂亮也不可信。
 
-## 9.3 第一批 Tool
+## 9.3 第一批 Tool（v4 冻结范围：3 个 read-only 工具）
 
-### search_knowledge
+设计契约以 `docs/design/g4_structured_tool_agent.md` 为准。Gate 4 v1 冻结 **3 个 read-only 工具**：
 
-输入：
+### knowledge_search
 
-    query
-    strategy
-    top_k
-    filters
+- 在项目技术知识库中检索证据，复用现有 RAG / Retrieval 能力（通过 Tool Adapter）；
+- `query` 由模型控制；`top_k` / retriever internal config / index identity 默认由系统配置控制，模型不得任意扩大；
+- **不重跑 Gate 3 frozen RAG**。
 
-输出：
+### code_search
 
-- Chunk；
-- Document；
-- 分数与 rank；
-- Citation ID；
-- 子问题映射；
-- latency；
-- warnings。
+- 只读搜索当前项目中的代码 / 技术文件；
+- v1 必须限定：repo-root 内、read-only、无文件修改、无 shell、无路径逃逸。
 
-### get_document_context
+### calculator
 
-用途：
+- 确定性算术 / 数值计算；
+- **不得 `eval(user_input)`**；未来实现使用受控 parser / allowlisted arithmetic evaluator。
 
-- 获取章节；
-- 获取 Chunk 周围内容；
-- 减少只依据碎片回答；
-- 保留稳定引用。
+v1 明确不做：shell / terminal / 任意 Python execution / 文件写入 / Git write / 任意 HTTP fetch / 浏览器自动操作 / 数据库写 / 邮件 / MCP 动态工具发现 / 插件 marketplace / multi-agent（以后确实需要时单独立项）。
 
-### search_code
-
-第一版：
-
-- 路径搜索；
-- 类、方法和符号搜索；
-- 代码文本检索；
-- 上下文窗口；
-- 文件与行号引用。
-
-不要求第一版完成代码知识图。
-
-### inspect_retrieval_experiment
-
-第一版只读已有实验：
-
-- 按 experiment_id 或 result_id 查询；
-- 返回配置、指标、失败 Case 和 Artifact 路径；
-- 不允许 Agent 未经授权启动重型实验；
-- 不允许 Agent 修改冻结结果。
+（v3 草案中的 `get_document_context` / `inspect_retrieval_experiment` 不进入 v1 冻结范围，可作后续候选，不自动立项。）
 
 ## 9.4 Agent Runtime
 
@@ -1017,6 +1007,71 @@ Agent 必须满足：
 - Prompt Injection 边界有测试；
 - UI 只展示结构化轨迹；
 - 不依赖多 Agent 完成核心 Demo。
+
+## 9.8 Gate 4 冻结阶段路线（写死，不允许跳步）
+
+设计契约：`docs/design/g4_structured_tool_agent.md`。
+
+```
+G4-DESIGN-01   Structured Tool Agent contract            ← 本任务 = IN PROGRESS
+        ↓
+G4-TOOL-02     ToolSpec + ToolRegistry + ToolExecutor
+        ↓
+G4-TOOLS-03    knowledge_search + code_search + calculator
+        ↓
+G4-AGENT-04    真实 LLM structured Tool Selection
+        ↓
+G4-RUNTIME-05  Bounded Decision → Tool → Observation loop
+        ↓
+G4-EVAL-06     Tool Agent Dev benchmark + error/recovery evaluation
+        ↓
+G4-E2E-07      API / trace / real multi-tool task
+        ↓
+G4-CLOSE-08    Freeze / final review
+```
+
+目前：
+
+- 只有 `G4-DESIGN-01` = **IN PROGRESS**；
+- 其余全部 **NOT STARTED**；
+- **不能提前声称已实现**（README 与简历只写"Gate 4 设计契约已冻结"，不写"已实现 Tool Agent"）。
+
+关键契约（详见设计文档，语义不可破坏）：
+
+- Gate 3 frozen runtime 不被 Gate 4 反向改写；能力经 Tool Adapter 复用；未来独立 namespace `core/tool_agent/`；新入口 `/tool-agent/query`，不改冻结 `/agent/query`；
+- ToolSpec（name 唯一 / Registry 是真相来源 / 模型不能动态建工具 / 不能指定 Python module/class/function / input 强 schema / unknown argument 拒绝）；
+- ToolCall 的 call_id 由 Runtime 生成，不由 LLM 生成；
+- ToolObservation 是事实结果、不是 CoT，不含 traceback / secret / Key；
+- AgentAction = 强判别联合（tool_call / final_answer / refuse），不做 `{thought, tool}` 半结构化；
+- ToolRegistry 与 ToolExecutor 分层，Executor 不接受任意 import / 函数路径 / shell / eval；
+- Bounded loop：默认 `max_agent_iterations=5` / `max_tool_calls=4` / `max_tool_errors=2`，系统预算，LLM 不能提高；v1 无自动工具重试；
+- Tool error ≠ Agent process crash（8 类错误码，结构化 Observation 供 Agent 恢复）；
+- Trace ≠ CoT，Observation/Trace 有大小与安全边界（禁 Key / Authorization / env secret / raw system prompt / private CoT / traceback / 无限制全文 / 本地敏感绝对路径）。
+
+## 9.9 Gate 4 评测口径（本阶段只预注册，不创建 benchmark）
+
+预注册指标：
+
+- tool_selection_accuracy
+- argument_schema_validity
+- task_success_rate
+- unnecessary_tool_call_rate
+- tool_error_recovery_rate
+- budget_violation_count
+- loop_termination_rate
+- final_answer_grounding / evidence usage
+
+任务类型（未来至少）：
+
+- no_tool
+- single_tool
+- multi_tool
+- tool_error
+- unanswerable / refusal
+
+口径：
+
+> 最终不能只拿"Tool Call JSON 合法率"冒充 Agent 成功率。JSON 合法只说明格式对，不说明工具选对、任务完成、答案有证据。
 
 ---
 
@@ -1599,15 +1654,13 @@ Backlog 不代表必须完成。
 
 当前下一任务：
 
-> DOC-HOUSEKEEP-01：纯文档清理，修正 HANDOFF 陈旧标题与 R4 遗漏，建立文档状态索引；不修改 Python，不修改实验 Artifact，不重新打开 Gate 2。
+> G4-DESIGN-01：冻结 Gate 4 Structured Tool Agent 的架构边界、核心数据契约、执行模型、安全边界、阶段路线与评测口径（docs/design/g4_structured_tool_agent.md）；纯设计，不写 Tool、不调用 LLM、不运行实验。
 
-其后：
+其后（写死顺序，不允许跳步）：
 
-> SEC-P0-01：修复上传路径、临时文件、大小限制、异常返回、CORS 和默认监听边界；完成前 API 仅限本地可信环境。
+> G4-TOOL-02（ToolSpec + ToolRegistry + ToolExecutor）→ G4-TOOLS-03（knowledge_search + code_search + calculator）→ G4-AGENT-04（真实 LLM structured Tool Selection）→ G4-RUNTIME-05（Bounded Decision → Tool → Observation loop）→ G4-EVAL-06（Tool Agent Dev benchmark + error/recovery evaluation）→ G4-E2E-07（API / trace / real multi-tool task）→ G4-CLOSE-08（Freeze / final review）。
 
-然后正式进入：
-
-> G3-DESIGN-01：先冻结 Gate 3 的评测协议、QueryPlan Schema、Baseline、实验矩阵、holdout 纪律和停止条件，暂不写 Query Decomposition 业务实现。
+Gate 3 已 CLOSED / FROZEN：不重新打开，不重跑其冻结 RAG。
 
 ---
 
