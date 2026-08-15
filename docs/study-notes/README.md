@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（35 份）
+## CURRENT（36 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -61,6 +61,7 @@
 | 78 | [78-Gate3-Holdout一次性执行协议.md](78-Gate3-Holdout一次性执行协议.md) | G3-HOLDOUT-09A-HARNESS：一次性 Freeze-bound Holdout harness（独立 Gate3HoldoutConfig、freeze 唯一配置来源、无 CLI override、attempt ledger、preflight 0 LLM/sealed）；holdout_run_id a1dc0a4bab03 |
 | 79 | [79-Gate3-Holdout最终执行器与封卷流程.md](79-Gate3-Holdout最终执行器与封卷流程.md) | G3-HOLDOUT-09B-FINAL-EXECUTOR + R1-REAL-WIRING：execute_holdout 写死 09C 顺序 + sealed 边界 + formal identity（含 holdout_jsonl_sha256）；attempt prepared→running→completed；系统失败 vs 基础设施失败；synthetic 验证；R1 把 read_real_sealed_inputs / run_holdout_generation / run_holdout_evaluation 接到真实 frozen E2E pipeline、formal provenance binding 与 ledger formal-identity 绑定、CLI --execute 真实 wiring（只差 09C 授权） |
 | 81 | [81-Gate4结构化ToolAgent设计与执行模型.md](81-Gate4结构化ToolAgent设计与执行模型.md) | G4-DESIGN-01：Gate 4 Structured Tool Agent 设计契约的面向学习讲解（Gate3 vs Gate4 / Tool / Structured Tool Call / ToolSpec / ToolCall / Observation / 为什么不让 LLM 直接执行 / Registry 与 Executor 分层 / Bounded Loop / Tool error vs Agent failure / Observation 反哺决策 / Trace vs CoT / 首批 3 个只读工具 / multi-tool 示例 / 常见错误 / 面试问答 / 代码阅读路线）；Gate 4 = IN PROGRESS，0 Tool 实现 |
+| 82 | [82-Gate4-ToolRegistry与安全执行器.md](82-Gate4-ToolRegistry与安全执行器.md) | G4-TOOL-02：Structured Tool Agent 纯确定性底座（ToolSpec/ToolCall/ToolObservation/ToolHandler/RegisteredTool/ToolRegistry/ToolExecutor + JSON 安全 + fail-fast/fail-closed + Fake Handler 测试基础设施）；50 测试；G4-TOOL-02 = REVIEW PENDING（Structured Tool core implemented candidate，仍 0 real tools / 0 LLM selection / 0 tool loop） |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -128,6 +129,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–81 共 **82 份**，每份只出现一次：CURRENT 35 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 82。
+- 编号覆盖 00–82 共 **83 份**，每份只出现一次：CURRENT 36 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 83。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-15。
