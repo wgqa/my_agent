@@ -14,6 +14,8 @@ from __future__ import annotations
 import pytest
 
 from core.tool_agent import (
+    ACTION_PARSE_FAILED,
+    AGENT_BUDGET_EXCEEDED,
     INVALID_TOOL_ARGUMENTS,
     TOOL_BUDGET_EXCEEDED,
     TOOL_EXECUTION_FAILED,
@@ -47,6 +49,22 @@ OUTPUT_SCHEMA = {
 
 # 宽松 output：任意 object 内容都通过 jsonschema，用于隔离 JSON-safety 检查。
 LOOSE_OUTPUT_SCHEMA = {"type": "object"}
+
+# 含嵌套 object 的 input，用于 handler 参数深拷贝隔离测试。
+INPUT_WITH_NESTED = {
+    "type": "object",
+    "properties": {
+        "query": {"type": "string"},
+        "nested": {
+            "type": "object",
+            "properties": {"limit": {"type": "integer"}},
+            "additionalProperties": False,
+            "required": ["limit"],
+        },
+    },
+    "additionalProperties": False,
+    "required": ["query", "nested"],
+}
 
 
 def make_spec(
@@ -104,6 +122,18 @@ class SharedResultHandler:
 
     def execute(self, arguments):
         return self.internal
+
+
+class MutatingArgumentsHandler:
+    """修改收到的参数（含嵌套），用于验证 Executor 传的是 detached 深拷贝。"""
+
+    def __init__(self):
+        self.last_seen_limit = None
+
+    def execute(self, arguments):
+        self.last_seen_limit = arguments["nested"]["limit"]
+        arguments["nested"]["limit"] = 999
+        return {"echo": "done"}
 
 
 class BytesOutputHandler:
@@ -537,3 +567,131 @@ class TestRegisteredToolBinding:
         assert isinstance(registered, RegisteredTool)
         assert registered.spec is spec
         assert registered.handler is handler
+
+
+# ---- R1-1：ToolSpec schema mutation 攻击必须失效 ----
+#
+# 无论外部如何修改 get_spec 拿到的 spec.input_schema / output_schema
+#（直接或嵌套），Registry 执行时真正使用的契约都不得被改变。
+
+
+class TestToolSpecMutationAttack:
+    def test_direct_input_schema_mutation_attack(self):
+        counter = CountingHandler()
+        registry = ToolRegistry()
+        registry.register(make_spec("echo"), counter)
+        executor = ToolExecutor(registry)
+        external = registry.get_spec("echo")
+        # 攻击：直接放宽 additionalProperties
+        external.input_schema["additionalProperties"] = True
+        obs = executor.execute(
+            ToolCall.create("echo", {"query": "x", "extra": "attack"})
+        )
+        assert obs.error_code == INVALID_TOOL_ARGUMENTS
+        assert counter.calls == 0
+
+    def test_nested_input_schema_mutation_attack(self):
+        counter = CountingHandler()
+        registry = ToolRegistry()
+        registry.register(make_spec("echo"), counter)
+        executor = ToolExecutor(registry)
+        external = registry.get_spec("echo")
+        # 攻击：嵌套把 query 类型放宽为 number
+        external.input_schema["properties"]["query"]["type"] = "number"
+        # 契约未变：合法 string 仍成功
+        obs_ok = executor.execute(ToolCall.create("echo", {"query": "abc"}))
+        assert obs_ok.status == "ok"
+        # 契约未变：number 仍被拒绝
+        obs_bad = executor.execute(ToolCall.create("echo", {"query": 123}))
+        assert obs_bad.error_code == INVALID_TOOL_ARGUMENTS
+
+    def test_output_schema_mutation_attack(self):
+        registry = ToolRegistry()
+        registry.register(make_spec("echo"), InvalidOutputHandler())
+        executor = ToolExecutor(registry)
+        external = registry.get_spec("echo")
+        # 攻击：把 echo 输出类型放宽为 number
+        external.output_schema["properties"]["echo"]["type"] = "number"
+        # 契约未变：handler 返回 123 仍被 TOOL_RESULT_INVALID 拒绝
+        obs = executor.execute(ToolCall.create("echo", {"query": "x"}))
+        assert obs.error_code == TOOL_RESULT_INVALID
+
+
+# ---- R1-2：外部 call_id 注入必须在结构层被拒绝 ----
+
+
+class TestToolCallForgedCallId:
+    def test_explicit_call_id_injection_rejected(self):
+        with pytest.raises(TypeError):
+            ToolCall(tool_name="echo", arguments={"query": "x"}, call_id="forged")
+
+    def test_positional_forged_call_id_rejected(self):
+        with pytest.raises(TypeError):
+            ToolCall("echo", {"query": "x"}, "forged")
+
+    def test_create_still_generates_valid_unique_call_id(self):
+        c1 = ToolCall.create("echo", {"query": "a"})
+        c2 = ToolCall.create("echo", {"query": "b"})
+        assert c1.call_id.startswith("call_")
+        assert len(c1.call_id) > 4
+        assert c1.call_id != c2.call_id
+
+
+# ---- R1-4：ToolObservation 拒绝 Agent 级错误码 ----
+
+
+class TestToolObservationAgentCodes:
+    def test_rejects_action_parse_failed(self):
+        with pytest.raises(ValueError, match="error_code 未知"):
+            ToolObservation(
+                call_id="c1", tool_name="echo", status="error",
+                result=None, error_code=ACTION_PARSE_FAILED,
+            )
+
+    def test_rejects_agent_budget_exceeded(self):
+        with pytest.raises(ValueError, match="error_code 未知"):
+            ToolObservation(
+                call_id="c1", tool_name="echo", status="error",
+                result=None, error_code=AGENT_BUDGET_EXCEEDED,
+            )
+
+
+# ---- R1-5：tool_call_allowed 严格 bool ----
+
+
+class TestToolCallAllowedStrictBool:
+    def test_non_bool_rejected(self):
+        executor = build_executor((make_spec(), EchoHandler()))
+        for bad in (None, 0, 1, "no"):
+            with pytest.raises(TypeError, match="tool_call_allowed 必须是 bool"):
+                executor.execute(ToolCall.create("echo", {"query": "x"}), tool_call_allowed=bad)
+
+    def test_true_false_accepted(self):
+        counter = CountingHandler()
+        executor = build_executor((make_spec(), counter))
+        assert executor.execute(
+            ToolCall.create("echo", {"query": "x"}), tool_call_allowed=True
+        ).status == "ok"
+        obs = executor.execute(
+            ToolCall.create("echo", {"query": "x"}), tool_call_allowed=False
+        )
+        assert obs.error_code == TOOL_BUDGET_EXCEEDED
+
+
+# ---- R1-3：handler 拿到的是 detached 参数深拷贝 ----
+
+
+class TestHandlerArgumentsIsolation:
+    def test_nested_arguments_mutation_does_not_leak(self):
+        caller_args = {"query": "x", "nested": {"limit": 5}}
+        call = ToolCall.create("echo", caller_args)
+        handler = MutatingArgumentsHandler()
+        executor = build_executor((make_spec(input_schema=INPUT_WITH_NESTED), handler))
+        obs = executor.execute(call)
+        assert obs.status == "ok"
+        # handler 看到的是被修改前的值（独立拷贝），改的是它自己的拷贝
+        assert handler.last_seen_limit == 5
+        # ToolCall 内部 arguments 不受污染
+        assert call.arguments_copy()["nested"]["limit"] == 5
+        # 原始 caller dict 不受污染
+        assert caller_args["nested"]["limit"] == 5

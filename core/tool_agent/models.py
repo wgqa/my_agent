@@ -37,7 +37,10 @@ AGENT_ERROR_CODES = (
 
 TOOL_AGENT_ERROR_CODES = TOOL_ERROR_CODES + AGENT_ERROR_CODES
 
-_TOOL_ERROR_CODES_SET = frozenset(TOOL_AGENT_ERROR_CODES)
+# ToolObservation.error_code 只允许 Tool 级错误码；Agent 级错误码（如
+# ACTION_PARSE_FAILED / AGENT_BUDGET_EXCEEDED）是 Agent-level 行为，不能冒充
+# 一次工具执行的 Observation 结果。
+_TOOL_ERROR_CODES_SET = frozenset(TOOL_ERROR_CODES)
 _STATUSES_SET = frozenset(TOOL_OBSERVATION_STATUSES)
 
 # 具名导出（供 executor / 测试直接引用）
@@ -136,43 +139,62 @@ def _validate_schema(schema: Mapping[str, Any], label: str) -> None:
 # ---- 领域模型 ----
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ToolSpec:
     """系统允许调用的一个工具。模型唯一可见面：name / description / schemas / version。
 
-    input_schema 与 output_schema 在构造时做独立深拷贝，外部 dict 后续
-    被修改不会反向污染本对象；对外只暴露拷贝（input_schema_copy /
-    output_schema_copy / to_dict）。
+    schema 存于私有 backing（_input_schema / _output_schema），对外通过
+    property 只返回深拷贝：外部无论修改 spec.input_schema 还是嵌套值，
+    都无法改动 Registry 执行时真正使用的契约（R1-1 封死 mutation）。
     """
 
     name: str
     description: str
-    input_schema: Mapping[str, Any]
-    output_schema: Mapping[str, Any]
     version: str
+    _input_schema: Mapping[str, Any] = field(init=False, repr=False)
+    _output_schema: Mapping[str, Any] = field(init=False, repr=False)
 
-    def __post_init__(self) -> None:
-        _require_non_empty_str(self.name, "name")
-        _require_non_empty_str(self.description, "description")
-        _require_non_empty_str(self.version, "version")
-        _validate_schema(self.input_schema, "input_schema")
-        _validate_schema(self.output_schema, "output_schema")
-        # frozen dataclass 不会自动冻结内部 dict：构造时做独立深拷贝。
-        object.__setattr__(self, "input_schema", json_deep_copy(self.input_schema))
-        object.__setattr__(self, "output_schema", json_deep_copy(self.output_schema))
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        input_schema: Mapping[str, Any],
+        output_schema: Mapping[str, Any],
+        version: str,
+    ) -> None:
+        _require_non_empty_str(name, "name")
+        _require_non_empty_str(description, "description")
+        _require_non_empty_str(version, "version")
+        _validate_schema(input_schema, "input_schema")
+        _validate_schema(output_schema, "output_schema")
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "description", description)
+        object.__setattr__(self, "version", version)
+        # 私有 backing：构造时独立深拷贝，外部无法触碰。
+        object.__setattr__(self, "_input_schema", json_deep_copy(input_schema))
+        object.__setattr__(self, "_output_schema", json_deep_copy(output_schema))
+
+    @property
+    def input_schema(self) -> dict:
+        """返回深拷贝；外部对其任何修改都只作用在拷贝上，不影响本契约。"""
+        return json_deep_copy(self._input_schema)
+
+    @property
+    def output_schema(self) -> dict:
+        return json_deep_copy(self._output_schema)
 
     def input_schema_copy(self) -> dict:
-        return json_deep_copy(self.input_schema)
+        return json_deep_copy(self._input_schema)
 
     def output_schema_copy(self) -> dict:
-        return json_deep_copy(self.output_schema)
+        return json_deep_copy(self._output_schema)
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "description": self.description,
-            "input_schema": json_deep_copy(self.input_schema),
-            "output_schema": json_deep_copy(self.output_schema),
+            "input_schema": json_deep_copy(self._input_schema),
+            "output_schema": json_deep_copy(self._output_schema),
             "version": self.version,
         }
 
@@ -193,7 +215,8 @@ class ToolCall:
 
     tool_name: str
     arguments: Mapping[str, Any]
-    call_id: str = field(default_factory=_new_call_id)
+    # init=False：结构层禁止外部注入 call_id（R1-2），由系统 default_factory 生成。
+    call_id: str = field(init=False, default_factory=_new_call_id)
 
     def __post_init__(self) -> None:
         _require_non_empty_str(self.tool_name, "tool_name")

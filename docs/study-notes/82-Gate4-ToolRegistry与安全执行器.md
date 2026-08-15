@@ -120,6 +120,30 @@ ToolCall
 
 两者合起来：**宁可拒绝，不可放行**。
 
+### frozen dataclass ≠ 深层不可变（R1 关键补丁）
+
+`@dataclass(frozen=True)` 只做一件事：**阻止给字段重新赋值**。
+
+```python
+@dataclass(frozen=True)
+class A:
+    data: dict
+
+a = A(data={"x": 1})
+a.data = {"y": 2}      # ❌ FrozenInstanceError：被阻止
+a.data["x"] = 999      # ⚠️ 不报错！字段本身是 dict，可变引用被直接改掉
+```
+
+所以 frozen 只能挡住 `spec.input_schema = ...`，**挡不住 `spec.input_schema["x"] = ...`**。这正是 R1-1 修补的洞：光靠 frozen 不够，还要把 schema 存进私有 backing，用 property 只返回深拷贝，让外部任何直接或嵌套修改都落在拷贝上，Registry 真正执行用的契约毫发无损。
+
+为什么 Tool schema、ToolCall arguments 这类"审计事实"必须防 aliasing / mutation？
+
+- **它们是契约的真相来源**：执行器用它校验参数、校验输出；如果被外部偷偷放宽，等于 bypass 了安全边界；
+- **它们是审计事实**：`call_id / tool_name / arguments` 是"这次执行到底发生了什么"的证据，必须不可变，否则事后无法复现、无法归责；
+- **aliasing 是隐式共享**：一个 dict 被多处引用，任何一处修改都会污染其它处，很难排查。
+
+结论：**frozen 管"字段级不变"，深拷贝管"值级不变"，两者缺一不可。** 这个知识点本身很适合面试：问"frozen dataclass 是不是就是不可变？"——答案是否定的，还要处理可变内部对象。
+
 ## 12. Tool error 为什么不等于 Agent crash
 
 工具执行失败（比如 handler 抛异常 → `TOOL_EXECUTION_FAILED`）返回的是**结构化 Observation**，不是程序崩溃。未来的 Agent 看到这个 Observation 可以决定：换工具、改参数、直接回答、或拒答。只有**系统级基础设施故障**才是真正的 crash。

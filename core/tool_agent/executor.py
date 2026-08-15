@@ -65,6 +65,10 @@ class ToolExecutor:
     ) -> ToolObservation:
         if not isinstance(call, ToolCall):
             raise TypeError("call 必须是 ToolCall")
+        if type(tool_call_allowed) is not bool:
+            raise TypeError(
+                "tool_call_allowed 必须是 bool（不允许 None / 0 / 字符串按 truthy 静默解释）"
+            )
 
         # 1. resolve：不存在 → UNKNOWN_TOOL
         registered = self._registry.resolve(call.tool_name)
@@ -75,7 +79,7 @@ class ToolExecutor:
 
         # 2. input_schema 校验（额外参数会被 additionalProperties:false 拒绝）
         try:
-            js_validate(dict(call.arguments), spec.input_schema)
+            js_validate(call.arguments_copy(), spec.input_schema)
         except Exception:
             return _error_observation(call, INVALID_TOOL_ARGUMENTS)
 
@@ -88,8 +92,10 @@ class ToolExecutor:
             return _error_observation(call, TOOL_BUDGET_EXCEEDED)
 
         # 5. handler.execute：异常 → TOOL_EXECUTION_FAILED，绝不 traceback
+        #    传给 handler 的是真正 detached 深拷贝，handler 修改参数不会
+        #    反向污染 ToolCall 内部 arguments（R1-3）。
         try:
-            raw_result: object = handler.execute(dict(call.arguments))
+            raw_result: object = handler.execute(call.arguments_copy())
         except Exception:
             return _error_observation(call, TOOL_EXECUTION_FAILED)
 
