@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（36 份）
+## CURRENT（37 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -62,6 +62,7 @@
 | 79 | [79-Gate3-Holdout最终执行器与封卷流程.md](79-Gate3-Holdout最终执行器与封卷流程.md) | G3-HOLDOUT-09B-FINAL-EXECUTOR + R1-REAL-WIRING：execute_holdout 写死 09C 顺序 + sealed 边界 + formal identity（含 holdout_jsonl_sha256）；attempt prepared→running→completed；系统失败 vs 基础设施失败；synthetic 验证；R1 把 read_real_sealed_inputs / run_holdout_generation / run_holdout_evaluation 接到真实 frozen E2E pipeline、formal provenance binding 与 ledger formal-identity 绑定、CLI --execute 真实 wiring（只差 09C 授权） |
 | 81 | [81-Gate4结构化ToolAgent设计与执行模型.md](81-Gate4结构化ToolAgent设计与执行模型.md) | G4-DESIGN-01：Gate 4 Structured Tool Agent 设计契约的面向学习讲解（Gate3 vs Gate4 / Tool / Structured Tool Call / ToolSpec / ToolCall / Observation / 为什么不让 LLM 直接执行 / Registry 与 Executor 分层 / Bounded Loop / Tool error vs Agent failure / Observation 反哺决策 / Trace vs CoT / 首批 3 个只读工具 / multi-tool 示例 / 常见错误 / 面试问答 / 代码阅读路线）；Gate 4 = IN PROGRESS，0 Tool 实现 |
 | 82 | [82-Gate4-ToolRegistry与安全执行器.md](82-Gate4-ToolRegistry与安全执行器.md) | G4-TOOL-02：Structured Tool Agent 纯确定性底座（ToolSpec/ToolCall/ToolObservation/ToolHandler/RegisteredTool/ToolRegistry/ToolExecutor + JSON 安全 + fail-fast/fail-closed + Fake Handler 测试基础设施）；50 测试；G4-TOOL-02 = REVIEW PENDING（Structured Tool core implemented candidate，仍 0 real tools / 0 LLM selection / 0 tool loop） |
+| 83 | [83-Gate4三个真实Tool与Adapter设计.md](83-Gate4三个真实Tool与Adapter设计.md) | G4-TOOLS-03：三个真实 read-only Tool（calculator AST 白名单求值 / code_search filesystem sandbox / knowledge_search 复用 RetrievalPort）接入统一 Tool core；capability adapter、模型不能控 top_k/strategy、literal vs regex、output 受限、异构 Tool 统一契约；41 测试；G4-TOOLS-03 = REVIEW PENDING（3 个真实 read-only Structured Tools implemented candidate） |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -129,6 +130,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–82 共 **83 份**，每份只出现一次：CURRENT 36 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 83。
+- 编号覆盖 00–83 共 **84 份**，每份只出现一次：CURRENT 37 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 84。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-15。

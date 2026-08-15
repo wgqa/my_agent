@@ -6,6 +6,7 @@ Loop、不注册真实工具（G4-TOOLS-03 才会接入 knowledge_search /
 code_search / calculator）。
 """
 
+from core.tool_agent.default_tools import build_readonly_tool_registry
 from core.tool_agent.executor import ToolExecutor
 from core.tool_agent.models import (
     ACTION_PARSE_FAILED,
@@ -30,6 +31,14 @@ from core.tool_agent.registry import (
     ToolHandler,
     ToolRegistry,
 )
+from core.tool_agent.tools import (
+    CALCULATOR_SPEC,
+    CODE_SEARCH_SPEC,
+    KNOWLEDGE_SEARCH_SPEC,
+    CalculatorHandler,
+    CodeSearchHandler,
+    KnowledgeSearchHandler,
+)
 
 __all__ = [
     "ToolSpec",
@@ -52,4 +61,11 @@ __all__ = [
     "TOOL_AGENT_ERROR_CODES",
     "TOOL_OBSERVATION_STATUSES",
     "json_deep_copy",
+    "CALCULATOR_SPEC",
+    "CODE_SEARCH_SPEC",
+    "KNOWLEDGE_SEARCH_SPEC",
+    "CalculatorHandler",
+    "CodeSearchHandler",
+    "KnowledgeSearchHandler",
+    "build_readonly_tool_registry",
 ]
