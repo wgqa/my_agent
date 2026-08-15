@@ -11,12 +11,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
 
-from core.tool_agent.actions import AgentDecisionOutcome
+from core.tool_agent.actions import (
+    AGENT_DECISION_FAILURE_CODES,
+    REFUSE_REASON_CODES,
+    AgentDecisionOutcome,
+)
 from core.tool_agent.models import (
     AGENT_BUDGET_EXCEEDED,
+    TOOL_ERROR_CODES,
     TOOL_OBSERVATION_STATUSES,
     json_deep_copy,
 )
+
+_TOOL_ERROR_CODES_SET = frozenset(TOOL_ERROR_CODES)
+_REFUSE_REASON_CODES_SET = frozenset(REFUSE_REASON_CODES)
+_DECISION_FAILURE_CODES_SET = frozenset(AGENT_DECISION_FAILURE_CODES)
 
 # Agent-level termination codes（系统硬停止，非模型 RefuseAction、非 ToolObservation）。
 AGENT_DUPLICATE_TOOL_CALL = "AGENT_DUPLICATE_TOOL_CALL"
@@ -26,6 +35,8 @@ AGENT_TERMINATION_CODES = (
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
 )
+
+_TERMINATION_CODES_SET = frozenset(AGENT_TERMINATION_CODES)
 
 RUN_STATUSES = ("completed", "refused", "failed")
 TRACE_EVENT_TYPES = (
@@ -93,6 +104,23 @@ class DecisionContextItem:
                 f"observation_status 必须是 "
                 f"{'、'.join(TOOL_OBSERVATION_STATUSES)} 之一"
             )
+        # 镜像 ToolObservation 的跨字段不变量：交给 LLM 的 snapshot 必须是
+        # 系统真实可能产生的事实。
+        if self.observation_status == "ok":
+            if self.observation_result is None:
+                raise ValueError("ok 要求 observation_result 非 None")
+            if self.observation_error_code is not None:
+                raise ValueError("ok 要求 observation_error_code 为 None")
+        else:  # error / refused
+            if self.observation_result is not None:
+                raise ValueError("error/refused 要求 observation_result 为 None")
+            if (
+                self.observation_error_code is None
+                or self.observation_error_code not in _TOOL_ERROR_CODES_SET
+            ):
+                raise ValueError(
+                    "error/refused 要求 observation_error_code 是合法 Tool error code"
+                )
         object.__setattr__(self, "arguments", json_deep_copy(self.arguments))
         object.__setattr__(
             self,
@@ -180,6 +208,10 @@ class ToolAgentRunResult:
         _require_non_negative_int(self.iterations_used, "iterations_used")
         _require_non_negative_int(self.tool_calls_used, "tool_calls_used")
         _require_non_negative_int(self.tool_errors_used, "tool_errors_used")
+        if self.tool_errors_used > self.tool_calls_used:
+            raise ValueError("tool_errors_used 不得超过 tool_calls_used")
+        if self.tool_calls_used > self.iterations_used:
+            raise ValueError("tool_calls_used 不得超过 iterations_used")
         if self.status == "completed":
             if type(self.answer) is not str or not self.answer.strip():
                 raise ValueError("completed 要求 answer 非空")
@@ -188,15 +220,25 @@ class ToolAgentRunResult:
         elif self.status == "refused":
             if self.answer is not None:
                 raise ValueError("refused 要求 answer 为 None")
-            if not self.reason_code:
-                raise ValueError("refused 要求 reason/termination code 非空")
+            if self.reason_code is None or (
+                self.reason_code not in _REFUSE_REASON_CODES_SET
+                and self.reason_code not in _TERMINATION_CODES_SET
+            ):
+                raise ValueError(
+                    "refused 要求 reason_code ∈ REFUSE_REASON_CODES ∪ AGENT_TERMINATION_CODES"
+                )
             if self.failure_code is not None:
                 raise ValueError("refused 要求 failure_code 为 None")
         else:  # failed
             if self.answer is not None:
                 raise ValueError("failed 要求 answer 为 None")
-            if not self.failure_code:
-                raise ValueError("failed 要求 failure_code 非空")
+            if self.reason_code is not None:
+                raise ValueError("failed 要求 reason_code 为 None")
+            if (
+                self.failure_code is None
+                or self.failure_code not in _DECISION_FAILURE_CODES_SET
+            ):
+                raise ValueError("failed 要求 failure_code 是已定义 Agent Decision failure code")
 
     def to_dict(self) -> dict:
         return {

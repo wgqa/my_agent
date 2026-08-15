@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 from core.tool_agent.actions import (
+    AgentDecisionOutcome,
     FinalAnswerAction,
     RefuseAction,
     ToolCallAction,
@@ -43,14 +44,17 @@ def _canonical_call(tool_name: str, arguments) -> tuple[str, str]:
 
 
 class ToolAgentRuntime:
-    """Bounded Decision → Tool → Observation loop。预算唯一所有者是 Runtime。"""
+    """Bounded Decision → Tool → Observation loop。预算唯一所有者是 Runtime。
+
+    Executor 固定为 ToolExecutor(registry)：Decision 与执行始终绑定同一个
+    registry，杜绝 "模型看到的能力" 与 "系统实际执行的能力" 分裂。
+    """
 
     def __init__(
         self,
         *,
         registry: ToolRegistry,
         provider: AgentDecisionProvider,
-        executor: ToolExecutor | None = None,
         budget: ToolAgentBudget | None = None,
     ) -> None:
         if not isinstance(registry, ToolRegistry):
@@ -59,10 +63,16 @@ class ToolAgentRuntime:
             getattr(provider, "decide", None)
         ):
             raise TypeError("provider 必须实现 AgentDecisionProvider（含 decide）")
+        if budget is None:
+            budget = ToolAgentBudget()
+        elif type(budget) is not ToolAgentBudget:
+            raise TypeError(
+                "budget 必须是 ToolAgentBudget 或 None（不接受 duck typing / dict / bool / 自定义对象）"
+            )
         self._registry = registry
         self._provider = provider
-        self._executor = executor if executor is not None else ToolExecutor(registry)
-        self._budget = budget if budget is not None else ToolAgentBudget()
+        self._executor = ToolExecutor(registry)
+        self._budget = budget
 
     def run(self, user_query: str) -> ToolAgentRunResult:
         if type(user_query) is not str or not user_query.strip():
@@ -84,6 +94,9 @@ class ToolAgentRuntime:
             outcome = self._provider.decide(
                 self._registry, user_query, context=tuple(context)
             )
+            if not isinstance(outcome, AgentDecisionOutcome):
+                # Provider 违反 Protocol 属于程序契约错误，fail-fast
+                raise TypeError("provider.decide 必须返回 AgentDecisionOutcome")
             trace.append(
                 RuntimeTraceEvent(
                     iteration=iterations,
@@ -96,6 +109,9 @@ class ToolAgentRuntime:
             )
 
             if outcome.failure_code is not None:
+                self._append_terminal(
+                    trace, iterations, tool_calls, tool_errors, outcome.failure_code
+                )
                 return ToolAgentRunResult(
                     status="failed",
                     answer=None,
@@ -109,6 +125,9 @@ class ToolAgentRuntime:
 
             action = outcome.action
             if isinstance(action, FinalAnswerAction):
+                self._append_terminal(
+                    trace, iterations, tool_calls, tool_errors, None
+                )
                 return ToolAgentRunResult(
                     status="completed",
                     answer=action.answer,
@@ -120,6 +139,9 @@ class ToolAgentRuntime:
                     trace=tuple(trace),
                 )
             if isinstance(action, RefuseAction):
+                self._append_terminal(
+                    trace, iterations, tool_calls, tool_errors, action.reason_code
+                )
                 return ToolAgentRunResult(
                     status="refused",
                     answer=None,
@@ -195,14 +217,19 @@ class ToolAgentRuntime:
                 )
             # 否则继续下一次 Decision
 
-    def _hard_stop(
+    def _append_terminal(
         self,
         trace: list[RuntimeTraceEvent],
         iterations: int,
         tool_calls: int,
         tool_errors: int,
-        code: str,
-    ) -> ToolAgentRunResult:
+        code: str | None,
+    ) -> None:
+        """每次 run() 结束都追加 runtime_stopped 作为最后一条 Trace event。
+
+        code 承载终止事实：completed→None、model refuse→reason_code、
+        decision failure→failure_code、系统硬停止→termination code。
+        """
         trace.append(
             RuntimeTraceEvent(
                 iteration=iterations,
@@ -213,6 +240,16 @@ class ToolAgentRuntime:
                 tool_errors_used=tool_errors,
             )
         )
+
+    def _hard_stop(
+        self,
+        trace: list[RuntimeTraceEvent],
+        iterations: int,
+        tool_calls: int,
+        tool_errors: int,
+        code: str,
+    ) -> ToolAgentRunResult:
+        self._append_terminal(trace, iterations, tool_calls, tool_errors, code)
         return ToolAgentRunResult(
             status="refused",
             answer=None,

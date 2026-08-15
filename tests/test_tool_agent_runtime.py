@@ -29,6 +29,7 @@ from core.tool_agent import (
     ToolAgentRuntime,
     ToolAgentRunResult,
     ToolCallAction,
+    ToolExecutor,
     ToolRegistry,
 )
 from core.tool_agent.decision_prompt import build_decision_messages
@@ -421,3 +422,191 @@ class TestTraceSafety:
         assert "raw" not in serialized
         event_types = {e.event_type for e in result.trace}
         assert {"decision_completed", "tool_call_created", "tool_observation"} <= event_types
+
+
+# ---- R1：Runtime 边界不变量 ----
+
+
+class _FakeBudget:
+    max_agent_iterations = 1000
+    max_tool_calls = 1000
+    max_tool_errors = 1000
+
+
+class _BadProvider:
+    """违反 AgentDecisionProvider 返回契约（返回非 Outcome）。"""
+
+    def decide(self, registry, user_query, *, context=()):
+        return "not-an-outcome"
+
+
+class TestRuntimeBudgetBoundary:
+    def _runtime(self, budget=None):
+        reg, _ = build_loop_registry()
+        provider = ScriptedDecisionProvider(
+            [FinalAnswerAction(action="final_answer", answer="ok")]
+        )
+        return ToolAgentRuntime(registry=reg, provider=provider, budget=budget)
+
+    def test_budget_must_be_real_tool_agent_budget(self):
+        for bad in (
+            SimpleNamespace(max_agent_iterations=1000, max_tool_calls=1000, max_tool_errors=1000),
+            {},
+            True,
+            _FakeBudget(),
+        ):
+            with pytest.raises(TypeError, match="ToolAgentBudget"):
+                self._runtime(budget=bad)
+
+    def test_none_budget_defaults_to_frozen(self):
+        result = self._runtime().run("x")
+        assert result.status == "completed"
+
+
+class TestExecutorInjectionRemoved:
+    def test_executor_param_rejected_by_signature(self):
+        reg, _ = build_loop_registry()
+        provider = ScriptedDecisionProvider(
+            [FinalAnswerAction(action="final_answer", answer="ok")]
+        )
+        with pytest.raises(TypeError):
+            ToolAgentRuntime(registry=reg, provider=provider, executor=ToolExecutor(reg))
+
+    def test_registry_b_handler_never_executed(self):
+        # Registry A：calculator → 计数 handler A
+        reg_a, counters_a = build_loop_registry()
+        # Registry B：calculator → 另一个 handler B（不应被执行）
+        from core.tool_agent.tools.calculator import CALCULATOR_SPEC
+
+        reg_b = ToolRegistry()
+        b_counter = CountingHandler(CalculatorHandler())
+        reg_b.register(CALCULATOR_SPEC, b_counter)
+        provider = ScriptedDecisionProvider([
+            ToolCallAction(action="tool_call", tool_name="calculator", arguments={"expression": "1+1"}),
+            FinalAnswerAction(action="final_answer", answer="2"),
+        ])
+        result = ToolAgentRuntime(registry=reg_a, provider=provider).run("1+1")
+        assert result.status == "completed"
+        assert counters_a["calculator"].calls == 1
+        assert b_counter.calls == 0  # Registry B 的 handler 永远不被执行
+
+
+class TestProviderReturnContract:
+    def test_non_outcome_return_fail_fast(self):
+        reg, _ = build_loop_registry()
+        runtime = ToolAgentRuntime(registry=reg, provider=_BadProvider())
+        with pytest.raises(TypeError, match="AgentDecisionOutcome"):
+            runtime.run("x")
+
+
+class TestContextMirrorsObservationInvariants:
+    def _item(self, **kw):
+        base = dict(tool_name="t", arguments={}, call_id="c1",
+                    observation_status="ok", observation_result={"v": 1},
+                    observation_error_code=None)
+        base.update(kw)
+        return DecisionContextItem(**base)
+
+    def test_ok_with_none_result_rejected(self):
+        with pytest.raises(ValueError):
+            self._item(observation_status="ok", observation_result=None)
+
+    def test_ok_with_error_code_rejected(self):
+        with pytest.raises(ValueError):
+            self._item(observation_status="ok",
+                       observation_error_code="TOOL_EXECUTION_FAILED")
+
+    def test_error_with_result_rejected(self):
+        with pytest.raises(ValueError):
+            self._item(observation_status="error", observation_result={"v": 1},
+                       observation_error_code="TOOL_EXECUTION_FAILED")
+
+    def test_error_with_none_error_code_rejected(self):
+        with pytest.raises(ValueError):
+            self._item(observation_status="error", observation_result=None,
+                       observation_error_code=None)
+
+    def test_unknown_error_code_rejected(self):
+        with pytest.raises(ValueError):
+            self._item(observation_status="error", observation_result=None,
+                       observation_error_code="NOT_A_CODE")
+
+    def test_valid_ok_and_error_accepted(self):
+        DecisionContextItem(tool_name="t", arguments={}, call_id="c1",
+                            observation_status="ok", observation_result={"v": 1},
+                            observation_error_code=None)
+        DecisionContextItem(tool_name="t", arguments={}, call_id="c1",
+                            observation_status="error", observation_result=None,
+                            observation_error_code="TOOL_EXECUTION_FAILED")
+
+
+class TestRunResultInvariantsTightened:
+    def _result(self, **kw):
+        base = dict(status="completed", answer="x", reason_code=None,
+                    failure_code=None, iterations_used=2, tool_calls_used=1,
+                    tool_errors_used=0, trace=())
+        base.update(kw)
+        return ToolAgentRunResult(**base)
+
+    def test_failed_with_reason_code_rejected(self):
+        with pytest.raises(ValueError):
+            self._result(status="failed", answer=None, reason_code="UNSAFE_REQUEST",
+                         failure_code=ACTION_TIMEOUT)
+
+    def test_refused_with_made_up_reason_rejected(self):
+        with pytest.raises(ValueError):
+            self._result(status="refused", answer=None, reason_code="MADE_UP")
+
+    def test_tool_errors_exceed_tool_calls_rejected(self):
+        with pytest.raises(ValueError):
+            self._result(tool_calls_used=0, tool_errors_used=1)
+
+    def test_tool_calls_exceed_iterations_rejected(self):
+        with pytest.raises(ValueError):
+            self._result(iterations_used=1, tool_calls_used=2, tool_errors_used=1)
+
+
+class TestTerminalTraceCompleteness:
+    def test_runtime_stopped_is_last_event_everywhere(self):
+        reg, _ = build_loop_registry()
+        cases = [
+            # direct final
+            ToolAgentRuntime(
+                registry=reg,
+                provider=ScriptedDecisionProvider(
+                    [FinalAnswerAction(action="final_answer", answer="ok")]
+                ),
+            ).run("x"),
+            # model refuse
+            ToolAgentRuntime(
+                registry=reg,
+                provider=ScriptedDecisionProvider(
+                    [RefuseAction(action="refuse", reason_code="INSUFFICIENT_INFORMATION")]
+                ),
+            ).run("x"),
+            # provider timeout
+            ToolAgentRuntime(registry=reg, provider=ScriptedDecisionProvider([ACTION_TIMEOUT])).run("x"),
+            # duplicate
+            ToolAgentRuntime(
+                registry=reg,
+                provider=ScriptedDecisionProvider([
+                    ToolCallAction(action="tool_call", tool_name="calculator", arguments={"expression": "1+1"}),
+                    ToolCallAction(action="tool_call", tool_name="calculator", arguments={"expression": "1+1"}),
+                ]),
+            ).run("x"),
+            # budget
+            ToolAgentRuntime(
+                registry=reg,
+                provider=ScriptedDecisionProvider([
+                    ToolCallAction(action="tool_call", tool_name="calculator", arguments={"expression": f"{i}+{i}"})
+                    for i in range(1, 7)
+                ]),
+            ).run("x"),
+        ]
+        for result in cases:
+            assert result.trace[-1].event_type == "runtime_stopped"
+        # Provider failure 的 terminal trace 保存结构化错误码
+        assert cases[2].trace[-1].error_code == ACTION_TIMEOUT
+        # duplicate / budget terminal trace 保存 termination code
+        assert cases[3].trace[-1].error_code == AGENT_DUPLICATE_TOOL_CALL
+        assert cases[4].trace[-1].error_code == AGENT_BUDGET_EXCEEDED

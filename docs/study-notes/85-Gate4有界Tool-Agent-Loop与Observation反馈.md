@@ -137,3 +137,19 @@ Loop 的正确性（预算、去重、错误恢复、终止）与"模型是谁"�
 
 **Q8：为什么 Fake LLM + Real Tool 有价值？**
 > 既确定性驱动状态机走完全部分支，又验证真实工具在 Loop 里能执行、Observation 能正确回喂——不烧 API 的集成测试。
+
+---
+
+## 15. R1 补充：三个值得面试讲的边界知识点
+
+### 15.1 类型注解不是运行时安全边界
+
+`budget: ToolAgentBudget` 只是给人和 IDE 看的**文档**，Python 不会因此阻止你传 `SimpleNamespace(max_agent_iterations=1000, ...)` 或 `{}` 或 `True`。所以 Runtime 构造时用 **exact type check**（`type(budget) is not ToolAgentBudget`）在运行时把非真实预算对象挡在外面——否则 5/4/2 上限可以被任意 duck-typed 对象绕过。
+
+### 15.2 Dependency Injection 也可能制造 confused deputy
+
+如果决策用 Registry A、执行用 Registry B，就会产生 **confused deputy**："模型看到的能力"（A 的工具）和"系统实际执行的能力"（B 的工具）分裂——模型以为自己调的是 A 的安全 calculator，实际可能执行了 B 的另一个实现。所以本卡**移除 Executor 注入**，Runtime 始终 `ToolExecutor(registry)`，决策与执行绑定同一个 registry，分裂在结构上不可能发生。
+
+### 15.3 Trace 必须记录终止事实，而不是 CoT
+
+`ACTION_TIMEOUT`、预算耗尽、duplicate、error-limit 都是**系统事实**，应该可审计——`G4-EVAL-06` 才能从 Trace 做 termination/error analysis，而不是靠顶层 Result 猜。所以每次 `run()` 的最后一条 Trace event 都是 `runtime_stopped`，并携带结构化错误码（decision failure → ACTION_*、系统停止 → AGENT_*）。模型思维链（CoT）是私有推理，永远不进 Trace。
