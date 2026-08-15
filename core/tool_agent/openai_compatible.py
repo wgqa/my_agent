@@ -36,6 +36,7 @@ from core.tool_agent.decision_prompt import (
     DECISION_TEMPERATURE,
     DECISION_TIMEOUT_SECONDS,
     build_decision_messages,
+    compute_toolset_sha256,
 )
 from core.tool_agent.models import ACTION_PARSE_FAILED
 from core.tool_agent.registry import ToolRegistry
@@ -184,8 +185,11 @@ class OpenAICompatibleAgentDecisionProvider:
         """单步结构化决策：看见 ToolSpec + 用户请求 → 一个 AgentAction。
 
         只调用一次 LLM；不执行任何 Tool；不把 Observation 喂回模型。
+        JSON mode（response_format）只保证"语法上是 JSON"，不替代
+        Parser / Registry / JSON Schema 的语义约束。
         """
         tool_specs = registry.list_specs()
+        toolset_sha256 = compute_toolset_sha256(tool_specs)
         messages = build_decision_messages(tool_specs, user_query)
 
         start = time.perf_counter()
@@ -195,6 +199,7 @@ class OpenAICompatibleAgentDecisionProvider:
                 messages=messages,
                 temperature=DECISION_TEMPERATURE,
                 max_tokens=DECISION_MAX_OUTPUT_TOKENS,
+                response_format={"type": "json_object"},
             )
         except _KNOWN_PROVIDER_EXCEPTIONS as exc:
             failure_code = _classify_provider_exception(exc)
@@ -202,7 +207,7 @@ class OpenAICompatibleAgentDecisionProvider:
             return AgentDecisionOutcome(
                 action=None,
                 failure_code=failure_code,
-                call_metadata=self._build_metadata(latency_ms),
+                call_metadata=self._build_metadata(latency_ms, toolset_sha256),
             )
         latency_ms = (time.perf_counter() - start) * 1000.0
 
@@ -213,7 +218,7 @@ class OpenAICompatibleAgentDecisionProvider:
             return AgentDecisionOutcome(
                 action=None,
                 failure_code=ACTION_PROVIDER_ERROR,
-                call_metadata=self._build_metadata(latency_ms),
+                call_metadata=self._build_metadata(latency_ms, toolset_sha256),
             )
 
         if content.strip() == "":
@@ -221,7 +226,7 @@ class OpenAICompatibleAgentDecisionProvider:
                 action=None,
                 failure_code=ACTION_PARSE_FAILED,
                 call_metadata=self._build_metadata(
-                    latency_ms, input_tokens, output_tokens
+                    latency_ms, toolset_sha256, input_tokens, output_tokens
                 ),
             )
 
@@ -230,13 +235,14 @@ class OpenAICompatibleAgentDecisionProvider:
             action=action,
             failure_code=failure_code,
             call_metadata=self._build_metadata(
-                latency_ms, input_tokens, output_tokens
+                latency_ms, toolset_sha256, input_tokens, output_tokens
             ),
         )
 
     def _build_metadata(
         self,
         latency_ms: float,
+        toolset_sha256: str,
         input_tokens: Optional[int] = None,
         output_tokens: Optional[int] = None,
     ) -> AgentDecisionCallMetadata:
@@ -245,6 +251,7 @@ class OpenAICompatibleAgentDecisionProvider:
             model=self._model,
             prompt_version=DECISION_PROMPT_VERSION,
             prompt_sha256=DECISION_PROMPT_SHA256,
+            toolset_sha256=toolset_sha256,
             call_count=1,
             input_tokens=input_tokens,
             output_tokens=output_tokens,

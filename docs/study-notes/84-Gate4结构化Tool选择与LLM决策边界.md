@@ -148,3 +148,42 @@ CoT（思维链）是模型私有推理：可能包含幻觉、偏见、敏感�
 
 **Q8：Prompt 被注入了怎么办？**
 > 安全不依赖 Prompt。Parser 只收严格 JSON object + 精确字段，Registry 限定 tool_name，input_schema 限定 arguments——模型即使输出越界内容也会被拒绝。
+
+---
+
+## 18. R1 补充：JSON 决策可靠性三个知识点
+
+### 18.1 JSON mode ≠ schema validation
+
+`response_format={"type":"json_object"}` 只保证模型输出**在语法上是合法 JSON**，完全不保证它是**我们允许的 AgentAction**。JSON mode 不会检查字段是否精确、tool_name 是否在 Registry、arguments 是否过 schema。所以仍然要完整保留：
+
+```
+response_format
+→ strict JSON parser
+→ exact fields
+→ Registry allowlist
+→ Tool input_schema
+```
+
+> **Provider JSON mode 负责"语法上是 JSON"；Parser + Registry + JSON Schema 负责"语义上是我们允许的 AgentAction"。**
+
+这也是为什么不切换到原生 Function Calling——本任务要验证的是自己定义的 AgentAction union，而不是第三方格式。
+
+### 18.2 prompt_sha256 与 toolset_sha256 为什么要分开
+
+- **prompt_sha256**：绑定"模板版本"（指令 + 示例 + reason codes）。改 Prompt = 新 SHA；
+- **toolset_sha256**：绑定"模型实际看见的 Tool 集合"（name / description / input_schema 的 canonical JSON）。同一个 Prompt 下，Registry 增删/改 Tool，toolset_sha256 变化。
+
+两者分开才能精确回答两个独立问题："这次用的是哪版指令？" 和 "这次模型看到了哪些工具？"。合并成一个哈希会丢失区分度。
+
+### 18.3 为什么 frozen dataclass 对 nested arguments 仍然不够
+
+`@dataclass(frozen=True)` 只挡**字段级赋值**（`action.arguments = ...`），挡不住**可变 dict 的原地修改**（`action.arguments["nested"]["x"] = ...`）。所以 ToolCallAction 的 arguments 用了和 ToolSpec schema 相同的思路：
+
+```
+private backing（_arguments）
++ property 返回深拷贝
++ arguments_copy() 覆盖嵌套结构
+```
+
+`AgentDecisionOutcome.to_dict()` 也只返回深拷贝，不泄漏内部可变引用。这样模型传进来的参数在解析完成后就变成**审计快照**——后续任何环节的修改都不会改写它。

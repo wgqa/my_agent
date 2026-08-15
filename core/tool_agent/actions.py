@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Union
 
-from core.tool_agent.models import ACTION_PARSE_FAILED
+from core.tool_agent.models import ACTION_PARSE_FAILED, json_deep_copy
 
 # Agent-level 稳定错误码（Provider / 决策层，不是 ToolObservation.error_code）。
 ACTION_PROVIDER_ERROR = "ACTION_PROVIDER_ERROR"
@@ -56,13 +56,38 @@ def _require_non_empty_str(value: object, label: str) -> None:
         raise ActionValidationError(f"{label} 不能为空或只含空白")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ToolCallAction:
-    """模型选择调用一个 Tool。只含模型有权决定的字段（无 call_id/handler 等）。"""
+    """模型选择调用一个 Tool。只含模型有权决定的字段（无 call_id/handler 等）。
+
+    arguments 存于私有 backing（_arguments），对外 property 只返回深拷贝，
+    解析完成后的 arguments 不能被外部 mutation 改写（覆盖嵌套结构）。
+    """
 
     action: str
     tool_name: str
-    arguments: Mapping[str, Any]
+    _arguments: Mapping[str, Any] = field(init=False, repr=False)
+
+    def __init__(
+        self, *, action: str, tool_name: str, arguments: Mapping[str, Any]
+    ) -> None:
+        if type(action) is not str or not action.strip():
+            raise ValueError("action 必须是非空字符串")
+        if type(tool_name) is not str or not tool_name.strip():
+            raise ValueError("tool_name 必须是非空字符串")
+        if not isinstance(arguments, Mapping):
+            raise TypeError("arguments 必须是 Mapping")
+        object.__setattr__(self, "action", action)
+        object.__setattr__(self, "tool_name", tool_name)
+        object.__setattr__(self, "_arguments", json_deep_copy(arguments))
+
+    @property
+    def arguments(self) -> dict:
+        """只返回深拷贝；外部任何修改都作用在拷贝上，不影响本快照。"""
+        return json_deep_copy(self._arguments)
+
+    def arguments_copy(self) -> dict:
+        return json_deep_copy(self._arguments)
 
 
 @dataclass(frozen=True)
@@ -130,12 +155,16 @@ def parse_action_object(obj: object) -> AgentAction:
 
 @dataclass(frozen=True)
 class AgentDecisionCallMetadata:
-    """一次 Decision 模型调用的身份/观测；绝不含 api_key / raw output / CoT。"""
+    """一次 Decision 模型调用的身份/观测；绝不含 api_key / raw output / CoT。
+
+    prompt_sha256 绑定"模板版本"；toolset_sha256 绑定"模型实际看见的 Tool 集合"。
+    """
 
     provider: str
     model: str
     prompt_version: str
     prompt_sha256: str
+    toolset_sha256: str
     call_count: int
     input_tokens: Optional[int]
     output_tokens: Optional[int]
@@ -144,10 +173,10 @@ class AgentDecisionCallMetadata:
     def __post_init__(self) -> None:
         for label in ("provider", "model", "prompt_version"):
             _require_non_empty_str(getattr(self, label), label)
-        if not isinstance(self.prompt_sha256, str) or not _SHA256_RE.match(
-            self.prompt_sha256
-        ):
-            raise ValueError("prompt_sha256 必须是 64 位十六进制")
+        for label in ("prompt_sha256", "toolset_sha256"):
+            value = getattr(self, label)
+            if not isinstance(value, str) or not _SHA256_RE.match(value):
+                raise ValueError(f"{label} 必须是 64 位小写十六进制")
         if type(self.call_count) is not int or isinstance(self.call_count, bool):
             raise TypeError("call_count 必须是严格 int")
         if self.call_count != 1:
@@ -173,6 +202,7 @@ class AgentDecisionCallMetadata:
             "model": self.model,
             "prompt_version": self.prompt_version,
             "prompt_sha256": self.prompt_sha256,
+            "toolset_sha256": self.toolset_sha256,
             "call_count": self.call_count,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
@@ -209,7 +239,7 @@ class AgentDecisionOutcome:
                 action_data = {
                     "action": self.action.action,
                     "tool_name": self.action.tool_name,
-                    "arguments": dict(self.action.arguments),
+                    "arguments": self.action.arguments_copy(),
                 }
             elif isinstance(self.action, FinalAnswerAction):
                 action_data = {"action": self.action.action, "answer": self.action.answer}

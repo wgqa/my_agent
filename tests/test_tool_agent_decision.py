@@ -19,12 +19,14 @@ from core.tool_agent import (
     ACTION_PARSE_FAILED,
     ACTION_PROVIDER_ERROR,
     ACTION_TIMEOUT,
+    AgentDecisionCallMetadata,
     AgentDecisionOutcome,
     FinalAnswerAction,
     OpenAICompatibleAgentDecisionProvider,
     RefuseAction,
     ToolCallAction,
     ToolRegistry,
+    ToolSpec,
 )
 from core.tool_agent.action_parser import parse_agent_action_text, strict_json_loads_no_duplicates
 from core.tool_agent.decision_prompt import (
@@ -32,6 +34,7 @@ from core.tool_agent.decision_prompt import (
     DECISION_PROMPT_TEMPLATE,
     DECISION_PROMPT_VERSION,
     build_decision_messages,
+    compute_toolset_sha256,
 )
 from core.tool_agent.openai_compatible import (
     AgentDecisionProviderError,
@@ -379,7 +382,7 @@ class TestSafetyIdentity:
         ).hexdigest()
 
     def test_prompt_version(self):
-        assert DECISION_PROMPT_VERSION == "tool_agent_decision_prompt_v1"
+        assert DECISION_PROMPT_VERSION == "tool_agent_decision_prompt_v2"
 
     def test_tool_specs_deterministic_order(self):
         reg, _ = build_registry()
@@ -437,3 +440,83 @@ class TestOutcomeContract:
         reg, _ = build_registry()
         outcome, _ = decide_with(GOOD_CALC, reg)
         assert outcome.action is not None and outcome.failure_code is None
+
+
+# ---- R1：JSON Decision Reliability ----
+
+
+class TestR1JSONReliability:
+    def test_request_has_json_object_response_format(self):
+        reg, _ = build_registry()
+        client = FakeDecisionClient(content=GOOD_CALC)
+        provider = build_provider(client)
+        provider.decide(reg, "x")
+        assert client.last_kwargs["response_format"] == {"type": "json_object"}
+
+    def test_prompt_v2_contains_examples_and_reason_codes(self):
+        reg, _ = build_registry()
+        system = build_decision_messages(reg.list_specs(), "x")[0]["content"]
+        assert '"action": "tool_call"' in system
+        assert '"tool_name": "calculator"' in system
+        assert '"expression": "12 * 7"' in system
+        assert '"action": "final_answer"' in system
+        assert '"action": "refuse"' in system
+        assert "UNSUPPORTED_REQUEST" in system
+        assert "UNSAFE_REQUEST" in system
+        assert "INSUFFICIENT_INFORMATION" in system
+
+    def test_toolset_sha256_stable_for_same_registry(self):
+        reg, _ = build_registry()
+        s1 = compute_toolset_sha256(reg.list_specs())
+        s2 = compute_toolset_sha256(reg.list_specs())
+        assert s1 == s2
+        assert len(s1) == 64
+        assert all(c in "0123456789abcdef" for c in s1)
+
+    def test_toolset_sha256_differs_on_different_toolset(self):
+        reg_a, _ = build_registry()
+        reg_b = ToolRegistry()
+        reg_b.register(CALCULATOR_SPEC, CountingHandler())  # 只注册 calculator
+        assert compute_toolset_sha256(reg_a.list_specs()) != compute_toolset_sha256(reg_b.list_specs())
+
+    def test_toolset_sha256_differs_on_modified_input_schema(self):
+        reg_a, _ = build_registry()
+        sa = compute_toolset_sha256(reg_a.list_specs())
+        new_input = dict(CALCULATOR_SPEC.input_schema)
+        new_input["properties"]["expression"]["maxLength"] = 999
+        modified = ToolSpec(
+            name="calculator",
+            description=CALCULATOR_SPEC.description,
+            input_schema=new_input,
+            output_schema=CALCULATOR_SPEC.output_schema,
+            version=CALCULATOR_SPEC.version,
+        )
+        reg_b = ToolRegistry()
+        reg_b.register(modified, CountingHandler())
+        assert compute_toolset_sha256(reg_b.list_specs()) != sa
+
+    def test_tool_call_action_nested_arguments_mutation_attack(self):
+        args = {"query": "x", "nested": {"limit": 5}}
+        action = ToolCallAction(action="tool_call", tool_name="echo", arguments=args)
+        # 外部改原 dict → 快照不变
+        args["nested"]["limit"] = 999
+        assert action.arguments_copy()["nested"]["limit"] == 5
+        # 外部改 property 返回值 → 快照不变
+        action.arguments["nested"]["limit"] = 777
+        assert action.arguments_copy()["nested"]["limit"] == 5
+
+    def test_outcome_to_dict_nested_mutation_isolation(self):
+        action = ToolCallAction(
+            action="tool_call", tool_name="echo", arguments={"nested": {"limit": 5}}
+        )
+        md = AgentDecisionCallMetadata(
+            provider="p", model="m", prompt_version="v",
+            prompt_sha256="0" * 64, toolset_sha256="0" * 64,
+            call_count=1, input_tokens=None, output_tokens=None, latency_ms=1.0,
+        )
+        outcome = AgentDecisionOutcome(action=action, failure_code=None, call_metadata=md)
+        d = outcome.to_dict()
+        d["action"]["arguments"]["nested"]["limit"] = 999
+        assert action.arguments_copy()["nested"]["limit"] == 5
+        # 再次 to_dict 仍是干净快照
+        assert outcome.to_dict()["action"]["arguments"]["nested"]["limit"] == 5
