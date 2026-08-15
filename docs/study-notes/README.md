@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（38 份）
+## CURRENT（39 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -64,6 +64,7 @@
 | 82 | [82-Gate4-ToolRegistry与安全执行器.md](82-Gate4-ToolRegistry与安全执行器.md) | G4-TOOL-02：Structured Tool Agent 纯确定性底座（ToolSpec/ToolCall/ToolObservation/ToolHandler/RegisteredTool/ToolRegistry/ToolExecutor + JSON 安全 + fail-fast/fail-closed + Fake Handler 测试基础设施）；50 测试；G4-TOOL-02 = REVIEW PENDING（Structured Tool core implemented candidate，仍 0 real tools / 0 LLM selection / 0 tool loop） |
 | 83 | [83-Gate4三个真实Tool与Adapter设计.md](83-Gate4三个真实Tool与Adapter设计.md) | G4-TOOLS-03：三个真实 read-only Tool（calculator AST 白名单求值 / code_search filesystem sandbox / knowledge_search 复用 RetrievalPort）接入统一 Tool core；capability adapter、模型不能控 top_k/strategy、literal vs regex、output 受限、异构 Tool 统一契约；41 测试；G4-TOOLS-03 = REVIEW PENDING（3 个真实 read-only Structured Tools implemented candidate） |
 | 84 | [84-Gate4结构化Tool选择与LLM决策边界.md](84-Gate4结构化Tool选择与LLM决策边界.md) | G4-AGENT-04：LLM 单步结构化 Decision（AgentAction 强判别联合、ToolCallAction≠ToolCall、call_id 系统生成、strict JSON/duplicate key/unknown field、Tool allowlist、Decision+Executor 双重 schema 校验、Prompt 软约束 vs Parser/Registry 硬约束、fail closed vs fallback、Provider metadata、不记录 CoT、Prompt SHA、Fake Client、单步 vs Loop）；45 测试；G4-AGENT-04 = REVIEW PENDING（LLM single-step structured decision candidate） |
+| 85 | [85-Gate4有界Tool-Agent-Loop与Observation反馈.md](85-Gate4有界Tool-Agent-Loop与Observation反馈.md) | G4-RUNTIME-05：Decision→Action→Observation→Decision 有界循环（预算 5/4/2、最后 iteration 不再执行 Tool、duplicate ToolCall 去重、Tool error 可恢复但 2 次封顶、不自动重试、Observation 不可信数据、Trace≠CoT、Scripted/Fake LLM + 三个真实 Tool 集成测试）；16 测试；G4-RUNTIME-05 = REVIEW PENDING（bounded Structured Tool Agent Loop implemented candidate） |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -131,6 +132,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–84 共 **85 份**，每份只出现一次：CURRENT 38 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 85。
+- 编号覆盖 00–85 共 **86 份**，每份只出现一次：CURRENT 39 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 86。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-15。

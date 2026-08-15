@@ -43,6 +43,16 @@ from core.tool_agent.registry import (
     ToolHandler,
     ToolRegistry,
 )
+from core.tool_agent.runtime import ToolAgentRuntime
+from core.tool_agent.runtime_models import (
+    AGENT_DUPLICATE_TOOL_CALL,
+    AGENT_TOOL_ERROR_LIMIT,
+    AgentDecisionProvider,
+    DecisionContextItem,
+    RuntimeTraceEvent,
+    ToolAgentBudget,
+    ToolAgentRunResult,
+)
 from core.tool_agent.tools import (
     CALCULATOR_SPEC,
     CODE_SEARCH_SPEC,
@@ -90,4 +100,12 @@ __all__ = [
     "AgentDecisionCallMetadata",
     "OpenAICompatibleAgentDecisionProvider",
     "strict_json_loads_no_duplicates",
+    "ToolAgentRuntime",
+    "ToolAgentBudget",
+    "ToolAgentRunResult",
+    "DecisionContextItem",
+    "RuntimeTraceEvent",
+    "AgentDecisionProvider",
+    "AGENT_DUPLICATE_TOOL_CALL",
+    "AGENT_TOOL_ERROR_LIMIT",
 ]

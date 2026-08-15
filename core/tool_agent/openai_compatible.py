@@ -181,16 +181,23 @@ class OpenAICompatibleAgentDecisionProvider:
             kwargs["base_url"] = self._base_url
         return OpenAI(**kwargs)
 
-    def decide(self, registry: ToolRegistry, user_query: str) -> AgentDecisionOutcome:
-        """单步结构化决策：看见 ToolSpec + 用户请求 → 一个 AgentAction。
+    def decide(
+        self,
+        registry: ToolRegistry,
+        user_query: str,
+        *,
+        context=(),
+    ) -> AgentDecisionOutcome:
+        """单步结构化决策：看见 ToolSpec + 用户请求（+ 可选 Observation context）。
 
-        只调用一次 LLM；不执行任何 Tool；不把 Observation 喂回模型。
+        只调用一次 LLM；不执行任何 Tool；不把 Observation 喂回模型以外的
+        任何东西。context 默认空，保持与 G4-AGENT-04 单步接口兼容。
         JSON mode（response_format）只保证"语法上是 JSON"，不替代
         Parser / Registry / JSON Schema 的语义约束。
         """
         tool_specs = registry.list_specs()
         toolset_sha256 = compute_toolset_sha256(tool_specs)
-        messages = build_decision_messages(tool_specs, user_query)
+        messages = build_decision_messages(tool_specs, user_query, context=context)
 
         start = time.perf_counter()
         try:
