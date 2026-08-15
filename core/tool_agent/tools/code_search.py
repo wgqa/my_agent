@@ -43,12 +43,13 @@ CODE_SEARCH_OUTPUT_SCHEMA = {
     "properties": {
         "matches": {
             "type": "array",
+            "maxItems": 10,
             "items": {
                 "type": "object",
                 "properties": {
                     "path": {"type": "string"},
                     "line": {"type": "integer"},
-                    "text": {"type": "string"},
+                    "text": {"type": "string", "maxLength": 300},
                 },
                 "additionalProperties": False,
                 "required": ["path", "line", "text"],
@@ -72,15 +73,51 @@ CODE_SEARCH_SPEC = ToolSpec(
 )
 
 
+_SECRET_SUBSTRINGS = (
+    "secret",
+    "credential",
+    "api_key",
+    "apikey",
+    "private_key",
+    "access_key",
+)
+
+
 def _is_secret_file(name: str) -> bool:
     low = name.lower()
     if low == ".env" or low.startswith(".env."):
         return True
-    return "secret" in low or "credential" in low
+    stem = Path(low).stem
+    # 不能简单 `"key" in name`：keyboard.py 这类正常文件会被误伤
+    return any(tok in stem for tok in _SECRET_SUBSTRINGS)
+
+
+def is_path_within(resolved: Path, root_resolved: Path) -> bool:
+    """containment helper：resolved 目标是否仍位于 resolved repo_root 内。"""
+    try:
+        return resolved.is_relative_to(root_resolved)
+    except ValueError:
+        return False
+
+
+def _require_bounded_int(value: object, label: str, cap: int) -> None:
+    if type(value) is not int or isinstance(value, bool):
+        raise ValueError(
+            f"{label} 必须是严格正整数（不允许 bool），实际 {type(value).__name__}"
+        )
+    if value <= 0:
+        raise ValueError(f"{label} 必须 > 0，实际 {value}")
+    if value > cap:
+        raise ValueError(f"{label} 不允许超过冻结上限 {cap}，实际 {value}")
 
 
 class CodeSearchHandler:
-    """ToolHandler：在注入的 repo_root 内做确定性只读文本搜索。"""
+    """ToolHandler：在注入的 repo_root 内做确定性只读文本搜索。
+
+    锁死 filesystem sandbox：禁止 symlink 穿越（base 为 symlink 不扫、
+    目录 symlink 不进、文件 symlink 不读），并在真正 stat/open 前做
+    resolved containment 检查；输出只用 lexical repo-relative path。
+    """
 
     def __init__(
         self,
@@ -93,6 +130,10 @@ class CodeSearchHandler:
         if not root.is_dir():
             raise ValueError(f"repo_root 不是目录：{root}")
         self._root = root.resolve()
+        # 参数边界：strict positive int，且不允许超过冻结上限
+        _require_bounded_int(max_matches, "max_matches", MAX_MATCHES)
+        _require_bounded_int(max_file_size, "max_file_size", MAX_FILE_SIZE)
+        _require_bounded_int(max_line_length, "max_line_length", MAX_LINE_LENGTH)
         self._max_matches = max_matches
         self._max_file_size = max_file_size
         self._max_line_length = max_line_length
@@ -100,27 +141,54 @@ class CodeSearchHandler:
     def execute(self, arguments: Mapping[str, Any]) -> dict:
         query = arguments["query"]
         needle = query.lower()
-        found: list[tuple[str, int, str]] = []
-        for base in ALLOWED_DIRS:
+        root_resolved = self._root.resolve()
+        candidates: list[Path] = []
+        for base in sorted(ALLOWED_DIRS):
             base_dir = self._root / base
-            if not base_dir.is_dir():
+            if base_dir.is_symlink() or not base_dir.is_dir():
+                continue  # allowed base 是 symlink → 不扫描
+            candidates.extend(self._collect_files(base_dir, root_resolved))
+        # 确定性：按 lexical repo-relative path 排序 → 自然顺序即 (path, line)
+        candidates.sort(key=lambda p: p.relative_to(self._root).as_posix())
+        matches = []
+        for fpath in candidates:
+            if len(matches) >= self._max_matches:
+                break
+            rel = fpath.relative_to(self._root).as_posix()
+            try:
+                size = fpath.stat().st_size
+            except OSError:
                 continue
-            found.extend(self._search_dir(base_dir, needle))
-        # 确定性排序：path → line
-        found.sort(key=lambda item: (item[0], item[1]))
-        matches = [
-            {"path": path, "line": line, "text": text}
-            for path, line, text in found[: self._max_matches]
-        ]
+            if size > self._max_file_size:
+                continue
+            try:
+                with open(fpath, "r", encoding="utf-8") as fh:
+                    for line_no, raw in enumerate(fh, 1):
+                        if len(matches) >= self._max_matches:
+                            break
+                        text = raw.rstrip("\r\n")
+                        if needle in text.lower():
+                            matches.append(
+                                {
+                                    "path": rel,
+                                    "line": line_no,
+                                    "text": text[: self._max_line_length],
+                                }
+                            )
+            except (OSError, UnicodeDecodeError):
+                continue
         return {"matches": matches}
 
-    def _search_dir(self, base_dir: Path, needle: str) -> list[tuple[str, int, str]]:
-        out: list[tuple[str, int, str]] = []
-        for dirpath, dirnames, filenames in os.walk(base_dir):
+    def _collect_files(self, base_dir: Path, root_resolved: Path) -> list[Path]:
+        out: list[Path] = []
+        for dirpath, dirnames, filenames in os.walk(base_dir, followlinks=False):
+            # 目录 symlink 不进入；排除/隐藏目录过滤
             dirnames[:] = sorted(
                 d
                 for d in dirnames
-                if d not in EXCLUDED_DIR_NAMES and not d.startswith(".")
+                if d not in EXCLUDED_DIR_NAMES
+                and not d.startswith(".")
+                and not (Path(dirpath) / d).is_symlink()
             )
             for fname in sorted(filenames):
                 if Path(fname).suffix.lower() not in ALLOWED_SUFFIXES:
@@ -128,27 +196,14 @@ class CodeSearchHandler:
                 if _is_secret_file(fname):
                     continue
                 fpath = Path(dirpath) / fname
-                rel = fpath.relative_to(self._root).as_posix()
+                if fpath.is_symlink():
+                    continue  # 文件 symlink → 不读取
+                # resolved containment：真正 stat/open 前必须仍位于 resolved root 内
                 try:
-                    size = fpath.stat().st_size
+                    resolved = fpath.resolve()
                 except OSError:
                     continue
-                if size > self._max_file_size:
+                if not is_path_within(resolved, root_resolved):
                     continue
-                try:
-                    with open(fpath, "r", encoding="utf-8") as fh:
-                        lines = fh.readlines()
-                except (OSError, UnicodeDecodeError):
-                    # 单个文件不可读则安全跳过，不让整个 repo 搜索 crash
-                    continue
-                for line_no, raw in enumerate(lines, 1):
-                    text = raw.rstrip("\r\n")
-                    if needle in text.lower():
-                        out.append(
-                            (
-                                rel,
-                                line_no,
-                                text[: self._max_line_length],
-                            )
-                        )
+                out.append(fpath)
         return out

@@ -9,6 +9,7 @@ matches（snippet 单条 <=500 字符，不返回完整正文、不返回本地�
 
 from __future__ import annotations
 
+import re
 from typing import Any, Mapping
 
 from core.agent_runtime import Document, RetrievalPort
@@ -19,6 +20,8 @@ KNOWLEDGE_SEARCH_VERSION = "knowledge_search_v1"
 DEFAULT_STRATEGY = "bm25"
 DEFAULT_TOP_K = 5
 DEFAULT_SNIPPET_LIMIT = 500
+TOP_K_MAX = 5
+SNIPPET_LIMIT_MAX = 500
 
 KNOWLEDGE_SEARCH_INPUT_SCHEMA = {
     "type": "object",
@@ -34,6 +37,7 @@ KNOWLEDGE_SEARCH_OUTPUT_SCHEMA = {
     "properties": {
         "matches": {
             "type": "array",
+            "maxItems": 5,
             "items": {
                 "type": "object",
                 "properties": {
@@ -41,7 +45,7 @@ KNOWLEDGE_SEARCH_OUTPUT_SCHEMA = {
                     "source_name": {"type": "string"},
                     "chunk_id": {"type": ["string", "null"]},
                     "score": {"type": ["number", "null"]},
-                    "snippet": {"type": "string"},
+                    "snippet": {"type": "string", "maxLength": 500},
                 },
                 "additionalProperties": False,
                 "required": ["rank", "source_name", "snippet"],
@@ -65,10 +69,31 @@ KNOWLEDGE_SEARCH_SPEC = ToolSpec(
 )
 
 
+_WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def _is_absolute_provenance(source_name: str) -> bool:
+    """识别 POSIX（/home/...）与 Windows（C:\\...）绝对路径。"""
+    if source_name.startswith("/"):
+        return True
+    return bool(_WINDOWS_ABS_RE.match(source_name))
+
+
+def _require_strict_int_range(value: object, label: str, lo: int, hi: int) -> None:
+    if type(value) is not int or isinstance(value, bool):
+        raise ValueError(
+            f"{label} 必须是严格 int（不允许 bool），实际 {type(value).__name__}"
+        )
+    if not (lo <= value <= hi):
+        raise ValueError(f"{label} 必须在 {lo}~{hi} 之间，实际 {value}")
+
+
 class KnowledgeSearchHandler:
     """ToolHandler：经注入的 RetrievalPort 检索证据。
 
-    构造参数（strategy / top_k / snippet_limit）是系统配置，模型无法控制。
+    构造参数（strategy / top_k / snippet_limit）是系统配置，模型无法控制；
+    Tool 自己 enforce output boundary：即使 backend 返回超出 top_k 的条目，
+    最终 matches 也强制截断到 top_k，不信任 backend 自觉。
     """
 
     def __init__(
@@ -82,6 +107,10 @@ class KnowledgeSearchHandler:
             getattr(retrieval_port, "search", None)
         ):
             raise TypeError("retrieval_port 必须实现 RetrievalPort（含 search）")
+        if not isinstance(strategy, str) or not strategy.strip():
+            raise ValueError("strategy 必须是非空字符串")
+        _require_strict_int_range(top_k, "top_k", 1, TOP_K_MAX)
+        _require_strict_int_range(snippet_limit, "snippet_limit", 1, SNIPPET_LIMIT_MAX)
         self._port = retrieval_port
         self._strategy = strategy
         self._top_k = top_k
@@ -99,8 +128,14 @@ class KnowledgeSearchHandler:
         docs: tuple[Document, ...] = tuple(
             self._port.search(query, self._strategy, self._top_k)
         )
+        # Tool 强制截断：不信任 backend 只返回 top_k 条
+        docs = docs[: self._top_k]
         matches = []
         for rank, doc in enumerate(docs, 1):
+            if _is_absolute_provenance(doc.source_name):
+                # fail-closed：不把本地绝对路径放进 success Observation
+                # （错误消息不回显原始路径，避免 provenance 泄漏）
+                raise ValueError("unsafe source provenance（本地绝对路径被拒绝）")
             snippet = (doc.content or "")[: self._snippet_limit]
             matches.append(
                 {

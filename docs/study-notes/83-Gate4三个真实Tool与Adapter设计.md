@@ -144,7 +144,45 @@ RegisteredTool
 
 这些是 G4-AGENT-04 / G4-RUNTIME-05 的范畴。简历上诚实写："实现了 3 个可安全注册、校验、执行的只读 Tool"，不写"已实现 Tool Agent"。
 
-## 12. 面试问答
+## 12. 三个边界加固知识点（R1）
+
+### 12.1 AST 白名单为什么仍不等于资源安全
+
+白名单只回答了"哪些语法节点合法"，没回答"计算要花多少资源"。`999999 ** 999999` 的每个节点都合法（数字、幂），但结果有约 660 万位，真要算出来就是 DoS。
+
+所以 R1 给 calculator 加了真正的资源上界：
+
+- 表达式长度上限（evaluate_expression 自身强制，不依赖 JSON Schema）；
+- AST 节点数上限；
+- 幂指数上限；
+- **整数结果位宽上限（4096 bits）**；
+- 幂运算**计算前**用 `abs(base).bit_length() * exponent` 预估位宽，超限直接拒绝，不实际算大整数。
+
+一句话：**输入合法 ≠ 执行安全。** 白名单挡"语法注入"，资源上界挡"计算 DoS"，两者缺一不可。
+
+### 12.2 filesystem sandbox 为什么必须防 symlink escape
+
+如果只按"表面路径"判断是否在 repo 内，就会中 symlink 的招：仓库里一个软链接 `link.py -> /etc/passwd`，表面路径在 repo 内，实际读的是仓库外。
+
+R1 的 code_search 三重防线：
+
+1. **symlink 全禁**：allowed base 是 symlink 不扫、目录 symlink 不进、文件 symlink 不读；
+2. **resolved containment**：真正 stat/open 前把文件 `resolve()`，判断解析后的目标是否仍位于 `resolved repo_root` 内——即使遍历逻辑以后变了也穿不出去；
+3. 输出只用 lexical repo-relative path，绝不把解析后的绝对路径输出。
+
+一句话：**判断的是"解析后的真实目标"，不是"表面路径"。**
+
+### 12.3 为什么 Tool 必须自己 enforce backend output bound
+
+"我让 backend 返回 top_k=5" 不等于 "backend 一定只返回 5 条"。backend 可能坏、可能被绕过、可能返回更多。真正的安全边界必须由 Tool Adapter 自己再次收口：
+
+- `docs[:self._top_k]` 强制截断，不信任 backend 自觉；
+- 绝对路径 source_name fail-closed（拒绝进 success Observation），而不是擅自改 basename（那会改变 provenance）；
+- output_schema 同步登记 maxItems / maxLength，形成"实现 + schema 双保险"。
+
+> **输入合法不代表执行安全；后端收到 top_k=5 也不代表后端一定只返回 5 条。真正的安全边界必须由 Tool Adapter 自己再次收口。**
+
+## 13. 面试问答
 
 **Q1：eval 和 AST allowlist 求值有什么区别？**
 > eval 把表达式当任意 Python 代码执行（有 `__import__`、系统调用等风险）；AST 求值先解析成语法树，只放行白名单节点（数字 / 四则 / 幂 / 一元 / 括号），其余节点直接拒绝，并叠加节点数、幂指数、有限结果三道 DoS 防线。

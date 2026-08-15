@@ -414,3 +414,209 @@ class TestIntegration:
         registry = build_readonly_tool_registry(repo_root=repo, retrieval_port=port)
         names = sorted(spec.name for spec in registry.list_specs())
         assert names == ["calculator", "code_search", "knowledge_search"]
+
+
+# ---- R1-1：Calculator 资源上界 ----
+
+
+class TestCalculatorResourceBounds:
+    def test_large_pow_legal(self):
+        value = evaluate_expression("2 ** 1000")
+        assert isinstance(value, int)
+        assert value.bit_length() == 1001 <= 4096
+
+    def test_nested_pow_fail_fast(self):
+        # 内层 9**999（~3997 bits）合法，外层预估 ~4M bits → 拒绝，不实际计算
+        with pytest.raises(CalculatorError, match="位宽"):
+            evaluate_expression("(9 ** 999) ** 999")
+
+    def test_triple_nested_pow_fail_fast(self):
+        with pytest.raises(CalculatorError, match="位宽"):
+            evaluate_expression("((9 ** 999) ** 999) ** 999")
+
+    def test_direct_expression_too_long_rejected(self):
+        with pytest.raises(CalculatorError, match="长度超过上限"):
+            evaluate_expression("1" * 201)
+
+    def test_large_integer_mult_rejected(self):
+        # 9**999 各 ~3997 bits（合法），乘积 ~7994 bits 越界 → 在乘法处拒绝
+        with pytest.raises(CalculatorError, match="位宽"):
+            evaluate_expression("(9 ** 999) * (9 ** 999)")
+
+    def test_float_pow_overflow_rejected(self):
+        with pytest.raises(CalculatorError, match="溢出"):
+            evaluate_expression("1e308 ** 2")
+
+    def test_bool_result_rejected(self):
+        # True 不是数字
+        with pytest.raises(CalculatorError):
+            evaluate_expression("True")
+
+
+# ---- R1-2：Code Search sandbox ----
+
+
+class TestCodeSearchSandbox:
+    def _executor(self, repo_root, **kwargs):
+        reg = ToolRegistry()
+        from core.tool_agent.tools.code_search import CODE_SEARCH_SPEC
+
+        reg.register(CODE_SEARCH_SPEC, CodeSearchHandler(repo_root=repo_root, **kwargs))
+        return ToolExecutor(reg)
+
+    def test_containment_helper(self, tmp_path):
+        from core.tool_agent.tools.code_search import is_path_within
+
+        root = tmp_path.resolve()
+        inside = (tmp_path / "core" / "foo.py").resolve()
+        outside = (tmp_path.parent / "outside.txt").resolve()
+        assert is_path_within(inside, root)
+        assert not is_path_within(outside, root)
+
+    def test_symlink_file_to_outside_not_read(self, tmp_path):
+        repo = tmp_path
+        outside = tmp_path / "outside.txt"
+        outside.write_text("SENSITIVE PipelineRetrievalAdapter\n", encoding="utf-8")
+        (repo / "core").mkdir()
+        try:
+            (repo / "core" / "link.py").symlink_to(outside)
+        except OSError:
+            pytest.skip("OS 不支持创建 symlink")
+        (repo / "core" / "real.py").write_text(
+            "real  # PipelineRetrievalAdapter\n", encoding="utf-8"
+        )
+        executor = self._executor(repo)
+        obs = executor.execute(ToolCall.create("code_search", {"query": "PipelineRetrievalAdapter"}))
+        paths = [m["path"] for m in obs.result["matches"]]
+        assert "core/link.py" not in paths  # symlink 文件不读取
+        assert "core/real.py" in paths
+
+    def test_symlink_directory_to_outside_not_entered(self, tmp_path):
+        repo = tmp_path
+        outside = tmp_path / "outside_dir"
+        outside.mkdir()
+        (outside / "leak.py").write_text("leak PipelineRetrievalAdapter\n", encoding="utf-8")
+        (repo / "core").mkdir()
+        try:
+            (repo / "core" / "linkdir").symlink_to(outside, target_is_directory=True)
+        except OSError:
+            pytest.skip("OS 不支持创建 symlink")
+        (repo / "core" / "ok.py").write_text(
+            "ok  # PipelineRetrievalAdapter\n", encoding="utf-8"
+        )
+        executor = self._executor(repo)
+        obs = executor.execute(ToolCall.create("code_search", {"query": "PipelineRetrievalAdapter"}))
+        assert not any("linkdir" in m["path"] or "outside" in m["path"]
+                       for m in obs.result["matches"])
+
+    def test_allowed_base_is_symlink_not_scanned(self, tmp_path):
+        repo = tmp_path
+        outside = tmp_path / "outside_core"
+        outside.mkdir()
+        (outside / "leak.py").write_text("leak PipelineRetrievalAdapter\n", encoding="utf-8")
+        try:
+            (repo / "core").symlink_to(outside, target_is_directory=True)
+        except OSError:
+            pytest.skip("OS 不支持创建 symlink")
+        (repo / "docs").mkdir()
+        (repo / "docs" / "ok.md").write_text("ok PipelineRetrievalAdapter\n", encoding="utf-8")
+        executor = self._executor(repo)
+        obs = executor.execute(ToolCall.create("code_search", {"query": "PipelineRetrievalAdapter"}))
+        assert not any(m["path"].startswith("core/") for m in obs.result["matches"])
+        assert any(m["path"].startswith("docs/") for m in obs.result["matches"])
+
+    def test_api_key_and_private_key_files_ignored(self, tmp_path):
+        repo = tmp_path
+        (repo / "core").mkdir()
+        (repo / "core" / "api_key.txt").write_text(
+            "KEY=abc PipelineRetrievalAdapter\n", encoding="utf-8"
+        )
+        (repo / "core" / "private_key.yaml").write_text(
+            "key: PipelineRetrievalAdapter\n", encoding="utf-8"
+        )
+        (repo / "core" / "keyboard.py").write_text(
+            "class Keyboard:  # PipelineRetrievalAdapter\n", encoding="utf-8"
+        )
+        (repo / "core" / "normal.py").write_text(
+            "x = 1  # PipelineRetrievalAdapter\n", encoding="utf-8"
+        )
+        executor = self._executor(repo)
+        obs = executor.execute(ToolCall.create("code_search", {"query": "PipelineRetrievalAdapter"}))
+        paths = [m["path"] for m in obs.result["matches"]]
+        assert "core/api_key.txt" not in paths
+        assert "core/private_key.yaml" not in paths
+        assert "core/keyboard.py" in paths  # keyboard.py 正常文件不被误伤
+        assert "core/normal.py" in paths
+
+    def test_max_matches_over_cap_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="冻结上限"):
+            CodeSearchHandler(repo_root=tmp_path, max_matches=11)
+        with pytest.raises(ValueError, match="严格正整数"):
+            CodeSearchHandler(repo_root=tmp_path, max_matches=True)
+
+    def test_max_line_length_over_cap_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="冻结上限"):
+            CodeSearchHandler(repo_root=tmp_path, max_line_length=301)
+
+    def test_max_file_size_over_cap_rejected(self, tmp_path):
+        with pytest.raises(ValueError, match="冻结上限"):
+            CodeSearchHandler(repo_root=tmp_path, max_file_size=2 * 1024 * 1024)
+
+
+# ---- R1-3：Knowledge Search output boundary ----
+
+
+class TestKnowledgeSearchBoundary:
+    def _executor(self, port, **kwargs):
+        reg = ToolRegistry()
+        from core.tool_agent.tools.knowledge_search import KNOWLEDGE_SEARCH_SPEC
+
+        reg.register(KNOWLEDGE_SEARCH_SPEC, KnowledgeSearchHandler(port, **kwargs))
+        return ToolExecutor(reg)
+
+    def test_backend_returns_more_than_top_k_truncated(self):
+        # backend 返回 8 条，但 top_k=5 → Tool 强制只出 5 条
+        docs = tuple(make_doc(f"d{i}", source_name=f"docs/f{i}.md") for i in range(8))
+        port = FakeRetrievalPort(docs=docs)
+        executor = self._executor(port, top_k=5)
+        obs = executor.execute(ToolCall.create("knowledge_search", {"query": "x"}))
+        assert obs.status == "ok"
+        assert len(obs.result["matches"]) == 5
+
+    @pytest.mark.parametrize("bad_top_k", [0, -1, True, 6])
+    def test_top_k_invalid_rejected(self, bad_top_k):
+        port = FakeRetrievalPort(docs=())
+        with pytest.raises(ValueError, match="top_k"):
+            KnowledgeSearchHandler(port, top_k=bad_top_k)
+
+    @pytest.mark.parametrize("bad_snippet", [0, 501])
+    def test_snippet_limit_invalid_rejected(self, bad_snippet):
+        port = FakeRetrievalPort(docs=())
+        with pytest.raises(ValueError, match="snippet_limit"):
+            KnowledgeSearchHandler(port, snippet_limit=bad_snippet)
+
+    @pytest.mark.parametrize("abs_source", [
+        "/home/user/a.md",
+        "C:\\Users\\x\\a.md",
+        "C:/Users/x/a.md",
+    ])
+    def test_absolute_source_name_fail_closed(self, abs_source):
+        port = FakeRetrievalPort(docs=(make_doc("content", source_name=abs_source),))
+        executor = self._executor(port)
+        obs = executor.execute(ToolCall.create("knowledge_search", {"query": "x"}))
+        assert obs.status == "error"
+        assert obs.error_code == TOOL_EXECUTION_FAILED
+        # Observation 不含真实绝对路径
+        serialized = str(obs.to_dict())
+        assert "home/user" not in serialized
+        assert "Users" not in serialized
+
+    def test_relative_source_name_success(self):
+        port = FakeRetrievalPort(docs=(
+            make_doc("content", source_name="docs/rrf.md"),
+            make_doc("content2", source_name="rrf.md"),
+        ))
+        executor = self._executor(port)
+        obs = executor.execute(ToolCall.create("knowledge_search", {"query": "x"}))
+        assert obs.status == "ok"
+        assert [m["source_name"] for m in obs.result["matches"]] == ["docs/rrf.md", "rrf.md"]
