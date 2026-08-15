@@ -9,7 +9,7 @@ matches（snippet 单条 <=500 字符，不返回完整正文、不返回本地�
 
 from __future__ import annotations
 
-import re
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping
 
 from core.agent_runtime import Document, RetrievalPort
@@ -69,14 +69,19 @@ KNOWLEDGE_SEARCH_SPEC = ToolSpec(
 )
 
 
-_WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
-
-
 def _is_absolute_provenance(source_name: str) -> bool:
-    """识别 POSIX（/home/...）与 Windows（C:\\...）绝对路径。"""
-    if source_name.startswith("/"):
+    """跨平台 provenance 检查：POSIX 绝对、Windows drive/UNC/verbatim 绝对一律拒绝。
+
+    用标准库 PurePosixPath / PureWindowsPath 的路径语义（而非堆 drive-letter
+    regex）；对任何 Windows rooted/UNC-like 前缀额外 fail-closed。
+    """
+    if PurePosixPath(source_name).is_absolute():
         return True
-    return bool(_WINDOWS_ABS_RE.match(source_name))
+    if PureWindowsPath(source_name).is_absolute():
+        return True
+    if source_name.startswith("\\"):
+        return True
+    return False
 
 
 def _require_strict_int_range(value: object, label: str, lo: int, hi: int) -> None:

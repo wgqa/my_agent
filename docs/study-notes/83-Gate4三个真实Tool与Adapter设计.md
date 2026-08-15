@@ -182,6 +182,8 @@ R1 的 code_search 三重防线：
 
 > **输入合法不代表执行安全；后端收到 top_k=5 也不代表后端一定只返回 5 条。真正的安全边界必须由 Tool Adapter 自己再次收口。**
 
+跨平台路径安全不能只检查 `C:\...`；Windows 还存在 UNC、device/verbatim path 等形式，因此 provenance guard 应使用跨平台路径语义（`PurePosixPath` / `PureWindowsPath`）并采取 fail-closed。
+
 ## 13. 面试问答
 
 **Q1：eval 和 AST allowlist 求值有什么区别？**

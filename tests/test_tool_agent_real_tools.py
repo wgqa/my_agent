@@ -620,3 +620,28 @@ class TestKnowledgeSearchBoundary:
         obs = executor.execute(ToolCall.create("knowledge_search", {"query": "x"}))
         assert obs.status == "ok"
         assert [m["source_name"] for m in obs.result["matches"]] == ["docs/rrf.md", "rrf.md"]
+
+    @pytest.mark.parametrize("unsafe_source", [
+        r"\\server\share\private.md",       # UNC
+        r"\\?\C:\Users\x\private.md",       # device/verbatim path
+    ])
+    def test_unc_and_verbatim_provenance_fail_closed(self, unsafe_source):
+        port = FakeRetrievalPort(docs=(make_doc("content", source_name=unsafe_source),))
+        executor = self._executor(port)
+        obs = executor.execute(ToolCall.create("knowledge_search", {"query": "x"}))
+        assert obs.status == "error"
+        assert obs.error_code == TOOL_EXECUTION_FAILED
+        # Observation 不得包含 server / share / drive / 原始 source_name
+        serialized = str(obs.to_dict())
+        assert "server" not in serialized
+        assert "share" not in serialized
+        assert "Users" not in serialized
+        assert "private.md" not in serialized
+
+    def test_windows_relative_style_provenance_success(self):
+        # docs\rrf.md 是 Windows 风格相对路径，不得被错误拒绝
+        port = FakeRetrievalPort(docs=(make_doc("content", source_name="docs\\rrf.md"),))
+        executor = self._executor(port)
+        obs = executor.execute(ToolCall.create("knowledge_search", {"query": "x"}))
+        assert obs.status == "ok"
+        assert obs.result["matches"][0]["source_name"] == "docs\\rrf.md"
