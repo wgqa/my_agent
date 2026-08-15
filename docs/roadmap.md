@@ -750,9 +750,25 @@ Agent 必须满足：
 
 第一版只做单 Agent。
 
-## 9.2 Gate 4 前置收口
+## 9.2 DATA-CONSIST-01 与 Gate 4 的关系
 
-进入 Agent Runtime 前完成 DATA-CONSIST-01：
+**DATA-CONSIST-01 = P1 engineering debt**（与 §5.3 一致）。
+
+它**不阻塞** Gate 4 v1 的 read-only Tool 主线：
+
+- knowledge_search；
+- code_search；
+- calculator；
+- structured Tool Selection；
+- bounded read-only Tool Runtime。
+
+但以下任一条件发生前，必须重新审查并完成相应一致性收口：
+
+1. 引入任何 state-mutating Tool；
+2. Tool 可以修改知识库、文件、Git、数据库等持久状态；
+3. 进入 public release / 对公网部署阶段。
+
+原删除一致性、document identity、API citation 等收口项属于 **DATA-CONSIST-01 future scope**，不是 Gate 4 read-only v1 的 blocking prerequisite：
 
 - 删除操作不吞异常；
 - Dense 与 Sparse 删除具有一致性策略；
@@ -764,7 +780,7 @@ Agent 必须满足：
 
 原因：
 
-> Tool Agent 会放大底层数据契约问题。底层状态可能分叉时，Agent Trace 再漂亮也不可信。
+> Tool Agent 会放大底层数据契约问题。底层状态可能分叉时，Agent Trace 再漂亮也不可信；但 read-only v1 的只读工具不触碰写路径，因此 DATA-CONSIST-01 不作为 Gate 4 read-only v1 的前置阻塞。
 
 ## 9.3 第一批 Tool（v4 冻结范围：3 个 read-only 工具）
 
