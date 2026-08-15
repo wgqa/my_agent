@@ -80,7 +80,7 @@ Structured Tool Agent（新的 Tool Runtime 契约）
 | name | 唯一工具名 |
 | description | 告诉模型"这个工具什么时候用、做什么、怎么用" |
 | input_schema | 输入参数的强 Schema（JSON Schema 或等价） |
-| output contract | 返回值的结构化契约（字段、类型、上限） |
+| output_schema | 返回值的强 Schema（JSON Schema 或等价；比模糊的"output contract"更可校验、可测试） |
 | version | 工具契约版本 |
 
 不可破坏契约：
@@ -116,7 +116,7 @@ ToolObservation
   call_id
   tool_name
   status            ← ok / error / refused
-  result            ← 结构化 payload（按 output contract）
+  result            ← 结构化 payload（按 ToolSpec.output_schema）
   error_code        ← 稳定错误码（见 §9）
 ```
 
@@ -167,17 +167,19 @@ Registry **不执行工具**。
 执行前按固定顺序检查：
 
 ```
-tool 是否存在（查 Registry）
+resolve RegisteredTool（查 Registry，未注册 → UNKNOWN_TOOL）
     ↓
-arguments schema validation（按 ToolSpec.input_schema）
+validate input_schema（按 ToolSpec.input_schema）
     ↓
-权限 / allowlist
+permission / allowlist
     ↓
-budget（步数 / 调用数 / 错误数）
+budget（max_agent_iterations / max_tool_calls / max_tool_errors）
     ↓
-真正调用
+handler.execute(...)            ← 只由 Registry resolve，模型无法指定 callable
     ↓
-normalize result（按 ToolSpec.output contract）
+validate output_schema（按 ToolSpec.output_schema）
+    ↓
+safe normalize / truncate
     ↓
 ToolObservation
 ```
@@ -190,6 +192,28 @@ ToolObservation
 - 任意 `eval()` / `exec()`。
 
 工具的"实现"只由系统在注册 ToolSpec 时决定，Agent 永远只能传 `tool_name + arguments`。
+
+### 5.3 内部执行绑定：RegisteredTool / ToolHandler / ToolAdapter
+
+```
+RegisteredTool
+├── spec: ToolSpec        ← 模型唯一可见面（input_schema / output_schema）
+└── handler: ToolHandler  ← 系统注册的执行实现，不序列化给模型
+```
+
+不可破坏语义：
+
+- **模型只能看到 ToolSpec**：模型了解工具名、description、input_schema、output_schema，看不到任何 handler / 实现细节；
+- **模型只能输出 tool_name + arguments**：模型无法引用、选择或指定任何 callable / 函数路径 / 模块名；
+- **handler 只由系统注册**：handler 在注册 ToolSpec 时绑定，模型永远不能注册或替换 handler；
+- **handler 不序列化给模型**：Prompt / Schema / Observation / Trace 中都不出现 handler 本身；
+- **handler 不允许来自 ToolCall**：`ToolCall.arguments` 只是数据，不能包含 handler、callable 引用或代码；
+- **Executor 只能通过 Registry resolve handler**：执行前 `resolve RegisteredTool`，未注册即 `UNKNOWN_TOOL`。
+
+ToolHandler / ToolAdapter 的作用：
+
+- **ToolHandler**：单个工具的确定性执行实现，接收"已通过 Schema 校验的 arguments"，返回结构化结果；只由系统实现与注册；
+- **ToolAdapter**：把 Gate 3 等已有能力（检索 / 证据 / 代码搜索）适配成 ToolHandler 的封装层，保证 Gate 3 frozen runtime 不被 Gate 4 反向改写（对应 §3 架构边界）。
 
 ---
 
@@ -281,6 +305,7 @@ Gate 4 v1 建议冻结默认上限：
 | max_tool_errors | 2 |
 
 - 这些是**系统预算**，LLM 不允许自己提高；
+- 时间 / Token 预算、Tool timeout、用户取消、无进展检测**不删除长期方向**，但标为 **later hardening / Gate 4 close candidate**，不作为 G4-TOOL-02 的 v1 实现要求；
 - 具体代码实现时如果发现字段命名更合理，可以保留语义不变地微调；
 - **"不无限循环、预算由系统控制"是不可破坏契约**。
 

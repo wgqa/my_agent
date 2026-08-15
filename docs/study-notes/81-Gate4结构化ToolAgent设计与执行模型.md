@@ -11,7 +11,7 @@
 
 ## 0. 一句话
 
-Gate 4 的目标是把项目从"会检索的 RAG"升级成"会**选择工具、产生结构化参数、执行工具、根据结果决定下一步**的 Agent"。Gate 3 已经证明检索和生成是可信的，Gate 4 要让模型在**受控的多个工具**之间做选择，而不是只走一条写死的链路。
+Gate 4 的目标是把项目从"会检索的 RAG"升级成"会**选择工具、产生结构化参数、执行工具、根据结果决定下一步**的 Agent"。Gate 3 证明的是"检索证据 + 有界执行 + 脱敏 Trace"这条管线**可以冻结、可以评测**；但 answer 级正确率仍低（formal Holdout answer_pass 4/10=0.4，且 4/12 case 因 generator 空输出失败），所以"生成可信"是夸大。Gate 4 要让模型在**受控的多个工具**之间做选择，而不是只走一条写死的链路。
 
 ---
 
@@ -24,11 +24,11 @@ Gate 4 的目标是把项目从"会检索的 RAG"升级成"会**选择工具、�
 | 决策产物 | QueryPlan / RouteDecision | AgentAction（tool_call / final_answer / refuse） |
 | 可执行面 | 检索和生成是"固定的能力" | 工具集合是"可枚举、可注册、可校验"的 |
 
-Gate 3 的"Agent"其实非常窄：它把一个问题拆成几个子问题，每个子问题走 BM25 检索，合并证据，再生成答案。**动作是固定的**。
+Gate 3 的"Agent"动作空间很窄：只有 retrieval / generation 两个端口，问题分解由 Planner 决定、检索策略（bm25/hybrid）由确定性 Router 决定，模型不直接选择工具。所以它更像"受控的多步检索 + 生成"管线，而不是"模型自由选工具的 Agent"。
 
 Gate 4 的"Agent"动作是**开放的**：模型每一轮都可以在预注册的工具里选一个，也可以决定"我够了，输出答案"，甚至"这题我不该答"。真正的 Agent 差异在于：**下一步做什么，取决于上一步看到了什么**。
 
-一句话：Gate 3 是"多步检索 + 生成"，Gate 4 是"模型自己决定调用什么工具、要不要继续"。
+一句话：Gate 3 是"受控多步检索 + 生成"，Gate 4 是"模型在预注册工具集合中选择并决定是否继续"。
 
 ---
 
@@ -125,6 +125,25 @@ Structured 的意思是：**动作类型、工具名、参数都是可被程序�
 - Executor 回答"**怎么安全地执行一次调用**"（执行流水线）。
 
 如果合成一个类，你为了"加一个新工具"要动执行逻辑，为了"修执行 bug"要动工具目录，两边互相污染，还容易忘记"执行前必须校验"。分开后：加工具只动 Registry，加固执行只动 Executor，各测各的。
+
+### ToolSpec 为什么不应该直接保存模型可控的 callable？
+
+诱惑：直接在 ToolSpec 里放一个 `handler: Callable`，注册时把 Python 函数塞进去，Executor 调它，最简单。
+
+风险：如果 ToolSpec 里的 callable 能被序列化给模型、或能由 ToolCall 传递、或能来自模型输入，就等于给了模型"选择并执行任意代码"的口子——一条 Prompt Injection 就能让模型指向任意函数。ToolSpec 是**给模型看**的，模型只能看到 name / description / input_schema / output_schema；**可执行的 handler 属于系统私有实现，绝不能进 ToolSpec 的可见面**。
+
+### ToolHandler / ToolAdapter 的作用是什么？
+
+- **ToolHandler**：单个工具的确定性执行实现，只由系统在注册时绑定。它接收"已通过 Schema 校验的 arguments"，返回结构化结果；模型永远接触不到它；
+- **ToolAdapter**：把 Gate 3 等已有能力（检索 / 证据 / 代码搜索）适配成 ToolHandler 的封装层，让 Gate 4 复用 Gate 3 的能力，而不改写 Gate 3 冻结 runtime。
+
+绑定关系：
+
+    RegisteredTool
+    ├── spec: ToolSpec        ← 模型唯一可见面
+    └── handler: ToolHandler  ← 系统私有，不序列化给模型
+
+语义锁死：模型只能看到 ToolSpec；模型只能输出 tool_name + arguments；handler 只由系统注册、不序列化给模型、不允许来自 ToolCall；Executor 只能通过 Registry resolve handler。
 
 ---
 

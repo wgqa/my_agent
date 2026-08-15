@@ -45,14 +45,16 @@
 5. 能区分事实、推测和未验证因果；
 6. Gate 2 已冻结，不再为了追求更好数字反复调参。
 
-当前项目最主要的不足是：
+当前项目最主要的不足是（2026-08-15 收敛，完整记录见 §5）：
 
-1. 还不是 Agent；
-2. Gate 2 只闭环了检索评测，没有闭环生成正确性、Faithfulness、Citation、拒答、成本和端到端延迟；
-3. 当前 50 条评测数据已经被多次分析，更适合作为开发集和回归集，不应继续充当完全独立的最终测试集；
-4. 多文档问题只有 7 条，不足以证明 Query Decomposition 的收益；
-5. 公共 API 仍存在上传路径、大小限制、异常泄露和默认暴露边界问题；
-6. README、依赖锁定、CI 和公开复现说明明显落后于内部实验能力。
+1. Structured Tool Agent 尚未实现；
+2. Generator robustness 仍弱；
+3. Retrieval → Answer synthesis gap 明显；
+4. claim-level faithfulness 仍未完成；
+5. DATA-CONSIST-01 等产品一致性债务（P1，不阻塞 read-only Gate 4 v1）；
+6. README / dependency lock / CI / Docker / 公共复现仍需 Gate 5 收口。
+
+（历史弱点见 §5.2「已解决 / 历史」，不再列为当前事实。）
 
 因此下一阶段不是直接堆 Agent 框架，也不是立刻做 GraphRAG，而是：
 
@@ -306,158 +308,55 @@ Hybrid control：
 
 # 5. 当前缺点与优先级
 
-以下只列影响项目质量和校招叙事的主要问题，不做无意义挑刺。
+以下只列当前影响项目质量和校招叙事的主要问题，不做无意义挑刺。
 
-## 5.1 P0：公开运行前必须修复
+## 5.1 当前主要不足（2026-08-15 收敛）
 
-### P0-1 上传边界不安全
+1. **Structured Tool Agent 尚未实现**：Gate 3 已具备 RAG-specific Agent Runtime（检索 / 生成端口 + 有界执行 + 脱敏 RunTrace），但 Gate 4 的预注册 Tool 集合、结构化 Tool Selection、Bounded Tool Loop 仍为设计阶段（G4-DESIGN-01 / R1）。不得在简历或 README 中声称已实现 Tool Agent；
+2. **Generator robustness 仍弱**：formal Holdout 中 4/12 case 因 generator 空输出而失败（系统行为性失败计入正式结果），复杂上下文下生成稳定性是当前最弱环节；
+3. **Retrieval → Answer synthesis gap 明显**：Holdout 检索 obligation 18/21=0.857，但 answer_obligation 8/21=0.381、answer_pass 4/10=0.4，检索证据到最终答案正确性之间存在明显落差；
+4. **claim-level faithfulness 仍未完成**：当前为 query-level obligation coverage + LLM Judge 辅助评测，尚未做 claim-level entailment / faithfulness 的系统评测；
+5. **DATA-CONSIST-01 等产品一致性债务**：删除一致性、文档身份、API Citation 契约仍待收口。定位 = **P1 debt**，不阻塞 read-only Gate 4 v1；在引入 state-mutating Tool 或 public release 前必须重新审查（见 §5.3）；
+6. **README / dependency lock / CI / Docker / 公共复现仍需 Gate 5 收口**：lockfile、CI、Docker、可公开最小语料与单命令复现均未完成，README 仍落后于内部能力。
 
-当前 API 将用户文件名直接拼入系统临时目录，并一次性读入内存。
+## 5.2 已解决 / 历史（不再作为当前缺点）
 
-风险：
+以下问题已解决或已被后续阶段取代，保留为历史记录，不再列入当前缺点。
 
-- 文件名路径穿越；
-- 同名临时文件覆盖或并发冲突；
-- 无上传大小限制；
-- 大文件内存占用；
-- 原始内部异常返回给调用者；
-- README 默认监听 0.0.0.0；
-- CORS 允许任意来源并同时开启 credentials。
+- **P0-1 上传边界不安全 → RESOLVED（SEC-P0-01A，2026-08-09）**：安全文件名白名单、独立临时目录、1 MiB 分块、20 MiB 上限、通用错误响应；
+- **P0-1B API 暴露与请求边界 → RESOLVED（SEC-P0-01B，2026-08-09）**：CORS 白名单、默认 127.0.0.1、Query 输入上限、通用错误响应；
+- **P0-2 Gate 3 数据泄漏风险 → RESOLVED（G3-DATA-02，2026-08-13）**：36 条问题已封存，24/12 dev/holdout 分层隔离，sealed holdout 私有边界维持（dataset freeze `257fa0d0a6d6`）；
+- **P1-1 还没有 Agent → 已被 Gate 3 取代**：Gate 3 已具备 RAG-specific Agent Runtime（RouteDecision / EvidenceBundle / Verifier / RunTrace、`/agent/query`、预算与异常结构化失败、脱敏 Trace）。当前准确表述改为 §5.1-1"Structured Tool Agent 尚未实现"；
+- **P1-2 评测范围仍不完整 → 部分保留**：retrieval-level（Gate 2）与 answer/citation（Gate 3 Dev-only + formal Holdout）已闭环；仍缺 claim-level faithfulness、端到端 P50/P95 与成本评测（见 §5.1-4 与 Gate 5）；
+- **P1-3 Gate 3 复杂问题样本不足 → RESOLVED（G3-DATA-02）**：当时仅 7 条多文档 Case，现已建成 36 条复杂问题（comparison / multi_entity / causal / troubleshooting 等）并分层封存；
+- **无结构化 Trace → RESOLVED（G3-RUNTIME-05A/05B/05C）**：Gate 3 已引入 RunTrace（事件化、脱敏，禁 Key / traceback / 正文）；
+- **P1-4 公开可复现性不足 → 保留为当前不足 §5.1-6**；
+- **P1-5 README 严重落后 → 保留为当前不足 §5.1-6**（README 应更新为：Gate 3 已冻结、Gate 4 设计契约已冻结但 Tool Agent 未实现）；
+- **P1-6 产品数据一致性仍有风险 → 保留为当前不足 §5.1-5**（DATA-CONSIST-01）；
+- **P1-7 API 丢失引用契约 → 保留为当前不足 §5.1-5**（DATA-CONSIST-01 组成部分）。
 
-结论：
+## 5.3 DATA-CONSIST-01 定位（P1 debt）
 
-> 在修复前，API 只能视为本地可信输入 Demo，不得直接公开部署。
+- **状态**：P1 debt；
+- **不阻塞**：read-only Gate 4 v1（knowledge_search / code_search / calculator 均为只读，不依赖写路径一致性）；
+- **重新审查触发点**：引入 state-mutating Tool（任何写操作工具）或 public release 之前，必须先完成并重新审查 DATA-CONSIST-01；
+- **组成**：原 P1-6（删除一致性 / 文档身份）与 P1-7（API Citation 契约）。
 
-### P0-2 Gate 3 数据泄漏风险
-
-当前 50 条 Case 已经过多轮人工观察和针对性分析。
-
-它们仍然适合：
-
-- 回归；
-- 开发调试；
-- 与 Gate 2 冻结结论对照。
-
-它们不再适合单独承担：
-
-- Gate 3 最终泛化证明；
-- 路由规则的完全独立验证；
-- Query Decomposition 的最终收益证明。
-
-Gate 3 写实现前必须先冻结新的 sealed holdout。
-
-## 5.2 P1：决定项目能否成为强校招主项目
-
-### P1-1 还没有 Agent
-
-仓库当前没有完整的：
-
-- Tool Registry；
-- 原生 Tool Calling；
-- Agent State；
-- 执行循环；
-- Stop Policy；
-- 步数、时间、Token 预算；
-- 重复调用检测；
-- Agent Trace；
-- Agent Evaluation。
-
-因此当前简历只能写“可评测 RAG 系统”，不能写“已实现 Agent”。
-
-### P1-2 评测范围仍不完整
-
-Gate 2 完成的是 retrieval-level evaluation。
-
-仍缺：
-
-- Answer correctness；
-- Faithfulness；
-- Citation format、coverage、support；
-- Unsupported claim rate；
-- 拒答准确率；
-- Prompt Injection；
-- Token 和成本；
-- 端到端 P50/P95 latency；
-- Reranker 的正式独立消融。
-
-### P1-3 Gate 3 复杂问题样本不足
-
-当前只有 7 条多文档 Case，不能支撑复杂路由和问题分解的稳健结论。
-
-Gate 3 需要新增 30～40 条问题，其中：
-
-- 至少 20 条多文档、对比、多实体或可分解问题；
-- 保留简单事实问题作为不应过度分解的 control；
-- 加入无答案或无需知识库的问题；
-- 至少三分之一进入 sealed holdout。
-
-### P1-4 公开可复现性不足
-
-当前已有内部 Artifact，但公共复现仍缺：
-
-- lockfile；
-- CI；
-- 精确模型 revision 或可验证模型说明；
-- 依赖上界或经过验证的版本组合；
-- 可公开的最小语料和 Gold；
-- 从零复现实验的单一命令；
-- 对 jieba 等分词依赖的稳定版本约束。
-
-### P1-5 README 严重落后
-
-README 仍把项目描述成基础问答系统，没有突出：
-
-- ExperimentRunner；
-- 独立 Workspace；
-- Corpus、EvaluationSet、Experiment ID；
-- 九组正式实验；
-- BM25 primary 与 Hybrid control；
-- 失败分析；
-- Gate 2 冻结边界；
-- Gate 3 尚未实现。
-
-这会让招聘方看不到项目最有价值的部分。
-
-### P1-6 产品数据一致性仍有风险
-
-当前 delete_document 先删 BM25，再删除 VectorStore，并吞掉 VectorStore 异常。
-
-风险：
-
-- 一侧删除成功、一侧失败；
-- Dense 与 Sparse 状态分叉；
-- 返回成功但实际失败；
-- 后续查询和实验不可信。
-
-另外，普通产品入库仍以 basename 派生 document_id，不同目录同名文件可能碰撞。
-
-### P1-7 API 丢失引用契约
-
-Pipeline 内部已经有 citation_id 和 citation_validation，但 API SourceItem 只返回：
-
-- content；
-- source；
-- score。
-
-公开响应没有完整保留引用身份和引用验证结果，导致核心能力在接口层丢失。
-
-## 5.3 P2：工程完整度与维护性
+## 5.4 保留的工程待办（P2，Gate 5 收口）
 
 - 无 pyproject.toml；
 - 无 uv.lock 或其他 lockfile；
 - 无 GitHub Actions；
 - 无 Docker；
-- 无结构化 Trace；
 - 无 SSE 结构化事件；
 - 无请求 ID；
 - 无统一错误码；
 - 无正式性能报告；
-- ExperimentRunner 已较大，Gate 3 不应继续把路由和 Agent 逻辑堆入 Runner；
+- ExperimentRunner 已较大，Gate 4 不应继续把 Tool Agent 逻辑堆入 Runner；
 - legacy Evaluator 与正式 ExperimentRunner 并存，职责边界需在后续整理；
-- 部分早期学习笔记描述已过时，缺少 current、superseded、history 索引；
-- HANDOFF 仍有“Gate 2 待 closure 复审”的旧标题并漏写 R4。
+- 部分早期学习笔记描述已过时，缺少 current、superseded、history 索引。
 
-这些不需要现在全部返工，但必须有明确进入时机。
+这些不需要现在全部返工，但必须有明确进入时机（Gate 5）。
 
 ---
 
@@ -891,60 +790,93 @@ v1 明确不做：shell / terminal / 任意 Python execution / 文件写入 / Gi
 
 （v3 草案中的 `get_document_context` / `inspect_retrieval_experiment` 不进入 v1 冻结范围，可作后续候选，不自动立项。）
 
-## 9.4 Agent Runtime
+## 9.4 Agent Runtime（与设计契约对齐，见 `docs/design/g4_structured_tool_agent.md`）
 
-最小 AgentState：
+### 内部执行绑定：RegisteredTool / ToolHandler / ToolAdapter
+
+```
+RegisteredTool
+├── spec: ToolSpec        ← 模型唯一可见面（input_schema / output_schema）
+└── handler: ToolHandler  ← 系统注册的执行实现，不序列化给模型
+```
+
+语义锁死：
+
+- 模型只能看到 `ToolSpec`，只能输出 `tool_name` + `arguments`；
+- `handler` 只由系统注册；handler 不序列化给模型；handler 不允许来自 ToolCall；
+- Executor 只能通过 Registry resolve 到 handler，禁止模型指定 callable / 函数路径 / 任意代码执行。
+
+### Executor 执行流程（固定顺序）
+
+```
+resolve RegisteredTool（查 Registry，未注册 → UNKNOWN_TOOL）
+→ validate input_schema
+→ permission / allowlist
+→ budget（硬预算检查）
+→ handler.execute(...)
+→ validate output_schema
+→ safe normalize / truncate
+→ ToolObservation
+```
+
+### 第一阶段硬预算（v1）
+
+| 预算 | 默认值 |
+|---|---:|
+| max_agent_iterations | 5 |
+| max_tool_calls | 4 |
+| max_tool_errors | 2 |
+
+- 系统预算，LLM 无权提高；预算用尽进入固定收尾（final_answer 或 refuse）；
+- 时间 / Token 预算、Tool timeout、用户取消、无进展检测**不删除长期方向**，但标为 **later hardening / Gate 4 close candidate**，不作为 G4-TOOL-02 的 v1 实现要求。
+
+最小 AgentState（v1；时间 / Token 字段列为 later hardening）：
 
     task_id
     user_query
-    plan_summary
     step
-    max_steps
     tool_calls
     observations
     evidence
-    remaining_token_budget
-    remaining_time_ms
     status
     final_answer
     warnings
 
-执行循环：
+执行循环（v1，bounded）：
 
     用户任务
-    → 生成计划摘要
-    → 原生 Tool Call
-    → Schema 校验
-    → allowlist 与参数权限
-    → 步数、时间、Token 检查
-    → 执行 Tool
-    → 标准化 Observation
-    → 更新 Evidence
-    → 继续、补充、拒答或完成
-    → 引用校验
+    → 模型 Decision → AgentAction
+    → tool_call：resolve → validate input_schema → permission → budget → handler.execute → validate output_schema → safe normalize → ToolObservation
+    → 模型读取 Observation 后再次决策（受 max_agent_iterations / max_tool_calls / max_tool_errors 约束）
+    → final_answer / refuse 收尾
     → Trace 落盘
 
 禁止解析字符串式 ReAct。
 
+> 以上全部为设计契约，不冒充任何已实现代码（G4-TOOL-02 尚未开始）。
+
 ## 9.5 停止与安全
 
-必须有：
+### v1 必须
 
-- 最大步骤；
-- 最大相同 Tool 次数；
-- 完全相同参数去重；
-- 最大总耗时；
-- 最大 Token；
-- Tool timeout；
-- 重试上限；
-- 无进展检测；
-- 用户取消；
+- max_agent_iterations / max_tool_calls / max_tool_errors（硬预算）；
+- 相同 tool_name + arguments 连续失败阻止（计入 max_tool_errors）；
+- 完全相同的 ToolCall 去重；
 - Tool allowlist；
 - 文档内容与系统指令隔离；
 - Prompt Injection 测试；
 - 敏感 Tool 默认禁止。
 
-不展示：
+### later hardening（Gate 4 close candidate，v1 不要求）
+
+- 最大总耗时（time budget）；
+- Token 预算；
+- Tool timeout；
+- 重试上限（v1 无自动重试，此为后续策略）；
+- 用户取消；
+- 无进展检测。
+
+### 不展示（面向模型 / Trace / UI）
 
 - 隐藏思维链；
 - 原始系统 Prompt；
@@ -952,12 +884,12 @@ v1 明确不做：shell / terminal / 任意 Python execution / 文件写入 / Gi
 - 敏感路径；
 - 未过滤的内部异常。
 
-展示：
+### 展示
 
 - 计划摘要；
 - Tool 名称；
 - 规范化参数；
-- Tool 结果摘要；
+- Tool 结果摘要（安全截断）；
 - 证据和引用；
 - 进度；
 - 最终状态。
@@ -1044,6 +976,7 @@ G4-CLOSE-08    Freeze / final review
 - ToolObservation 是事实结果、不是 CoT，不含 traceback / secret / Key；
 - AgentAction = 强判别联合（tool_call / final_answer / refuse），不做 `{thought, tool}` 半结构化；
 - ToolRegistry 与 ToolExecutor 分层，Executor 不接受任意 import / 函数路径 / shell / eval；
+- RegisteredTool 绑定（spec + handler）：模型只见 ToolSpec、只输出 tool_name + arguments；handler 系统注册、不序列化、不来自 ToolCall；Executor 只经 Registry resolve handler；
 - Bounded loop：默认 `max_agent_iterations=5` / `max_tool_calls=4` / `max_tool_errors=2`，系统预算，LLM 不能提高；v1 无自动工具重试；
 - Tool error ≠ Agent process crash（8 类错误码，结构化 Observation 供 Agent 恢复）；
 - Trace ≠ CoT，Observation/Trace 有大小与安全边界（禁 Key / Authorization / env secret / raw system prompt / private CoT / traceback / 无限制全文 / 本地敏感绝对路径）。
