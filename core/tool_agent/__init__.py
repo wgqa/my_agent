@@ -6,6 +6,17 @@ Loop、不注册真实工具（G4-TOOLS-03 才会接入 knowledge_search /
 code_search / calculator）。
 """
 
+from core.tool_agent.action_parser import strict_json_loads_no_duplicates
+from core.tool_agent.actions import (
+    ACTION_PROVIDER_ERROR,
+    ACTION_TIMEOUT,
+    AgentAction,
+    AgentDecisionCallMetadata,
+    AgentDecisionOutcome,
+    FinalAnswerAction,
+    RefuseAction,
+    ToolCallAction,
+)
 from core.tool_agent.default_tools import build_readonly_tool_registry
 from core.tool_agent.executor import ToolExecutor
 from core.tool_agent.models import (
@@ -26,6 +37,7 @@ from core.tool_agent.models import (
     ToolSpec,
     json_deep_copy,
 )
+from core.tool_agent.openai_compatible import OpenAICompatibleAgentDecisionProvider
 from core.tool_agent.registry import (
     RegisteredTool,
     ToolHandler,
@@ -55,6 +67,8 @@ __all__ = [
     "TOOL_RESULT_INVALID",
     "TOOL_BUDGET_EXCEEDED",
     "ACTION_PARSE_FAILED",
+    "ACTION_PROVIDER_ERROR",
+    "ACTION_TIMEOUT",
     "AGENT_BUDGET_EXCEEDED",
     "TOOL_ERROR_CODES",
     "AGENT_ERROR_CODES",
@@ -68,4 +82,12 @@ __all__ = [
     "CodeSearchHandler",
     "KnowledgeSearchHandler",
     "build_readonly_tool_registry",
+    "AgentAction",
+    "ToolCallAction",
+    "FinalAnswerAction",
+    "RefuseAction",
+    "AgentDecisionOutcome",
+    "AgentDecisionCallMetadata",
+    "OpenAICompatibleAgentDecisionProvider",
+    "strict_json_loads_no_duplicates",
 ]

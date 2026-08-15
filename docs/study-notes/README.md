@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（37 份）
+## CURRENT（38 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -63,6 +63,7 @@
 | 81 | [81-Gate4结构化ToolAgent设计与执行模型.md](81-Gate4结构化ToolAgent设计与执行模型.md) | G4-DESIGN-01：Gate 4 Structured Tool Agent 设计契约的面向学习讲解（Gate3 vs Gate4 / Tool / Structured Tool Call / ToolSpec / ToolCall / Observation / 为什么不让 LLM 直接执行 / Registry 与 Executor 分层 / Bounded Loop / Tool error vs Agent failure / Observation 反哺决策 / Trace vs CoT / 首批 3 个只读工具 / multi-tool 示例 / 常见错误 / 面试问答 / 代码阅读路线）；Gate 4 = IN PROGRESS，0 Tool 实现 |
 | 82 | [82-Gate4-ToolRegistry与安全执行器.md](82-Gate4-ToolRegistry与安全执行器.md) | G4-TOOL-02：Structured Tool Agent 纯确定性底座（ToolSpec/ToolCall/ToolObservation/ToolHandler/RegisteredTool/ToolRegistry/ToolExecutor + JSON 安全 + fail-fast/fail-closed + Fake Handler 测试基础设施）；50 测试；G4-TOOL-02 = REVIEW PENDING（Structured Tool core implemented candidate，仍 0 real tools / 0 LLM selection / 0 tool loop） |
 | 83 | [83-Gate4三个真实Tool与Adapter设计.md](83-Gate4三个真实Tool与Adapter设计.md) | G4-TOOLS-03：三个真实 read-only Tool（calculator AST 白名单求值 / code_search filesystem sandbox / knowledge_search 复用 RetrievalPort）接入统一 Tool core；capability adapter、模型不能控 top_k/strategy、literal vs regex、output 受限、异构 Tool 统一契约；41 测试；G4-TOOLS-03 = REVIEW PENDING（3 个真实 read-only Structured Tools implemented candidate） |
+| 84 | [84-Gate4结构化Tool选择与LLM决策边界.md](84-Gate4结构化Tool选择与LLM决策边界.md) | G4-AGENT-04：LLM 单步结构化 Decision（AgentAction 强判别联合、ToolCallAction≠ToolCall、call_id 系统生成、strict JSON/duplicate key/unknown field、Tool allowlist、Decision+Executor 双重 schema 校验、Prompt 软约束 vs Parser/Registry 硬约束、fail closed vs fallback、Provider metadata、不记录 CoT、Prompt SHA、Fake Client、单步 vs Loop）；45 测试；G4-AGENT-04 = REVIEW PENDING（LLM single-step structured decision candidate） |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -130,6 +131,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–83 共 **84 份**，每份只出现一次：CURRENT 37 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 84。
+- 编号覆盖 00–84 共 **85 份**，每份只出现一次：CURRENT 38 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 85。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-15。
