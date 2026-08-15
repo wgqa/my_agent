@@ -71,12 +71,14 @@ class ToolCallAction:
     def __init__(
         self, *, action: str, tool_name: str, arguments: Mapping[str, Any]
     ) -> None:
-        if type(action) is not str or not action.strip():
-            raise ValueError("action 必须是非空字符串")
+        if action != "tool_call":
+            raise ActionValidationError(
+                f"ToolCallAction.action 必须精确等于 'tool_call'，实际 {action!r}"
+            )
         if type(tool_name) is not str or not tool_name.strip():
-            raise ValueError("tool_name 必须是非空字符串")
+            raise ActionValidationError("tool_name 必须是非空字符串")
         if not isinstance(arguments, Mapping):
-            raise TypeError("arguments 必须是 Mapping")
+            raise ActionValidationError("arguments 必须是 Mapping")
         object.__setattr__(self, "action", action)
         object.__setattr__(self, "tool_name", tool_name)
         object.__setattr__(self, "_arguments", json_deep_copy(arguments))
@@ -97,6 +99,20 @@ class FinalAnswerAction:
     action: str
     answer: str
 
+    def __post_init__(self) -> None:
+        if self.action != "final_answer":
+            raise ActionValidationError(
+                f"FinalAnswerAction.action 必须精确等于 'final_answer'，实际 {self.action!r}"
+            )
+        if type(self.answer) is not str:
+            raise ActionValidationError("answer 必须是字符串")
+        if not self.answer.strip():
+            raise ActionValidationError("answer 不能为空或只含空白")
+        if len(self.answer) > MAX_ANSWER_CHARS:
+            raise ActionValidationError(
+                f"answer 超过长度上限 {MAX_ANSWER_CHARS}"
+            )
+
 
 @dataclass(frozen=True)
 class RefuseAction:
@@ -104,6 +120,19 @@ class RefuseAction:
 
     action: str
     reason_code: str
+
+    def __post_init__(self) -> None:
+        if self.action != "refuse":
+            raise ActionValidationError(
+                f"RefuseAction.action 必须精确等于 'refuse'，实际 {self.action!r}"
+            )
+        if type(self.reason_code) is not str or not self.reason_code.strip():
+            raise ActionValidationError("reason_code 必须是非空字符串")
+        if self.reason_code not in REFUSE_REASON_CODES:
+            raise ActionValidationError(
+                f"未知 reason_code：{self.reason_code!r}（只能选 "
+                f"{'、'.join(REFUSE_REASON_CODES)}）"
+            )
 
 
 AgentAction = Union[ToolCallAction, FinalAnswerAction, RefuseAction]
@@ -224,6 +253,12 @@ class AgentDecisionOutcome:
     call_metadata: Optional[AgentDecisionCallMetadata]
 
     def __post_init__(self) -> None:
+        if self.action is not None and not isinstance(
+            self.action, (ToolCallAction, FinalAnswerAction, RefuseAction)
+        ):
+            raise TypeError(
+                "action 必须是 ToolCallAction / FinalAnswerAction / RefuseAction 之一"
+            )
         if self.action is not None and self.failure_code is not None:
             raise ValueError("action 与 failure_code 不能同时非 None")
         if self.action is None and self.failure_code is None:

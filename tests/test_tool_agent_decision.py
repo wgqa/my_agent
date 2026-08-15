@@ -29,6 +29,7 @@ from core.tool_agent import (
     ToolSpec,
 )
 from core.tool_agent.action_parser import parse_agent_action_text, strict_json_loads_no_duplicates
+from core.tool_agent.actions import ActionValidationError
 from core.tool_agent.decision_prompt import (
     DECISION_PROMPT_SHA256,
     DECISION_PROMPT_TEMPLATE,
@@ -520,3 +521,41 @@ class TestR1JSONReliability:
         assert action.arguments_copy()["nested"]["limit"] == 5
         # 再次 to_dict 仍是干净快照
         assert outcome.to_dict()["action"]["arguments"]["nested"]["limit"] == 5
+
+
+# ---- R1-R1：Action 领域不变量 ----
+
+
+class TestActionInvariants:
+    def test_tool_call_action_wrong_discriminator(self):
+        with pytest.raises(ActionValidationError, match="tool_call"):
+            ToolCallAction(action="final_answer", tool_name="echo", arguments={})
+
+    def test_final_answer_wrong_discriminator(self):
+        with pytest.raises(ActionValidationError, match="final_answer"):
+            FinalAnswerAction(action="tool_call", answer="x")
+
+    def test_final_answer_empty_answer(self):
+        with pytest.raises(ActionValidationError, match="answer"):
+            FinalAnswerAction(action="final_answer", answer="")
+
+    def test_final_answer_overlong(self):
+        with pytest.raises(ActionValidationError, match="上限"):
+            FinalAnswerAction(action="final_answer", answer="x" * 4001)
+
+    def test_refuse_wrong_discriminator(self):
+        with pytest.raises(ActionValidationError, match="refuse"):
+            RefuseAction(action="tool_call", reason_code="UNSAFE_REQUEST")
+
+    def test_refuse_unknown_reason(self):
+        with pytest.raises(ActionValidationError, match="reason_code"):
+            RefuseAction(action="refuse", reason_code="MADE_UP")
+
+    def test_outcome_rejects_non_action(self):
+        with pytest.raises(TypeError, match="action 必须是"):
+            AgentDecisionOutcome(action="not-an-action", failure_code=None, call_metadata=None)
+
+    def test_valid_actions_still_construct(self):
+        ToolCallAction(action="tool_call", tool_name="echo", arguments={"q": "x"})
+        FinalAnswerAction(action="final_answer", answer="  ok  ")
+        RefuseAction(action="refuse", reason_code="UNSAFE_REQUEST")

@@ -187,3 +187,12 @@ private backing（_arguments）
 ```
 
 `AgentDecisionOutcome.to_dict()` 也只返回深拷贝，不泄漏内部可变引用。这样模型传进来的参数在解析完成后就变成**审计快照**——后续任何环节的修改都不会改写它。
+
+---
+
+## 19. R1-R1 补充：Parser validation 与 domain invariant validation 不一样
+
+- **Parser validation**：防御**不可信模型输出**——模型可能来自真实 Provider、Fake Provider、或任何来源，Parser 把"非法输出"统一转成 `ACTION_PARSE_FAILED`；
+- **Domain invariant validation**：领域对象**自身的不变量**——`ToolCallAction.action` 必须精确等于 `tool_call`、`FinalAnswerAction.answer` 非空且 <=4000、`RefuseAction.reason_code` 在冻结集合内、`AgentDecisionOutcome.action` 必须是三个合法 Action 之一。
+
+区别：Parser 防的是"模型说错话"（外部不可信边界）；领域不变量保证的是"Runtime 内部无论对象来自真实 Provider、Fake Provider 还是测试代码，都不会出现 'Python 类型与 action discriminator 自相矛盾' 的状态"（内部契约）。两者职责不同，都不能省略——Parser 管入口，领域对象管自身一致性。
