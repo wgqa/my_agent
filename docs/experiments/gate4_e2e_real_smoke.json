@@ -1,0 +1,108 @@
+{
+  "schema_version": "gate4_e2e_real_smoke_v1",
+  "run": {
+    "source_commit": "c94a37179e44a887cf010a651861a66f2417c488",
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "prompt_version": "tool_agent_decision_prompt_v2",
+    "budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "http_endpoint": "POST /tool-agent/query",
+    "host_scope": "localhost_only",
+    "smoke_count": 6
+  },
+  "health": {
+    "http_status": 200,
+    "docs_count": 9,
+    "embedding_provider": "bge",
+    "retriever_strategy": "hybrid",
+    "generator_provider": "deepseek"
+  },
+  "note": "固定 6 条 smoke（各发一次；首次全部 200 后记录脚本控制台编码崩溃，原样重发一次以持久化 safe trace，非调参/非重试坏 case）",
+  "records": [
+    {
+      "smoke_id": "S1",
+      "http_status": 200,
+      "agent_status": "completed",
+      "answer": "OK",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_errors_used": 0,
+      "tool_sequence": []
+    },
+    {
+      "smoke_id": "S2",
+      "http_status": 200,
+      "agent_status": "completed",
+      "answer": "703",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 2,
+      "tool_calls_used": 1,
+      "tool_errors_used": 0,
+      "tool_sequence": [
+        "calculator"
+      ]
+    },
+    {
+      "smoke_id": "S3",
+      "http_status": 200,
+      "agent_status": "completed",
+      "answer": "ToolAgentRuntime 定义在 core/tool_agent/runtime.py 第 46 行（class ToolAgentRuntime）。",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 2,
+      "tool_calls_used": 1,
+      "tool_errors_used": 0,
+      "tool_sequence": [
+        "code_search"
+      ]
+    },
+    {
+      "smoke_id": "S4",
+      "http_status": 200,
+      "agent_status": "completed",
+      "answer": "根据当前知识库检索，未找到关于 RRF 融合依赖原始分数还是排名的直接证据，因此无法给出有依据的结论。",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 2,
+      "tool_calls_used": 1,
+      "tool_errors_used": 0,
+      "tool_sequence": [
+        "knowledge_search"
+      ]
+    },
+    {
+      "smoke_id": "S5",
+      "http_status": 200,
+      "agent_status": "completed",
+      "answer": "MAX_QUESTION_CHARS 的值为 4000，除以 2 的结果是 2000.0。",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 3,
+      "tool_calls_used": 2,
+      "tool_errors_used": 0,
+      "tool_sequence": [
+        "code_search",
+        "calculator"
+      ]
+    },
+    {
+      "smoke_id": "S6",
+      "http_status": 200,
+      "agent_status": "refused",
+      "answer": null,
+      "reason_code": "UNSUPPORTED_REQUEST",
+      "failure_code": null,
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_errors_used": 0,
+      "tool_sequence": []
+    }
+  ]
+}
