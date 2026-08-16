@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（42 份）
+## CURRENT（43 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -68,6 +68,7 @@
 | 86 | [86-Gate4-Tool-Agent评测协议与Gold设计.md](86-Gate4-Tool-Agent评测协议与Gold设计.md) | G4-EVAL-06A：Tool-Agent 评测协议与 Gold 设计（为什么不能只测最终答案 / first action vs first tool / required tool coverage / 不要唯一 Gold sequence / unnecessary & forbidden tool / termination / Parser failure≠安全拒绝 / Dev vs Holdout / 为什么先 public Dev / deterministic assertion vs LLM-as-Judge / benchmark identity SHA / 先冻结尺子再跑模型 / 防止看结果改 Gold；24 Case 六类各 4，knowledge_search Gold 绑定公开语料）；G4-EVAL-06A = REVIEW PENDING |
 | 87 | [87-Gate4正式Tool-Agent评测Runner与Gold隔离.md](87-Gate4正式Tool-Agent评测Runner与Gold隔离.md) | G4-EVAL-06B-01 + R1：正式 Runner（两阶段 Gold 隔离 / 四层 run 身份 / preflight gates / micro coverage / 15 项冻结指标 numerator/denominator/value / safe Provider metadata / artifact manifest / 原子 finalize / 0-LLM harness 验证评测状态机）；R1 修正 Provider wiring（base_url=FROZEN_BASE_URL）/RunConfig 冻结/duplicate & task_completion 指标/ExecutionCase 隔离/metadata 一致性/token 全有才求和/containment；Fake/Scripted Provider + real Tool + real corpus preflight，0 real LLM；G4-EVAL-06B-01/R1 = Reviewer accepted / CLOSED |
 | 88 | [88-Gate4第一次正式Tool-Agent-Dev基线与错误分析.md](88-Gate4第一次正式Tool-Agent-Dev基线与错误分析.md) | G4-EVAL-06B-02：第一次真实 DeepSeek Tool-Agent Dev baseline（run_id fa4ab9aa5f13，41 次决策调用）；为什么 Tool-Agent 不能只看最终答案 / first action vs first tool vs required coverage / multi-step sequence 怎么看 / refusal reason 单独衡量 / parse failure vs 安全 refusal / budget stop vs duplicate stop / token-latency 解读 / public Dev baseline 不是 Holdout / baseline 差不能现场调参；headline：task_completion 20/24、required_coverage 0.7、allowed_sequence_match 1/4 |
+| 89 | [89-Gate4-Structured-Tool-Agent-API与安全Trace.md](89-Gate4-Structured-Tool-Agent-API与安全Trace.md) | G4-E2E-07A：Structured Tool-Agent API（POST /tool-agent/query，独立于 Gate 3 /agent/query）；为什么不能共用 runtime 全局 / API 不开放 budget-provider-allowlist / HTTP transport error vs Agent structured failure / refused-parse-budget 仍 200 / safe trace≠CoT / Tool Observation 是 untrusted / Fake Provider+Real Tool E2E 集成测试价值 / baseline 后先接 API 不马上调 Prompt；core/tool_agent/integration.py + api/schemas.py + api/app.py _safe_trace；15 API 测试；G4-E2E-07A = REVIEW PENDING |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -135,6 +136,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–88 共 **89 份**，每份只出现一次：CURRENT 42 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 89。
+- 编号覆盖 00–89 共 **90 份**，每份只出现一次：CURRENT 43 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 90。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-16。

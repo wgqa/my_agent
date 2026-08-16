@@ -98,3 +98,38 @@ class AgentQueryResponse(BaseModel):
     trace: List[dict]
     error_code: Optional[str] = None
     warnings: List[str]
+
+
+class ToolAgentQueryRequest(BaseModel):
+    """/tool-agent/query 请求 v1。只接受 question；history / provider / model /
+    budget / max_iterations / max_tool_calls / max_tool_errors / tool allowlist /
+    system prompt 一律属于系统边界，未定义字段（含以上）显式拒绝（extra=forbid）。"""
+
+    model_config = {"extra": "forbid"}
+
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+
+    @field_validator("question")
+    @classmethod
+    def _reject_blank_question(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("question must not be blank")
+        return v
+
+
+class ToolAgentQueryResponse(BaseModel):
+    """/tool-agent/query 响应 v1（冻结）。
+
+    只回结构化安全事实；绝不含 raw model response / 完整 Prompt / CoT /
+    API key / traceback / 本机敏感绝对路径。
+    """
+
+    schema_version: str
+    status: str
+    answer: Optional[str] = None
+    reason_code: Optional[str] = None
+    failure_code: Optional[str] = None
+    iterations_used: int
+    tool_calls_used: int
+    tool_errors_used: int
+    trace: List[dict]

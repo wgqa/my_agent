@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -10,8 +11,15 @@ load_dotenv()
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.pipeline import Pipeline
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
+from core.agent_runtime.adapters import PipelineRetrievalAdapter
+from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
+from core.pipeline import Pipeline
+from core.tool_agent import (
+    ToolAgentRunResult,
+    ToolAgentRuntime,
+    build_tool_agent_runtime,
+)
 from api.schemas import (
     AgentQueryRequest,
     AgentQueryResponse,
@@ -21,7 +29,13 @@ from api.schemas import (
     SourceItem,
     IndexResponse,
     HealthResponse,
+    ToolAgentQueryRequest,
+    ToolAgentQueryResponse,
 )
+
+logger = logging.getLogger(__name__)
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +48,12 @@ _WINDOWS_ILLEGAL_CHARS = set('<>:"|?*')
 
 pipeline: Optional[Pipeline] = None
 agent_runtime: Optional[AgentRuntime] = None
+tool_agent_runtime: Optional[ToolAgentRuntime] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline, agent_runtime
+    global pipeline, agent_runtime, tool_agent_runtime
     try:
         pipeline = Pipeline(
             config_path="config.yaml",
@@ -49,6 +64,7 @@ async def lifespan(app: FastAPI):
         print(f"[WARN] Pipeline init failed (will retry on first request): {e}")
         pipeline = None
     agent_runtime = None
+    tool_agent_runtime = None
     if pipeline is not None:
         try:
             provider, api_key = _resolve_agent_provider(pipeline)
@@ -60,9 +76,22 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("Agent runtime init failed")
             agent_runtime = None
+        # Gate 4 Structured Tool Agent：独立 runtime，不覆盖 Gate 3 agent_runtime。
+        try:
+            port = PipelineRetrievalAdapter(pipeline.retriever)
+            tool_agent_runtime = build_tool_agent_runtime(
+                repo_root=REPO_ROOT,
+                retrieval_port=port,
+                api_key=os.getenv("DEEPSEEK_API_KEY"),
+                base_url=DEEPSEEK_BASE_URL,
+            )
+        except Exception:
+            logger.exception("Tool agent runtime init failed")
+            tool_agent_runtime = None
     yield
     pipeline = None
     agent_runtime = None
+    tool_agent_runtime = None
 
 
 app = FastAPI(
@@ -142,6 +171,51 @@ def _build_agent_response(result) -> AgentQueryResponse:
         trace=[event.to_dict() for event in result.trace],
         error_code=result.error_code,
         warnings=list(result.warnings),
+    )
+
+
+_TRACE_ALLOWED_KEYS = frozenset({
+    "event_type",
+    "iteration",
+    "action_type",
+    "tool_name",
+    "call_id",
+    "tool_status",
+    "error_code",
+    "iterations_used",
+    "tool_calls_used",
+    "tool_errors_used",
+})
+
+
+def _safe_trace(trace) -> list[dict]:
+    """只透出 Runtime Trace 的安全字段白名单；绝不含 raw/CoT/prompt/key/
+    traceback/本机敏感绝对路径。code_search 匹配行文本也不进 trace。"""
+    return [
+        {k: event.get(k) for k in _TRACE_ALLOWED_KEYS if k in event}
+        for event in trace
+    ]
+
+
+def _get_tool_agent_runtime() -> ToolAgentRuntime:
+    if tool_agent_runtime is None:
+        raise HTTPException(
+            status_code=503, detail="Tool agent runtime not initialized"
+        )
+    return tool_agent_runtime
+
+
+def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResponse:
+    return ToolAgentQueryResponse(
+        schema_version="tool_agent_query_response_v1",
+        status=result.status,
+        answer=result.answer,
+        reason_code=result.reason_code,
+        failure_code=result.failure_code,
+        iterations_used=result.iterations_used,
+        tool_calls_used=result.tool_calls_used,
+        tool_errors_used=result.tool_errors_used,
+        trace=_safe_trace([event.to_dict() for event in result.trace]),
     )
 
 
@@ -269,6 +343,26 @@ def agent_query(req: AgentQueryRequest):
         logger.exception("Agent query failed")
         raise HTTPException(status_code=500, detail="Internal agent query error")
     return _build_agent_response(result)
+
+
+@app.post("/tool-agent/query", response_model=ToolAgentQueryResponse)
+def tool_agent_query(req: ToolAgentQueryRequest):
+    """Gate 4 Structured Tool Agent 问答入口：Decision → Tool → Observation → Final。
+
+    独立于 Gate 3 /agent/query。模型只见 question + ToolSpec + observations；
+    history / provider / model / budget / tool allowlist 一律不被接受（extra=forbid）。
+    Agent 自己的 refused / failed / budget stop / parse failure 是正常结构化系统
+    结果 → HTTP 200 + status/reason/failure；只有未知基础设施异常 → HTTP 500。
+    """
+    rt = _get_tool_agent_runtime()
+    try:
+        result = rt.run(req.question)
+    except Exception:
+        logger.exception("Tool agent query failed")
+        raise HTTPException(
+            status_code=500, detail="Internal tool agent query error"
+        )
+    return _build_tool_agent_response(result)
 
 
 @app.get("/stats")

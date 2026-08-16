@@ -18,6 +18,11 @@ from core.tool_agent.actions import (
     ToolCallAction,
 )
 from core.tool_agent.default_tools import build_readonly_tool_registry
+from core.tool_agent.integration import (
+    FROZEN_TOOL_MODEL,
+    FROZEN_TOOL_PROVIDER,
+    build_tool_agent_runtime,
+)
 from core.tool_agent.executor import ToolExecutor
 from core.tool_agent.models import (
     ACTION_PARSE_FAILED,
@@ -92,6 +97,9 @@ __all__ = [
     "CodeSearchHandler",
     "KnowledgeSearchHandler",
     "build_readonly_tool_registry",
+    "build_tool_agent_runtime",
+    "FROZEN_TOOL_PROVIDER",
+    "FROZEN_TOOL_MODEL",
     "AgentAction",
     "ToolCallAction",
     "FinalAnswerAction",
