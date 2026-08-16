@@ -124,3 +124,16 @@ CI 抓"代码有没有坏"，benchmark 测"效果有没有变"——两者频率
 - 本地只做 `pytest -q tests/test_reproducibility_contract.py` + `git diff --check`；
 - 不新建 venv、不再装 119 包、不跑 1724 全量——**真正的 clean install + full pytest 就是 GitHub CI 自己的职责**；
 - **Agent 不能因为写了 workflow 就说"CI 已通过"**：只有用户 push 后 GitHub Actions 真正跑绿，才有资格签 CI 通过。
+
+---
+
+## 10. 第一次真实 CI 的发现（run 31952467496）
+
+第一版 workflow 推到 GitHub 后，真实 Linux run **31952467496** 暴露了一个本地永远测不出来的问题：
+
+1. **pytest 临时目录在仓库内**：`--basetemp=.tmp_pytest_ci` 把临时文件写进 checkout 目录。在真实 runner 上，测试遗留/并发临时文件会污染 `git status` 甚至影响后续步骤；本地因为 `.gitignore` 和单次运行掩盖了它。
+2. **symlink portability**：`test_tool_agent_real_tools.py` 的 symlink 用例在 Linux runner 上的 skip/行为与 Windows 不同（这也是卡片要求"不要求 Linux 固定 1724+4"的原因）。
+
+修正（G5-CI-03-R1）：pytest 临时目录移到仓库外——`--basetemp="$RUNNER_TEMP/my_agent_pytest"`（`/home/runner/work/_temp/`，GitHub runner 的专用临时区），彻底与 checkout 解耦。
+
+**这个失败 run 原样保留，是很好的工程证据**：它证明"本地能跑 ≠ 真实环境能跑"，也证明 CI 的价值在于暴露本地特权掩盖的问题（见 §3/§4）。
