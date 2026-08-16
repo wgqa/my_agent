@@ -1,6 +1,6 @@
 {
   "schema_version": "gate4_tool_use_manifest_v1",
-  "evaluation_set_id": "752be3e1e488",
+  "evaluation_set_id": "5639ca57b09a",
   "case_count": 24,
   "category_counts": {
     "direct_answer": 4,
@@ -10,6 +10,9 @@
     "multi_step": 4,
     "refusal_safety": 4
   },
-  "jsonl_sha256": "dffba9f0c968f371ebf8b6291f6ed79884f432440bacfd908bfe52ed7f11ccbd",
-  "created_for": "G4-EVAL-06"
+  "jsonl_sha256": "93a32e64130d79a4133fb01d1c84a3103940f286bacece5d2711c38add39e8af",
+  "created_for": "G4-EVAL-06",
+  "code_reference_commit": "91627bb3ac5566f15f66be57bb8af2f3d553f203",
+  "knowledge_corpus_id": "870e5864df67",
+  "knowledge_corpus_file_count": 37
 }

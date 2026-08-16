@@ -78,20 +78,44 @@ _MAX_RATIONALE_CHARS = 2000
 _MAX_EVIDENCE_CHARS = 1000
 _MAX_SOURCE_NAME_CHARS = 500
 
+# Manifest 冻结常量：code_search Gold 绑定的 source commit 与 knowledge
+# corpus（corpus_id=870e5864df67、37 files，公开冻结语料）
+CODE_REFERENCE_COMMIT = "91627bb3ac5566f15f66be57bb8af2f3d553f203"
+KNOWLEDGE_CORPUS_ID = "870e5864df67"
+KNOWLEDGE_CORPUS_FILE_COUNT = 37
+
+
+def _freeze(value: Any) -> Any:
+    """递归冻结：嵌套 list → tuple，保证外部引用无法改动 Gold。"""
+    if isinstance(value, list):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
+def _thaw(value: Any) -> Any:
+    """递归还原：冻结后的 tuple → 全新 list（用于 JSON 序列化）。"""
+    if isinstance(value, tuple):
+        return [_thaw(v) for v in value]
+    return value
+
 
 @dataclass(frozen=True)
 class CompletionAssertion:
     """一条确定性 completion assertion（不用 LLM-as-Judge）。
 
-    type 决定 value 的类型约束；to_dict 产出单键 dict（如
-    {"answer_number_equals": 84}），与 JSONL 中逐字节一致。
+    type 决定 value 的类型约束；value 构造时递归冻结为不可变（list→tuple），
+    to_dict() 返回全新深拷贝副本。因此外部修改原始 JSON/list 或
+    to_dict() 返回值都不会改变 EvaluationSet Gold。
     """
 
     type: str
     value: Any
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", _freeze(self.value))
+
     def to_dict(self) -> dict:
-        return {self.type: self.value}
+        return {self.type: _thaw(self.value)}
 
 
 @dataclass(frozen=True)
@@ -390,6 +414,7 @@ class Gate4ToolUseEvaluationSet:
                 f"实际 {type(raw_sequences).__name__}"
             )
         sequences: list[tuple[str, ...]] = []
+        seen_sequences: set[tuple[str, ...]] = set()
         for seq_idx, raw_seq in enumerate(raw_sequences):
             if not isinstance(raw_seq, list) or not raw_seq:
                 raise ValueError(
@@ -409,7 +434,14 @@ class Gate4ToolUseEvaluationSet:
                         f"含重复工具 {tool!r}"
                     )
                 seq_tools.append(tool)
-            sequences.append(tuple(seq_tools))
+            seq_tuple = tuple(seq_tools)
+            if seq_tuple in seen_sequences:
+                raise ValueError(
+                    f"{ctx} case_id={case_id}：allowed_tool_sequences 存在重复序列 "
+                    f"{list(seq_tuple)}"
+                )
+            seen_sequences.add(seq_tuple)
+            sequences.append(seq_tuple)
 
         completion_assertions = cls._parse_assertions(
             obj["completion_assertions"], ctx, case_id
@@ -758,21 +790,20 @@ class Gate4ToolUseEvaluationSet:
                     "不能为空"
                 )
             required_set = set(case.required_tools)
-            covered: set[str] = set()
-            for seq in case.allowed_tool_sequences:
-                covered.update(seq)
-            if covered != required_set:
-                raise ValueError(
-                    f"{ctx} case_id={cid}：allowed_tool_sequences 覆盖的 Tool "
-                    f"集合必须精确等于 required_tools 集合，实际 "
-                    f"required={sorted(required_set)} 覆盖={sorted(covered)}"
-                )
-            for tool in case.forbidden_tools:
-                if tool in required_set:
+            for seq_idx, seq in enumerate(case.allowed_tool_sequences):
+                if set(seq) != required_set:
                     raise ValueError(
-                        f"{ctx} case_id={cid}：forbidden_tools 不能包含 "
-                        f"required 工具 {tool!r}"
+                        f"{ctx} case_id={cid}：allowed_tool_sequences[{seq_idx}] "
+                        f"必须完整覆盖 required_tools（每个序列自身都要覆盖），"
+                        f"实际 {list(seq)}，required={sorted(required_set)}"
                     )
+            first_tools = {seq[0] for seq in case.allowed_tool_sequences}
+            if set(case.expected_first_tools) != first_tools:
+                raise ValueError(
+                    f"{ctx} case_id={cid}：expected_first_tools 必须等于 "
+                    f"allowed_tool_sequences 各序列首工具集合，实际 "
+                    f"{sorted(case.expected_first_tools)}，期望 {sorted(first_tools)}"
+                )
         elif case.category == "refusal_safety":
             if case.expected_terminal != "refused":
                 raise ValueError(
@@ -800,6 +831,16 @@ class Gate4ToolUseEvaluationSet:
                 )
         else:  # pragma: no cover - 枚举已封闭，理论上不可达
             raise ValueError(f"{ctx} case_id={cid}：未知 category {case.category!r}")
+
+        # 全类别公共不变量：required 与 forbidden 必须不相交
+        common_required_forbidden = set(case.required_tools) & set(
+            case.forbidden_tools
+        )
+        if common_required_forbidden:
+            raise ValueError(
+                f"{ctx} case_id={cid}：required_tools 与 forbidden_tools 相交："
+                f"{sorted(common_required_forbidden)}"
+            )
 
         if case.expected_terminal == "refused":
             for a in case.completion_assertions:
@@ -903,6 +944,9 @@ def build_manifest(
         "category_counts": set_obj.category_counts,
         "jsonl_sha256": jsonl_sha256,
         "created_for": created_for,
+        "code_reference_commit": CODE_REFERENCE_COMMIT,
+        "knowledge_corpus_id": KNOWLEDGE_CORPUS_ID,
+        "knowledge_corpus_file_count": KNOWLEDGE_CORPUS_FILE_COUNT,
     }
 
 
@@ -917,6 +961,9 @@ __all__ = [
     "TOOLS",
     "ASSERTION_TYPES",
     "REFUSE_REASON_CODES",
+    "CODE_REFERENCE_COMMIT",
+    "KNOWLEDGE_CORPUS_ID",
+    "KNOWLEDGE_CORPUS_FILE_COUNT",
     "CompletionAssertion",
     "KnowledgeGold",
     "Gate4ToolUseCase",

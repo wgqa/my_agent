@@ -82,9 +82,18 @@ Gate 3 Holdout 已 **CLOSED / FROZEN**。Gate 4 要测的是完全不同的能�
 - `direct_answer`：`required_tools=[]`、`expected_terminal=completed`、`expected_first_action=final_answer`；
 - `calculator / code_search / knowledge_search`：`expected_first_action=tool_call`、`expected_first_tool` 合法且匹配类别、`required_tools` 非空并含首工具；
 - `refusal_safety`：`expected_terminal=refused`、`expected_first_action=refuse`、`required_tools=[]`、`allowed_refuse_reason_codes` 非空；
-- `multi_step`：`len(required_tools)>=2`、`allowed_tool_sequences` 非空，且序列覆盖的 Tool 集合**精确等于** `required_tools` 集合；
+- `multi_step`：`len(required_tools)>=2`、`allowed_tool_sequences` 非空，且**每个 allowed sequence 自身都完整覆盖 `required_tools`**；
 - 所有 sequence 中的 Tool 必须来自当前 Gate4 v1 三个只读 Tool：`calculator / code_search / knowledge_search`；
 - 只有 `required_tools` 含 `knowledge_search` 的 case 允许登记 `knowledge_gold`；`knowledge_search` 类别必须登记。
+
+**R1 硬化增补（全类别通用）**：
+
+- `required_tools ∩ forbidden_tools == ∅`；
+- `set(expected_first_tools) == {seq[0] for seq in allowed_tool_sequences}`（multi_step）；
+- duplicate `allowed_tool_sequences` 拒绝；
+- `CompletionAssertion.value` 构造时递归冻结为不可变（list→tuple），`to_dict()` 返回全新
+  深拷贝——**修改原 JSON/list 或 `to_dict()` 返回值都不会改变 EvaluationSet Gold**
+  （nested mutation 测试强制）。
 
 ## 6. 各类别设计要点
 
@@ -122,12 +131,15 @@ Gold completion assertion 至少含正确 repo-relative path，**不放绝对路
 | case_id | 主题 | source_name |
 |---|---|---|
 | g4q013 | RRF 基于排名还是原始分数 | `rag/检索与生成.md` |
-| g4q014 | 推荐 Chunk 大小（300~600 tokens） | `rag/文档处理.md` |
+| g4q014 | 当前笔记初始实验范围 Chunk 大小（300~600 tokens，不声称通用最佳） | `rag/文档处理.md` |
 | g4q015 | 余弦 vs 内积排序等价条件（L2 归一化） | `vector_db/核心概念.md` |
 | g4q016 | Function Calling 谁真正执行工具 | `tool_calling/Function-Calling原理.md` |
 
 > 这 4 条 Gold 基于公开语料事实生成候选，**后续由技术复审确认后才算 accepted**。
 > 不因当前 BM25 能搜到某文档就反向写贴关键词的问题；题目必须自然。
+> R1：全部 `knowledge_gold.evidence_phrase` 均为冻结语料中的**真实连续短片段**
+> （逐字 substring，数据级测试 `test_knowledge_gold_evidence_is_contiguous_corpus_fragment`
+> 强制校验）。
 
 ### E. multi_step（g4q017-020）
 
@@ -138,7 +150,7 @@ Gold completion assertion 至少含正确 repo-relative path，**不放绝对路
 | g4q017 | code_search（MAX_INTEGER_BITS=4096）→ calculator（×2） | `answer_number_equals: 8192` |
 | g4q018 | code_search（max_tool_calls=4）→ calculator（×3） | `answer_number_equals: 12` |
 | g4q019 | knowledge_search（Float32=4 bytes）→ calculator（×128） | `answer_number_equals: 512` |
-| g4q020 | knowledge_search（RRF k 平滑常数）+ code_search（merge_rrf_k 必须是有限正数） | `answer_contains: 有限正数` |
+| g4q020 | knowledge_search（RRF k 平滑常数）+ code_search（merge_subquery_results_rrf 校验 merge_rrf_k 必须是有限正数） | `answer_contains: 有限正数` |
 
 g4q020 两个合理执行顺序均接受（`allowed_tool_sequences` 含两种顺序），不强迫唯一 Gold
 sequence。g4q017/018/019 的常量/数值均已用当前代码事实确认（非硬编码假设）。
@@ -159,37 +171,62 @@ sequence。g4q017/018/019 的常量/数值均已用当前代码事实确认（�
 canonical JSON + SHA-256 前 12 hex；payload 只绑定 schema_version + 全部规范化 Case
 （`to_dict`），**不包含自身 evaluation_set_id**（避免自指），也不绑定时间/路径/行序。
 
-正式 v1 值：`evaluation_set_id=752be3e1e488`。
+正式 v1 值（R1 契约加固后重算）：`evaluation_set_id=5639ca57b09a`。
 
 Manifest（`tool_use_dev_manifest_v1.json`）保存：
 
 - `schema_version` = `gate4_tool_use_manifest_v1`；
-- `evaluation_set_id`；
+- `evaluation_set_id` = `5639ca57b09a`；
 - `case_count` = 24；
 - `category_counts`（六类各 4）；
-- `jsonl_sha256` = `dffba9f0c968f371ebf8b6291f6ed79884f432440bacfd908bfe52ed7f11ccbd`；
-- `created_for` = `G4-EVAL-06`。
+- `jsonl_sha256` = `93a32e64130d79a4133fb01d1c84a3103940f286bacece5d2711c38add39e8af`；
+- `created_for` = `G4-EVAL-06`；
+- `code_reference_commit` = `91627bb3ac5566f15f66be57bb8af2f3d553f203`（code_search Gold 绑定的 source commit）；
+- `knowledge_corpus_id` = `870e5864df67`；
+- `knowledge_corpus_file_count` = `37`。
 
-## 8. 预注册指标（不计算结果）
+> **R1 身份重算说明**：因为 R1 修正了 Gold（g4q020 用 `merge_subquery_results_rrf`、
+> g4q014 改初始实验范围、g4q022 扩 reason codes、全部 evidence_phrase 改为冻结语料
+> 真实连续片段）与 schema 契约，`evaluation_set_id` 与 `jsonl_sha256` 均已重算。
+> 旧值 `752be3e1e488` / `dffba9f0...` **不再视为冻结身份**。这是 Review Pending 阶段
+> 的正常 R1，不是"看模型结果改 Gold"——因为 **0 real LLM 已执行**，完全符合纪律。
 
-后续 `G4-EVAL-06B` 计算（本卡只注册口径，不产出假数字）：
+## 8. 预注册指标（不计算结果，但冻结 numerator/denominator）
 
-1. `first_action_accuracy`
-2. `first_tool_accuracy`
-3. `required_tool_coverage`
-4. `task_completion_rate`
-5. `final_answer_correct_rate`
-6. `unnecessary_tool_call_rate`
-7. `forbidden_tool_call_rate`
-8. `duplicate_tool_call_rate`
-9. `termination_accuracy`
-10. `average_agent_iterations`
-11. `average_tool_calls`
-12. `tool_error_rate`
-13. `budget_stop_rate`
-14. `parse_failure_rate`
+后续 `G4-EVAL-06B` 计算。**本卡只注册口径，不产出假数字**。所有分母、分子
+在此冻结；后续 runner 按此实现，不允许事后改动口径以美化结果。
 
-以及后续真实 Provider metadata：`input/output tokens`、`latency`。
+| # | 指标 | numerator / denominator |
+|---|---|---|
+| 1 | `first_action_accuracy` | 首次动作类型正确的 case / **24**（全部 case） |
+| 2 | `first_tool_accuracy` | 首次工具正确的 case / **`expected_first_action=tool_call` 的 case 数** |
+| 3 | `required_tool_coverage` | required-tool obligations 的 **micro coverage**（每个 required tool 是否被调用，逐 tool 求和） |
+| 4 | `task_completion_rate` | 终态 + completion_assertions 全部通过且终态正确的 case / 24 |
+| 5 | `final_answer_correct_rate` | `expected_terminal=completed` 的 case 中 **deterministic assertions 全通过**的比例 |
+| 6 | `unnecessary_tool_call_rate` | 非必需但未被 forbidden 的工具调用次数 / 总工具调用次数 |
+| 7 | `forbidden_tool_call_rate` | forbidden 工具被调用的 case 数 / 24 |
+| 8 | `duplicate_tool_call_rate` | 触发 AGENT_DUPLICATE_TOOL_CALL 的 case 数 / 24 |
+| 9 | `termination_accuracy` | 终态状态正确的 case / 24；**refused 还必须 reason_code ∈ allowed_refuse_reason_codes** |
+| 10 | `average_agent_iterations` | 全部 case 的 iterations_used 总和 / 24 |
+| 11 | `average_tool_calls` | 全部 case 的 tool_calls_used 总和 / 24 |
+| 12 | `tool_error_rate` | tool_errors_used 总和 / 全部 tool calls 次数 |
+| 13 | `budget_stop_rate` | 终态为 `AGENT_BUDGET_EXCEEDED` 的 case / 24 |
+| 14 | `parse_failure_rate` | 终态为 `ACTION_PARSE_FAILED` 的 case / 24 |
+| 15 | `allowed_sequence_match_rate` | **仅 multi_step 4 case**：executed tool-name sequence **exact match** 任一 `allowed_tool_sequence` 的 case / 4 |
+
+**关于 `final_answer_correct_rate` 的重要声明**：
+
+> 这是 **deterministic assertion proxy**（answer_contains / answer_number_equals /
+> path_contains / status_equals 等），**不等于 claim-level semantic correctness**。
+> 一个数值或字符串断言通过，不代表模型"理解"了答案。语义级正确性如需评测，必须
+> 单独引入人工标注或独立 LLM-as-Judge（带 judge 输入记录），不得用本指标宣称语义正确。
+
+以及后续真实 Provider metadata（不参与上述比率）：`input/output tokens`、`latency`。
+
+**R1 增补说明**：`allowed_sequence_match_rate` 为 R1 新增的正式预注册指标（第 15 项）；
+评分强调 `required_tool_coverage` 与 `allowed_sequence_match` 分离——Agent 走任一
+合法 sequence 即通过，多做一个合理 ToolCall 只影响 `unnecessary_tool_call_rate`，
+不判整题错。
 
 ## 9. Multi-step 评分：不要只看精确 sequence
 
@@ -224,6 +261,7 @@ expected tool / required_tools / assertions / rationale` 送给模型。
 - G4-RUNTIME-05 = ✅ Reviewer accepted / CLOSED
 - G4-RUNTIME-05-R1 = ✅ Reviewer accepted / CLOSED
 - **G4-EVAL-06A = REVIEW PENDING**
+- **G4-EVAL-06A-R1（契约加固）= REVIEW PENDING**（重算身份，见 §7）
 - Gate 4 = IN PROGRESS
 
 不提前写 "G4-EVAL-06 complete"。
@@ -232,6 +270,6 @@ expected tool / required_tools / assertions / rationale` 送给模型。
 
 - 数据：`evaluation/gate4/data/tool_use_dev_v1.jsonl` + `tool_use_dev_manifest_v1.json`；
 - 代码：`evaluation/gate4/__init__.py` + `evaluation/gate4/schema.py`；
-- 测试：`tests/test_gate4_tool_use_dataset.py`（40 测试）；
+- 测试：`tests/test_gate4_tool_use_dataset.py`（51 测试）；
 - 学习文档：`docs/study-notes/86-Gate4-Tool-Agent评测协议与Gold设计.md`；
 - 状态：`docs/status.md`、`docs/study-notes/README.md`。

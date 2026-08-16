@@ -195,11 +195,15 @@ SHA-256 前 12 位。特点：
 
 所以纪律是：
 
-1. **Dataset/Gold 先冻结**（本卡冻结 v1，id=752be3e1e488）；
+1. **Dataset/Gold 先冻结**（v1 冻结，R1 加固后 id=5639ca57b09a）；
 2. 下一任务才允许真实 LLM run；
 3. run 之后**不能因为模型选错工具就改 query/Gold 让它变对**；
 4. 如果确实发现 Gold 本身错了（不是模型错，是题出错了），只能**开新数据版本、
    重新算 evaluation_set_id、旧版保留**——像 Git 一样，绝不原地篡改。
+
+> **R1 为什么重算身份也不违规？** Review Pending 阶段 Reviewer 要求修契约/Gold（如
+> g4q020 改符号名、evidence 改连续片段、新增不变量），此时 **0 real LLM 已执行**，
+> 重算 `evaluation_set_id` / `jsonl_sha256` 是"修尺子"，不是"看结果改 Gold"。
 
 ---
 
@@ -264,5 +268,49 @@ Dev 让审计与调参成为可能，尺子稳定后再谈 sealed Holdout。
 
 - 4 条 knowledge_search Gold 绑定公开语料 source_name+evidence，**待技术复审后才 accepted**；
 - 本卡 0 real LLM / 0 formal run / 0 Prompt 调优 / 0 Tool 改动 / 0 Runtime 改动；
-- 下一任务：G4-EVAL-06B（用冻结尺子跑真实 Tool-Agent，计算 §8 的 14 项指标与
+- 下一任务：G4-EVAL-06B（用冻结尺子跑真实 Tool-Agent，计算 §8 的 15 项指标与
   Provider metadata）。
+
+---
+
+## 17. R1 契约加固（本提交）
+
+Reviewer 审出的一些"尺子不够硬"的点，全部在本 R1 修掉（仍是 Review Pending 阶段，
+0 real LLM 已执行，所以不违反纪律）：
+
+**数据修正**
+
+- `g4q020`：query 改指 `merge_subquery_results_rrf`（不是旧名 `merge_subquery_results`）；
+- `g4q014`：改成"当前笔记的**初始实验范围**"——语料明确"这些不是通用最佳值"，不再
+  声称通用最佳；
+- `g4q022`：reason codes 扩为 `UNSUPPORTED_REQUEST` + `UNSAFE_REQUEST`；
+- 全部 `knowledge_gold.evidence_phrase` 改成冻结语料中的**真实连续短片段**（逐字
+  substring，不再是改写句），并用数据级测试强制。
+
+**schema 不变量加固**
+
+- multi-step：**每个 allowed sequence 自身都要完整覆盖 `required_tools`**（不再是"所有
+  序列并集覆盖"——避免出现单个不完整序列）；`set(expected_first_tools) == {seq[0] for
+  每个序列}`；
+- 全类别：`required_tools ∩ forbidden_tools == ∅`；
+- duplicate `allowed_tool_sequences` 拒绝；
+- `CompletionAssertion.value` 构造时递归冻结（list→tuple），`to_dict()` 返回全新深拷贝
+  ——修改原 JSON/list 或修改 `to_dict()` 返回值都不改变 EvaluationSet Gold（nested
+  mutation 测试）。
+
+**Manifest**
+
+- 新增 `code_reference_commit`（91627bb...）、`knowledge_corpus_id`（870e5864df67）、
+  `knowledge_corpus_file_count`（37）。
+
+**指标口径冻结**
+
+- `allowed_sequence_match_rate` 加入正式预注册指标（第 15 项，仅 multi_step 4 case，
+  executed sequence exact match 任一 allowed sequence）；
+- **全部 15 项指标冻结 numerator/denominator**（见协议 §8 表格），后续 runner 按此实现，
+  不许事后改口径美化结果；
+- `final_answer_correct_rate` 明确标注：**deterministic assertion proxy**，不等于
+  claim-level semantic correctness——不夸大。
+
+**身份重算**：`evaluation_set_id=5639ca57b09a`、`jsonl_sha256=93a32e64...`（旧
+`752be3e1e488` / `dffba9f0...` 不再视为冻结身份）。

@@ -20,6 +20,9 @@ import pytest
 from evaluation.gate4 import (
     ASSERTION_TYPES,
     CATEGORIES,
+    CODE_REFERENCE_COMMIT,
+    KNOWLEDGE_CORPUS_FILE_COUNT,
+    KNOWLEDGE_CORPUS_ID,
     Gate4ToolUseEvaluationSet,
     build_manifest,
 )
@@ -119,6 +122,35 @@ class TestRealDataset:
         assert committed["evaluation_set_id"] == set_obj.evaluation_set_id
         assert committed["case_count"] == 24
         assert committed["created_for"] == "G4-EVAL-06"
+        assert committed["code_reference_commit"] == CODE_REFERENCE_COMMIT
+        assert committed["knowledge_corpus_id"] == KNOWLEDGE_CORPUS_ID
+        assert committed["knowledge_corpus_file_count"] == KNOWLEDGE_CORPUS_FILE_COUNT
+
+    def test_manifest_frozen_reference_commit(self):
+        # R1 硬化：code_reference_commit 必须绑定 source commit 91627bb...
+        assert CODE_REFERENCE_COMMIT.startswith("91627bb3")
+        assert KNOWLEDGE_CORPUS_ID == "870e5864df67"
+        assert KNOWLEDGE_CORPUS_FILE_COUNT == 37
+
+    def test_g4q020_uses_merge_subquery_results_rrf(self):
+        set_obj = _real_set()
+        case = next(c for c in set_obj.cases if c.case_id == "g4q020")
+        assert "merge_subquery_results_rrf" in case.query
+
+    def test_g4q014_is_initial_experiment_scope(self):
+        set_obj = _real_set()
+        case = next(c for c in set_obj.cases if c.case_id == "g4q014")
+        assert "初始实验" in case.query
+        assert case.knowledge_gold is not None
+        assert "Chunk 大小：约 300～600 tokens" in case.knowledge_gold.evidence_phrase
+
+    def test_g4q022_allows_both_refuse_reason_codes(self):
+        set_obj = _real_set()
+        case = next(c for c in set_obj.cases if c.case_id == "g4q022")
+        assert set(case.allowed_refuse_reason_codes) == {
+            "UNSUPPORTED_REQUEST",
+            "UNSAFE_REQUEST",
+        }
 
     def test_knowledge_search_cases_register_knowledge_gold(self):
         set_obj = _real_set()
@@ -186,6 +218,29 @@ class TestRealDataset:
         used = {a.type for c in set_obj.cases for a in c.completion_assertions}
         assert used <= set(ASSERTION_TYPES)
 
+    def test_knowledge_gold_evidence_is_contiguous_corpus_fragment(self):
+        # R1 硬化：evidence_phrase 必须是冻结语料中的真实连续短片段（逐字 substring）
+        corpus_root = Path(
+            r"D:\学习\rag实战项目\rag数据集\benchmark_work\agent_ai_v1"
+            r"\02_corpus_candidate"
+        )
+        if not corpus_root.is_dir():
+            pytest.skip("冻结语料不在本机，跳过连续性校验")
+        set_obj = _real_set()
+        for case in set_obj.cases:
+            if case.knowledge_gold is None:
+                continue
+            src = (corpus_root / case.knowledge_gold.source_name).resolve()
+            assert src.is_file(), (
+                f"{case.case_id} source 不存在: {case.knowledge_gold.source_name}"
+            )
+            text = src.read_text(encoding="utf-8")
+            assert case.knowledge_gold.evidence_phrase in text, (
+                f"{case.case_id} evidence_phrase 不是 "
+                f"{case.knowledge_gold.source_name} 的连续片段: "
+                f"{case.knowledge_gold.evidence_phrase!r}"
+            )
+
 
 # ---------------------------------------------------------------------- #
 # Loader 严格性（字段级，直接调用 _parse_case）
@@ -194,6 +249,24 @@ class TestRealDataset:
 
 def _parse(obj: dict) -> None:
     Gate4ToolUseEvaluationSet._parse_case(obj, 1)
+
+
+def _knowledge_case_with_contains_all(raw_list: list) -> dict:
+    """一个字段级合法的 knowledge_search case，completion_assertions 用
+    answer_contains_all，value 引用调用方传入的原始 list（测 detached）。"""
+    obj = _calc_case("g4q013")
+    obj.update(
+        category="knowledge_search",
+        expected_first_tool="knowledge_search",
+        required_tools=["knowledge_search"],
+        forbidden_tools=["calculator", "code_search"],
+        completion_assertions=[{"answer_contains_all": raw_list}],
+        knowledge_gold={
+            "source_name": "rag/文档处理.md",
+            "evidence_phrase": "Chunk 大小：约 300～600 tokens",
+        },
+    )
+    return obj
 
 
 class TestFieldStrictness:
@@ -264,7 +337,7 @@ class TestFieldStrictness:
             allowed_tool_sequences=[["calculator"]],
             forbidden_tools=["knowledge_search"],
         )
-        with pytest.raises(ValueError, match="覆盖的 Tool 集合必须精确等于"):
+        with pytest.raises(ValueError, match="完整覆盖"):
             _parse(obj)
 
     def test_multi_step_requires_two_tools(self):
@@ -405,6 +478,87 @@ class TestFieldStrictness:
         obj["completion_assertions"] = [{"answer_nonempty": False}]
         with pytest.raises(ValueError, match="answer_nonempty 必须为 true"):
             _parse(obj)
+
+    def test_sequence_must_cover_required_tools(self):
+        # 每个 allowed sequence 自身都必须完整覆盖 required_tools
+        obj = _calc_case(cid="g4q017")
+        obj.update(
+            category="multi_step",
+            expected_first_action="tool_call",
+            expected_first_tool=None,
+            expected_first_tools=["code_search"],
+            required_tools=["code_search", "calculator"],
+            allowed_tool_sequences=[["code_search"], ["calculator"]],
+            forbidden_tools=["knowledge_search"],
+        )
+        with pytest.raises(ValueError, match="完整覆盖"):
+            _parse(obj)
+
+    def test_expected_first_tools_must_match_sequences(self):
+        # set(expected_first_tools) == {seq[0] for seq in allowed_tool_sequences}
+        obj = _calc_case(cid="g4q017")
+        obj.update(
+            category="multi_step",
+            expected_first_action="tool_call",
+            expected_first_tool=None,
+            expected_first_tools=["knowledge_search"],
+            required_tools=["code_search", "calculator"],
+            allowed_tool_sequences=[["code_search", "calculator"]],
+            forbidden_tools=["knowledge_search"],
+        )
+        with pytest.raises(ValueError, match="expected_first_tools 必须等于"):
+            _parse(obj)
+
+    def test_required_forbidden_disjoint(self):
+        # 全类别公共不变量：required_tools ∩ forbidden_tools == ∅
+        obj = _calc_case()  # calculator，required=[calculator]
+        obj["forbidden_tools"] = ["calculator"]
+        with pytest.raises(ValueError, match="required_tools 与 forbidden_tools 相交"):
+            _parse(obj)
+
+    def test_duplicate_allowed_sequence_reject(self):
+        obj = _calc_case(cid="g4q017")
+        obj.update(
+            category="multi_step",
+            expected_first_action="tool_call",
+            expected_first_tool=None,
+            expected_first_tools=["code_search"],
+            required_tools=["code_search", "calculator"],
+            allowed_tool_sequences=[
+                ["code_search", "calculator"],
+                ["code_search", "calculator"],
+            ],
+            forbidden_tools=["knowledge_search"],
+        )
+        with pytest.raises(ValueError, match="重复序列"):
+            _parse(obj)
+
+    def test_assertion_value_detached_from_raw(self):
+        # 修改原 JSON/list（解析后 append）不得改变 EvaluationSet Gold
+        raw = ["300", "600"]
+        case = Gate4ToolUseEvaluationSet._parse_case(
+            _knowledge_case_with_contains_all(raw), 1
+        )
+        raw.append("999")
+        assert case.completion_assertions[0].value == ("300", "600")
+        assert case.completion_assertions[0].to_dict() == {
+            "answer_contains_all": ["300", "600"]
+        }
+
+    def test_assertion_to_dict_is_detached(self):
+        # 修改 assertion.to_dict() 返回值不得改变 EvaluationSet Gold
+        case = Gate4ToolUseEvaluationSet._parse_case(
+            _knowledge_case_with_contains_all(["300", "600"]), 1
+        )
+        d = case.completion_assertions[0].to_dict()
+        d["answer_contains_all"].append("999")
+        d["answer_contains_all"][0] = "zzz"
+        assert case.completion_assertions[0].to_dict() == {
+            "answer_contains_all": ["300", "600"]
+        }
+        assert case.to_dict()["completion_assertions"] == [
+            {"answer_contains_all": ["300", "600"]}
+        ]
 
     def test_duplicate_query_reject(self, tmp_path):
         a = _calc_case("g4q001")
