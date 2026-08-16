@@ -1,9 +1,57 @@
-"""G4-EVAL-06A：Gate 4 Tool-Agent 强类型 Dev 评测集契约。
+"""G4-EVAL-06A + 06B-01：Gate 4 Tool-Agent 强类型 Dev 评测集契约 + 正式 Runner。
 
-只提供数据模型与严格 Loader / identity / manifest 构建。不实现
-Runtime、不调用 LLM、不产生运行指标。
+数据契约：schema / loader / identity / manifest。
+Runner：evaluator（deterministic assertions + 15 项冻结指标）、runner（preflight +
+两阶段 Gold 隔离 + artifact）。
 """
 
+from evaluation.gate4.evaluator import (
+    CaseScore,
+    METRIC_NAMES,
+    assertions_pass,
+    compute_metrics,
+    evaluate_assertion,
+    evaluate_case,
+    executed_tool_sequence,
+    first_tool_correct,
+)
+from evaluation.gate4.runner import (
+    FROZEN_CASE_COUNT,
+    FROZEN_DATASET_JSONL_SHA256,
+    FROZEN_EVALUATION_SET_ID,
+    FROZEN_TOTAL_DECISION_CALLS_CAP,
+    Gate4ToolUseRunner,
+    GitContext,
+    RunnerAbort,
+    build_bm25_retrieval_port,
+    build_run_config,
+    collect_corpus_relative_paths,
+    sha256_bytes,
+    verify_corpus_provenance,
+    verify_dataset_identity,
+    verify_knowledge_gold_provenance,
+)
+from evaluation.gate4.runner_models import (
+    FROZEN_CHUNK_OVERLAP,
+    FROZEN_CHUNK_SIZE,
+    FROZEN_CHUNK_STRATEGY,
+    FROZEN_KNOWLEDGE_STRATEGY,
+    FROZEN_KNOWLEDGE_TOP_K,
+    FROZEN_MAX_AGENT_ITERATIONS,
+    FROZEN_MAX_TOOL_CALLS,
+    FROZEN_MAX_TOOL_ERRORS,
+    FROZEN_MAX_RETRIES,
+    FROZEN_MAX_TOKENS,
+    FROZEN_MODEL,
+    FROZEN_PROVIDER,
+    FROZEN_TEMPERATURE,
+    FROZEN_TIMEOUT_SECONDS,
+    DecisionSummary,
+    Gate4ExecutionCase,
+    Gate4ExecutionResult,
+    Gate4ToolUseRunConfig,
+    RecordingDecisionProvider,
+)
 from evaluation.gate4.schema import (
     ASSERTION_TYPES,
     CATEGORIES,
@@ -26,6 +74,7 @@ from evaluation.gate4.schema import (
 )
 
 __all__ = [
+    # schema
     "GATE4_TOOL_USE_CASE_SCHEMA_VERSION",
     "GATE4_TOOL_USE_SET_SCHEMA_VERSION",
     "GATE4_TOOL_USE_MANIFEST_SCHEMA_VERSION",
@@ -44,4 +93,48 @@ __all__ = [
     "Gate4ToolUseCase",
     "Gate4ToolUseEvaluationSet",
     "build_manifest",
+    # runner_models
+    "FROZEN_PROVIDER",
+    "FROZEN_MODEL",
+    "FROZEN_TEMPERATURE",
+    "FROZEN_MAX_TOKENS",
+    "FROZEN_MAX_RETRIES",
+    "FROZEN_TIMEOUT_SECONDS",
+    "FROZEN_MAX_AGENT_ITERATIONS",
+    "FROZEN_MAX_TOOL_CALLS",
+    "FROZEN_MAX_TOOL_ERRORS",
+    "FROZEN_KNOWLEDGE_STRATEGY",
+    "FROZEN_KNOWLEDGE_TOP_K",
+    "FROZEN_CHUNK_STRATEGY",
+    "FROZEN_CHUNK_SIZE",
+    "FROZEN_CHUNK_OVERLAP",
+    "Gate4ExecutionCase",
+    "DecisionSummary",
+    "Gate4ExecutionResult",
+    "Gate4ToolUseRunConfig",
+    "RecordingDecisionProvider",
+    # evaluator
+    "METRIC_NAMES",
+    "CaseScore",
+    "evaluate_assertion",
+    "assertions_pass",
+    "executed_tool_sequence",
+    "evaluate_case",
+    "first_tool_correct",
+    "compute_metrics",
+    # runner
+    "FROZEN_EVALUATION_SET_ID",
+    "FROZEN_DATASET_JSONL_SHA256",
+    "FROZEN_CASE_COUNT",
+    "FROZEN_TOTAL_DECISION_CALLS_CAP",
+    "RunnerAbort",
+    "GitContext",
+    "sha256_bytes",
+    "verify_dataset_identity",
+    "collect_corpus_relative_paths",
+    "verify_corpus_provenance",
+    "verify_knowledge_gold_provenance",
+    "build_bm25_retrieval_port",
+    "build_run_config",
+    "Gate4ToolUseRunner",
 ]
