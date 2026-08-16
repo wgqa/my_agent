@@ -1,9 +1,10 @@
 # Gate 5 Release Readiness Baseline
 
-> **任务卡**：G5-AUDIT-01-RELEASE-READINESS-BASELINE
-> **性质**：只审计，不修实现（0 生产代码改动 / 0 DeepSeek / 0 Gate 3 rerun / 0 Gate 4 rerun / 0 HTTP smoke / 0 benchmark）
-> **基线 commit**：`67ca69dda19c548e51b4c090e724afef6a982e5e`（Gate 4 最终冻结 HEAD）
+> **任务卡**：G5-AUDIT-01-RELEASE-READINESS-BASELINE（R1-CROSS-REPO-PROVENANCE-AND-PRIORITY-CORRECTION）
+> **性质**：只审计，不修实现（0 生产代码改动 / 0 DeepSeek / 0 Gate 3 rerun / 0 Gate 4 rerun / 0 HTTP smoke / 0 benchmark；本 R1 另含 0 Gate 3 sealed Holdout access）
+> **基线 commit**：`2d5d0380b6eab5826c22ed260a245318f6e37e58`（G5-AUDIT-01 基线）
 > **日期**：2026-08-16
+> **R1 修正**：重新定义 frozen corpus gap（语料已在 public data repo `wgqa/agent_data` 且身份核验一致，主项目缺跨仓 pinning/复现契约）；P0 收敛为 P0-1..P0-4（Docker 降 P1）；Study Note 92 概念修正。
 > **机器可读版**：`gate5_release_readiness_baseline.json`（后续 Gate 5 每张任务的 checklist source）
 
 ---
@@ -19,9 +20,9 @@
 | 问题 | 结论 | 说明 |
 |---|---|---|
 | 什么已经能用？ | READY | 三类 API（`/query` `/agent/query` `/tool-agent/query` `/health`）、Streamlit UI（基础 RAG）、全量 1716 测试（本地 + 模型缓存环境）、索引/检索/生成全链路 |
-| 什么只是本机能用？ | PARTIAL | 所有 benchmark 冻结数字依赖**仓库外**的 37 文件语料与 gate3 dev/holdout 数据集（`rag数据集/benchmark_work/`，独立 git 库）；`local_files_only=True` 要求本机已缓存 BGE 模型 |
-| 什么能复现？ | PARTIAL | Gate 4 评测集（24 case）在仓库内可复现；测试用 Fake 模型离线可跑；冻结结果 JSON 已入库 |
-| 什么不能复现？ | MISSING | 任何 benchmark 数字（Gate 2/3/4）在新环境无法复现：语料外部、无依赖锁、无单命令复现、实验 `config.yaml` 未入库 |
+| 什么只是本机能用？ | PARTIAL | 冻结语料已在**独立 public data repo** `wgqa/agent_data`（`https://github.com/wgqa/agent_data.git`，default branch `master`，当前 HEAD `179f18e8`）并已核验与冻结身份一致（corpus_id=870e5864df67 / 37 files），但主项目**尚未冻结跨仓 commit/path/identity 与公开复现流程**；Gate 3 dev/holdout 数据集仍本机独有（`agent_data` 中 `gate3/` 未 tracked）；`local_files_only=True` 要求本机已缓存 BGE 模型 |
+| 什么能复现？ | PARTIAL | Gate 4 评测集（24 case）在仓库内可复现；测试用 Fake 模型离线可跑；冻结结果 JSON 已入库；**Gate 2 冻结语料可经 `wgqa/agent_data@master`（179f18e8）拉取并逐字节重建出同一 corpus_id=870e5864df67** |
+| 什么不能复现？ | MISSING | 任何 benchmark 数字（Gate 2/3/4）在新环境**一键**无法复现：无依赖锁、无单命令复现、实验 `config.yaml` 未入库、Gate 3 dev 数据集不在任何 public repo、主项目未 pin 语料所在 agent_data commit |
 | 什么有自动测试？ | READY | 1716 passed + 4 skipped，测试全部用 Fake/Mock（离线、不下载模型、不联网） |
 | 什么没有 CI？ | MISSING | 仓库无 `.github/`，无任何 CI 管道 |
 | 什么能 Docker 化？ | MISSING | 无 Dockerfile / compose / .dockerignore / 健康检查约定 |
@@ -115,11 +116,11 @@
 
 | 项目 | 分类 | 证据 | 风险 | Priority | recommended next task |
 |---|---|---|---|---|---|
-| 冻结语料可复现 | MISSING | 冻结 37 文件语料在**仓库外** `rag数据集/benchmark_work/agent_ai_v1/02_corpus_candidate`（独立 git 库）；主仓库 `data/` 只有 runtime store | 新环境无法复现任何 Gate 2/3/4 冻结数字 | P0 | G5-ENV-02（可公开最小语料 + 单命令重建） |
-| Gate 3 dev/holdout 数据集 | MISSING | `evaluation/gate3/` 只有代码，`gate3/dev/`（24 case）与 `gate3/sealed/`（12 case）在外部 `benchmark_work/gate3/`（holdout 本就不该公开） | dev 数据未入主仓库 → Dev 评测无法复现 | P1 | G5-ENV-02（dev jsonl 入库 + 清单化） |
+| 冻结语料 cross-repo provenance（P0-3） | PARTIAL | 冻结 37 文件语料在**独立 public data repo** `wgqa/agent_data`（`https://github.com/wgqa/agent_data.git`，default branch `master`）；当前 master HEAD `179f18e8`（2026-08-07）下 `agent_ai_v1/02_corpus_candidate` 已用现有 `ExperimentCorpus.build` 对 manifest `corpus_entries` 逐字节重建，**file_count=37、corpus_id=870e5864df67 与冻结身份完全一致**，37 文件全 tracked 且工作区 clean。**但主项目未冻结跨仓 commit/path/identity**，master 一移动身份即漂移，且无"拉取+核验+重建"的公开复现流程 | external repo ≠ unavailable data；缺口是 **unpinned external dependency**：语料字节今天一致，但主仓库没有把 agent_data 固定进任何可复现契约 | P0 | G5-ENV-02（跨仓 commit pinning + 公开复现契约：`git submodule`/锁 commit + 自动 corpus_id 校验） |
+| Gate 3 dev 数据集 | MISSING | `evaluation/gate3/` 只有代码；`gate3/dev/`（24 case）本机仅存于 `benchmark_work/gate3/`，核验 `agent_data` 中 `gate3/` **整体未 tracked**（`git status` = `?? gate3/`）→ dev 数据集**未入任何 public repo**；sealed holdout（12 case）同样未 tracked（本就不该公开） | dev 数据不可公共获取 → Dev 评测无法在新环境复现 | P1 | G5-ENV-02（dev jsonl 入 public repo + 身份锁定） |
 | Gate 4 评测集 | READY | `evaluation/gate4/data/tool_use_dev_v1.jsonl` + manifest 已入库（24 case，evaluation_set_id=5639ca57b09a） | 唯一完整入仓的评测集 | P0 | 无（保持） |
-| 实验 config.yaml 入库 | MISSING | `git ls-files experiments/` 只含 result/metrics/diagnostics；**12 个实验 `config.yaml` 全部 untracked**（`git status` 显示 `?? experiments/*/config.yaml`） | 结果公开、定义实验的参数没公开 → 结果无法核对 | P0 | G5-ENV-02（补 config 或脚本化重建） |
-| 单命令复现 | MISSING | README 无"clone→装→跑测试→起 API→调端点"单命令链；模型缓存获取命令缺失 | 面试官/同学照 README 走会卡 | P1 | G5-README-08（复现命令段） |
+| 实验 config.yaml 入库（P0-4） | MISSING | `git ls-files experiments/` 只含 result/metrics/diagnostics；**12 个实验 `config.yaml` 全部 untracked**（`git status` 显示 `?? experiments/*/config.yaml`） | 结果公开、定义实验的参数没公开 → 结果无法核对/重建 | P0 | G5-ENV-02（补 config 或脚本化重建 + 参数重构验证） |
+| 单命令复现 | MISSING | README 无"clone→拉取 agent_data→装→跑测试→起 API→调端点"单命令链；模型缓存获取命令缺失 | 面试官/同学照 README 走会卡 | P1 | G5-README-08（复现命令段，含语料拉取+核验） |
 | 模型缓存前置 | PARTIAL | `local_files_only=True` 不自动下载；README 提到"BGE-small-zh-v1.5 模型缓存 (~33MB)"但无获取命令；reranker ~2.2GB 标"可选"但 `config.yaml reranker.enabled=true` | 缺模型即 503 | P1 | G5-ENV-02 + G5-README-08 |
 
 ### 2.10 Release hygiene — PARTIAL
@@ -141,12 +142,12 @@
 
 | # | 项目 | 分类 | 指向任务 |
 |---|---|---|---|
-| 1 | 无 lockfile / 依赖不可复现 | MISSING | G5-ENV-02 |
-| 2 | 无 CI 管道（测试资产已齐） | MISSING | G5-CI-03 |
-| 3 | 冻结语料外部化 + 实验 config 未入库 → 冻结数字不可复现 | MISSING | G5-ENV-02 |
-| 4 | 无 Docker / 容器交付 | MISSING | G5-DOCKER-04 |
+| P0-1 | 无 lockfile / 依赖版本不可复现（tested environment reproducibility） | MISSING | G5-ENV-02 |
+| P0-2 | 无 CI 管道（测试资产已齐） | MISSING | G5-CI-03 |
+| P0-3 | public corpus cross-repo provenance/pinning/reproduction contract（语料已 public 且身份核验一致，缺跨仓 commit 冻结与公开复现流程） | PARTIAL | G5-ENV-02 |
+| P0-4 | 实验 config/参数未入库 → formal experiment config/parameter reconstruction 不可行 | MISSING | G5-ENV-02 |
 
-### P1（明显影响校招展示/复现）— 7 项
+### P1（明显影响校招展示/复现）— 8 项
 
 | # | 项目 | 分类 | 指向任务 |
 |---|---|---|---|
@@ -155,8 +156,9 @@
 | 3 | 模型名称/revision 未钉住 | MISSING | G5-ENV-02 |
 | 4 | 干净环境首次启动即 503（BGE 模型缓存前置） | PARTIAL | G5-ENV-02 + G5-README-08 |
 | 5 | 无 .env.example | MISSING | G5-ENV-02 |
-| 6 | Gate 3 dev 数据集未入主仓库 → Dev 评测不可复现 | MISSING | G5-ENV-02 |
-| 7 | README 未说明 UI 只接基础 /query | PARTIAL | G5-README-08 |
+| 6 | Gate 3 dev 数据集未入任何 public repo（本机独有）→ Dev 评测不可复现 | MISSING | G5-ENV-02 |
+| 7 | 无 Docker / 容器交付（模型缓存挂载 / key 注入 / healthcheck） | MISSING | G5-DOCKER-04 |
+| 8 | README 未说明 UI 只接基础 /query | PARTIAL | G5-README-08 |
 
 ### P2（有价值但非必须）— 8 项
 
@@ -175,6 +177,7 @@
 
 ## 4. 本卡约束遵守声明
 
-- **0 生产代码改动**：本次仅新增/修改 docs 下 5 个文件（baseline.md/json、status.md、study-note 92、study-notes README 索引）。
-- **0 DeepSeek / 0 Gate 3 Holdout access / 0 Gate 4 formal rerun / 0 HTTP smoke / 0 benchmark**：全程只读审计。
+- **0 生产代码改动**：R0 修改 docs 下 5 个文件；R1 仅修改 4 个文件（baseline.md/json、status.md、study-note 92；study-notes README 索引标题未变，未触碰）。
+- **0 DeepSeek / 0 Gate 3 sealed Holdout access / 0 Gate 4 formal rerun / 0 HTTP smoke / 0 benchmark**：全程只读审计；R1 未读取任何 `gate3/sealed/` 内容（仅核验其 untracked 状态）。
+- **R1 corpus 身份核验**：用现有 `ExperimentCorpus.build` 对 `agent_ai_v1/02_corpus_candidate` 的 37 个 manifest `corpus_entries` 逐字节重建 → `corpus_id=870e5864df67`、`file_count=37`，与冻结身份**完全一致**；agent_data 当前 HEAD=`179f18e8`，37 文件全 tracked 且工作区 clean。
 - 全量测试未重跑（生产代码一字节未动，机械重跑无意义）；只跑 `tests/test_gate4_freeze.py` 验证文档提交无回归。

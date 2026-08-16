@@ -45,6 +45,7 @@
       "evidence": "requirements.txt 全为宽松下限（pydantic>=2.0 chromadb>=0.4.0 openai>=1.0.0 fastapi>=0.104.0...）；无 pyproject.toml / uv.lock / poetry.lock",
       "risk": "依赖树随安装日期漂移，1716 测试结果不可复现",
       "priority": "P0",
+      "priority_group": "P0-1",
       "recommended_next_task": "G5-ENV-02"
     },
     {
@@ -95,6 +96,7 @@
       "evidence": "仓库无 .github/ 目录、无 workflow",
       "risk": "无自动验证，回归只靠人工",
       "priority": "P0",
+      "priority_group": "P0-2",
       "recommended_next_task": "G5-CI-03"
     },
     {
@@ -320,22 +322,23 @@
     {
       "id": "G5-A01-C09-001",
       "category": "Public reproduction",
-      "item": "冻结语料（37 文件）可复现",
-      "classification": "MISSING",
-      "evidence": "冻结语料在仓库外 rag数据集/benchmark_work/agent_ai_v1/02_corpus_candidate（独立 git 库）；主仓库 data/ 仅 runtime store",
-      "risk": "新环境无法复现任何 Gate 2/3/4 冻结数字",
+      "item": "冻结语料 cross-repo provenance/pinning/reproduction contract",
+      "classification": "PARTIAL",
+      "evidence": "冻结 37 文件语料在独立 public data repo wgqa/agent_data（https://github.com/wgqa/agent_data.git，default branch master，当前 HEAD 179f18e8/2026-08-07）；用现有 ExperimentCorpus.build 对 agent_ai_v1/02_corpus_candidate 的 37 个 manifest corpus_entries 逐字节重建 → file_count=37、corpus_id=870e5864df67 与冻结身份完全一致，37 文件全 tracked 且工作区 clean；但主项目未冻结跨仓 commit/path/identity，无拉取+核验+重建的公开复现流程",
+      "risk": "external repo != unavailable data；缺口是 unpinned external dependency：语料字节今天一致，但主仓库未把 agent_data 固定进可复现契约",
       "priority": "P0",
-      "recommended_next_task": "G5-ENV-02（可公开最小语料 + 单命令重建）"
+      "priority_group": "P0-3",
+      "recommended_next_task": "G5-ENV-02（跨仓 commit pinning + 公开复现契约：submodule/锁 commit + 自动 corpus_id 校验）"
     },
     {
       "id": "G5-A01-C09-002",
       "category": "Public reproduction",
-      "item": "Gate 3 dev/holdout 数据集入库",
+      "item": "Gate 3 dev 数据集入库（未入任何 public repo）",
       "classification": "MISSING",
-      "evidence": "gate3/dev（24 case）与 gate3/sealed（12 case）在外部 benchmark_work/gate3/；evaluation/gate3/ 仅代码",
-      "risk": "dev 评测无法复现（holdout 本就不该公开）",
+      "evidence": "evaluation/gate3/ 仅代码；gate3/dev（24 case）本机仅存于 benchmark_work/gate3/，核验 agent_data 中 gate3/ 整体未 tracked（git status=?? gate3/）；sealed holdout（12 case）同样未 tracked（本就不该公开）",
+      "risk": "dev 数据不可公共获取 → Dev 评测无法在新环境复现",
       "priority": "P1",
-      "recommended_next_task": "G5-ENV-02（dev jsonl 入库 + 清单化）"
+      "recommended_next_task": "G5-ENV-02（dev jsonl 入 public repo + 身份锁定）"
     },
     {
       "id": "G5-A01-C09-003",
@@ -350,12 +353,13 @@
     {
       "id": "G5-A01-C09-004",
       "category": "Public reproduction",
-      "item": "实验 config.yaml 入库（结果已入库但定义实验的参数未入库）",
+      "item": "实验 config.yaml 入库 / formal experiment config-parameter reconstruction",
       "classification": "MISSING",
       "evidence": "git ls-files experiments/ 只含 result/metrics/diagnostics；12 个实验 config.yaml 全部 untracked",
-      "risk": "结果公开、参数不公开 → 结果无法核对",
+      "risk": "结果公开、定义实验的参数不公开 → 结果无法核对/重建",
       "priority": "P0",
-      "recommended_next_task": "G5-ENV-02（补 config 或脚本化重建）"
+      "priority_group": "P0-4",
+      "recommended_next_task": "G5-ENV-02（补 config 或脚本化重建 + 参数重构验证）"
     },
     {
       "id": "G5-A01-C09-005",

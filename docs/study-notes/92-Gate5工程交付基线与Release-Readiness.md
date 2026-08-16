@@ -1,9 +1,10 @@
 # 92-Gate5 工程交付基线与 Release-Readiness
 
-> **任务**：G5-AUDIT-01-RELEASE-READINESS-BASELINE
-> **性质**：只读审计，0 生产代码 / 0 DeepSeek / 0 benchmark
+> **任务**：G5-AUDIT-01-RELEASE-READINESS-BASELINE（R1-CROSS-REPO-PROVENANCE-AND-PRIORITY-CORRECTION）
+> **性质**：只读审计，0 生产代码 / 0 DeepSeek / 0 benchmark / 0 Gate3 sealed access
 > **产物**：`docs/experiments/gate5_release_readiness_baseline.md`（矩阵）+ `.json`（机器可读 checklist source）
 > **日期**：2026-08-16
+> **R1 修正**：§7.1 新增核心教学——`external repo ≠ unavailable data`、`unpinned external dependency = reproducibility gap`（语料已在 `wgqa/agent_data` 公开且身份核验一致，主项目缺跨仓 pinning/复现契约）。
 > **本笔记定位**：从学习角度解释"Release Readiness"这个概念群，并映射到本项目审计中看到的真实证据。
 
 ---
@@ -52,7 +53,7 @@ Release readiness = 判断"这个仓库现在能不能作为成品交付给别�
 - **但交付不成立**：
   - 换一台机器，`local_files_only=True` 找不到 BGE 模型 → 启动即 503（`bge_emb.py:13`）；
   - 换一天装依赖，`pydantic>=2.0` 可能装到行为不同的大版本 → 测试结果漂移；
-  - 想复现 Gate 3 冻结的 obligation 18/21，语料在**仓库外**的独立 git 库，实验 `config.yaml` 还根本没入库。
+  - 想复现 Gate 3 冻结的 obligation 18/21：语料**已有独立 public data repo**（`wgqa/agent_data`，已核验与冻结身份逐字节一致，corpus_id=870e5864df67 / 37 files），但主项目**尚未冻结跨仓 commit/path/identity**，且实验 `config.yaml` 根本没入库——`external repo ≠ unavailable data`，真正的缺口是 `unpinned external dependency = reproducibility gap`。
 
 "在我这能跑"是**单点事实**；"别人能跑出同样的结果"是**交付标准**。中间差的这一大段，就是 Gate 5 要补的。
 
@@ -109,10 +110,20 @@ CI 的另一层价值：**把"我声称能跑"变成"每次提交都被机器验
 
 | | 问的问题 | 本项目现状 |
 |---|---|---|
-| reproducibility | "换台机器能算出同样的数字吗？" | PARTIAL：评测逻辑可复现，但语料/config 不在公开面 |
+| reproducibility | "换台机器能算出同样的数字吗？" | PARTIAL：语料已在 public repo `wgqa/agent_data` 且身份核验一致，但跨仓未 pin、实验 config 未入库 → 缺冻结的身份链 |
 | portability | "换台机器能启动吗？" | MISSING：无 lock、无 Docker、模型缓存前置未文档化 |
 
 一句话：**能移植不等于能复现，能复现不等于能移植**。本项目两件都还没做完。
+
+### 7.1 external repo ≠ unavailable data；unpinned external dependency = reproducibility gap
+
+这是本 R1 修正最重要的概念区分，面试高频：
+
+- **数据在外部仓库 ≠ 数据拿不到**。本项目冻结语料就在 GitHub `wgqa/agent_data`（default branch `master`，HEAD `179f18e8`），任何人 `git clone` 就能拿到，并且它**已经用现有 `ExperimentCorpus.build` 核验过**：对 37 个文件逐字节重建出与冻结完全一致的 `corpus_id=870e5864df67`。所以"语料没公开"是**错误表述**。
+- **外部依赖没 pin 住 = reproducibility gap**。真正的问题是：主仓库**没有把 `agent_data` 的哪个 commit / 哪条路径 / 什么身份校验冻结进任何可复现契约**。`master` 是移动的；今天一致，明天 `agent_data` 一更新，语料字节就可能变，冻结数字就静默失效。**语料 public 只保证"可获取"，pin 住才保证"可复现"**。
+- 推论：`git submodule` / 锁 commit + 自动 `corpus_id` 校验，是把"外部依赖"变成"冻结依赖"的标准手段（G5-ENV-02 的 P0-3 目标）。
+
+用比喻：食谱书在图书馆人人都能借到（external ≠ unavailable），但你要在菜谱上**写死"用 2026-08-07 那一版"**（pin），否则明天书改版了味道就不一样了。
 
 ---
 
@@ -141,7 +152,7 @@ AI 项目：**模型权重、模型版本、语料字节、评测集、Prompt �
 
 **为什么必须**：因为 AI 结果没有"正确的唯一答案"，只能用**身份 + 冻结字节**来锁死"这就是当时跑的那一份"。没有身份，任何数字都可以被怀疑"你是不是换了个模型重跑的"。
 
-审计里发现的缺口正好是身份链的**断点**：冻结语料在外、实验 `config.yaml` 未入库 → 别人无法重建身份。
+审计里发现的缺口正是身份链的**断点**：冻结语料的字节身份虽可经 `wgqa/agent_data@master` 重建（已核验一致），但主项目**没有把跨仓 commit 钉进冻结契约**，且实验 `config.yaml` 未入库 → 别人无法重建"当时跑的完整身份"（语料来源 + 参数）。
 
 ---
 
@@ -151,7 +162,7 @@ AI 项目：**模型权重、模型版本、语料字节、评测集、Prompt �
 
 1. **本机有模型缓存** → smoke 通过，换台没缓存的机器直接 503；
 2. **本机有 `.env`** → smoke 能生成答案，新 clone 没 `.env` 不知道要配什么；
-3. **本机有外部语料** → benchmark 数字能算，别人没有这 37 个文件；
+3. **本机语料与冻结身份对齐（但未 pin 跨仓）** → 今天 benchmark 数字能算；别人虽可从 `wgqa/agent_data` 拿到同一批文件（语料已 public 且身份核验一致），但 README 没给"拉取+核验"命令，`master` 一移动就对不上了；
 4. **本机是 Windows + 中文用户名** → 连 `pytest.ini` 的 `basetemp` 都是为它打的补丁。
 
 公共复现的标准是：**README 上一行命令 → 新机器从零到结果**。本地 smoke 只证明"我能跑"，公共复现才证明"任何人都能跑出和我一样的东西"。
@@ -179,7 +190,7 @@ Gate 1–4 已经做了四轮能力叠加：RAG → Agentic RAG → Structured T
 | 层面 | 已做 | 待做（Gate 5） |
 |---|---|---|
 | 能力 | 三类 API、1716 测试、Agentic/Tool Agent | — |
-| 可信 | 冻结身份链（corpus/eval/run/freeze id）、offline seal | lockfile、实验 config 入库 |
+| 可信 | 冻结身份链（eval/run/freeze id）、offline seal；语料字节身份已核验与 public repo `wgqa/agent_data` 一致 | 跨仓 commit pinning、lockfile、实验 config 入库 |
 | 可移植 | `.env` 隔离、`127.0.0.1`、上传安全边界 | Docker、`.env.example` |
 | 自动验证 | 测试全 Fake 离线 | CI 管道 |
 | 公开叙事 | 冻结 JSON 证据齐全 | README 重写、单命令复现 |
@@ -196,10 +207,11 @@ Gate 1–4 已经做了四轮能力叠加：RAG → Agentic RAG → Structured T
 6. **忽视 `.env.example` 这种小文件**——它是"别人能不能上手"的第一个门槛。
 7. **认为不加 LICENSE 无所谓**——只要可能公开，它就是标准交付物。
 8. **让 `git status` 堆满垃圾**——129 个 `.tmp_pytest_*` 目录，本身就是一种工程态度的展示。
+9. **把"语料在外部仓库"说成"语料拿不到"**——`external repo ≠ unavailable data`；本项目语料已在 `wgqa/agent_data` 公开且身份核验一致，真正的缺口是 `unpinned external dependency`（主仓库没 pin 跨仓 commit / path / identity）。
 
 ---
 
 ## 14. 下一步
 
-- 审计矩阵与 JSON：`docs/experiments/gate5_release_readiness_baseline.{md,json}`（后续每张 Gate 5 任务的 checklist source）。
-- 建议顺序：G5-ENV-02（lockfile + 版本 + `.env.example` + 语料/config 入库）→ G5-CI-03 → G5-DOCKER-04 → G5-README-08；P2 项顺带收口。
+- 审计矩阵与 JSON：`docs/experiments/gate5_release_readiness_baseline.{md,json}`（R1 修正：语料 cross-repo provenance 重定义 + P0-1..P0-4 收敛；后续每张 Gate 5 任务的 checklist source）。
+- P0 顺序：G5-ENV-02（P0-1 lockfile + P0-3 跨仓 pinning/复现契约 + P0-4 实验 config 重建 + `.env.example`）→ G5-CI-03（P0-2）→ G5-DOCKER-04（P1）→ G5-README-08；P2 项顺带收口。
