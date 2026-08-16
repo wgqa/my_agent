@@ -42,6 +42,7 @@ from evaluation.gate4.evaluator import (
 from evaluation.gate4.runner import (
     Gate4ToolUseRunner,
     RunnerAbort,
+    build_bm25_retrieval_port,
     sha256_bytes,
     verify_corpus_provenance,
     verify_dataset_identity,
@@ -671,6 +672,23 @@ class TestFullPipeline:
         }
         assert exec_ids == {c.case_id for c in _real_set().cases}
         assert len(exec_ids) == 24
+
+    def test_build_bm25_retrieval_port(self, tmp_path):
+        # 合成语料 → BM25 索引 → PipelineRetrievalAdapter → knowledge_search 可用
+        corpus = tmp_path / "corpus"
+        (corpus / "rag").mkdir(parents=True)
+        (corpus / "rag" / "检索与生成.md").write_text(
+            "# RAG\nRRF 使用排名而非不同系统不可直接比较的原始分数。\n",
+            encoding="utf-8",
+        )
+        port = build_bm25_retrieval_port(
+            corpus, ("rag/检索与生成.md",),
+            chunk_size=64, chunk_overlap=0,
+        )
+        docs = port.search("RRF", "bm25", 5)
+        assert docs
+        assert docs[0].source_name == "rag/检索与生成.md"
+        assert docs[0].chunk_id
 
     def test_multi_step_both_legal_orders(self, tmp_path):
         # g4q020 两种合法顺序都允许：knowledge→code 与 code→knowledge

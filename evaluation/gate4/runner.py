@@ -29,6 +29,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
 from core.chunker.recursive import RecursiveChunker
+from core.domain.models import make_document_id
 from core.loader.text_loader import TextLoader
 from core.retriever.bm25_only import BM25OnlyRetriever
 from core.tool_agent import (
@@ -281,8 +282,14 @@ def build_bm25_retrieval_port(
         docs = loader.load(str(full))
         chunks = chunker.chunk(docs)
         source_name = PurePosixPath(rp).as_posix()
+        document_id = make_document_id(source_name)
         for c in chunks:
+            c.metadata["document_id"] = document_id
             c.metadata["source_name"] = source_name
+            # 复刻 ChromaStore 的 chunk_id 方案（document_id:content → sha256[:32]）
+            c.metadata["id"] = hashlib.sha256(
+                f"{document_id}:{c.content}".encode()
+            ).hexdigest()[:32]
             chunk_tuples.append((c.metadata["id"], c.content, c.metadata))
     retriever.build_sparse_index(chunk_tuples)
     return PipelineRetrievalAdapter(retriever)
