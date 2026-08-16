@@ -20,7 +20,7 @@
 | Gate 1：基础 RAG 正确性 | CLOSED | 核心数据、分块、检索、上下文和引用契约已经过系统修复 |
 | Gate 2：检索评测与消融 | CLOSED / FROZEN | 已形成可复现、可审计、可冻结的检索实验体系 |
 | Gate 3：Query Decomposition + Adaptive Retrieval | CLOSED / FROZEN | 系统/数据/唯一一次 formal Holdout 已冻结封档，冻结成绩不再重写 |
-| Gate 4：结构化 Tool Agent | CLOSE CANDIDATE / pending Reviewer | 强类型 Structured Tool Agent + 3 只读 Tool + 5/4/2 bounded loop + public Dev benchmark（task completion 20/24）+ real FastAPI/DeepSeek E2E 已完成；gate4_freeze.json 已冻结，最终 CLOSED 待 Reviewer 审核 freeze 后签发（执行 Agent 不自写 CLOSED） |
+| Gate 4：结构化 Tool Agent | CLOSED / FROZEN | Structured Tool Agent 已完成并冻结（gate4_system_freeze_id=96c159b1ca2c）：强类型 Structured Tool Agent + 3 只读 Tool + 5/4/2 bounded loop + public Dev benchmark（task completion 20/24）+ real FastAPI/DeepSeek E2E；当前主要能力债为 multi-step 决策稳定性与结构化输出稳定性 |
 | Gate 5：端到端评测与工程收口 | NEXT | 尚未开始，不得提前开始 |
 
 ### Gate 3 冻结摘要（CLOSED / FROZEN，权威来源 `docs/experiments/gate3_holdout_final.json`）
@@ -47,7 +47,7 @@
 
 当前项目最主要的不足是（2026-08-15 收敛，完整记录见 §5）：
 
-1. Structured Tool Agent 尚未实现；
+1. Structured Tool Agent 已完成并冻结（Gate 4 CLOSED / FROZEN）；当前主要能力债为 multi-step 决策稳定性与结构化输出稳定性（如 multi-step sequence match 1/4、parse failure 2/24）；
 2. Generator robustness 仍弱；
 3. Retrieval → Answer synthesis gap 明显；
 4. claim-level faithfulness 仍未完成；
@@ -64,7 +64,8 @@
     → Multi-query Retrieval         ✅ 完成
     → Adaptive Retrieval            ✅ 完成
     → 正式对照实验 + formal Holdout  ✅ 完成（Gate 3 = CLOSED / FROZEN）
-    → 结构化 Tool Agent             ← 当前（Gate 4 = CLOSE CANDIDATE / pending Reviewer，gate4_freeze.json 已冻结，最终 CLOSED 待 Reviewer 签发）
+    → Structured Tool Agent ✅ 完成（Gate 4 CLOSED / FROZEN）
+    → 端到端评测与工程收口 ← NEXT（Gate 5，尚未开始）
     → 端到端评测与工程收口          （Gate 5，后续）
 
 ---
@@ -312,7 +313,7 @@ Hybrid control：
 
 ## 5.1 当前主要不足（2026-08-15 收敛）
 
-1. **Structured Tool Agent 尚未实现**：Gate 3 已具备 RAG-specific Agent Runtime（检索 / 生成端口 + 有界执行 + 脱敏 RunTrace），但 Gate 4 的预注册 Tool 集合、结构化 Tool Selection、Bounded Tool Loop 仍为设计阶段（G4-DESIGN-01 / R1）。不得在简历或 README 中声称已实现 Tool Agent；
+1. **Structured Tool Agent 已完成并冻结**：Gate 4 的预注册 Tool 集合、结构化 Tool Selection、Bounded Tool Loop 均已实现并冻结（gate4_system_freeze_id=96c159b1ca2c）；当前主要能力债为 multi-step 决策稳定性与结构化输出稳定性（正式观测，见 gate4_freeze.json known limitations）；
 2. **Generator robustness 仍弱**：formal Holdout 中 4/12 case 因 generator 空输出而失败（系统行为性失败计入正式结果），复杂上下文下生成稳定性是当前最弱环节；
 3. **Retrieval → Answer synthesis gap 明显**：Holdout 检索 obligation 18/21=0.857，但 answer_obligation 8/21=0.381、answer_pass 4/10=0.4，检索证据到最终答案正确性之间存在明显落差；
 4. **claim-level faithfulness 仍未完成**：当前为 query-level obligation coverage + LLM Judge 辅助评测，尚未做 claim-level entailment / faithfulness 的系统评测；

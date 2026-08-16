@@ -22,8 +22,8 @@
 
 - **Gate 1 = CLOSED**、**Gate 2 = CLOSED / FROZEN**、**Gate 3 = CLOSED / FROZEN**
   （Gate 3 Holdout 保持冻结，不得重跑）
-- **Gate 4 = CLOSE CANDIDATE / pending Reviewer**（最终 CLOSED 待 Reviewer 审核
-  `docs/experiments/gate4_freeze.json` 后签发）
+- **Gate 4 = CLOSED / FROZEN**（gate4_system_freeze_id=96c159b1ca2c）
+- **NEXT = Gate 5**（端到端评测与工程收口，尚未开始，不得提前开始）
 
 **Gate 4 已有一个有界 Structured Tool Agent：**
 
