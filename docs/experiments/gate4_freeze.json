@@ -1,0 +1,91 @@
+{
+  "gate4_system_freeze_id": "96c159b1ca2c",
+  "schema_version": "gate4_system_freeze_v1",
+  "tool_agent_core": {
+    "tool_contract_status": "closed",
+    "real_tools": [
+      "calculator",
+      "code_search",
+      "knowledge_search"
+    ],
+    "runtime_budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "prompt_version": "tool_agent_decision_prompt_v2",
+    "provider": "deepseek",
+    "model": "deepseek-chat"
+  },
+  "formal_dev_baseline": {
+    "run_id": "fa4ab9aa5f13",
+    "source_commit": "de17b809f83f993d4f5857137995bd9f6f89e79f",
+    "evaluation_set_id": "5639ca57b09a",
+    "dataset_sha256": "93a32e64130d79a4133fb01d1c84a3103940f286bacece5d2711c38add39e8af",
+    "headline_metrics": {
+      "task_completion": "20/24",
+      "first_action": "21/24",
+      "first_tool": "13/16",
+      "required_tool_coverage": "14/20",
+      "final_answer_correct": "16/20",
+      "sequence_match": "1/4",
+      "parse_failure": "2/24",
+      "budget_stop": "1/24",
+      "forbidden_tool": "0/24",
+      "duplicate_tool": "0/24",
+      "tool_error": "0"
+    },
+    "bound_artifacts": {
+      "baseline": "docs/experiments/gate4_tool_use_dev_baseline.json",
+      "seal": "docs/experiments/gate4_tool_use_dev_seal.json",
+      "seal_verdict": "valid_public_dev_baseline"
+    }
+  },
+  "api_e2e": {
+    "api_source_commit": "c94a37179e44a887cf010a651861a66f2417c488",
+    "endpoint": "POST /tool-agent/query",
+    "response_schema": "tool_agent_query_response_v1",
+    "safe_trace": true,
+    "api_status": "reviewer_accepted_closed",
+    "e2e_smoke": {
+      "smoke_record_commit": "be22dfa0af11e3452772d9d3592d5098776fac12",
+      "smoke_cases": 6,
+      "first_pass_structured_http_200": 6,
+      "evidence_replay_count": 1,
+      "evidence_replay_reason": "local_recorder_console_encoding_failure",
+      "observed_tool_paths": [
+        [],
+        [
+          "calculator"
+        ],
+        [
+          "code_search"
+        ],
+        [
+          "knowledge_search"
+        ],
+        [
+          "code_search",
+          "calculator"
+        ],
+        []
+      ]
+    }
+  },
+  "known_limitations": {
+    "L1": "public Dev multi-step allowed sequence match only 1/4",
+    "L2": "required tool coverage 14/20",
+    "L3": "ACTION_PARSE_FAILED 2/24",
+    "L4": "AGENT_BUDGET_EXCEEDED 1/24",
+    "L5": "real HTTP knowledge smoke S4 executed knowledge_search successfully but current indexed knowledge did not provide direct RRF evidence",
+    "L6": "07B recorder failure caused one identical 6-case evidence replay; not a benchmark rerun and not result-selected"
+  },
+  "known_limitations_statement": "these are known limitations, not bugs waiting to be secretly fixed",
+  "gate_status": {
+    "gate_1": "CLOSED",
+    "gate_2": "CLOSED / FROZEN",
+    "gate_3": "CLOSED / FROZEN",
+    "gate_4": "CLOSE CANDIDATE / pending reviewer",
+    "gate_5": "NEXT"
+  }
+}

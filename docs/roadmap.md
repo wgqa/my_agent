@@ -20,8 +20,8 @@
 | Gate 1：基础 RAG 正确性 | CLOSED | 核心数据、分块、检索、上下文和引用契约已经过系统修复 |
 | Gate 2：检索评测与消融 | CLOSED / FROZEN | 已形成可复现、可审计、可冻结的检索实验体系 |
 | Gate 3：Query Decomposition + Adaptive Retrieval | CLOSED / FROZEN | 系统/数据/唯一一次 formal Holdout 已冻结封档，冻结成绩不再重写 |
-| Gate 4：结构化 Tool Agent | READY / NEXT | 下一技术主线；仅 G4-DESIGN-01 = IN PROGRESS，其余 NOT STARTED，不得提前声称已实现 |
-| Gate 5：端到端评测与工程收口 | NOT STARTED / PARTIAL INFRASTRUCTURE | API、UI 等有基础能力，但安全、依赖锁定、CI、Docker、Trace 和公开展示未收口 |
+| Gate 4：结构化 Tool Agent | CLOSE CANDIDATE / pending Reviewer | 强类型 Structured Tool Agent + 3 只读 Tool + 5/4/2 bounded loop + public Dev benchmark（task completion 20/24）+ real FastAPI/DeepSeek E2E 已完成；gate4_freeze.json 已冻结，最终 CLOSED 待 Reviewer 审核 freeze 后签发（执行 Agent 不自写 CLOSED） |
+| Gate 5：端到端评测与工程收口 | NEXT | 尚未开始，不得提前开始 |
 
 ### Gate 3 冻结摘要（CLOSED / FROZEN，权威来源 `docs/experiments/gate3_holdout_final.json`）
 
@@ -64,7 +64,7 @@
     → Multi-query Retrieval         ✅ 完成
     → Adaptive Retrieval            ✅ 完成
     → 正式对照实验 + formal Holdout  ✅ 完成（Gate 3 = CLOSED / FROZEN）
-    → 结构化 Tool Agent             ← 当前（Gate 4 = READY / NEXT，G4-DESIGN-01 = IN PROGRESS）
+    → 结构化 Tool Agent             ← 当前（Gate 4 = CLOSE CANDIDATE / pending Reviewer，gate4_freeze.json 已冻结，最终 CLOSED 待 Reviewer 签发）
     → 端到端评测与工程收口          （Gate 5，后续）
 
 ---
