@@ -285,7 +285,8 @@ Reviewer 审出的一些"尺子不够硬"的点，全部在本 R1 修掉（仍�
   声称通用最佳；
 - `g4q022`：reason codes 扩为 `UNSUPPORTED_REQUEST` + `UNSAFE_REQUEST`；
 - 全部 `knowledge_gold.evidence_phrase` 改成冻结语料中的**真实连续短片段**（逐字
-  substring，不再是改写句），并用数据级测试强制。
+  substring，不再是改写句）；验证分两层（本地 pytest env-gated / 正式 Runner 硬
+  gate，见 §18）。
 
 **schema 不变量加固**
 
@@ -314,3 +315,32 @@ Reviewer 审出的一些"尺子不够硬"的点，全部在本 R1 修掉（仍�
 
 **身份重算**：`evaluation_set_id=5639ca57b09a`、`jsonl_sha256=93a32e64...`（旧
 `752be3e1e488` / `dffba9f0...` 不再视为冻结身份）。
+
+---
+
+## 18. R1-R1 去本地路径（本提交）
+
+**问题**：上一版测试把本机 corpus 绝对路径（`<本机语料根>/02_corpus_candidate`）硬编码
+进了测试源码——换一台机器就断，也把"本机文件布局"泄漏进了 benchmark。
+
+**改法**：测试不知道 corpus 放哪。
+
+- 删除全部 `D:\` 硬编码；
+- 改用环境变量 `GATE4_KNOWLEDGE_CORPUS_ROOT`：
+  - 未设置 → `pytest.skip("GATE4_KNOWLEDGE_CORPUS_ROOT not configured")`；
+  - 已设置但非目录 → **FAIL**（不允许 skip）；
+  - 已设置且有效 → 逐条验证所有带 `knowledge_gold` 的 case：source 文件必须存在、
+    evidence_phrase 必须是 source text 的连续 substring；
+- 静态回归测试：检查测试与协议源码不含 `"D:\"`（动态构造避免自匹配），防止以后写回。
+
+**普通 pytest vs 正式 benchmark run（工程语义）**：
+
+| 场景 | corpus | provenance |
+|---|---|---|
+| 普通 pytest | 不一定在本机 | optional integration check（env 缺失 → skip） |
+| 正式 G4-EVAL-06B run | 运行依赖 | **hard gate**：preflight 必须验 corpus identity
+  （`corpus_id=870e5864df67`、`file_count=37`）并逐条验 knowledge_gold
+  source/evidence，**不允许 skip** |
+
+**身份不变**：`evaluation_set_id=5639ca57b09a`、`jsonl_sha256=93a32e64...`——micro
+只改测试与文档，不动数据/schema，所以身份与 manifest 保持原样。

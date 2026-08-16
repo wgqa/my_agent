@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 from pathlib import Path
 
@@ -30,6 +31,12 @@ from evaluation.gate4 import (
 DATA_DIR = Path(__file__).resolve().parents[1] / "evaluation" / "gate4" / "data"
 JSONL = DATA_DIR / "tool_use_dev_v1.jsonl"
 MANIFEST = DATA_DIR / "tool_use_dev_manifest_v1.json"
+PROTOCOL = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "experiments"
+    / "gate4_tool_use_eval_protocol.md"
+)
 
 SCHEMA_VERSION = "gate4_tool_use_case_v1"
 
@@ -68,6 +75,34 @@ def _write_jsonl(tmp_path: Path, cases: list[dict]) -> Path:
 
 def _real_set() -> Gate4ToolUseEvaluationSet:
     return Gate4ToolUseEvaluationSet.load_jsonl(JSONL)
+
+
+def _run_provenance_check(corpus_root: str | None) -> None:
+    """按 env 语义执行 knowledge_gold provenance check。
+
+    - corpus_root 未提供（env 未设置）→ pytest.skip（普通 pytest 下语料不一定在本机）
+    - corpus_root 提供但非目录 → AssertionError（FAIL，不允许 skip）
+    - corpus_root 有效 → 逐条验证 knowledge_gold source 存在，且 evidence_phrase
+      是 source text 的连续 substring
+    """
+    if corpus_root is None:
+        pytest.skip("GATE4_KNOWLEDGE_CORPUS_ROOT not configured")
+    root = Path(corpus_root)
+    assert root.is_dir(), f"GATE4_KNOWLEDGE_CORPUS_ROOT 不是目录: {root}"
+    set_obj = _real_set()
+    for case in set_obj.cases:
+        if case.knowledge_gold is None:
+            continue
+        src = (root / case.knowledge_gold.source_name).resolve()
+        assert src.is_file(), (
+            f"{case.case_id} source 不存在: {case.knowledge_gold.source_name}"
+        )
+        text = src.read_text(encoding="utf-8")
+        assert case.knowledge_gold.evidence_phrase in text, (
+            f"{case.case_id} evidence_phrase 不是 "
+            f"{case.knowledge_gold.source_name} 的连续 substring: "
+            f"{case.knowledge_gold.evidence_phrase!r}"
+        )
 
 
 # ---------------------------------------------------------------------- #
@@ -131,6 +166,15 @@ class TestRealDataset:
         assert CODE_REFERENCE_COMMIT.startswith("91627bb3")
         assert KNOWLEDGE_CORPUS_ID == "870e5864df67"
         assert KNOWLEDGE_CORPUS_FILE_COUNT == 37
+
+    def test_identity_frozen_values(self):
+        # R1-R1（去本地路径）前后身份必须不变
+        set_obj = _real_set()
+        assert set_obj.evaluation_set_id == "5639ca57b09a"
+        assert (
+            hashlib.sha256(JSONL.read_bytes()).hexdigest()
+            == "93a32e64130d79a4133fb01d1c84a3103940f286bacece5d2711c38add39e8af"
+        )
 
     def test_g4q020_uses_merge_subquery_results_rrf(self):
         set_obj = _real_set()
@@ -218,27 +262,60 @@ class TestRealDataset:
         used = {a.type for c in set_obj.cases for a in c.completion_assertions}
         assert used <= set(ASSERTION_TYPES)
 
-    def test_knowledge_gold_evidence_is_contiguous_corpus_fragment(self):
-        # R1 硬化：evidence_phrase 必须是冻结语料中的真实连续短片段（逐字 substring）
-        corpus_root = Path(
-            r"D:\学习\rag实战项目\rag数据集\benchmark_work\agent_ai_v1"
-            r"\02_corpus_candidate"
-        )
-        if not corpus_root.is_dir():
-            pytest.skip("冻结语料不在本机，跳过连续性校验")
+    def test_knowledge_gold_provenance(self):
+        # 开发/本地 provenance check：仅当设置了 GATE4_KNOWLEDGE_CORPUS_ROOT 才逐条
+        # 验证 source existence + evidence substring；未设置则显式 skip。
+        _run_provenance_check(os.environ.get("GATE4_KNOWLEDGE_CORPUS_ROOT"))
+
+    def test_provenance_env_absent_skips(self, monkeypatch):
+        monkeypatch.delenv("GATE4_KNOWLEDGE_CORPUS_ROOT", raising=False)
+        with pytest.raises(pytest.skip.Exception):
+            _run_provenance_check(
+                os.environ.get("GATE4_KNOWLEDGE_CORPUS_ROOT")
+            )
+
+    def test_provenance_env_nonexistent_dir_fails(self, monkeypatch, tmp_path):
+        bad = tmp_path / "not-a-corpus-dir"
+        monkeypatch.setenv("GATE4_KNOWLEDGE_CORPUS_ROOT", str(bad))
+        with pytest.raises(AssertionError, match="不是目录"):
+            _run_provenance_check(
+                os.environ.get("GATE4_KNOWLEDGE_CORPUS_ROOT")
+            )
+
+    def test_provenance_env_valid_corpus_passes(self, monkeypatch, tmp_path):
+        # 用合成语料驱动真实 env 语义：每个 knowledge_gold source 存在，且
+        # evidence_phrase 是 source text 的连续 substring（多个 case 共享同一
+        # source 文件时聚合全部短语，避免覆盖）
         set_obj = _real_set()
+        by_source: dict[str, set[str]] = {}
         for case in set_obj.cases:
             if case.knowledge_gold is None:
                 continue
-            src = (corpus_root / case.knowledge_gold.source_name).resolve()
-            assert src.is_file(), (
-                f"{case.case_id} source 不存在: {case.knowledge_gold.source_name}"
+            by_source.setdefault(
+                case.knowledge_gold.source_name, set()
+            ).add(case.knowledge_gold.evidence_phrase)
+        for source_name, phrases in by_source.items():
+            src = tmp_path / source_name
+            src.parent.mkdir(parents=True, exist_ok=True)
+            src.write_text(
+                "\n".join("前置 " + p + " 后置" for p in phrases),
+                encoding="utf-8",
             )
-            text = src.read_text(encoding="utf-8")
-            assert case.knowledge_gold.evidence_phrase in text, (
-                f"{case.case_id} evidence_phrase 不是 "
-                f"{case.knowledge_gold.source_name} 的连续片段: "
-                f"{case.knowledge_gold.evidence_phrase!r}"
+        monkeypatch.setenv("GATE4_KNOWLEDGE_CORPUS_ROOT", str(tmp_path))
+        _run_provenance_check(os.environ.get("GATE4_KNOWLEDGE_CORPUS_ROOT"))
+
+    def test_no_local_drive_path_in_sources(self):
+        # 防回归：测试与协议源码不得再写死本机盘符路径（动态构造避免自匹配）
+        drive = chr(68)  # "D"
+        forbidden_backslash = drive + ":" + "\\"
+        forbidden_forward = drive + ":/"
+        for f in (Path(__file__).resolve(), PROTOCOL):
+            text = f.read_text(encoding="utf-8")
+            assert forbidden_backslash not in text, (
+                f"{f.name} 含本机盘符路径 {forbidden_backslash!r}"
+            )
+            assert forbidden_forward not in text, (
+                f"{f.name} 含本机盘符路径 {forbidden_forward!r}"
             )
 
 

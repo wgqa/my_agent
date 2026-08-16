@@ -123,8 +123,7 @@ Gold completion assertion 至少含正确 repo-relative path，**不放绝对路
 
 ### D. knowledge_search（g4q013-016）
 
-从当前公开技术知识库语料（corpus_id=`870e5864df67`、37 files，位于
-`rag数据集/benchmark_work/agent_ai_v1/02_corpus_candidate/`）选 4 个可检索问题。
+从当前公开冻结技术知识库语料（corpus_id=`870e5864df67`、37 files）选 4 个可检索问题。
 **禁止凭空编 Gold**。每个 case 登记 `knowledge_gold.source_name` + `evidence_phrase`
 （不写全文）。优先选语料中较稳定的基础概念：
 
@@ -137,9 +136,20 @@ Gold completion assertion 至少含正确 repo-relative path，**不放绝对路
 
 > 这 4 条 Gold 基于公开语料事实生成候选，**后续由技术复审确认后才算 accepted**。
 > 不因当前 BM25 能搜到某文档就反向写贴关键词的问题；题目必须自然。
-> R1：全部 `knowledge_gold.evidence_phrase` 均为冻结语料中的**真实连续短片段**
-> （逐字 substring，数据级测试 `test_knowledge_gold_evidence_is_contiguous_corpus_fragment`
-> 强制校验）。
+> R1 + R1-R1：全部 `knowledge_gold.evidence_phrase` 均为冻结语料中的**真实连续
+> 短片段**（逐字 substring）。provenance 验证分两层：
+>
+> - **开发/本地 provenance check（普通 pytest，可选）**：设置环境变量
+>   `GATE4_KNOWLEDGE_CORPUS_ROOT` 指向冻结语料根目录时，测试
+>   `test_knowledge_gold_provenance` 逐条验证 source existence + evidence
+>   substring；**未提供外部 corpus 时该测试显式 `pytest.skip`**（普通开发环境
+>   语料不一定在本机）。环境变量已设置但路径非目录 → **FAIL，不允许 skip**。
+> - **正式 G4-EVAL-06B Runner（基准运行，强制）**：corpus 是运行依赖。preflight
+>   必须验证 frozen corpus identity（`corpus_id=870e5864df67`、`file_count=37`）
+>   并逐条验证 knowledge_gold source/evidence；**正式 run 不允许跳过该 gate**。
+>
+> 因此：普通 pytest 下 provenance 是 optional integration check；正式 benchmark run
+> 下 provenance 是 hard gate。两者语义不同，不能混淆。
 
 ### E. multi_step（g4q017-020）
 
@@ -260,8 +270,9 @@ expected tool / required_tools / assertions / rationale` 送给模型。
 
 - G4-RUNTIME-05 = ✅ Reviewer accepted / CLOSED
 - G4-RUNTIME-05-R1 = ✅ Reviewer accepted / CLOSED
-- **G4-EVAL-06A = REVIEW PENDING**
-- **G4-EVAL-06A-R1（契约加固）= REVIEW PENDING**（重算身份，见 §7）
+- **G4-EVAL-06A = REVIEW PENDING（R1 chain）**
+- **G4-EVAL-06A-R1（契约加固）= R1-R1 REQUIRED**
+- **G4-EVAL-06A-R1-R1（去本地路径 + env-gated provenance）= REVIEW PENDING**
 - Gate 4 = IN PROGRESS
 
 不提前写 "G4-EVAL-06 complete"。
@@ -270,6 +281,7 @@ expected tool / required_tools / assertions / rationale` 送给模型。
 
 - 数据：`evaluation/gate4/data/tool_use_dev_v1.jsonl` + `tool_use_dev_manifest_v1.json`；
 - 代码：`evaluation/gate4/__init__.py` + `evaluation/gate4/schema.py`；
-- 测试：`tests/test_gate4_tool_use_dataset.py`（51 测试）；
+- 测试：`tests/test_gate4_tool_use_dataset.py`（55 测试 + 1 skip，skip 为未配置
+  `GATE4_KNOWLEDGE_CORPUS_ROOT` 时的 provenance 显式跳过）；
 - 学习文档：`docs/study-notes/86-Gate4-Tool-Agent评测协议与Gold设计.md`；
 - 状态：`docs/status.md`、`docs/study-notes/README.md`。
