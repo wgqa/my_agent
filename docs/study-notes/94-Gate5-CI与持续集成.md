@@ -137,3 +137,28 @@ CI 抓"代码有没有坏"，benchmark 测"效果有没有变"——两者频率
 修正（G5-CI-03-R1）：pytest 临时目录移到仓库外——`--basetemp="$RUNNER_TEMP/my_agent_pytest"`（`/home/runner/work/_temp/`，GitHub runner 的专用临时区），彻底与 checkout 解耦。
 
 **这个失败 run 原样保留，是很好的工程证据**：它证明"本地能跑 ≠ 真实环境能跑"，也证明 CI 的价值在于暴露本地特权掩盖的问题（见 §3/§4）。
+
+---
+
+## 11. 第二次真实 CI 的根因（G5-CI-03-R2）
+
+run 31952467496 的 26 个 failure 有两个真实根因，都被 CI 暴露、本地测不出来：
+
+**根因 A：Gate4 冻结 JSONL 的跨平台 SHA 不一致（纯行尾）**
+
+- 冻结 manifest 承诺 `jsonl_sha256=93a32e64…`，这是 **CRLF 字节**的哈希（Windows 冻结时工作区即 CRLF）。
+- git 仓库 blob 存的是 **LF**（`56ef1805…`），Linux 默认按 LF 检出 → 哈希变成 `56ef1805…` → Gate4 dataset 测试失败。
+- 逐字节验证（不是假设）：`git_blob=56ef1805`、`working=93a32e64`、`blob LF→CRLF=93a32e64`、`working CRLF→LF=56ef1805` → **纯行尾差异，其余字节完全相同**。
+- 修复原则：**不能把 manifest 的 93a32e64 改成 Linux 值来"修绿"**（Gate4 已 FROZEN）。正确做法是判断冻结真正承诺的 canonical bytes（=CRLF 93a32e64），再用 `.gitattributes` 让所有平台 checkout 出那份字节：
+  ```
+  evaluation/gate4/data/*.jsonl text eol=crlf
+  ```
+  这样 Linux 也检出 CRLF → 哈希 93a32e64 = 冻结值，跨平台一致，且 frozen dataset/manifest 一字未改。
+
+**根因 B：Pipeline 测试依赖真实 BGE 模型**
+
+- `tests/test_pipeline.py::_make_pipeline` 构造真实 `Pipeline`（bge embedding）→ `index_file` 调 `embed()` → CI 没有 Hugging Face cache → 加载失败 → `test_index_file_*` 全挂。
+- 这些测试验证的是 index/update/BM25/idempotency/query 行为，**不是验证 BGE 能否从 HF 下载**。
+- 修复：测试侧 autouse fixture，类级 monkeypatch `BGEEmbedding.embed/embed_query` 为确定性、定维、无网络的伪向量（内容哈希派生）。不改变生产 Pipeline 默认 BGE 行为，不下载模型。
+
+**教训**：CI 的价值正是暴露"本地特权"掩盖的问题——本地有模型缓存、工作区是 CRLF，所以这两类问题本地永远测不出来。也让"冻结身份"的含义更清晰：冻结的是**字节**，跨平台 checkout 必须还原同一份字节。`git status`、`git check-attr` 是验证这类问题的第一工具。

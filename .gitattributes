@@ -1,0 +1,5 @@
+# Gate 4 冻结 JSONL：冻结身份 jsonl_sha256=93a32e64... 对应 CRLF 字节
+# （Windows 冻结时工作区即为 CRLF）。Git 默认在 Linux 检出 LF 使哈希变
+# 56ef1805... 导致跨平台不一致。强制 eol=crlf 让所有平台 checkout 出与
+# 冻结 manifest 一致的字节；不修改 frozen dataset/manifest。
+evaluation/gate4/data/*.jsonl text eol=crlf

@@ -1,7 +1,38 @@
+import hashlib
 import os, yaml
+
+import pytest
+
+from core.embeddings import bge_emb as _bge_emb
+from core.loader.base import Document
 from core.pipeline import Pipeline
 from core.vector_store.chroma_store import ChromaStore
-from core.loader.base import Document
+
+_FAKE_EMBED_DIM = 512
+
+
+def _fake_vector(text: str) -> list:
+    """确定性、定维、无网络、不依赖 HF cache 的伪向量。"""
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    return [float(b) / 255.0 for b in digest[: _FAKE_EMBED_DIM]]
+
+
+def _fake_embed(self, texts):
+    return [_fake_vector(t) for t in texts]
+
+
+def _fake_embed_query(self, text):
+    return _fake_vector(text)
+
+
+@pytest.fixture(autouse=True)
+def _offline_bge_embedding(monkeypatch):
+    """本文件测试验证 index/update/BM25/idempotency/query 行为，不是验证
+    BGE 能否从 Hugging Face 下载；用确定性 fake embedding 使测试在无模型
+    缓存的 CI 上可跑。只在本测试模块生效，不改变生产 Pipeline 默认 BGE
+    行为。"""
+    monkeypatch.setattr(_bge_emb.BGEEmbedding, "embed", _fake_embed)
+    monkeypatch.setattr(_bge_emb.BGEEmbedding, "embed_query", _fake_embed_query)
 
 
 def test_pipeline_init():
