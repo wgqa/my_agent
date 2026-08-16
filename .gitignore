@@ -4,14 +4,14 @@ __pycache__/
 .coverage
 htmlcov/
 .env
-.venv/
+.venv*/
 venv/
 data/runtime/
 data/vector_store/
 data/test_store/
 experiments/results/tmp/
 experiments/*/*/vector_store/
-.tmp_pytest/
+.tmp_pytest*/
 *.log
 .DS_Store
 Thumbs.db
