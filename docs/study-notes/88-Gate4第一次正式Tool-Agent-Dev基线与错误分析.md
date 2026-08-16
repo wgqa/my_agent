@@ -126,3 +126,27 @@ JSON action）。总延迟 27.3s ≈ 41 次调用 × ~0.67s/次。这些是**成
 `allowed_sequence_match 1/4`、`parse_failure 2`、`budget_stop 1`、0 forbidden / 0
 duplicate / 0 tool error。这个结果是**可复现的正式观测**，接下来据此做错误分析，
 不现场调参。
+
+---
+
+## 11. 为什么正式模型 run 完成后还要 offline seal
+
+三件事必须分开，不能因为"模型真跑过了"就以为一切都对：
+
+- **model observation**：模型输出了什么（真实发生过）；
+- **artifact integrity**：落盘的字节是否就是"那次观测"（有没有被改、有没有抄错）；
+- **metric correctness**：从 artifact 算出的指标是否准确（口径有没有算错）。
+
+正式 run 完成后，`gate4_tool_use_dev_baseline.json` 是**人工/程序汇总**出来的摘要。
+offline seal（G4-EVAL-06B-03）就是从原始 7 个 artifact **独立重算**，证明这份摘要
+不是抄错——artifact SHA/size、run_id 重算、case 集合、15 指标四方一致、调用统计、
+case summary、Gold/secret 泄漏，全部独立核对。
+
+seal 为什么是"纯验证"：
+
+- **0 LLM**：不再调用任何模型；
+- **不改变性能**：只读既有 bytes，数字一个都不改；
+- **只验证已有 bytes**：不产生新观测，只是给已有观测盖个章。
+
+所以 seal 是"验证尺子的尺子"，和评测器本身要测试是同一个道理：**观测发生 ≠ 记录
+正确 ≠ 指标正确**，每一层都要独立校验。
