@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（46 份）
+## CURRENT（47 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -72,6 +72,7 @@
 | 90 | [90-Gate4真实HTTP多工具E2E-Smoke.md](90-Gate4真实HTTP多工具E2E-Smoke.md) | G4-E2E-07B：真实 HTTP 多工具 E2E smoke（非 benchmark、无 Gold）；FastAPI lifespan → production ToolAgentRuntime → deepseek-chat → real Tool → Observation → 后续 Decision → safe Trace；6 条固定 smoke 全 HTTP 200 结构化（direct/calculator/code_search/knowledge_search/multi-tool code→calc/safety refuse）；trace 白名单 + 0 key/raw/CoT/prompt/traceback；G4-E2E-07B = Reviewer accepted / CLOSED |
 | 91 | [91-Gate4最终冻结与Structured-Tool-Agent项目总结.md](91-Gate4最终冻结与Structured-Tool-Agent项目总结.md) | G4-CLOSE-08：Gate 4 最终冻结 + Structured Tool-Agent 项目总结（从零讲：ToolSpec/ToolCall/Observation、Registry/Executor 分离、LLM vs Runtime 边界、预算系统控制、Observation untrusted、safe trace≠CoT、四类失败区别、两阶段 Gold 隔离、Runner 审计、15 metric、baseline 20/24 解读、multi-step 1/4 不是失败、API 暴露、Fake vs Real E2E、limitation、为什么不刷分、2 分钟讲解、multi-step 追问回答、Gate 5、简历怎么写）；gate4_freeze_id=96c159b1ca2c |
 | 92 | [92-Gate5工程交付基线与Release-Readiness.md](92-Gate5工程交付基线与Release-Readiness.md) | G5-AUDIT-01：Release Readiness 概念群（能力 vs 交付 / 代码能跑 ≠ 项目能交付 / requirements vs lockfile / CI 解决什么 / Docker 解决什么不解决什么 / reproducibility vs portability / Secret-config 工程能力 / AI 项目为何需要模型-数据-artifact 身份 / 本地 smoke ≠ 公共复现 / Gate 5 为何不继续堆 Agent 技术）；审计矩阵 docs/experiments/gate5_release_readiness_baseline.{md,json}，10 类交付差距 P0/P1/P2 基线化 |
+| 93 | [93-Gate5可复现环境与输入锁定.md](93-Gate5可复现环境与输入锁定.md) | G5-ENV-02：requirements vs lock / direct vs transitive dependency / "我的电脑能跑"≠环境可复现 / external repo commit pinning（public_data_lock.json + verify_public_corpus.py）/ corpus_id 内容指纹可靠性 / experiment config 属于 provenance / 为何不能从 result.json 猜历史 config（experiment_id schema 演进、12 份 config.yaml 未入库的如实理由） |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -139,6 +140,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–92 共 **93 份**，每份只出现一次：CURRENT 46 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 93。
+- 编号覆盖 00–93 共 **94 份**，每份只出现一次：CURRENT 47 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 94。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-16。

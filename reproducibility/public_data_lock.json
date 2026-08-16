@@ -1,0 +1,12 @@
+{
+  "schema_version": "gate5_public_data_lock_v1",
+  "repository": "wgqa/agent_data",
+  "url": "https://github.com/wgqa/agent_data.git",
+  "default_branch": "master",
+  "commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+  "path": "agent_ai_v1/02_corpus_candidate",
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "verified_date": "2026-08-16",
+  "verification": "identity rebuilt with ExperimentCorpus.build over the 37 frozen corpus_entries from tracked experiments/*/*/index_manifest.json; corpus_id and file_count match the Gate 2 frozen identity (870e5864df67 / 37). The main repo does NOT pin this commit yet — this lock IS the pin."
+}
