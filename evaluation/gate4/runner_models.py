@@ -20,6 +20,7 @@ from core.tool_agent.actions import AgentDecisionCallMetadata, AgentDecisionOutc
 # 正式执行冻结的 Provider / 模型配置（本任务不调用真实模型）
 FROZEN_PROVIDER = "deepseek"
 FROZEN_MODEL = "deepseek-chat"
+FROZEN_BASE_URL = "https://api.deepseek.com/v1"
 FROZEN_TEMPERATURE = 0
 FROZEN_MAX_TOKENS = 600
 FROZEN_MAX_RETRIES = 0
@@ -135,6 +136,11 @@ class Gate4ToolUseRunConfig:
     prompt_version: str
     prompt_sha256: str
     toolset_sha256: str
+    base_url: str = FROZEN_BASE_URL
+    temperature: int = FROZEN_TEMPERATURE
+    max_tokens: int = FROZEN_MAX_TOKENS
+    max_retries: int = FROZEN_MAX_RETRIES
+    timeout_seconds: float = FROZEN_TIMEOUT_SECONDS
     max_agent_iterations: int = FROZEN_MAX_AGENT_ITERATIONS
     max_tool_calls: int = FROZEN_MAX_TOOL_CALLS
     max_tool_errors: int = FROZEN_MAX_TOOL_ERRORS
@@ -152,12 +158,24 @@ class Gate4ToolUseRunConfig:
         _require_sha(self.knowledge_corpus_id, 12, "knowledge_corpus_id")
         if not isinstance(self.knowledge_corpus_file_count, int):
             raise TypeError("knowledge_corpus_file_count 必须是 int")
-        for label in ("provider", "model", "prompt_version", "prompt_sha256",
-                      "toolset_sha256", "knowledge_strategy", "chunk_strategy"):
+        for label in ("prompt_version", "knowledge_strategy", "chunk_strategy"):
             _require_non_empty_str(getattr(self, label), label)
         _require_sha(self.prompt_sha256, 64, "prompt_sha256")
         _require_sha(self.toolset_sha256, 64, "toolset_sha256")
+
+        # 正式配置封死：provider/model/base_url 必须等于冻结值（调用者无权覆盖）
+        if self.provider != FROZEN_PROVIDER:
+            raise ValueError(f"provider 必须 == {FROZEN_PROVIDER!r}")
+        if self.model != FROZEN_MODEL:
+            raise ValueError(f"model 必须 == {FROZEN_MODEL!r}")
+        if self.base_url != FROZEN_BASE_URL:
+            raise ValueError(f"base_url 必须 == {FROZEN_BASE_URL!r}")
+
+        # 冻结 int 值：strict int（拒 bool）且必须等于冻结常量
         for label, value in (
+            ("temperature", self.temperature),
+            ("max_tokens", self.max_tokens),
+            ("max_retries", self.max_retries),
             ("max_agent_iterations", self.max_agent_iterations),
             ("max_tool_calls", self.max_tool_calls),
             ("max_tool_errors", self.max_tool_errors),
@@ -165,8 +183,26 @@ class Gate4ToolUseRunConfig:
             ("chunk_size", self.chunk_size),
             ("chunk_overlap", self.chunk_overlap),
         ):
-            if not isinstance(value, int) or value <= 0:
-                raise ValueError(f"{label} 必须是正整数")
+            _require_strict_int(value, label)
+        if isinstance(self.timeout_seconds, bool) or not isinstance(
+            self.timeout_seconds, (int, float)
+        ):
+            raise TypeError("timeout_seconds 必须是数字（不允许 bool）")
+        for label, value, frozen in (
+            ("temperature", self.temperature, FROZEN_TEMPERATURE),
+            ("max_tokens", self.max_tokens, FROZEN_MAX_TOKENS),
+            ("max_retries", self.max_retries, FROZEN_MAX_RETRIES),
+            ("timeout_seconds", self.timeout_seconds, FROZEN_TIMEOUT_SECONDS),
+            ("max_agent_iterations", self.max_agent_iterations,
+             FROZEN_MAX_AGENT_ITERATIONS),
+            ("max_tool_calls", self.max_tool_calls, FROZEN_MAX_TOOL_CALLS),
+            ("max_tool_errors", self.max_tool_errors, FROZEN_MAX_TOOL_ERRORS),
+            ("knowledge_top_k", self.knowledge_top_k, FROZEN_KNOWLEDGE_TOP_K),
+            ("chunk_size", self.chunk_size, FROZEN_CHUNK_SIZE),
+            ("chunk_overlap", self.chunk_overlap, FROZEN_CHUNK_OVERLAP),
+        ):
+            if value != frozen:
+                raise ValueError(f"{label} 必须 == {frozen}，当前 {value}")
 
     def identity_payload(self) -> dict:
         """不含 run_id 的 canonical payload（避免自指）。"""
@@ -179,6 +215,11 @@ class Gate4ToolUseRunConfig:
             "knowledge_corpus_file_count": self.knowledge_corpus_file_count,
             "provider": self.provider,
             "model": self.model,
+            "base_url": self.base_url,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "max_retries": self.max_retries,
+            "timeout_seconds": self.timeout_seconds,
             "prompt_version": self.prompt_version,
             "prompt_sha256": self.prompt_sha256,
             "toolset_sha256": self.toolset_sha256,
@@ -274,28 +315,57 @@ class RecordingDecisionProvider:
 
     @staticmethod
     def aggregate(decisions: Sequence[DecisionSummary]) -> dict:
-        """该 case 的 provider 安全聚合（tokens / latency / prompt / toolset）。"""
-        metas = [d.call_metadata for d in decisions if d.call_metadata is not None]
-        input_tokens = _sum_optional(metas, "input_tokens")
-        output_tokens = _sum_optional(metas, "output_tokens")
-        latency = sum(float(m.get("latency_ms", 0.0)) for m in metas)
-        last = metas[-1] if metas else {}
+        """该 case 的 provider 安全聚合。
+
+        token 全有（每个 Decision 都有 input_tokens / output_tokens）才求和；
+        任意一个缺失 → null（不得把部分和伪装成完整总量）。prompt/toolset 一致性
+        由 runner 的 per-decision 校验保证（R1-6），这里只取首个作展示。
+        """
+        if not decisions:
+            return {
+                "decision_call_count": 0,
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_latency_ms": 0.0,
+                "prompt_version": None,
+                "prompt_sha256": None,
+                "toolset_sha256": None,
+            }
+        tokens_in = [
+            d.call_metadata.get("input_tokens") if d.call_metadata else None
+            for d in decisions
+        ]
+        tokens_out = [
+            d.call_metadata.get("output_tokens") if d.call_metadata else None
+            for d in decisions
+        ]
+        input_tokens = (
+            sum(int(t) for t in tokens_in)
+            if all(t is not None for t in tokens_in)
+            else None
+        )
+        output_tokens = (
+            sum(int(t) for t in tokens_out)
+            if all(t is not None for t in tokens_out)
+            else None
+        )
+        latency = sum(
+            float(d.call_metadata.get("latency_ms", 0.0))
+            for d in decisions
+            if d.call_metadata
+        )
+        first_meta = next(
+            (d.call_metadata for d in decisions if d.call_metadata), {}
+        )
         return {
             "decision_call_count": len(decisions),
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_latency_ms": round(latency, 6),
-            "prompt_version": last.get("prompt_version"),
-            "prompt_sha256": last.get("prompt_sha256"),
-            "toolset_sha256": last.get("toolset_sha256"),
+            "prompt_version": first_meta.get("prompt_version"),
+            "prompt_sha256": first_meta.get("prompt_sha256"),
+            "toolset_sha256": first_meta.get("toolset_sha256"),
         }
-
-
-def _sum_optional(metas: Sequence[dict], key: str) -> Optional[int]:
-    values = [int(m[key]) for m in metas if m.get(key) is not None]
-    if not values:
-        return None
-    return sum(values)
 
 
 def _require_sha(value: str, length: int, label: str) -> None:
@@ -311,9 +381,15 @@ def _require_non_empty_str(value: str, label: str) -> None:
         raise ValueError(f"{label} 必须是非空字符串")
 
 
+def _require_strict_int(value, label: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{label} 必须是严格 int（不允许 bool）")
+
+
 __all__ = [
     "FROZEN_PROVIDER",
     "FROZEN_MODEL",
+    "FROZEN_BASE_URL",
     "FROZEN_TEMPERATURE",
     "FROZEN_MAX_TOKENS",
     "FROZEN_MAX_RETRIES",

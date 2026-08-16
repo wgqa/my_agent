@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Optional, Sequence
@@ -56,6 +57,7 @@ from evaluation.gate4.evaluator import (
     evaluate_case,
 )
 from evaluation.gate4.runner_models import (
+    FROZEN_BASE_URL,
     FROZEN_CHUNK_OVERLAP,
     FROZEN_CHUNK_SIZE,
     FROZEN_CHUNK_STRATEGY,
@@ -66,6 +68,7 @@ from evaluation.gate4.runner_models import (
     FROZEN_MAX_TOOL_ERRORS,
     FROZEN_MODEL,
     FROZEN_PROVIDER,
+    Gate4ExecutionCase,
     Gate4ExecutionResult,
     Gate4ToolUseRunConfig,
     RecordingDecisionProvider,
@@ -219,13 +222,26 @@ def verify_knowledge_gold_provenance(
     独立函数便于单独测试 evidence mismatch（corpus_id 校验前置由
     verify_corpus_provenance 负责）。
     """
-    root = Path(corpus_root)
+    root = Path(corpus_root).resolve()
     for case in set_obj.cases:
         if case.knowledge_gold is None:
             continue
         source_name = case.knowledge_gold.source_name
-        posix = PurePosixPath(source_name).as_posix()
+        raw = source_name.replace("\\", "/")
+        posix = PurePosixPath(raw)
+        if posix.is_absolute() or re.match(r"^[A-Za-z]:", raw):
+            raise RunnerAbort(
+                f"{case.case_id} source_name 是绝对路径：{source_name}"
+            )
+        if any(part == ".." for part in posix.parts):
+            raise RunnerAbort(
+                f"{case.case_id} source_name 含 .. 路径穿越：{source_name}"
+            )
         src = (root / posix).resolve()
+        if not src.is_relative_to(root):
+            raise RunnerAbort(
+                f"{case.case_id} source_name resolve 后逃逸 corpus root：{source_name}"
+            )
         if not src.is_file():
             raise RunnerAbort(f"{case.case_id} source 文件不存在：{source_name}")
         text = src.read_text(encoding="utf-8")
@@ -301,8 +317,6 @@ def build_run_config(
     set_obj: Gate4ToolUseEvaluationSet,
     dataset_sha: str,
     toolset_sha256: str,
-    provider: str,
-    model: str,
 ) -> Gate4ToolUseRunConfig:
     return Gate4ToolUseRunConfig(
         source_commit=source_commit,
@@ -311,8 +325,9 @@ def build_run_config(
         code_reference_commit=CODE_REFERENCE_COMMIT,
         knowledge_corpus_id=KNOWLEDGE_CORPUS_ID,
         knowledge_corpus_file_count=KNOWLEDGE_CORPUS_FILE_COUNT,
-        provider=provider,
-        model=model,
+        provider=FROZEN_PROVIDER,
+        model=FROZEN_MODEL,
+        base_url=FROZEN_BASE_URL,
         prompt_version=DECISION_PROMPT_VERSION,
         prompt_sha256=DECISION_PROMPT_SHA256,
         toolset_sha256=toolset_sha256,
@@ -341,8 +356,6 @@ class Gate4ToolUseRunner:
         corpus_verifier: Callable = verify_corpus_provenance,
         retrieval_port: Any = None,
         provider_factory: Callable | None = None,
-        provider: str = FROZEN_PROVIDER,
-        model: str = FROZEN_MODEL,
     ) -> None:
         if mode not in ("preflight", "execute"):
             raise ValueError(f"mode 必须是 preflight/execute，实际 {mode!r}")
@@ -357,8 +370,6 @@ class Gate4ToolUseRunner:
         self.corpus_verifier = corpus_verifier
         self._retrieval_port = retrieval_port
         self._provider_factory = provider_factory
-        self.provider = provider
-        self.model = model
 
     # ---- preflight ---------------------------------------------------- #
 
@@ -409,8 +420,6 @@ class Gate4ToolUseRunner:
             set_obj=set_obj,
             dataset_sha=dataset_sha,
             toolset_sha256=toolset_sha256,
-            provider=self.provider,
-            model=self.model,
         )
         run_id = config.compute_run_id()
         run_dir = self.output_root / run_id
@@ -424,6 +433,16 @@ class Gate4ToolUseRunner:
         self._config = config
         self._run_id = run_id
         self._relative_paths = relative_paths
+        # R1-5：正式 execution 只保存 ExecutionCase（仅 case_id + query），
+        # Gold 只在 Phase B 离线评分阶段重新加载。
+        self._execution_cases = tuple(
+            Gate4ExecutionCase(case_id=c.case_id, query=c.query)
+            for c in sorted(set_obj.cases, key=lambda x: x.case_id)
+        )
+        # R1-7：正式 execute 在 partial dir 创建之前构造 Provider
+        # （authorization 已在上面检查；缺 key / 构造错误 → 0 model call / 无 partial）。
+        if self.mode == "execute":
+            self._provider = self._build_provider()
 
         return {
             "schema_version": PREFLIGHT_SCHEMA_VERSION,
@@ -440,8 +459,10 @@ class Gate4ToolUseRunner:
 
     # ---- execution（Phase A） ------------------------------------------ #
 
-    def _execute(self) -> tuple[Gate4ExecutionResult, ...]:
-        provider = RecordingDecisionProvider(self._build_provider())
+    def _execute(
+        self, execution_cases: Sequence[Gate4ExecutionCase]
+    ) -> tuple[Gate4ExecutionResult, ...]:
+        provider = RecordingDecisionProvider(self._provider)
         runtime = ToolAgentRuntime(
             registry=self._registry,
             provider=provider,
@@ -452,7 +473,7 @@ class Gate4ToolUseRunner:
             ),
         )
         results: list[Gate4ExecutionResult] = []
-        for case in sorted(self._set_obj.cases, key=lambda c: c.case_id):
+        for case in execution_cases:
             start = provider.call_count
             try:
                 run_result = runtime.run(case.query)
@@ -464,6 +485,7 @@ class Gate4ToolUseRunner:
                 ) from exc
             end = provider.call_count
             decisions = provider.slice_decisions(start, end)
+            self._validate_metadata(decisions)
             agg = RecordingDecisionProvider.aggregate(decisions)
             results.append(
                 Gate4ExecutionResult(
@@ -493,6 +515,37 @@ class Gate4ToolUseRunner:
             )
         return tuple(results)
 
+    def _validate_metadata(self, decisions: Sequence[Any]) -> None:
+        """R1-6：每个 Decision 的 metadata 必须与 RunConfig 完全一致；生产路径必须完整。"""
+        cfg = self._config
+        require_full = self._provider_factory is None  # 正式 production path
+        for d in decisions:
+            meta = d.call_metadata
+            if meta is None:
+                if require_full:
+                    raise RunnerAbort(
+                        f"正式 production 路径 Decision 缺 call_metadata（case={d.iteration}）"
+                    )
+                continue
+            expected = {
+                "provider": cfg.provider,
+                "model": cfg.model,
+                "prompt_version": cfg.prompt_version,
+                "prompt_sha256": cfg.prompt_sha256,
+                "toolset_sha256": cfg.toolset_sha256,
+            }
+            for key, expected_val in expected.items():
+                actual = meta.get(key)
+                if actual != expected_val:
+                    raise RunnerAbort(
+                        f"Decision metadata {key} 漂移：期望 {expected_val!r}，"
+                        f"实际 {actual!r}"
+                    )
+            if meta.get("call_count") != 1:
+                raise RunnerAbort(
+                    f"Decision call_count 必须 == 1，实际 {meta.get('call_count')}"
+                )
+
     def _build_provider(self):
         if self._provider_factory is not None:
             return self._provider_factory(self._registry)
@@ -503,33 +556,39 @@ class Gate4ToolUseRunner:
         api_key = os.environ.get("DEEPSEEK_API_KEY")
         if not api_key:
             raise RunnerAbort("缺少 DEEPSEEK_API_KEY（execute 模式需要）")
+        # R1-1：只按真实 API 构造；temperature/max_tokens/max_retries/timeout
+        # 由 Provider 自己的冻结常量控制，base_url 用项目既有 DeepSeek endpoint。
         return OpenAICompatibleAgentDecisionProvider(
             provider=FROZEN_PROVIDER,
             model=FROZEN_MODEL,
             api_key=api_key,
-            temperature=0,
-            max_tokens=600,
-            max_retries=0,
-            timeout=20.0,
+            base_url=FROZEN_BASE_URL,
         )
 
     # ---- evaluation（Phase B） + artifact ------------------------------ #
 
     def _run_pipeline(self, partial_dir: Path) -> dict:
-        results = self._execute()
+        results = self._execute(self._execution_cases)
         self._write_jsonl(
             partial_dir / "execution_results.jsonl",
             [r.to_dict() for r in results],
         )
 
+        # R1-5：Phase B 重新加载冻结 Gold，重算/验证 identity + SHA + case_id set。
+        # execution 完成后、evaluation 前 dataset 若被篡改 → fail-closed（不生成 final）。
+        reloaded = Gate4ToolUseEvaluationSet.load_jsonl(self.dataset_path)
+        reloaded_sha = sha256_bytes(self.dataset_path.read_bytes())
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        verify_dataset_identity(reloaded, reloaded_sha, manifest)
+
         exec_ids = {r.case_id for r in results}
-        gold_ids = {c.case_id for c in self._set_obj.cases}
+        gold_ids = {c.case_id for c in reloaded.cases}
         if exec_ids != gold_ids or len(exec_ids) != FROZEN_CASE_COUNT:
             raise RunnerAbort(
                 "execution case_id set != Gold case_id set（多/少/重复全部 fail）"
             )
 
-        gold_by_id = {c.case_id: c for c in self._set_obj.cases}
+        gold_by_id = {c.case_id: c for c in reloaded.cases}
         scores = [
             evaluate_case(gold_by_id[r.case_id], r) for r in results
         ]

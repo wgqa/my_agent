@@ -289,7 +289,9 @@ def compute_metrics(scores: Sequence[CaseScore]) -> dict:
     )
 
     metrics["task_completion_rate"] = _rate(
-        sum(1 for s in scores if s.termination_correct and s.assertions_passed), n
+        # 冻结协议：终态正确（status == expected）+ assertions 全部通过；
+        # 不用 termination_correct（那是 reason-code 检查，见 termination_accuracy）
+        sum(1 for s in scores if s.terminal_correct and s.assertions_passed), n
     )
 
     completed = [s for s in scores if s.expected_terminal == "completed"]
@@ -307,7 +309,8 @@ def compute_metrics(scores: Sequence[CaseScore]) -> dict:
     )
 
     metrics["duplicate_tool_call_rate"] = _rate(
-        sum(1 for s in scores if s.failure_code == AGENT_DUPLICATE_TOOL_CALL), n
+        # Runtime 对 duplicate 是 refused + reason_code=AGENT_DUPLICATE_TOOL_CALL
+        sum(1 for s in scores if s.reason_code == AGENT_DUPLICATE_TOOL_CALL), n
     )
 
     metrics["termination_accuracy"] = _rate(

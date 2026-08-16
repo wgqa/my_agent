@@ -32,6 +32,7 @@ from evaluation.gate4.runner import (
     verify_knowledge_gold_provenance,
 )
 from evaluation.gate4.runner_models import (
+    FROZEN_BASE_URL,
     FROZEN_CHUNK_OVERLAP,
     FROZEN_CHUNK_SIZE,
     FROZEN_CHUNK_STRATEGY,
@@ -96,6 +97,7 @@ __all__ = [
     # runner_models
     "FROZEN_PROVIDER",
     "FROZEN_MODEL",
+    "FROZEN_BASE_URL",
     "FROZEN_TEMPERATURE",
     "FROZEN_MAX_TOKENS",
     "FROZEN_MAX_RETRIES",

@@ -26,11 +26,7 @@ from pathlib import Path
 # scripts/ 下直接运行时，把仓库根加入 sys.path（与 run_gate3_* 一致）
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from evaluation.gate4.runner import (  # noqa: E402
-    FROZEN_MODEL,
-    FROZEN_PROVIDER,
-    Gate4ToolUseRunner,
-)
+from evaluation.gate4.runner import Gate4ToolUseRunner  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = REPO_ROOT / "evaluation" / "gate4" / "data" / "tool_use_dev_v1.jsonl"
@@ -47,8 +43,6 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--corpus-root", default=None,
                         help="冻结语料根目录；默认读 GATE4_KNOWLEDGE_CORPUS_ROOT")
-    parser.add_argument("--provider", default=FROZEN_PROVIDER)
-    parser.add_argument("--model", default=FROZEN_MODEL)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--preflight-only", action="store_true",
                       help="只跑 preflight（0 model call）")
@@ -74,8 +68,6 @@ def main(argv: list[str] | None = None) -> int:
         corpus_root=corpus_root,
         mode=mode,
         execution_authorized=execution_authorized,
-        provider=args.provider,
-        model=args.model,
     )
     result = runner.run()
     print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -25,7 +26,9 @@ from core.tool_agent import (
     RefuseAction,
     ToolCallAction,
 )
+from core.tool_agent.openai_compatible import OpenAICompatibleAgentDecisionProvider
 from evaluation.gate4 import (
+    FROZEN_BASE_URL,
     FROZEN_EVALUATION_SET_ID,
     KNOWLEDGE_CORPUS_FILE_COUNT,
     KNOWLEDGE_CORPUS_ID,
@@ -51,6 +54,8 @@ from evaluation.gate4.runner import (
 from evaluation.gate4.runner_models import (
     DecisionSummary,
     Gate4ExecutionResult,
+    Gate4ToolUseRunConfig,
+    RecordingDecisionProvider,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -286,8 +291,6 @@ def _make_runner(
         corpus_verifier=verifier or _stub_corpus_verifier,
         retrieval_port=FakeRetrievalPort(),
         provider_factory=provider_factory,
-        provider="fake",
-        model="fake",
     )
 
 
@@ -520,7 +523,10 @@ class TestPreflightGates:
             runner.run()
 
     def test_output_dir_exists_rejects(self, tmp_path):
-        runner = _make_runner(tmp_path, mode="execute", authorized=True)
+        runner = _make_runner(
+            tmp_path, mode="execute", authorized=True,
+            provider_factory=lambda reg: PerfectProvider({}),
+        )
         facts = runner.preflight()
         run_dir = tmp_path / "out" / facts["run_id"]
         run_dir.mkdir(parents=True)
@@ -705,3 +711,208 @@ class TestFullPipeline:
             ("code_search", "knowledge_search"),
         )
         assert list(executed) in [list(seq) for seq in q20.allowed_tool_sequences]
+
+
+def _run_config(**overrides) -> Gate4ToolUseRunConfig:
+    base = dict(
+        source_commit="6393c10d33f175c6741cba77d691fb66d6321a12",
+        evaluation_set_id="5639ca57b09a",
+        dataset_jsonl_sha256="93a32e64130d79a4133fb01d1c84a3103940f286bacece5d2711c38add39e8af",
+        code_reference_commit="91627bb3ac5566f15f66be57bb8af2f3d553f203",
+        knowledge_corpus_id="870e5864df67",
+        knowledge_corpus_file_count=37,
+        provider="deepseek",
+        model="deepseek-chat",
+        prompt_version="tool_agent_decision_prompt_v2",
+        prompt_sha256="a" * 64,
+        toolset_sha256="b" * 64,
+    )
+    base.update(overrides)
+    return Gate4ToolUseRunConfig(**base)
+
+
+def _knowledge_case_dict(source_name: str) -> dict:
+    return {
+        "schema_version": "gate4_tool_use_case_v1",
+        "case_id": "g4q013",
+        "query": "测试",
+        "category": "knowledge_search",
+        "expected_terminal": "completed",
+        "expected_first_action": "tool_call",
+        "expected_first_tool": "knowledge_search",
+        "expected_first_tools": [],
+        "required_tools": ["knowledge_search"],
+        "allowed_tool_sequences": [],
+        "forbidden_tools": ["calculator", "code_search"],
+        "completion_assertions": [{"answer_contains": "排名"}],
+        "allowed_refuse_reason_codes": [],
+        "knowledge_gold": {"source_name": source_name, "evidence_phrase": "RRF"},
+        "tags": ["knowledge_search", "test"],
+        "rationale": "test",
+    }
+
+
+class TestR1Hardening:
+    def test_production_provider_builder_uses_frozen_base_url(self):
+        provider = OpenAICompatibleAgentDecisionProvider(
+            provider="deepseek",
+            model="deepseek-chat",
+            api_key="sk-test-fake",
+            base_url=FROZEN_BASE_URL,
+        )
+        assert FROZEN_BASE_URL in repr(provider)
+
+    def test_cli_rejects_provider_override(self):
+        import scripts.run_gate4_tool_use_dev as cli
+
+        with pytest.raises(SystemExit):
+            cli._parse_args(
+                ["--provider", "x", "--preflight-only", "--output-root", "y"]
+            )
+        with pytest.raises(SystemExit):
+            cli._parse_args(
+                ["--model", "x", "--preflight-only", "--output-root", "y"]
+            )
+
+    def test_duplicate_metric_uses_reason_code(self):
+        s = CaseScore(
+            case_id="x", category="calculator", expected_terminal="completed",
+            expected_first_action="tool_call", expected_first_tool="calculator",
+            expected_first_tools=(), required_tools=("calculator",),
+            forbidden_tools=(), allowed_tool_sequences=(),
+            actual_first_action="tool_call", actual_first_tool="calculator",
+            executed_tool_sequence=("calculator",),
+            required_tools_hit=1, required_tools_total=1,
+            forbidden_tool_used=False, unnecessary_tool_call_count=0,
+            assertions_passed=False, terminal_correct=False,
+            termination_correct=False, allowed_sequence_match=None,
+            status="refused", reason_code=AGENT_DUPLICATE_TOOL_CALL,
+            failure_code=None, iterations=2, tool_calls=1, tool_errors=0,
+        )
+        m = compute_metrics([s])
+        assert m["duplicate_tool_call_rate"]["numerator"] == 1
+
+    def test_task_completion_vs_termination_accuracy(self):
+        # refused + status_equals(refused) PASS + reason 不在 allowlist
+        set_obj = _real_set()
+        case = next(c for c in set_obj.cases if c.case_id == "g4q023")
+        res = _result("refused", reason_code="UNSAFE_REQUEST")
+        score = evaluate_case(case, res)
+        assert score.terminal_correct and score.assertions_passed
+        assert not score.termination_correct
+        m = compute_metrics([score])
+        assert m["task_completion_rate"]["value"] == 1.0
+        assert m["termination_accuracy"]["value"] == 0.0
+
+    def test_execution_receives_only_execution_cases(self, tmp_path):
+        runner = _make_runner(
+            tmp_path, mode="execute", authorized=True,
+            provider_factory=lambda reg: PerfectProvider({}),
+        )
+        runner.preflight()
+        assert len(runner._execution_cases) == 24
+        for c in runner._execution_cases:
+            assert type(c).__name__ == "Gate4ExecutionCase"
+            assert set(c.to_dict().keys()) == {"case_id", "query"}
+
+    def test_phase_b_reloads_dataset_fail_closed(self, tmp_path):
+        copy = tmp_path / "dataset.jsonl"
+        copy.write_bytes(JSONL.read_bytes())
+        set_obj = _real_set()
+        runner = _make_runner(
+            tmp_path, dataset=copy, mode="execute", authorized=True,
+            provider_factory=_perfect_provider_factory(_perfect_scripts(set_obj)),
+        )
+        facts = runner.preflight()
+        # 模拟 execution 完成后、evaluation 前 dataset 被篡改
+        copy.write_bytes(JSONL.read_bytes() + b"\n")
+        partial = tmp_path / "out" / f"{facts['run_id']}.partial"
+        partial.mkdir(parents=True)
+        with pytest.raises(RunnerAbort):
+            runner._run_pipeline(partial)
+        assert not (tmp_path / "out" / facts["run_id"]).exists()
+
+    def test_metadata_drift_rejected(self, tmp_path):
+        runner = _make_runner(tmp_path, mode="preflight")
+        runner.preflight()
+        cfg = runner._config
+        good = {
+            "provider": cfg.provider,
+            "model": cfg.model,
+            "prompt_version": cfg.prompt_version,
+            "prompt_sha256": cfg.prompt_sha256,
+            "toolset_sha256": cfg.toolset_sha256,
+            "call_count": 1,
+        }
+        runner._validate_metadata(
+            [DecisionSummary(1, "tool_call", "calculator", None, dict(good))]
+        )
+        bad_toolset = dict(good)
+        bad_toolset["toolset_sha256"] = "c" * 64
+        with pytest.raises(RunnerAbort, match="toolset_sha256"):
+            runner._validate_metadata(
+                [DecisionSummary(1, "tool_call", "calculator", None, bad_toolset)]
+            )
+        bad_prompt = dict(good)
+        bad_prompt["prompt_sha256"] = "d" * 64
+        with pytest.raises(RunnerAbort, match="prompt_sha256"):
+            runner._validate_metadata(
+                [DecisionSummary(1, "tool_call", "calculator", None, bad_prompt)]
+            )
+
+    def test_aggregate_tokens_all_or_nothing(self):
+        d1 = DecisionSummary(1, "tool_call", "calculator", None,
+                             {"input_tokens": 10, "output_tokens": 5,
+                              "latency_ms": 1.0})
+        d2 = DecisionSummary(2, "tool_call", "calculator", None, None)
+        d3 = DecisionSummary(3, "final_answer", None, None,
+                             {"input_tokens": 20, "output_tokens": 8,
+                              "latency_ms": 2.0})
+        agg = RecordingDecisionProvider.aggregate((d1, d2, d3))
+        assert agg["input_tokens"] is None
+        assert agg["output_tokens"] is None
+        full = RecordingDecisionProvider.aggregate((d1, d3))
+        assert full["input_tokens"] == 30
+        assert full["output_tokens"] == 13
+
+    def test_run_config_frozen_values_rejected(self):
+        with pytest.raises(ValueError):
+            _run_config(max_tool_calls=3)
+        with pytest.raises(TypeError):
+            _run_config(max_tool_calls=True)
+        with pytest.raises(ValueError):
+            _run_config(model="something")
+        with pytest.raises(ValueError):
+            _run_config(max_agent_iterations=6)
+        with pytest.raises(ValueError):
+            _run_config(base_url="https://evil.example.com")
+        # 合法配置可计算 run_id
+        assert len(_run_config().compute_run_id()) == 12
+
+    def test_production_execution_missing_key_no_partial(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+        # 不传 provider_factory → production path，构造 Provider 时缺 key
+        runner = _make_runner(tmp_path, mode="execute", authorized=True)
+        with pytest.raises(RunnerAbort, match="DEEPSEEK_API_KEY"):
+            runner.run()
+        out = tmp_path / "out"
+        if out.exists():
+            assert not any(p.name.endswith(".partial") for p in out.iterdir())
+
+    def test_provenance_containment_rejects_dotdot(self, tmp_path):
+        case = Gate4ToolUseEvaluationSet._parse_case(
+            _knowledge_case_dict("../outside.md"), 1
+        )
+        with pytest.raises(RunnerAbort, match=r"\.\."):
+            verify_knowledge_gold_provenance(
+                tmp_path / "corpus", SimpleNamespace(cases=(case,))
+            )
+
+    def test_provenance_containment_rejects_absolute(self, tmp_path):
+        case = Gate4ToolUseEvaluationSet._parse_case(
+            _knowledge_case_dict("D:/abs/outside.md"), 1
+        )
+        with pytest.raises(RunnerAbort, match="绝对路径"):
+            verify_knowledge_gold_provenance(
+                tmp_path / "corpus", SimpleNamespace(cases=(case,))
+            )

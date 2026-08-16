@@ -216,3 +216,50 @@ numerator/denominator 才不会撒谎。
 - 正式 G4-EVAL-06B execution = **BLOCKED** pending Reviewer 接受 harness；
 - 下一任务：Reviewer 审计 06B-01 后决定是否放行唯一一次正式执行（届时设置
   `GATE4_TOOL_USE_EXECUTION_AUTHORIZED=1`，用冻结的 deepseek/deepseek-chat 配置）。
+
+---
+
+## 18. R1 修正（runner correctness + provider wiring，本提交）
+
+Reviewer 审出的 Runner 正确性问题，全部在本 R1 修掉（仍 0 real LLM）：
+
+**Provider wiring**
+- 正式 Provider 只按真实 API 构造：`OpenAICompatibleAgentDecisionProvider(provider,
+  model, api_key, base_url=FROZEN_BASE_URL)`；不传 temperature/max_tokens/max_retries/
+  timeout（这些由 Provider 自己的冻结常量控制）。`FROZEN_BASE_URL` = 项目既有
+  `DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"`，不自行发明一套；
+- CLI 删除 `--provider` / `--model`，正式 Runner 固定 deepseek/deepseek-chat，
+  调用者无权覆盖。
+
+**RunConfig 封死**
+- canonical identity 扩入 base_url / temperature=0 / max_tokens=600 / max_retries=0 /
+  timeout_seconds=20，且所有冻结值强制相等（max_agent_iterations==5、max_tool_calls==4、
+  max_tool_errors==2、knowledge_top_k==5、chunk_size==512、chunk_overlap==64），
+  strict int（拒 bool）。run_id 因 identity 扩充而变是正常的（旧 preflight run_id 不属
+  正式性能结果）。
+
+**两个指标**
+- `duplicate_tool_call_rate` 用 `reason_code == AGENT_DUPLICATE_TOOL_CALL`（Runtime 对
+  duplicate 是 refused + reason_code），不是 failure_code；
+- `task_completion_rate` 用 `terminal_correct and assertions_passed`（终态正确 + 断言全
+  过），不用 termination_correct（那是 reason-code 检查，归 termination_accuracy）。
+
+**两阶段隔离落实**
+- preflight 后可读完整 Gold（provenance），但正式 execution 只保存
+  `Gate4ExecutionCase(case_id, query)`；`_execute()` 只接收 ExecutionCase；
+- Phase B 重新 `load_jsonl(dataset_path)`，重算/验证 frozen identity + SHA + case_id
+  set（execution 后、evaluation 前 dataset 被篡改 → fail-closed，不生成 final）。
+
+**metadata 身份**
+- 每个 Decision 的 metadata 必须与 RunConfig 完全一致（provider/model/prompt 版本/SHA/
+  toolset/call_count==1），任何漂移 → RunnerAbort；生产路径 metadata 必须完整（Fake
+  测试可 None）；
+- token 聚合全有才求和（3 次里 1 次缺 usage → aggregate = null），不把部分和当总量。
+
+**execute 顺序**
+- preflight → authorization → API key presence → 构造 production Provider（0 model call）
+  → 全部结构 gate PASS → 才创建 partial dir；缺 key/构造错误 → 0 model call 无 partial。
+
+**knowledge provenance containment**
+- source_name 禁 absolute、禁 `..`，resolve 后必须 is_relative_to(corpus_root)，再
+  is_file + substring（低成本 hardening）。
