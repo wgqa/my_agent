@@ -23,16 +23,19 @@
 
 ## 环境要求
 
-- Python 3.11+
-- BGE-small-zh-v1.5 模型缓存 (~33MB)
-- BGE-reranker-v2-m3 模型缓存 (~2.2GB，可选)
-- DeepSeek API Key（生成答案需要）
+- **正式验证环境：Python 3.14**（复现入口见 `requirements.lock`；不声称"所有 Python 3.11+ 均已验证"）
+- BGE-small-zh-v1.5 模型缓存 (~33MB，仅 Embedding 时使用)
+- BGE-reranker-v2-m3 模型缓存 (~2.2GB，可选，Rerank 时使用)
+- DeepSeek API Key（生成答案 / Agent 真调用需要；**仅启动 /health smoke 不需要**）
 
-## 安装
+## 安装（复现入口）
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.lock
 ```
+
+> `requirements.lock` 是 Release 1.0 的精确版本快照（Python 3.14 已验证）。
+> `requirements.txt` 保留为宽松的开发依赖描述（范围下限），不作为复现入口。
 
 ## 配置
 
@@ -50,6 +53,16 @@ python -m pytest --basetemp=.tmp_pytest
 ```
 
 `--basetemp=.tmp_pytest` 是 Windows 中文用户名环境的临时目录权限规避。
+
+## 启动自检（startup smoke）
+
+```bash
+python scripts/smoke_local_api.py
+```
+
+启动一个**真实** uvicorn 进程并验证 `/health` 与 `/openapi.json` 是否暴露预期路由；
+不依赖真实 API Key、不下载模型、不访问公网（仅 `127.0.0.1`）。成功输出 `STARTUP_SMOKE_OK`。
+启动 /health smoke **不需要**真实 API Key；生成回答与 Agent 真调用才需要相应 Key。
 
 ## 启动服务
 

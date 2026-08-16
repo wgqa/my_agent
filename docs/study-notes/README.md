@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（48 份）
+## CURRENT（49 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -74,6 +74,7 @@
 | 92 | [92-Gate5工程交付基线与Release-Readiness.md](92-Gate5工程交付基线与Release-Readiness.md) | G5-AUDIT-01：Release Readiness 概念群（能力 vs 交付 / 代码能跑 ≠ 项目能交付 / requirements vs lockfile / CI 解决什么 / Docker 解决什么不解决什么 / reproducibility vs portability / Secret-config 工程能力 / AI 项目为何需要模型-数据-artifact 身份 / 本地 smoke ≠ 公共复现 / Gate 5 为何不继续堆 Agent 技术）；审计矩阵 docs/experiments/gate5_release_readiness_baseline.{md,json}，10 类交付差距 P0/P1/P2 基线化 |
 | 93 | [93-Gate5可复现环境与输入锁定.md](93-Gate5可复现环境与输入锁定.md) | G5-ENV-02：requirements vs lock / direct vs transitive dependency / "我的电脑能跑"≠环境可复现 / external repo commit pinning（public_data_lock.json + verify_public_corpus.py）/ corpus_id 内容指纹可靠性 / experiment config 属于 provenance / 为何不能从 result.json 猜历史 config（experiment_id schema 演进、12 份 config.yaml 未入库的如实理由） |
 | 94 | [94-Gate5-CI与持续集成.md](94-Gate5-CI与持续集成.md) | G5-CI-03：CI 是什么 / 为什么本地 pytest ≠ CI / GitHub-hosted runner 是干净环境 / CI 为什么不能放真实 API key / 为什么真实模型 benchmark 不该每个 commit 都跑 / dependency cache 是什么 / 为什么暂时只把 Python 3.14 作为 validated version |
+| 95 | [95-Gate5-服务启动与API-Smoke.md](95-Gate5-服务启动与API-Smoke.md) | G5-RUN-04：startup smoke 概念 / unit vs integration vs process-level smoke / TestClient 为何不能替代真实 uvicorn / release smoke 为何不依赖真实 key / 不依赖 HF cache / localhost-only / 临时 cwd 隔离 vector store / health 与质量评测边界 / CI→smoke→frozen benchmark 三层证据 / 面试讲法 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -141,6 +142,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–94 共 **95 份**，每份只出现一次：CURRENT 48 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 95。
+- 编号覆盖 00–95 共 **96 份**，每份只出现一次：CURRENT 49 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 96。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-16。
