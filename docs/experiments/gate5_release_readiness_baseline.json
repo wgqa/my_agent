@@ -1,0 +1,441 @@
+{
+  "schema_version": "gate5_release_readiness_baseline_v1",
+  "task_id": "G5-AUDIT-01-RELEASE-READINESS-BASELINE",
+  "baseline_commit": "67ca69dda19c548e51b4c090e724afef6a982e5e",
+  "date": "2026-08-16",
+  "audit_scope": [
+    "docs/experiments/gate5_release_readiness_baseline.md",
+    "docs/experiments/gate5_release_readiness_baseline.json",
+    "docs/status.md",
+    "docs/study-notes/92-Gate5工程交付基线与Release-Readiness.md",
+    "docs/study-notes/README.md"
+  ],
+  "classification_legend": ["READY", "PARTIAL", "MISSING", "BLOCKED", "NOT_IN_SCOPE"],
+  "priority_legend": {
+    "P0": "阻塞最终项目交付",
+    "P1": "明显影响校招展示/复现",
+    "P2": "有价值但非必须"
+  },
+  "items": [
+    {
+      "id": "G5-A01-C01-001",
+      "category": "README / public narrative",
+      "item": "README 覆盖 Gate 1-4、三类 API、正式实验结果、架构、limitations",
+      "classification": "PARTIAL",
+      "evidence": "README.md 仅描述基础 RAG 管线（文件上传→Loader→Chunker→Embedding→Retriever→Reranker→Generator）；无 Gate 3 Agentic RAG / Gate 4 Tool Agent / /agent/query / /tool-agent/query / 任何冻结数字 / L1-L6 limitations",
+      "risk": "公开面只呈现基础 RAG，看不到项目最有价值的 Gate 3/4",
+      "priority": "P1",
+      "recommended_next_task": "G5-README-08"
+    },
+    {
+      "id": "G5-A01-C02-001",
+      "category": "Dependency reproducibility",
+      "item": "依赖声明完整性（无未声明 import）",
+      "classification": "READY",
+      "evidence": "全部顶层第三方 import 均已在 requirements.txt 声明；BM25 为自研（core/retriever/hybrid.py BM25Index + jieba），无 rank_bm25 隐藏依赖",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "G5-ENV-02（作为现状核对项）"
+    },
+    {
+      "id": "G5-A01-C02-002",
+      "category": "Dependency reproducibility",
+      "item": "lockfile / 依赖版本可复现",
+      "classification": "MISSING",
+      "evidence": "requirements.txt 全为宽松下限（pydantic>=2.0 chromadb>=0.4.0 openai>=1.0.0 fastapi>=0.104.0...）；无 pyproject.toml / uv.lock / poetry.lock",
+      "risk": "依赖树随安装日期漂移，1716 测试结果不可复现",
+      "priority": "P0",
+      "recommended_next_task": "G5-ENV-02"
+    },
+    {
+      "id": "G5-A01-C02-003",
+      "category": "Dependency reproducibility",
+      "item": "Python 版本声明 vs 实际验证",
+      "classification": "PARTIAL",
+      "evidence": "README 声称 Python 3.11+；实际仅在本机 Python 3.14.0 验证，无 3.11 CI",
+      "risk": "3.11+ 是声明非验证范围",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02（固定版本 + CI 矩阵）"
+    },
+    {
+      "id": "G5-A01-C02-004",
+      "category": "Dependency reproducibility",
+      "item": "模型名称/revision 钉住",
+      "classification": "MISSING",
+      "evidence": "config.yaml 用 BAAI/bge-small-zh-v1.5、BAAI/bge-reranker-v2-m3，无 revision pin",
+      "risk": "模型行为随上游漂移，冻结数字不可逐字节复现",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02"
+    },
+    {
+      "id": "G5-A01-C02-005",
+      "category": "Dependency reproducibility",
+      "item": "重模型依赖透明（torch/transformers/reranker 2.2GB）",
+      "classification": "PARTIAL",
+      "evidence": "sentence-transformers 传递拉入 torch/transformers/huggingface-hub；reranker v2-m3 约 2.2GB",
+      "risk": "新环境安装成本/磁盘预期不明",
+      "priority": "P2",
+      "recommended_next_task": "G5-ENV-02（CPU/GPU/磁盘说明）"
+    },
+    {
+      "id": "G5-A01-C03-001",
+      "category": "Test / CI readiness",
+      "item": "测试套件本身（离线、Fake 模型、无网络）",
+      "classification": "READY",
+      "evidence": "1716 passed + 4 skipped（G4-CLOSE-08）；test_api.py patch Pipeline、test_embeddings/test_chunk_budget_infrastructure 用 Fake 模型，离线可跑",
+      "risk": "无；测试资产已具备",
+      "priority": "P0",
+      "recommended_next_task": "G5-CI-03"
+    },
+    {
+      "id": "G5-A01-C03-002",
+      "category": "Test / CI readiness",
+      "item": "CI 管道（GitHub Actions）",
+      "classification": "MISSING",
+      "evidence": "仓库无 .github/ 目录、无 workflow",
+      "risk": "无自动验证，回归只靠人工",
+      "priority": "P0",
+      "recommended_next_task": "G5-CI-03"
+    },
+    {
+      "id": "G5-A01-C03-003",
+      "category": "Test / CI readiness",
+      "item": "env-gated / 语料依赖测试的 skip 语义",
+      "classification": "PARTIAL",
+      "evidence": "test_gate4_tool_use_dataset.py:89 无 GATE4_KNOWLEDGE_CORPUS_ROOT 时 skip；test_tool_agent_real_tools.py symlink 用例部分 OS skip（共 4 skipped）",
+      "risk": "skip 需在 CI 明确声明（默认 skip 合法）",
+      "priority": "P1",
+      "recommended_next_task": "G5-CI-03"
+    },
+    {
+      "id": "G5-A01-C03-004",
+      "category": "Test / CI readiness",
+      "item": "pytest basetemp 配置（Windows 规避 + 残留目录）",
+      "classification": "PARTIAL",
+      "evidence": "pytest.ini 全局 basetemp=.tmp_pytest；仓库根堆积 129 个 untracked .tmp_pytest_* 目录",
+      "risk": "Linux CI 无效配置但无害；仓库卫生差",
+      "priority": "P2",
+      "recommended_next_task": "G5-CI-03 + .gitignore 修复"
+    },
+    {
+      "id": "G5-A01-C04-001",
+      "category": "Container readiness",
+      "item": "Dockerfile",
+      "classification": "MISSING",
+      "evidence": "根目录无 Dockerfile",
+      "risk": "无法交付可运行镜像",
+      "priority": "P1",
+      "recommended_next_task": "G5-DOCKER-04"
+    },
+    {
+      "id": "G5-A01-C04-002",
+      "category": "Container readiness",
+      "item": "docker-compose / 健康检查",
+      "classification": "MISSING",
+      "evidence": "无 compose；API 有 /health 可用作 healthcheck 但未接线",
+      "risk": "无一键启动",
+      "priority": "P2",
+      "recommended_next_task": "G5-DOCKER-04"
+    },
+    {
+      "id": "G5-A01-C04-003",
+      "category": "Container readiness",
+      "item": "模型缓存处理（BGE local_files_only）",
+      "classification": "MISSING",
+      "evidence": "bge_emb.py:13 / bge_reranker.py:16 local_files_only=True，HF 缓存默认 ~/.cache/huggingface",
+      "risk": "镜像不预置/挂载模型则 503",
+      "priority": "P1",
+      "recommended_next_task": "G5-DOCKER-04（数据/模型缓存挂载）"
+    },
+    {
+      "id": "G5-A01-C04-004",
+      "category": "Container readiness",
+      "item": "Chroma 持久化（vector_store 挂载）",
+      "classification": "MISSING",
+      "evidence": "config.yaml vector_store path=./data/vector_store（gitignored）",
+      "risk": "不做 volume 则容器重启丢数据",
+      "priority": "P2",
+      "recommended_next_task": "G5-DOCKER-04"
+    },
+    {
+      "id": "G5-A01-C04-005",
+      "category": "Container readiness",
+      "item": "API key 注入方式",
+      "classification": "MISSING",
+      "evidence": ".env 含 DEEPSEEK_API_KEY；无 .env.example",
+      "risk": "容器需明确 env 注入",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02 + G5-DOCKER-04"
+    },
+    {
+      "id": "G5-A01-C05-001",
+      "category": "API surface",
+      "item": "端点定位/实现（/health /index/file /query /agent/query /tool-agent/query /stats）",
+      "classification": "READY",
+      "evidence": "api/app.py 六个端点均已实现并有测试（test_api.py + test_tool_agent_api.py）",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "G5-README-08（API 文档化）"
+    },
+    {
+      "id": "G5-A01-C05-002",
+      "category": "API surface",
+      "item": "request/response 边界（extra=forbid、长度上限）",
+      "classification": "READY",
+      "evidence": "api/schemas.py：AgentQueryRequest/ToolAgentQueryRequest extra=forbid；question 1-4000、top_k 1-50、history ≤20",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C05-003",
+      "category": "API surface",
+      "item": "安全边界（CORS 白名单 / 127.0.0.1 / safe trace）",
+      "classification": "READY",
+      "evidence": "CORS 仅 localhost:8501；默认监听 127.0.0.1；_safe_trace 字段白名单禁 key/raw/CoT/prompt/traceback/路径",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C05-004",
+      "category": "API surface",
+      "item": "初始化依赖（无模型缓存/无 key 时启动行为）",
+      "classification": "PARTIAL",
+      "evidence": "lifespan 急切构造 Pipeline（BGE local_files_only）；无缓存→503；tool-agent 缺 key→runtime=None→503",
+      "risk": "干净环境首次启动即 503",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02 + G5-README-08"
+    },
+    {
+      "id": "G5-A01-C05-005",
+      "category": "API surface",
+      "item": "/stats 返回原始 Config 对象（未脱敏）",
+      "classification": "PARTIAL",
+      "evidence": "app.py:373 'config': p.config（非 Config.dump()）；暴露 vector_store_path 等内部字段；无 API key",
+      "risk": "暴露内部实现路径，非脱敏快照",
+      "priority": "P2",
+      "recommended_next_task": "改为 Config.dump() 或删除"
+    },
+    {
+      "id": "G5-A01-C06-001",
+      "category": "UI reality",
+      "item": "UI 接入面（是否支持 Gate 3/4 Agent）",
+      "classification": "PARTIAL",
+      "evidence": "ui/app.py 只调 /health /stats /index/file /query；无 /agent/query /tool-agent/query",
+      "risk": "不能凭 ui/ 目录声称支持 Agent",
+      "priority": "P2",
+      "recommended_next_task": "可选：UI 加 Agent 标签页（非 Gate 5 blocking）"
+    },
+    {
+      "id": "G5-A01-C06-002",
+      "category": "UI reality",
+      "item": "README 对 UI 能力边界的表述",
+      "classification": "PARTIAL",
+      "evidence": "README 只说 streamlit run ui/app.py，未说明 UI 只接基础 /query",
+      "risk": "面试官可能误以为 UI 已演示 Agent",
+      "priority": "P1",
+      "recommended_next_task": "G5-README-08"
+    },
+    {
+      "id": "G5-A01-C07-001",
+      "category": "Configuration / secrets",
+      "item": ".env 管理（gitignore + load_dotenv + env 注入）",
+      "classification": "READY",
+      "evidence": ".env 已 gitignore；api/app.py load_dotenv；key 从 env 注入不落盘",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C07-002",
+      "category": "Configuration / secrets",
+      "item": ".env.example",
+      "classification": "MISSING",
+      "evidence": "仓库无 .env.example",
+      "risk": "新用户不知道要配 DEEPSEEK_API_KEY",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02"
+    },
+    {
+      "id": "G5-A01-C07-003",
+      "category": "Configuration / secrets",
+      "item": "配置安全默认（无密钥 / dump 脱敏 / localhost）",
+      "classification": "READY",
+      "evidence": "config.yaml 无密钥；Config.dump() 脱敏；API 默认 127.0.0.1；README 声明公开部署需认证/TLS/限流",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C07-004",
+      "category": "Configuration / secrets",
+      "item": "鉴权/限流（公开部署）",
+      "classification": "NOT_IN_SCOPE",
+      "evidence": "项目定位本地 demo，无鉴权/限流为有意边界（README 已声明）",
+      "risk": "公开部署前必须补",
+      "priority": "P1",
+      "recommended_next_task": "文档声明即可，不入本轮实现"
+    },
+    {
+      "id": "G5-A01-C08-001",
+      "category": "Observability / Trace",
+      "item": "Gate 3 trace（结构化、脱敏）",
+      "classification": "READY",
+      "evidence": "/agent/query 返回结构化 trace（TraceEvent，禁 key/raw/prompt/traceback/正文）",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C08-002",
+      "category": "Observability / Trace",
+      "item": "Gate 4 safe trace（trace ≠ CoT）",
+      "classification": "READY",
+      "evidence": "/tool-agent/query 只透 _TRACE_ALLOWED_KEYS 白名单",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C08-003",
+      "category": "Observability / Trace",
+      "item": "传输层可观测性（trace_id/request_id/结构化日志/latency/token）",
+      "classification": "MISSING",
+      "evidence": "无 trace_id 关联、无服务端结构化日志、响应不含 latency/token 摘要",
+      "risk": "roadmap G5-TRACE-05/SSE-06 目标未覆盖",
+      "priority": "P2",
+      "recommended_next_task": "G5-TRACE-05 + G5-SSE-06"
+    },
+    {
+      "id": "G5-A01-C08-004",
+      "category": "Observability / Trace",
+      "item": "性能报告（P50/P95/并发/分阶段耗时）",
+      "classification": "MISSING",
+      "evidence": "无 G5-PERF-07 目标报告",
+      "risk": "面试展示缺少性能证据",
+      "priority": "P2",
+      "recommended_next_task": "G5-PERF-07"
+    },
+    {
+      "id": "G5-A01-C09-001",
+      "category": "Public reproduction",
+      "item": "冻结语料（37 文件）可复现",
+      "classification": "MISSING",
+      "evidence": "冻结语料在仓库外 rag数据集/benchmark_work/agent_ai_v1/02_corpus_candidate（独立 git 库）；主仓库 data/ 仅 runtime store",
+      "risk": "新环境无法复现任何 Gate 2/3/4 冻结数字",
+      "priority": "P0",
+      "recommended_next_task": "G5-ENV-02（可公开最小语料 + 单命令重建）"
+    },
+    {
+      "id": "G5-A01-C09-002",
+      "category": "Public reproduction",
+      "item": "Gate 3 dev/holdout 数据集入库",
+      "classification": "MISSING",
+      "evidence": "gate3/dev（24 case）与 gate3/sealed（12 case）在外部 benchmark_work/gate3/；evaluation/gate3/ 仅代码",
+      "risk": "dev 评测无法复现（holdout 本就不该公开）",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02（dev jsonl 入库 + 清单化）"
+    },
+    {
+      "id": "G5-A01-C09-003",
+      "category": "Public reproduction",
+      "item": "Gate 4 评测集入库",
+      "classification": "READY",
+      "evidence": "evaluation/gate4/data/tool_use_dev_v1.jsonl + manifest 已入库（24 case，evaluation_set_id=5639ca57b09a）",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C09-004",
+      "category": "Public reproduction",
+      "item": "实验 config.yaml 入库（结果已入库但定义实验的参数未入库）",
+      "classification": "MISSING",
+      "evidence": "git ls-files experiments/ 只含 result/metrics/diagnostics；12 个实验 config.yaml 全部 untracked",
+      "risk": "结果公开、参数不公开 → 结果无法核对",
+      "priority": "P0",
+      "recommended_next_task": "G5-ENV-02（补 config 或脚本化重建）"
+    },
+    {
+      "id": "G5-A01-C09-005",
+      "category": "Public reproduction",
+      "item": "单命令复现（clone→装→测→起 API→调端点）",
+      "classification": "MISSING",
+      "evidence": "README 无单命令复现链；模型缓存获取命令缺失",
+      "risk": "面试官/同学照 README 走会卡",
+      "priority": "P1",
+      "recommended_next_task": "G5-README-08（复现命令段）"
+    },
+    {
+      "id": "G5-A01-C09-006",
+      "category": "Public reproduction",
+      "item": "模型缓存前置（local_files_only 不自动下载）",
+      "classification": "PARTIAL",
+      "evidence": "README 提 BGE 模型缓存但无获取命令；reranker 标可选但 config reranker.enabled=true",
+      "risk": "缺模型即 503",
+      "priority": "P1",
+      "recommended_next_task": "G5-ENV-02 + G5-README-08"
+    },
+    {
+      "id": "G5-A01-C10-001",
+      "category": "Release hygiene",
+      "item": ".gitignore 覆盖 .tmp_pytest_* 残留目录",
+      "classification": "PARTIAL",
+      "evidence": ".gitignore 只忽略 .tmp_pytest/ 精确目录名；129 个 untracked .tmp_pytest_* 目录",
+      "risk": "git status 被噪声淹没",
+      "priority": "P2",
+      "recommended_next_task": ".gitignore 加 .tmp_pytest*/"
+    },
+    {
+      "id": "G5-A01-C10-002",
+      "category": "Release hygiene",
+      "item": "根目录残留文件（test.txt）",
+      "classification": "PARTIAL",
+      "evidence": "根目录 tracked test.txt（174 B 无意义英文句）",
+      "risk": "公开仓库有垃圾文件",
+      "priority": "P2",
+      "recommended_next_task": "清理 test.txt"
+    },
+    {
+      "id": "G5-A01-C10-003",
+      "category": "Release hygiene",
+      "item": "LICENSE",
+      "classification": "MISSING",
+      "evidence": "根目录无 LICENSE",
+      "risk": "公开/开源发布需补；仅给面试官看则低优先",
+      "priority": "P2",
+      "recommended_next_task": "补 LICENSE（MIT 或按意愿）"
+    },
+    {
+      "id": "G5-A01-C10-004",
+      "category": "Release hygiene",
+      "item": "冻结证据文档入库（docs/experiments/*.json）",
+      "classification": "READY",
+      "evidence": "11 份 JSON（gate2/gate3 freeze、holdout final、gate4 baseline/seal/freeze/e2e smoke）均已入库",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C10-005",
+      "category": "Release hygiene",
+      "item": "benchmark 外部 artifact 边界（独立 git 库）",
+      "classification": "READY",
+      "evidence": "rag数据集/benchmark_work 独立 git 库未混入主仓库；data/vector_store、.env 均已 ignore",
+      "risk": "无",
+      "priority": "P0",
+      "recommended_next_task": "无（保持）"
+    },
+    {
+      "id": "G5-A01-C10-006",
+      "category": "Release hygiene",
+      "item": ".dockerignore",
+      "classification": "NOT_IN_SCOPE",
+      "evidence": "无 Docker（见 C04）",
+      "risk": "随 G5-DOCKER-04 一并补",
+      "priority": "P2",
+      "recommended_next_task": "G5-DOCKER-04"
+    }
+  ]
+}
