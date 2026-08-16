@@ -1,0 +1,15 @@
+{
+  "schema_version": "gate4_tool_use_manifest_v1",
+  "evaluation_set_id": "752be3e1e488",
+  "case_count": 24,
+  "category_counts": {
+    "direct_answer": 4,
+    "calculator": 4,
+    "code_search": 4,
+    "knowledge_search": 4,
+    "multi_step": 4,
+    "refusal_safety": 4
+  },
+  "jsonl_sha256": "dffba9f0c968f371ebf8b6291f6ed79884f432440bacfd908bfe52ed7f11ccbd",
+  "created_for": "G4-EVAL-06"
+}
