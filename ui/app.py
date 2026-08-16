@@ -1,184 +1,204 @@
+"""G5-APP-04: RAG Agent Demo Console（Streamlit）。
+
+把三种正式后端能力接到网页：
+  ① Basic RAG              → POST /query
+  ② Agentic RAG            → POST /agent/query
+  ③ Structured Tool Agent  → POST /tool-agent/query
+
+HTTP 全部走 ui.api_client.ApiClient；页面渲染走 ui.renderers。
+UI 只展示 API 返回的事实：不推断 CoT、不展示 Prompt、不展示 API key。
+"""
+
 import streamlit as st
-import requests
-from pathlib import Path
 
-API_URL = "http://localhost:8000"
+from ui import renderers
+from ui.api_client import ApiClient, ApiError
 
-st.set_page_config(
-    page_title="RAG 知识库",
-    page_icon="📚",
-    layout="wide",
-)
-
-# ── 初始化 session state ──
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "api_url" not in st.session_state:
-    st.session_state.api_url = API_URL
-
-
-def api_base() -> str:
-    return st.session_state.api_url
+MODES = {
+    "Basic RAG": "检索 → Rerank → Generate",
+    "Agentic RAG": "Planner → Adaptive Retrieval → Verification → Answer",
+    "Structured Tool Agent": "Decision → Tool → Observation → Final",
+}
+MODE_KEY = {
+    "Basic RAG": "basic",
+    "Agentic RAG": "agent",
+    "Structured Tool Agent": "tool_agent",
+}
+DEFAULT_API_URL = "http://localhost:8000"
 
 
-def call_health() -> dict | None:
+def _init_state() -> None:
+    if "api_client" not in st.session_state:
+        st.session_state.api_client = ApiClient(DEFAULT_API_URL)
+    if "messages_by_mode" not in st.session_state:
+        st.session_state.messages_by_mode = {"basic": [], "agent": [], "tool_agent": []}
+
+
+def _show_error(err: ApiError) -> None:
+    if err.kind == "connection_error":
+        st.error("无法连接 API，请先启动后端")
+    elif err.kind == "timeout":
+        st.error("请求超时")
+    elif err.kind == "http_error" and err.status == 503:
+        st.error("运行时当前不可用")
+        if err.detail:
+            st.caption(str(err.detail)[:200])
+    elif err.kind == "http_error":
+        st.error(err.message)
+        if err.detail:
+            st.caption(str(err.detail)[:200])
+    else:  # invalid_response
+        st.error(err.message)
+
+
+# ── 提交 ────────────────────────────────────────────────────────
+
+def _submit(question: str, mode: str, top_k: int) -> dict:
+    client = st.session_state.api_client
     try:
-        r = requests.get(f"{api_base()}/health", timeout=5)
-        return r.json() if r.ok else None
-    except Exception:
-        return None
+        if mode == "basic":
+            result = client.query(question, top_k)
+            renderers.render_basic_sources(result.get("sources") or [])
+            return {"content": result.get("answer", ""), "kind": "basic", "result": result}
+        if mode == "agent":
+            result = client.agent_query(question, top_k)
+            renderers.render_agent_result(result)
+            return {"content": "", "kind": "agent", "result": result}
+        result = client.tool_agent_query(question)
+        renderers.render_tool_result(result)
+        return {"content": "", "kind": "tool_agent", "result": result}
+    except ApiError as err:
+        _show_error(err)
+        return {"content": f"❌ {err.message}", "kind": mode, "result": None}
 
 
-def call_stats() -> dict | None:
-    try:
-        r = requests.get(f"{api_base()}/stats", timeout=5)
-        return r.json() if r.ok else None
-    except Exception:
-        return None
+def _render_message(msg: dict) -> None:
+    if msg.get("role") == "user":
+        with st.chat_message("user"):
+            st.markdown(msg.get("content", ""))
+        return
+    with st.chat_message("assistant"):
+        result = msg.get("result")
+        kind = msg.get("kind")
+        if result and kind == "basic":
+            st.markdown(result.get("answer", ""))
+            renderers.render_basic_sources(result.get("sources") or [])
+        elif result and kind == "agent":
+            renderers.render_agent_result(result)
+        elif result and kind == "tool_agent":
+            renderers.render_tool_result(result)
+        else:
+            content = msg.get("content", "")
+            if content:
+                st.markdown(content)
 
 
-def call_index(file_bytes: bytes, filename: str) -> dict | None:
-    try:
-        r = requests.post(
-            f"{api_base()}/index/file",
-            files={"file": (filename, file_bytes)},
-            timeout=60,
+# ── 侧边栏 ─────────────────────────────────────────────────────
+
+def _sidebar() -> tuple[str, int]:
+    with st.sidebar:
+        st.title("⚙️ RAG Agent Console")
+        api_url = st.text_input("API 地址", value=DEFAULT_API_URL)
+        st.session_state.api_client.base_url = api_url.rstrip("/")
+
+        st.divider()
+        try:
+            health = st.session_state.api_client.health()
+            st.success(f"✅ 服务正常  |  文档数: {health.get('docs_count', '?')}")
+            st.caption(
+                f"Embedding: {health.get('embedding_provider')}  |  "
+                f"检索: {health.get('retriever_strategy')}  |  "
+                f"生成: {health.get('generator_provider')}"
+            )
+        except ApiError:
+            st.error("❌ 服务不可用 — 请确认后端已启动")
+
+        st.divider()
+        mode = st.radio(
+            "运行模式",
+            list(MODES.keys()),
+            help="选择要使用的后端链路",
         )
-        return r.json() if r.ok else {"error": r.text}
-    except Exception as e:
-        return {"error": str(e)}
+        st.caption(MODES[mode])
+
+        top_k = 5
+        if MODE_KEY[mode] != "tool_agent":
+            top_k = st.slider("检索数量 (top_k)", min_value=1, max_value=10, value=5)
+        st.divider()
+        if st.button("清空对话"):
+            st.session_state.messages_by_mode[MODE_KEY[mode]] = []
+            st.rerun()
+    return mode, top_k
 
 
-def call_query(question: str, top_k: int) -> dict | None:
-    try:
-        r = requests.post(
-            f"{api_base()}/query",
-            json={"question": question, "top_k": top_k},
-            timeout=120,
-        )
-        return r.json() if r.ok else {"error": r.text}
-    except Exception as e:
-        return {"error": str(e)}
+# ── 知识库 Tab ─────────────────────────────────────────────────
 
-
-# ── 侧边栏 ──
-with st.sidebar:
-    st.title("⚙️ 设置")
-    st.text_input("API 地址", value=api_base(), key="api_url")
-
-    st.divider()
-    health = call_health()
-    if health:
-        st.success(f"✅ 服务正常  |  文档数: {health['docs_count']}")
-        st.caption(
-            f"Embedding: {health['embedding_provider']}  |  "
-            f"检索: {health['retriever_strategy']}  |  "
-            f"生成: {health['generator_provider']}"
-        )
-    else:
-        st.error("❌ 服务不可用 — 请确认 API 已启动")
-
-    st.divider()
-    top_k = st.slider("检索数量 (top_k)", min_value=1, max_value=10, value=5)
-    st.caption("知识库文件:")
-    st.code(".txt  .md  .pdf  .py  .js  .java")
-
-# ── 主界面 ──
-st.title("📚 RAG 知识库问答系统")
-
-tab_index, tab_query = st.tabs(["📥 知识库管理", "💬 问答"])
-
-# ════════════════════════════════════════
-# Tab 1: 知识库管理
-# ════════════════════════════════════════
-with tab_index:
+def _tab_knowledge_base() -> None:
     col1, col2 = st.columns([1, 1])
-
     with col1:
         st.subheader("上传文件")
-        uploaded_file = st.file_uploader(
+        uploaded = st.file_uploader(
             "选择文件上传到知识库",
             type=["txt", "md", "pdf", "py", "js", "java"],
         )
-
-        if uploaded_file is not None:
-            with st.spinner(f"正在索引 {uploaded_file.name}..."):
-                result = call_index(uploaded_file.getvalue(), uploaded_file.name)
-            if result:
-                if "error" in result:
-                    st.error(f"索引失败: {result['error']}")
-                else:
-                    st.success(
-                        f"✅ {result['file_name']} 索引完成 — "
-                        f"生成 {result['chunks']} 个块"
+        if uploaded is not None:
+            with st.spinner(f"正在索引 {uploaded.name}..."):
+                try:
+                    result = st.session_state.api_client.index_file(
+                        uploaded.getvalue(), uploaded.name
                     )
-            else:
-                st.error("索引失败: API 无响应")
-
+                    st.success(
+                        f"✅ {result.get('file_name', uploaded.name)} 索引完成 — "
+                        f"生成 {result.get('chunks', '?')} 个块"
+                    )
+                except ApiError as err:
+                    _show_error(err)
     with col2:
         st.subheader("知识库状态")
-        stats = call_stats()
-        if stats:
-            st.metric("文档块总数", stats.get("documents_count", 0))
+        try:
+            stats = st.session_state.api_client.stats()
+            st.metric("文档块总数", stats.get("documents_count", "?"))
             with st.expander("当前配置"):
                 st.json(stats.get("config", {}))
-        else:
+        except ApiError:
             st.info("无法获取知识库状态")
 
-# ════════════════════════════════════════
-# Tab 2: 问答
-# ════════════════════════════════════════
-with tab_query:
-    # 显示对话历史
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-            if "sources" in msg:
-                with st.expander(f"📎 来源 ({len(msg['sources'])} 个)"):
-                    for i, src in enumerate(msg["sources"]):
-                        st.markdown(
-                            f"**#{i+1}** — 来源: `{src['source']}`  "
-                            f"(score: {src['score']:.3f})"
-                        )
-                        st.text(src["content"])
 
-    # 输入框
+# ── Console Tab ────────────────────────────────────────────────
+
+def _tab_console(mode: str, top_k: int) -> None:
+    key = MODE_KEY[mode]
+    messages = st.session_state.messages_by_mode[key]
+
+    for msg in messages:
+        _render_message(msg)
+
     if prompt := st.chat_input("输入你的问题..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-
         with st.chat_message("assistant"):
-            with st.spinner("思考中..."):
-                result = call_query(prompt, top_k)
+            with st.spinner("处理中..."):
+                reply = _submit(prompt, MODE_KEY[mode], top_k)
+        messages.append({"role": "assistant", **reply})
+        st.session_state.messages_by_mode[key] = messages
 
-            if result and "error" not in result:
-                answer = result["answer"]
-                sources = result.get("sources", [])
-                st.markdown(answer)
-                if sources:
-                    with st.expander(f"📎 来源 ({len(sources)} 个)"):
-                        for i, src in enumerate(sources):
-                            st.markdown(
-                                f"**#{i+1}** — `{src['source']}`  "
-                                f"(score: {src['score']:.3f})"
-                            )
-                            st.text(src["content"])
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "sources": sources,
-                })
-            else:
-                err_msg = result.get("error", "API 无响应") if result else "API 无响应"
-                st.error(f"查询失败: {err_msg}")
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": f"❌ {err_msg}",
-                })
 
-    # 清空对话按钮
-    if st.session_state.messages:
-        if st.button("清空对话"):
-            st.session_state.messages = []
-            st.rerun()
+# ── 主入口 ─────────────────────────────────────────────────────
+
+def main() -> None:
+    st.set_page_config(page_title="RAG Agent Demo Console", layout="wide")
+    _init_state()
+    mode, top_k = _sidebar()
+
+    st.title("📚 RAG Agent Demo Console")
+    tab_kb, tab_console = st.tabs(["📥 知识库", "🤖 Agent Console"])
+
+    with tab_kb:
+        _tab_knowledge_base()
+    with tab_console:
+        _tab_console(mode, top_k)
+
+
+if __name__ == "__main__":
+    main()

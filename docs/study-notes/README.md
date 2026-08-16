@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（49 份）
+## CURRENT（50 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -75,6 +75,7 @@
 | 93 | [93-Gate5可复现环境与输入锁定.md](93-Gate5可复现环境与输入锁定.md) | G5-ENV-02：requirements vs lock / direct vs transitive dependency / "我的电脑能跑"≠环境可复现 / external repo commit pinning（public_data_lock.json + verify_public_corpus.py）/ corpus_id 内容指纹可靠性 / experiment config 属于 provenance / 为何不能从 result.json 猜历史 config（experiment_id schema 演进、12 份 config.yaml 未入库的如实理由） |
 | 94 | [94-Gate5-CI与持续集成.md](94-Gate5-CI与持续集成.md) | G5-CI-03：CI 是什么 / 为什么本地 pytest ≠ CI / GitHub-hosted runner 是干净环境 / CI 为什么不能放真实 API key / 为什么真实模型 benchmark 不该每个 commit 都跑 / dependency cache 是什么 / 为什么暂时只把 Python 3.14 作为 validated version |
 | 95 | [95-Gate5-服务启动与API-Smoke.md](95-Gate5-服务启动与API-Smoke.md) | G5-RUN-04：startup smoke 概念 / unit vs integration vs process-level smoke / TestClient 为何不能替代真实 uvicorn / release smoke 为何不依赖真实 key / 不依赖 HF cache / localhost-only / 临时 cwd 隔离 vector store / health 与质量评测边界 / CI→smoke→frozen benchmark 三层证据 / 面试讲法 |
+| 96 | [96-Gate5-前端与Agent可视化.md](96-Gate5-前端与Agent可视化.md) | G5-APP-04：Demo Console 价值 / UI-API-Runtime 三层边界 / 前端为何不能展示 CoT / Safe Trace vs CoT / completed-refused-deferred-failed 产品语义 / ApiClient 与渲染分离 / 三模式后端链路 / 面试现场用 UI 讲架构 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -142,6 +143,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–95 共 **96 份**，每份只出现一次：CURRENT 49 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 96。
+- 编号覆盖 00–96 共 **97 份**，每份只出现一次：CURRENT 50 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 97。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-16。
