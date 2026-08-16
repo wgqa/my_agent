@@ -1,0 +1,200 @@
+{
+  "schema_version": "gate4_tool_use_dev_baseline_v1",
+  "run": {
+    "run_id": "fa4ab9aa5f13",
+    "source_commit": "de17b809f83f993d4f5857137995bd9f6f89e79f",
+    "evaluation_set_id": "5639ca57b09a",
+    "dataset_jsonl_sha256": "93a32e64130d79a4133fb01d1c84a3103940f286bacece5d2711c38add39e8af",
+    "code_reference_commit": "91627bb3ac5566f15f66be57bb8af2f3d553f203",
+    "knowledge_corpus_id": "870e5864df67",
+    "knowledge_corpus_file_count": 37,
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com/v1",
+    "temperature": 0,
+    "max_tokens": 600,
+    "max_retries": 0,
+    "timeout_seconds": 20.0,
+    "prompt_version": "tool_agent_decision_prompt_v2",
+    "prompt_sha256": "92714600622618c057b561b62432b763346713c2483a23c7b68e3ee10f018e43",
+    "toolset_sha256": "76d73cdef53d18c95038e3938bd712547d518d68fb43daea45b722e31865af27",
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2,
+    "knowledge_strategy": "bm25",
+    "knowledge_top_k": 5,
+    "chunk_strategy": "recursive",
+    "chunk_size": 512,
+    "chunk_overlap": 64,
+    "decision_call_count": 41,
+    "input_tokens_total": 38443,
+    "output_tokens_total": 1317,
+    "latency_ms_total": 27313.4,
+    "status": "completed"
+  },
+  "metrics": {
+    "first_action_accuracy": {
+      "numerator": 21,
+      "denominator": 24,
+      "value": 0.875
+    },
+    "first_tool_accuracy": {
+      "numerator": 13,
+      "denominator": 16,
+      "value": 0.8125
+    },
+    "required_tool_coverage": {
+      "numerator": 14,
+      "denominator": 20,
+      "value": 0.7
+    },
+    "task_completion_rate": {
+      "numerator": 20,
+      "denominator": 24,
+      "value": 0.833333
+    },
+    "final_answer_correct_rate": {
+      "numerator": 16,
+      "denominator": 20,
+      "value": 0.8
+    },
+    "unnecessary_tool_call_rate": {
+      "numerator": 0,
+      "denominator": 17,
+      "value": 0.0
+    },
+    "forbidden_tool_call_rate": {
+      "numerator": 0,
+      "denominator": 24,
+      "value": 0.0
+    },
+    "duplicate_tool_call_rate": {
+      "numerator": 0,
+      "denominator": 24,
+      "value": 0.0
+    },
+    "termination_accuracy": {
+      "numerator": 20,
+      "denominator": 24,
+      "value": 0.833333
+    },
+    "average_agent_iterations": {
+      "numerator": 41,
+      "denominator": 24,
+      "value": 1.708333
+    },
+    "average_tool_calls": {
+      "numerator": 17,
+      "denominator": 24,
+      "value": 0.708333
+    },
+    "tool_error_rate": {
+      "numerator": 0,
+      "denominator": 17,
+      "value": 0.0
+    },
+    "budget_stop_rate": {
+      "numerator": 1,
+      "denominator": 24,
+      "value": 0.041667
+    },
+    "parse_failure_rate": {
+      "numerator": 2,
+      "denominator": 24,
+      "value": 0.083333
+    },
+    "allowed_sequence_match_rate": {
+      "numerator": 1,
+      "denominator": 4,
+      "value": 0.25
+    }
+  },
+  "case_summary": {
+    "case_count": 24,
+    "status_counts": {
+      "completed": 16,
+      "failed": 2,
+      "refused": 6
+    },
+    "reason_failure_code_counts": {
+      "ACTION_PARSE_FAILED": 2,
+      "INSUFFICIENT_INFORMATION": 1,
+      "AGENT_BUDGET_EXCEEDED": 1,
+      "UNSAFE_REQUEST": 1,
+      "UNSUPPORTED_REQUEST": 3
+    },
+    "non_task_completion_case_ids": [
+      "g4q013",
+      "g4q018",
+      "g4q019",
+      "g4q020"
+    ],
+    "multi_step_executed_sequences": {
+      "g4q017": {
+        "executed_tool_sequence": [
+          "code_search",
+          "calculator"
+        ],
+        "allowed_sequence_match": true
+      },
+      "g4q018": {
+        "executed_tool_sequence": [
+          "code_search"
+        ],
+        "allowed_sequence_match": false
+      },
+      "g4q019": {
+        "executed_tool_sequence": [],
+        "allowed_sequence_match": false
+      },
+      "g4q020": {
+        "executed_tool_sequence": [
+          "code_search",
+          "code_search",
+          "code_search",
+          "code_search"
+        ],
+        "allowed_sequence_match": false
+      }
+    },
+    "action_parse_failed_case_ids": [
+      "g4q013",
+      "g4q019"
+    ],
+    "budget_stop_case_ids": [
+      "g4q020"
+    ],
+    "duplicate_tool_call_case_ids": [],
+    "tool_error_cases": []
+  },
+  "artifacts": {
+    "run_config.json": {
+      "sha256": "93d6a00cb84dfc3b3770247ae010f1c0c79b8ec62f6e0aa1ad5ae9fd7749f71b",
+      "size_bytes": 1027
+    },
+    "execution_results.jsonl": {
+      "sha256": "017e881771eab6721c4e0badba1918ef35e960243812c3cacbaa514c2f8035f8",
+      "size_bytes": 58080
+    },
+    "case_scores.jsonl": {
+      "sha256": "23126bc07ad511384d7497e6eb6db244261dc60932037cfcca856733fb09dd9a",
+      "size_bytes": 18656
+    },
+    "metrics.json": {
+      "sha256": "b9c46951c211a16493a657165a2563b3e8bd98993dfa3d72a9cfc8ea0cd97475",
+      "size_bytes": 1827
+    },
+    "result.json": {
+      "sha256": "303c256ccba43e2b3a0df43b6f1bcc76bb4b53b43fa5a032f3912922f421620a",
+      "size_bytes": 2934
+    },
+    "report.md": {
+      "sha256": "3ea0424be7b2f9620f954762e5e42e1c6648662b378b60129372c7b140492c8d",
+      "size_bytes": 4213
+    },
+    "artifact_manifest.json": {
+      "sha256": "b4442517b71720cbc4998ee47efeb54d952607eccf19fb07168bb0bff1ba4abf",
+      "size_bytes": 982
+    }
+  }
+}
