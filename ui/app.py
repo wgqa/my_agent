@@ -9,6 +9,8 @@ HTTP 全部走 ui.api_client.ApiClient；页面渲染走 ui.renderers。
 UI 只展示 API 返回的事实：不推断 CoT、不展示 Prompt、不展示 API key。
 """
 
+import os
+
 import streamlit as st
 
 from ui import renderers
@@ -24,7 +26,7 @@ MODE_KEY = {
     "Agentic RAG": "agent",
     "Structured Tool Agent": "tool_agent",
 }
-DEFAULT_API_URL = "http://localhost:8000"
+DEFAULT_API_URL = os.getenv("RAG_API_URL", "http://localhost:8000")
 
 
 def _init_state() -> None:

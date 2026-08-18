@@ -172,7 +172,7 @@ def main() -> int:
             print(f"health={h_status}")
             print(f"openapi={o_status}")
             print("required_routes=present")
-            print("external_network=disabled")
+            print("model_network_not_required=true")
             return 0
         finally:
             _terminate(proc)

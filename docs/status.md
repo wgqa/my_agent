@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-16
+**更新日期：** 2026-08-18
 
 ## 当前结论
 
@@ -44,6 +44,7 @@
 | G5-CI-03-R1（pytest temp isolation） | NOT ACCEPTED / hypothesis disproved |
 | G5-CI-03-R2（cross-platform freeze & offline tests） | ⏳ REVIEW PENDING |
 | G5-RUN-04（Startup & local API smoke） | ⏳ REVIEW PENDING |
+| G5-RUN-05（Full App startup & integration smoke） | ⏳ REVIEW PENDING |
 | G5-APP-04（Frontend Agent Demo alignment） | ⏳ REVIEW PENDING |
 
 Gate 4 当前真实状态：
@@ -92,6 +93,7 @@ Gate 5 当前真实状态：
   - CI 通过须由真实 GitHub Actions run 签；
 - **G5-RUN-04-STARTUP-AND-LOCAL-API-SMOKE = ⏳ REVIEW PENDING（08-16）**：新增 `scripts/smoke_local_api.py`（真实 uvicorn 子进程、临时 cwd 复制 config.yaml 隔离 vector store、dummy key + `HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE` 显式覆盖、自动空闲端口或 `--port`、`/health` 校验 bge/hybrid/deepseek + `/openapi.json` 四条路由、失败输出有限且脱敏、无论成败终止 uvicorn）+ `tests/test_release_startup.py`（直接调同一命令断言 exit 0，进 CI 由下次 push 自动验证）+ README Quick Start 修正（Python 3.14 验证口径 / requirements.lock 复现入口 / smoke 命令 / Key 说明）；本地 smoke 实测 `STARTUP_SMOKE_OK`、启动测试 1 passed；0 真实 key / 0 模型下载 / 0 公网（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI；
 - **G5-APP-04-FRONTEND-AGENT-DEMO-ALIGNMENT = ⏳ REVIEW PENDING（08-17）**：Streamlit 升级为三模式 **RAG Agent Demo Console**——`ui/app.py`（页面/模式/会话状态）+ `ui/api_client.py`（HTTP 统一：health/stats/index_file/query/agent_query/tool_agent_query，错误分类 connection_error/timeout/http_error/invalid_response + 503→运行时不可用）+ `ui/renderers.py`（面板渲染，防御式 `.get()`，只展示 API 事实）；三种模式：Basic RAG（`/query` + Sources 卡片）/ Agentic RAG（`/agent/query`：status+run_id+answer+error_code+warnings、Planner（plan_id/query_type/subqueries）、Adaptive Route（Planner reason_code 与 Router strategy_reason_code 分开展示）、Verification（coverage/upgrade）、Evidence sources（citation/query_id/rank/score、chunk_id 进 expander）、▶ Execution Trace 折叠）/ Structured Tool Agent（`/tool-agent/query`：Iterations/Tool Calls/Tool Errors 三 metric + status/reason_code/failure_code + ▶ Tool Execution Trace（Decision→Tool Result））；三模式历史隔离 `messages_by_mode`，清空只清当前模式；上传知识库保留独立 Tab；`tests/test_ui_api_client.py` **10 passed**（monkeypatch，无真后端）、py_compile 通过、UI 模块导入 OK；**未改 api/core/config/requirements/CI/frozen/README**；
+- **G5-RUN-05-FULL-APP-STARTUP-AND-INTEGRATION-SMOKE = ⏳ REVIEW PENDING（08-18）**：新增 `scripts/smoke_local_app.py` 与 `tests/test_release_app_startup.py`；真实 uvicorn + Streamlit server 使用动态 localhost 端口、临时 cwd/vector store、dummy keys 和 HF offline 环境；AppTest 真实执行 `ui/app.py`，通过 `RAG_API_URL` 的 `ApiClient` 读取 `/health` 与 `/stats`，验证标题、在线状态、配置、两个 Tab、三种模式和模式切换；本地输出 `FULL_APP_SMOKE_OK`，未调用 query/LLM/Planner/BGE；Study Note 97；`smoke_local_api.py` 输出口径改为 `model_network_not_required=true`；
 - **核心能力已就绪**：1716 passed + 4 skipped、三类 API（`/query` `/agent/query` `/tool-agent/query`）、Gate 4 评测集已入库、Gate 3/4 trace 已安全化；
 - **后续任务顺序建议**：G5-DOCKER-04（P1）→ G5-README-08（P1/P2 项顺带收口）。
 
@@ -170,7 +172,8 @@ Gate 5 当前真实状态：
 | G5-CI-03（Continuous Integration） | R2 REQUIRED | 第一版 workflow 4645519 已提交；真实 Linux run 31952467496 保留作证据；CI 通过须真实 GitHub Actions run 签（Agent 不代签） | 0 API key / 0 真实 LLM / 0 模型下载 |
 | G5-CI-03-R1（pytest temp isolation） | NOT ACCEPTED / hypothesis disproved | `$RUNNER_TEMP/my_agent_pytest` 改动合理但未解决根因，予以保留 | 非 26 failures 根因 |
 | G5-CI-03-R2（cross-platform freeze & offline tests） | ⏳ REVIEW PENDING | 新增 .gitattributes（gate4 jsonl eol=crlf，冻结哈希 93a32e64=CRLF 字节）+ test_pipeline.py offline fake embedding autouse fixture；本地全量 1724 passed + 4 skipped + 0 failed | 不改 frozen dataset/manifest / 不改 core.pipeline / 不改 core.embeddings / 不下载 BGE / 未建 venv |
-| G5-RUN-04（Startup & local API smoke） | ⏳ REVIEW PENDING | scripts/smoke_local_api.py（真实 uvicorn 子进程 + 临时 cwd + dummy key + offline HF + /health 校验 + /openapi 四条路由 + 自动空闲端口）+ tests/test_release_startup.py（同命令断言 exit 0，进 CI）+ README Quick Start 修正（Python 3.14 / requirements.lock / smoke / Key 说明）；Study Note 95 | 本地 smoke 实测 STARTUP_SMOKE_OK；0 真实 key / 0 模型下载 / 0 公网（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI |
+| G5-RUN-04（Startup & local API smoke） | ⏳ REVIEW PENDING | scripts/smoke_local_api.py（真实 uvicorn 子进程 + 临时 cwd + dummy key + offline HF + /health 校验 + /openapi 四条路由 + 自动空闲端口）+ tests/test_release_startup.py（同命令断言 exit 0，进 CI）+ README Quick Start 修正（Python 3.14 / requirements.lock / smoke / Key 说明）；Study Note 95 | 本地 smoke 实测 STARTUP_SMOKE_OK；0 真实 key / 0 模型下载 / 模型网络非必需（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI |
+| G5-RUN-05（Full App startup & integration smoke） | ⏳ REVIEW PENDING | scripts/smoke_local_app.py（真实 uvicorn + Streamlit 子进程、AppTest 页面执行、RAG_API_URL 动态连接、health/stats 与三模式检查）+ tests/test_release_app_startup.py；Study Note 97 | 本地 smoke 实测 FULL_APP_SMOKE_OK；0 真实 key / 0 query / 0 LLM / 0 Planner / 0 BGE 下载；两个进程均清理 |
 | G5-APP-04（Frontend Agent Demo alignment） | ⏳ REVIEW PENDING | ui/app.py + ui/api_client.py + ui/renderers.py（三模式 RAG Agent Demo Console：Basic / Agentic / Tool Agent；按模式隔离历史；ApiClient 统一错误分类；/agent 与 /tool-agent 结构化面板）；tests/test_ui_api_client.py 10 passed；Study Note 96 | 未改 api/core/config/requirements/CI/frozen/README；未消耗 DeepSeek；前端适配后端非改 AI 内核 |
 
 ## 修复清单
