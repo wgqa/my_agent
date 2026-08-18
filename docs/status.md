@@ -37,7 +37,7 @@
 | G4-E2E-07B（真实 HTTP 多工具 E2E smoke） | ✅ Reviewer accepted / CLOSED |
 | G4-EVAL-06B formal execution | ✅ 已执行一次（completed；一次性，不可重跑） |
 | G4-CLOSE-08（最终冻结与交接） | ✅ Reviewer accepted / CLOSED（gate4_system_freeze_id=96c159b1ca2c） |
-| Gate 5 | IN PROGRESS |
+| Gate 5 | IN PROGRESS — FINAL REVIEW |
 | G5-AUDIT-01 + R1（Release Readiness Baseline 审计与修正） | ✅ Reviewer accepted / CLOSED |
 | G5-ENV-02（Reproducible environment & inputs） | ✅ Reviewer accepted / CLOSED |
 | G5-CI-03（Continuous Integration） | ✅ Reviewer accepted / CLOSED |
@@ -50,7 +50,8 @@
 | G5-APP-07B（Capability-aware UI） | ✅ Reviewer accepted / CLOSED |
 | G5-README-08（Release project front door） | ✅ Reviewer accepted / CLOSED |
 | G5-DEMO-07（Release Demo harness） | ✅ Reviewer accepted / CLOSED |
-| G5-HYGIENE-09（Release security & repo hygiene） | IN PROGRESS |
+| G5-HYGIENE-09（Release security & repo hygiene） | ✅ Reviewer accepted / CLOSED |
+| G5-FINAL-10（Release 1.0 final acceptance & freeze） | REVIEW PENDING |
 
 Gate 4 当前真实状态：
 
@@ -70,13 +71,13 @@ Gate 4 当前真实状态：
 - **Structured Tool Agent API + real HTTP E2E 已完成**；UI 不属于 Gate 4 blocking scope。
 - **仍 0 Gate 3 / Holdout**。
 
-**Gate 4 = ✅ CLOSED / FROZEN（gate4_system_freeze_id=96c159b1ca2c）**：bounded Structured Tool Agent Loop implemented + 正式 Dev baseline（run_id=fa4ab9aa5f13）+ real HTTP E2E 已完成并冻结。**保留 frozen limitations**（正式观测，不是待修 bug）：multi-step allowed sequence match 1/4、required tool coverage 14/20、ACTION_PARSE_FAILED 2/24、AGENT_BUDGET_EXCEEDED 1/24。**Gate 5 = IN PROGRESS**（G5-AUDIT-01 = R1 REQUIRED；G5-AUDIT-01-R1 = REVIEW PENDING）。Gate 3 冻结成绩不重新解释，不重跑其冻结 RAG。
+**Gate 4 = ✅ CLOSED / FROZEN（gate4_system_freeze_id=96c159b1ca2c）**：bounded Structured Tool Agent Loop implemented + 正式 Dev baseline（run_id=fa4ab9aa5f13）+ real HTTP E2E 已完成并冻结。**保留 frozen limitations**（正式观测，不是待修 bug）：multi-step allowed sequence match 1/4、required tool coverage 14/20、ACTION_PARSE_FAILED 2/24、AGENT_BUDGET_EXCEEDED 1/24。**Gate 5 = IN PROGRESS — FINAL REVIEW**（G5-FINAL-10 = REVIEW PENDING；等待远端 CI 与 Reviewer 对 freeze artifact 的最终核验）。Gate 3 冻结成绩不重新解释，不重跑其冻结 RAG。
 
 ## Gate 5 当前状态
 
 | Gate | 状态 |
 |---|---|
-| Gate 5 | IN PROGRESS |
+| Gate 5 | IN PROGRESS — FINAL REVIEW |
 | G5-AUDIT-01 + R1（Release Readiness Baseline 审计与修正） | ✅ Reviewer accepted / CLOSED |
 | G5-ENV-02（Reproducible environment & inputs） | ✅ Reviewer accepted / CLOSED |
 | G5-CI-03（Continuous Integration） | ✅ Reviewer accepted / CLOSED |
@@ -85,6 +86,12 @@ Gate 4 当前真实状态：
 | G5-RUN-04（Startup & local API smoke） | ✅ Reviewer accepted / CLOSED |
 | G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED |
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED |
+| G5-BE-06（Release API contract & runtime capabilities） | ✅ Reviewer accepted / CLOSED |
+| G5-APP-07B（Capability-aware UI） | ✅ Reviewer accepted / CLOSED |
+| G5-README-08（Release project front door） | ✅ Reviewer accepted / CLOSED |
+| G5-DEMO-07（Release Demo harness） | ✅ Reviewer accepted / CLOSED |
+| G5-HYGIENE-09（Release security & repo hygiene） | ✅ Reviewer accepted / CLOSED |
+| G5-FINAL-10（Release 1.0 final acceptance & freeze） | REVIEW PENDING |
 
 Gate 5 当前真实状态：
 
@@ -104,9 +111,10 @@ Gate 5 当前真实状态：
 - **G5-DEMO-07-RELEASE-DEMO-HARNESS = ✅ Reviewer accepted / CLOSED（08-18）**：新增 `scripts/demo_release.py`、两份公开 demo fixture 和 6-case catalog；preflight 使用 `/capabilities`，每 case 只请求一次，5 required + 1 observational，safety case 验证无 shell；`tests/test_release_demo.py` 10 passed；无真实 key 时清晰退出，未运行 live LLM；Study Note 99；
 - **G5-APP-07B-CAPABILITY-AWARE-UI = ✅ Reviewer accepted / CLOSED（08-18）**：UI 新增 `GET /capabilities` 消费，Sidebar 显示 Basic / Agentic / Tool Agent readiness；不可用模式在提交前隐藏 chat input，`indexing=false` 时阻止 `/index/file`；capability 请求失败采用保守降级；新增 UI capability 回归测试与 smoke 消费断言；Study Note 100；未改 API/core/Planner/Tool Agent/README；
 - **G5-README-08-RELEASE-PROJECT-FRONT-DOOR = ✅ Reviewer accepted / CLOSED（08-18）**：重写 README 为 Release 1.0 项目入口，补充真实 Mermaid 总架构、三种 API/UI 模式、Smoke/Demo/Benchmark 边界、Gate 2/3/4 冻结 headline、公共语料复现入口、安全边界、已知限制、工程决策与 Gate 演进；新增 Study Note 101；未改生产代码、API、Agent、Demo harness 或冻结 artifact；
-- **G5-HYGIENE-09-RELEASE-SECURITY-AND-REPO-HYGIENE = IN PROGRESS（08-18）**：本轮收口 secret/path/holdout/large-file 审计、pytest 配置、Demo summary、ignore 噪音和文档状态；新增 Hygiene Audit 与 Study Note 102；
+- **G5-HYGIENE-09-RELEASE-SECURITY-AND-REPO-HYGIENE = ✅ Reviewer accepted / CLOSED（08-18）**：已完成 secret/path/holdout/large-file 审计、pytest 配置、Demo summary、ignore 噪音和文档状态收口；Hygiene Audit 与 Study Note 102 已入库；
+- **G5-FINAL-10-RELEASE-1.0-FINAL-ACCEPTANCE-AND-FREEZE = REVIEW PENDING（08-18）**：新增最终 acceptance matrix 与非自指 release freeze metadata；release candidate source commit 固定为 `a4d5b6c778ec234d0fe38b1b58a6fd794068a90d`。Gate 5 仍为 `IN PROGRESS — FINAL REVIEW`，等待远端 CI 与 Reviewer 最终签字；
 - **核心能力已就绪**：1716 passed + 4 skipped、三类 API（`/query` `/agent/query` `/tool-agent/query`）、Gate 4 评测集已入库、Gate 3/4 trace 已安全化；
-- **后续任务顺序建议**：G5-HYGIENE-09 → G5-FINAL-10。
+- **当前收口条件**：远端 CI 完成后，由 Reviewer 核验 release freeze metadata、已知限制披露与工作树边界；在此之前不得把 Gate 5 写为 CLOSED。
 
 ## 任务状态
 
@@ -190,7 +198,8 @@ Gate 5 当前真实状态：
 | G5-APP-07B（Capability-aware UI） | ✅ Reviewer accepted / CLOSED | ui/api_client.py + ui/app.py：Sidebar 消费 `/capabilities`，模式与 indexing fail-closed；tests/test_ui_capabilities.py + smoke AppTest 断言；Study Note 100 | 未改 api/core/renderers/README/requirements；未调用真实模型 |
 | G5-README-08（Release project front door） | ✅ Reviewer accepted / CLOSED | README.md 重写为项目定位、架构、三模式、体验路径、API、冻结证据、复现、安全边界、限制与路线；Study Note 101 | 仅文档；未改生产代码、未重跑 benchmark、未调用真实模型 |
 | G5-DEMO-07（Release Demo harness） | ✅ Reviewer accepted / CLOSED | scripts/demo_release.py + two public demo fixtures + release_demo_cases.json + tests/test_release_demo.py；Study Note 99 | 6 bounded cases / 5 required + 1 observational；CI no real LLM；live demo requires DEEPSEEK_API_KEY |
-| G5-HYGIENE-09（Release security & repo hygiene） | IN PROGRESS | Secret/path/holdout/large-file audit；pytest.ini、scripts/demo_release.py、.gitignore、tests/test_pipeline.py；Study Note 102 | 未改 API/core/UI/README/frozen evidence；未删除用户 untracked 文件 |
+| G5-HYGIENE-09（Release security & repo hygiene） | ✅ Reviewer accepted / CLOSED | Secret/path/holdout/large-file audit；pytest.ini、scripts/demo_release.py、.gitignore、tests/test_pipeline.py；Study Note 102 | 未改 API/core/UI/README/frozen evidence；未删除用户 untracked 文件 |
+| G5-FINAL-10（Release 1.0 final acceptance & freeze） | REVIEW PENDING | 最终 acceptance matrix、release freeze metadata、状态与 Study Note 103；release candidate source commit=`a4d5b6c778ec234d0fe38b1b58a6fd794068a90d` | 仅文档/metadata；不重跑 benchmark、不访问 sealed、不调用真实 LLM；远端 CI 与 Reviewer final check 后方可 CLOSED |
 
 ## 修复清单
 

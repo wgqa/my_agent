@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（56 份）
+## CURRENT（57 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -82,6 +82,7 @@
 | 100 | [100-Gate5-能力发现与前端降级.md](100-Gate5-能力发现与前端降级.md) | G5-APP-07B：health 与 capability 的边界、readiness/liveness、前端 fail-closed 降级、提交前暴露不可用能力，以及 API contract 的产品层消费 |
 | 101 | [101-Gate5-README与项目叙事.md](101-Gate5-README与项目叙事.md) | G5-README-08：README front door、功能/实验/工程证据分层、冻结结果与负结果叙事、Gate 演进和面试讲法 |
 | 102 | [102-Gate5-Release安全与仓库卫生.md](102-Gate5-Release安全与仓库卫生.md) | G5-HYGIENE-09：tracked secret scan、untracked 分类、精确 `.gitignore`、pytest 配置、冻结 artifact 边界和 Release blocker 判定 |
+| 103 | [103-Gate5-Release1.0最终验收与冻结.md](103-Gate5-Release1.0最终验收与冻结.md) | G5-FINAL-10：Feature complete 与 Release accepted、CI final gate、非自指 freeze、Smoke/Demo/Benchmark 边界、V1.1 debt 与 Gate 1→5 工程演进 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -149,6 +150,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–102 共 **103 份**，每份只出现一次：CURRENT 56 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 103。
+- 编号覆盖 00–103 共 **104 份**，每份只出现一次：CURRENT 57 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 104。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-18。
