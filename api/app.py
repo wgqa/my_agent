@@ -29,6 +29,10 @@ from api.schemas import (
     SourceItem,
     IndexResponse,
     HealthResponse,
+    PublicConfigResponse,
+    StatsResponse,
+    CapabilitiesResponse,
+    FeatureCapabilities,
     ToolAgentQueryRequest,
     ToolAgentQueryResponse,
 )
@@ -95,8 +99,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="RAG Knowledge Base API",
-    description="Local RAG system: index documents and ask questions",
+    title="RAG Agent API",
+    description=(
+        "Evaluable RAG system with Basic RAG, Agentic RAG and "
+        "Structured Tool Agent capabilities."
+    ),
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -365,10 +372,42 @@ def tool_agent_query(req: ToolAgentQueryRequest):
     return _build_tool_agent_response(result)
 
 
-@app.get("/stats")
-def stats():
+@app.get("/stats", response_model=StatsResponse)
+def stats() -> StatsResponse:
     p = _get_pipeline()
-    return {
-        "documents_count": p.vector_store.count(),
-        "config": p.config,
-    }
+    config = p.config
+    return StatsResponse(
+        documents_count=p.vector_store.count(),
+        config=PublicConfigResponse(
+            embedding_provider=config.embedding_provider,
+            embedding_model=config.embedding_model,
+            chunker_strategy=config.chunker_strategy,
+            chunk_size=config.chunk_size,
+            chunk_overlap=config.chunk_overlap,
+            retriever_strategy=config.retriever_strategy,
+            top_k=config.top_k,
+            reranker_enabled=config.reranker_enabled,
+            generator_provider=config.generator_provider,
+            generator_model=config.generator_model,
+        ),
+    )
+
+
+@app.get("/capabilities", response_model=CapabilitiesResponse)
+def capabilities() -> CapabilitiesResponse:
+    """Report independent runtime availability without requiring readiness."""
+    pipeline_ready = pipeline is not None
+    agent_runtime_ready = agent_runtime is not None
+    tool_agent_runtime_ready = tool_agent_runtime is not None
+    return CapabilitiesResponse(
+        schema_version="capabilities_response_v1",
+        pipeline_ready=pipeline_ready,
+        agent_runtime_ready=agent_runtime_ready,
+        tool_agent_runtime_ready=tool_agent_runtime_ready,
+        features=FeatureCapabilities(
+            indexing=pipeline_ready,
+            basic_rag=pipeline_ready,
+            agentic_rag=agent_runtime_ready,
+            structured_tool_agent=tool_agent_runtime_ready,
+        ),
+    )

@@ -21,9 +21,18 @@ def mock_pipeline():
         # /health 现在通过 Config 属性访问
         from types import SimpleNamespace
         p.config = SimpleNamespace(
+            _path="/secret/local/config.yaml",
+            vector_store_path="/home/user/private/vector_store",
             embedding_provider="openai",
+            embedding_model="text-embedding-test",
+            chunker_strategy="recursive",
+            chunk_size=512,
+            chunk_overlap=64,
             retriever_strategy="hybrid",
+            top_k=5,
+            reranker_enabled=True,
             generator_provider="deepseek",
+            generator_model="deepseek-test",
         )
         p.index_file.return_value = {
             "status": "create",
@@ -69,12 +78,99 @@ class TestStats:
         assert resp.status_code == 200
         data = resp.json()
         assert data["documents_count"] == 5
-        assert "config" in data
+        assert data["config"]["embedding_provider"] == "openai"
+        assert data["config"]["retriever_strategy"] == "hybrid"
+        assert data["config"]["generator_provider"] == "deepseek"
+        assert data["config"]["embedding_model"] == "text-embedding-test"
+        assert "_path" not in data
+        assert "vector_store_path" not in data
+        assert "/secret/local" not in resp.text
+        assert "/home/user/private" not in resp.text
 
     def test_stats_when_pipeline_not_ready(self, client):
         api.app.pipeline = None
         resp = client.get("/stats")
         assert resp.status_code == 503
+
+
+class TestCapabilities:
+    @pytest.mark.parametrize(
+        "pipeline_ready,agent_ready,tool_ready",
+        [
+            (True, True, True),
+            (True, False, True),
+            (True, True, False),
+            (True, False, False),
+            (False, False, False),
+        ],
+    )
+    def test_capabilities_reports_independent_runtime_readiness(
+        self, client, monkeypatch, pipeline_ready, agent_ready, tool_ready
+    ):
+        monkeypatch.setattr(api.app, "pipeline", object() if pipeline_ready else None)
+        monkeypatch.setattr(
+            api.app, "agent_runtime", object() if agent_ready else None
+        )
+        monkeypatch.setattr(
+            api.app,
+            "tool_agent_runtime",
+            object() if tool_ready else None,
+        )
+
+        resp = client.get("/capabilities")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["schema_version"] == "capabilities_response_v1"
+        assert data["pipeline_ready"] is pipeline_ready
+        assert data["agent_runtime_ready"] is agent_ready
+        assert data["tool_agent_runtime_ready"] is tool_ready
+        assert data["features"] == {
+            "indexing": pipeline_ready,
+            "basic_rag": pipeline_ready,
+            "agentic_rag": agent_ready,
+            "structured_tool_agent": tool_ready,
+        }
+
+    def test_capabilities_is_200_when_all_runtimes_unavailable(self, client, monkeypatch):
+        monkeypatch.setattr(api.app, "pipeline", None)
+        monkeypatch.setattr(api.app, "agent_runtime", None)
+        monkeypatch.setattr(api.app, "tool_agent_runtime", None)
+
+        resp = client.get("/capabilities")
+
+        assert resp.status_code == 200
+        assert resp.json()["features"] == {
+            "indexing": False,
+            "basic_rag": False,
+            "agentic_rag": False,
+            "structured_tool_agent": False,
+        }
+
+
+class TestOpenAPIContract:
+    def test_release_endpoints_have_explicit_response_contracts(self, client):
+        resp = client.get("/openapi.json")
+        assert resp.status_code == 200
+        document = resp.json()
+        paths = document["paths"]
+        assert "/capabilities" in paths
+        assert "/stats" in paths
+
+        stats_schema = paths["/stats"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]
+        capabilities_schema = paths["/capabilities"]["get"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
+        assert stats_schema["$ref"].endswith("/StatsResponse")
+        assert capabilities_schema["$ref"].endswith("/CapabilitiesResponse")
+
+        components = document["components"]["schemas"]
+        assert "PublicConfigResponse" in components
+        assert "FeatureCapabilities" in components
+        assert "StatsResponse" in components
+        assert "CapabilitiesResponse" in components
 
 
 class TestIndex:

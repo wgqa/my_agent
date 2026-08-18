@@ -58,6 +58,41 @@ class HealthResponse(BaseModel):
     generator_provider: str = ""
 
 
+class PublicConfigResponse(BaseModel):
+    """Allowlisted runtime configuration safe for release API clients."""
+
+    embedding_provider: str
+    embedding_model: str
+    chunker_strategy: str
+    chunk_size: int
+    chunk_overlap: int
+    retriever_strategy: str
+    top_k: int
+    reranker_enabled: bool
+    generator_provider: str
+    generator_model: str
+
+
+class StatsResponse(BaseModel):
+    documents_count: int
+    config: PublicConfigResponse
+
+
+class FeatureCapabilities(BaseModel):
+    indexing: bool
+    basic_rag: bool
+    agentic_rag: bool
+    structured_tool_agent: bool
+
+
+class CapabilitiesResponse(BaseModel):
+    schema_version: str
+    pipeline_ready: bool
+    agent_runtime_ready: bool
+    tool_agent_runtime_ready: bool
+    features: FeatureCapabilities
+
+
 class AgentQueryRequest(BaseModel):
     """/agent/query 请求。本版本不接 history：未定义字段（含 history）显式
     拒绝（extra=forbid），绝不静默忽略。"""

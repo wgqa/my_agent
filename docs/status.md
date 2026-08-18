@@ -40,12 +40,13 @@
 | Gate 5 | IN PROGRESS |
 | G5-AUDIT-01 + R1（Release Readiness Baseline 审计与修正） | ✅ Reviewer accepted / CLOSED |
 | G5-ENV-02（Reproducible environment & inputs） | ✅ Reviewer accepted / CLOSED |
-| G5-CI-03（Continuous Integration） | R2 REQUIRED |
+| G5-CI-03（Continuous Integration） | ✅ Reviewer accepted / CLOSED |
 | G5-CI-03-R1（pytest temp isolation） | NOT ACCEPTED / hypothesis disproved |
-| G5-CI-03-R2（cross-platform freeze & offline tests） | ⏳ REVIEW PENDING |
-| G5-RUN-04（Startup & local API smoke） | ⏳ REVIEW PENDING |
-| G5-RUN-05（Full App startup & integration smoke） | ⏳ REVIEW PENDING |
-| G5-APP-04（Frontend Agent Demo alignment） | ⏳ REVIEW PENDING |
+| G5-CI-03-R2（cross-platform freeze & offline tests） | ✅ Reviewer accepted / CLOSED |
+| G5-RUN-04（Startup & local API smoke） | ✅ Reviewer accepted / CLOSED |
+| G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED |
+| G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED |
+| G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING |
 
 Gate 4 当前真实状态：
 
@@ -74,28 +75,30 @@ Gate 4 当前真实状态：
 | Gate 5 | IN PROGRESS |
 | G5-AUDIT-01 + R1（Release Readiness Baseline 审计与修正） | ✅ Reviewer accepted / CLOSED |
 | G5-ENV-02（Reproducible environment & inputs） | ✅ Reviewer accepted / CLOSED |
-| G5-CI-03（Continuous Integration） | R2 REQUIRED |
+| G5-CI-03（Continuous Integration） | ✅ Reviewer accepted / CLOSED |
 | G5-CI-03-R1（pytest temp isolation） | NOT ACCEPTED / hypothesis disproved |
-| G5-CI-03-R2（cross-platform freeze & offline tests） | ⏳ REVIEW PENDING |
-| G5-RUN-04（Startup & local API smoke） | ⏳ REVIEW PENDING |
-| G5-APP-04（Frontend Agent Demo alignment） | ⏳ REVIEW PENDING |
+| G5-CI-03-R2（cross-platform freeze & offline tests） | ✅ Reviewer accepted / CLOSED |
+| G5-RUN-04（Startup & local API smoke） | ✅ Reviewer accepted / CLOSED |
+| G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED |
+| G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED |
 
 Gate 5 当前真实状态：
 
 - **G5-AUDIT-01 + R1 = ✅ Reviewer accepted / CLOSED**：R0（2d5d038，只读审计基线 10 类矩阵）+ R1（78d0873，重定义 frozen corpus gap：语料在 public repo `wgqa/agent_data` 且身份核验一致，缺口=unpinned external dependency；P0 收敛 P0-1..P0-4）；
 - **G5-ENV-02-REPRODUCIBLE-ENVIRONMENT-AND-INPUTS = ✅ Reviewer accepted / CLOSED（commit 9af85e0）**：P0-1 pinned `requirements.lock`（119 包 pin 到被测系统版本 numpy 2.4.4/torch 2.12，干净 venv 从 lock 安装 → 全量 **1724 passed + 4 skipped + 0 failed**；仅声明 Python 3.14 已验证）+ P0-3 `reproducibility/public_data_lock.json`（wgqa/agent_data commit 179f18e8 / corpus_id 870e5864df67 / 37 files）+ `scripts/verify_public_corpus.py`（复用 ExperimentCorpus 重建身份，fail-fast，正向 OK / 负向 fail）+ P0-4 实验 config 可审计化（experiment_id schema 演进≥4 次、当前仅 aligned 可重建 → **12 份 config.yaml 因身份不可证+含绝对路径不提交**，正式参数可审计记录 = tracked `index_manifest.json` 绑定）+ `tests/test_reproducibility_contract.py`（8 测试）+ `.env.example`；0 生产代码 / 0 DeepSeek / 0 sealed access / 0 benchmark；
-- **G5-CI-03-CONTINUOUS-INTEGRATION = R2 REQUIRED**：第一版 workflow（4645519）已提交；真实 Linux run 31952467496 原样保留作证据；
+- **G5-CI-03-CONTINUOUS-INTEGRATION = ✅ Reviewer accepted / CLOSED**：第一版 workflow（4645519）与 R2 cross-platform/offline 修复已完成；真实 Linux run 31952467496 原样保留作证据；
 - **G5-CI-03-R1-PYTEST-TEMP-ISOLATION = NOT ACCEPTED / hypothesis disproved**：`$RUNNER_TEMP` 改动本身合理（CI temp 放 runner temp），予以保留；但它不是 26 failures 的根因；
-- **G5-CI-03-R2-CROSS-PLATFORM-FREEZE-AND-OFFLINE-TEST-ISOLATION = ⏳ REVIEW PENDING（08-16）**：
+- **G5-CI-03-R2-CROSS-PLATFORM-FREEZE-AND-OFFLINE-TEST-ISOLATION = ✅ Reviewer accepted / CLOSED（08-16）**：
   - **根因 A（Gate4 JSONL SHA）已证明**：`git_blob(LF)=56ef1805…`、`working(CRLF)=93a32e64…`、`blob LF→CRLF=93a32e64…`、`working CRLF→LF=56ef1805…` → **纯行尾差异**，字节级其余完全相同；冻结 manifest 承诺的 canonical bytes 是 **CRLF（93a32e64）**；修复 = 新增 `.gitattributes`：`evaluation/gate4/data/*.jsonl text eol=crlf`（已验 `git check-attr` = text/eol:crlf、工作区 clean、哈希仍 93a32e64）→ 所有平台 checkout 一致，**不改 frozen dataset/manifest**；
   - **根因 B（Pipeline 测试离线）**：`_make_pipeline` 构造真实 Pipeline（bge）→ 无 HF cache 时 `embed` 加载失败；新增 `tests/test_pipeline.py` autouse fixture，类级 monkeypatch `BGEEmbedding.embed/embed_query` 为确定性定维伪向量（无网络/无 cache/不改生产 Pipeline 默认行为）；`test_index_file_update_keeps_old_data_when_embedding_fails` 的 `embed=boom` 实例覆盖仍生效；
   - **本地验证**：`test_gate4_tool_use_dataset` 55 passed + 1 skipped、`test_gate4_tool_use_runner` 47 passed、`test_pipeline` 33 passed、**全量 1724 passed + 4 skipped + 0 failed**、`git diff --check` exit 0；未建 venv / 未装包 / 未下载 BGE / 0 DeepSeek / 0 benchmark；
   - CI 通过须由真实 GitHub Actions run 签；
-- **G5-RUN-04-STARTUP-AND-LOCAL-API-SMOKE = ⏳ REVIEW PENDING（08-16）**：新增 `scripts/smoke_local_api.py`（真实 uvicorn 子进程、临时 cwd 复制 config.yaml 隔离 vector store、dummy key + `HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE` 显式覆盖、自动空闲端口或 `--port`、`/health` 校验 bge/hybrid/deepseek + `/openapi.json` 四条路由、失败输出有限且脱敏、无论成败终止 uvicorn）+ `tests/test_release_startup.py`（直接调同一命令断言 exit 0，进 CI 由下次 push 自动验证）+ README Quick Start 修正（Python 3.14 验证口径 / requirements.lock 复现入口 / smoke 命令 / Key 说明）；本地 smoke 实测 `STARTUP_SMOKE_OK`、启动测试 1 passed；0 真实 key / 0 模型下载 / 0 公网（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI；
-- **G5-APP-04-FRONTEND-AGENT-DEMO-ALIGNMENT = ⏳ REVIEW PENDING（08-17）**：Streamlit 升级为三模式 **RAG Agent Demo Console**——`ui/app.py`（页面/模式/会话状态）+ `ui/api_client.py`（HTTP 统一：health/stats/index_file/query/agent_query/tool_agent_query，错误分类 connection_error/timeout/http_error/invalid_response + 503→运行时不可用）+ `ui/renderers.py`（面板渲染，防御式 `.get()`，只展示 API 事实）；三种模式：Basic RAG（`/query` + Sources 卡片）/ Agentic RAG（`/agent/query`：status+run_id+answer+error_code+warnings、Planner（plan_id/query_type/subqueries）、Adaptive Route（Planner reason_code 与 Router strategy_reason_code 分开展示）、Verification（coverage/upgrade）、Evidence sources（citation/query_id/rank/score、chunk_id 进 expander）、▶ Execution Trace 折叠）/ Structured Tool Agent（`/tool-agent/query`：Iterations/Tool Calls/Tool Errors 三 metric + status/reason_code/failure_code + ▶ Tool Execution Trace（Decision→Tool Result））；三模式历史隔离 `messages_by_mode`，清空只清当前模式；上传知识库保留独立 Tab；`tests/test_ui_api_client.py` **10 passed**（monkeypatch，无真后端）、py_compile 通过、UI 模块导入 OK；**未改 api/core/config/requirements/CI/frozen/README**；
-- **G5-RUN-05-FULL-APP-STARTUP-AND-INTEGRATION-SMOKE = ⏳ REVIEW PENDING（08-18）**：新增 `scripts/smoke_local_app.py` 与 `tests/test_release_app_startup.py`；真实 uvicorn + Streamlit server 使用动态 localhost 端口、临时 cwd/vector store、dummy keys 和 HF offline 环境；AppTest 真实执行 `ui/app.py`，通过 `RAG_API_URL` 的 `ApiClient` 读取 `/health` 与 `/stats`，验证标题、在线状态、配置、两个 Tab、三种模式和模式切换；本地输出 `FULL_APP_SMOKE_OK`，未调用 query/LLM/Planner/BGE；Study Note 97；`smoke_local_api.py` 输出口径改为 `model_network_not_required=true`；
+- **G5-RUN-04-STARTUP-AND-LOCAL-API-SMOKE = ✅ Reviewer accepted / CLOSED（08-16）**：真实 uvicorn 子进程、临时 cwd/vector store、dummy key、HF offline、`/health`、OpenAPI contract 与自动测试均通过；本地 smoke 实测 `STARTUP_SMOKE_OK`；0 真实 key / 0 模型下载 / 0 公网；
+- **G5-APP-04-FRONTEND-AGENT-DEMO-ALIGNMENT = ✅ Reviewer accepted / CLOSED（08-17）**：三模式 RAG Agent Demo Console、ApiClient 错误分类、结构化 Agent/Tool Agent 面板和 UI 回归测试已完成；未改 api/core/config/requirements/CI/frozen/README；
+- **G5-RUN-05-FULL-APP-STARTUP-AND-INTEGRATION-SMOKE = ✅ Reviewer accepted / CLOSED（08-18）**：真实 uvicorn + Streamlit server、动态端口、`RAG_API_URL`、AppTest 页面执行和 health/stats 真实连接均通过；本地输出 `FULL_APP_SMOKE_OK`；未调用 query/LLM/Planner/BGE；Study Note 97；
+- **G5-BE-06-RELEASE-API-CONTRACT-AND-RUNTIME-CAPABILITIES = ⏳ REVIEW PENDING（08-18）**：`/stats` 使用 allowlist `StatsResponse`，不暴露 `_path`、`vector_store_path` 或原始 Config；新增无条件 200 的 `/capabilities`，分别报告 Pipeline、AgentRuntime、ToolAgentRuntime 和 feature readiness；FastAPI title/description 更新；`tests/test_api.py` 71 passed；Study Note 98；未改 UI/core/smoke/frozen artifacts；
 - **核心能力已就绪**：1716 passed + 4 skipped、三类 API（`/query` `/agent/query` `/tool-agent/query`）、Gate 4 评测集已入库、Gate 3/4 trace 已安全化；
-- **后续任务顺序建议**：G5-DOCKER-04（P1）→ G5-README-08（P1/P2 项顺带收口）。
+- **后续任务顺序建议**：G5-BE-06 → G5-DEMO-07 → G5-README-08 → G5-HYGIENE-09 → G5-FINAL-10。
 
 ## 任务状态
 
@@ -169,12 +172,13 @@ Gate 5 当前真实状态：
 | Agent（结构化 Tool） | ⬜ | Gate 4（G4-DESIGN-01 之后按 roadmap §9.8 冻结路线推进） | — |
 | G5-AUDIT-01 + R1（Release Readiness Baseline 审计与修正） | ✅ Reviewer accepted / CLOSED | R0=2d5d038 + R1=78d0873（只读审计基线 10 类矩阵 + cross-repo provenance 修正）；0 生产代码 / 0 DeepSeek / 0 Gate3 sealed / 0 Gate4 / 0 HTTP / 0 benchmark | 语料 public repo wgqa/agent_data 身份核验一致（37 / corpus_id=870e5864df67）；P0 收敛 P0-1..P0-4（Docker→P1） |
 | G5-ENV-02（Reproducible environment & inputs） | ✅ Reviewer accepted / CLOSED | commit 9af85e0：requirements.lock（119 包 pin 到被测版本，干净 venv 1724 passed）+ public_data_lock + verify_public_corpus.py + test_reproducibility_contract（8）+ .env.example；Study Note 93；0 生产代码 / 0 DeepSeek / 0 sealed / 0 benchmark | 干净 venv 从 lock 安装 → 全量 1724 passed + 4 skipped + 0 failed；commit 179f18e8 / corpus_id 870e5864df67 / 37；manifest 绑定成立 |
-| G5-CI-03（Continuous Integration） | R2 REQUIRED | 第一版 workflow 4645519 已提交；真实 Linux run 31952467496 保留作证据；CI 通过须真实 GitHub Actions run 签（Agent 不代签） | 0 API key / 0 真实 LLM / 0 模型下载 |
+| G5-CI-03（Continuous Integration） | ✅ Reviewer accepted / CLOSED | 第一版 workflow 4645519 已提交；真实 Linux run 31952467496 保留作证据；R2 cross-platform/offline 修复已完成 | 0 API key / 0 真实 LLM / 0 模型下载 |
 | G5-CI-03-R1（pytest temp isolation） | NOT ACCEPTED / hypothesis disproved | `$RUNNER_TEMP/my_agent_pytest` 改动合理但未解决根因，予以保留 | 非 26 failures 根因 |
-| G5-CI-03-R2（cross-platform freeze & offline tests） | ⏳ REVIEW PENDING | 新增 .gitattributes（gate4 jsonl eol=crlf，冻结哈希 93a32e64=CRLF 字节）+ test_pipeline.py offline fake embedding autouse fixture；本地全量 1724 passed + 4 skipped + 0 failed | 不改 frozen dataset/manifest / 不改 core.pipeline / 不改 core.embeddings / 不下载 BGE / 未建 venv |
-| G5-RUN-04（Startup & local API smoke） | ⏳ REVIEW PENDING | scripts/smoke_local_api.py（真实 uvicorn 子进程 + 临时 cwd + dummy key + offline HF + /health 校验 + /openapi 四条路由 + 自动空闲端口）+ tests/test_release_startup.py（同命令断言 exit 0，进 CI）+ README Quick Start 修正（Python 3.14 / requirements.lock / smoke / Key 说明）；Study Note 95 | 本地 smoke 实测 STARTUP_SMOKE_OK；0 真实 key / 0 模型下载 / 模型网络非必需（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI |
-| G5-RUN-05（Full App startup & integration smoke） | ⏳ REVIEW PENDING | scripts/smoke_local_app.py（真实 uvicorn + Streamlit 子进程、AppTest 页面执行、RAG_API_URL 动态连接、health/stats 与三模式检查）+ tests/test_release_app_startup.py；Study Note 97 | 本地 smoke 实测 FULL_APP_SMOKE_OK；0 真实 key / 0 query / 0 LLM / 0 Planner / 0 BGE 下载；两个进程均清理 |
-| G5-APP-04（Frontend Agent Demo alignment） | ⏳ REVIEW PENDING | ui/app.py + ui/api_client.py + ui/renderers.py（三模式 RAG Agent Demo Console：Basic / Agentic / Tool Agent；按模式隔离历史；ApiClient 统一错误分类；/agent 与 /tool-agent 结构化面板）；tests/test_ui_api_client.py 10 passed；Study Note 96 | 未改 api/core/config/requirements/CI/frozen/README；未消耗 DeepSeek；前端适配后端非改 AI 内核 |
+| G5-CI-03-R2（cross-platform freeze & offline tests） | ✅ Reviewer accepted / CLOSED | 新增 .gitattributes（gate4 jsonl eol=crlf，冻结哈希 93a32e64=CRLF 字节）+ test_pipeline.py offline fake embedding autouse fixture；本地全量 1724 passed + 4 skipped + 0 failed | 不改 frozen dataset/manifest / 不改 core.pipeline / 不改 core.embeddings / 不下载 BGE / 未建 venv |
+| G5-RUN-04（Startup & local API smoke） | ✅ Reviewer accepted / CLOSED | scripts/smoke_local_api.py（真实 uvicorn 子进程 + 临时 cwd + dummy key + offline HF + /health 校验 + /openapi 四条路由 + 自动空闲端口）+ tests/test_release_startup.py（同命令断言 exit 0，进 CI）+ README Quick Start 修正（Python 3.14 / requirements.lock / smoke / Key 说明）；Study Note 95 | 本地 smoke 实测 STARTUP_SMOKE_OK；0 真实 key / 0 模型下载 / 模型网络非必需（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI |
+| G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED | scripts/smoke_local_app.py（真实 uvicorn + Streamlit 子进程、AppTest 页面执行、RAG_API_URL 动态连接、health/stats 与三模式检查）+ tests/test_release_app_startup.py；Study Note 97 | 本地 smoke 实测 FULL_APP_SMOKE_OK；0 真实 key / 0 query / 0 LLM / 0 Planner / 0 BGE 下载；两个进程均清理 |
+| G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED | ui/app.py + ui/api_client.py + ui/renderers.py（三模式 RAG Agent Demo Console：Basic / Agentic / Tool Agent；按模式隔离历史；ApiClient 统一错误分类；/agent 与 /tool-agent 结构化面板）；tests/test_ui_api_client.py 10 passed；Study Note 96 | 未改 api/core/config/requirements/CI/frozen/README；未消耗 DeepSeek；前端适配后端非改 AI 内核 |
+| G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING | `/stats` 显式 allowlist response model，新增 `/capabilities` runtime readiness contract；tests/test_api.py 71 passed；Study Note 98 | 未改 core/UI/smoke/frozen artifacts；未调用真实模型 |
 
 ## 修复清单
 

@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（50 份）
+## CURRENT（52 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -77,6 +77,7 @@
 | 95 | [95-Gate5-服务启动与API-Smoke.md](95-Gate5-服务启动与API-Smoke.md) | G5-RUN-04：startup smoke 概念 / unit vs integration vs process-level smoke / TestClient 为何不能替代真实 uvicorn / release smoke 为何不依赖真实 key / 不依赖 HF cache / localhost-only / 临时 cwd 隔离 vector store / health 与质量评测边界 / CI→smoke→frozen benchmark 三层证据 / 面试讲法 |
 | 96 | [96-Gate5-前端与Agent可视化.md](96-Gate5-前端与Agent可视化.md) | G5-APP-04：Demo Console 价值 / UI-API-Runtime 三层边界 / 前端为何不能展示 CoT / Safe Trace vs CoT / completed-refused-deferred-failed 产品语义 / ApiClient 与渲染分离 / 三模式后端链路 / 面试现场用 UI 讲架构 |
 | 97 | [97-Gate5-前后端联调与全应用Smoke.md](97-Gate5-前后端联调与全应用Smoke.md) | G5-RUN-05：真实 FastAPI + Streamlit 全应用 integration smoke；动态 localhost 端口、RAG_API_URL、AppTest 页面执行、health/stats 真实连接、离线 dummy key 边界，以及 unit / integration / E2E / formal benchmark 四层验证 |
+| 98 | [98-Gate5-后端API契约与运行时能力.md](98-Gate5-后端API契约与运行时能力.md) | G5-BE-06：`/stats` 显式 allowlist response_model、OpenAPI contract 与本机路径防泄露；`/capabilities` 区分 Pipeline、AgentRuntime、ToolAgentRuntime readiness；health 与业务状态/503 的边界 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -144,6 +145,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–97 共 **98 份**，每份只出现一次：CURRENT 51 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 98。
+- 编号覆盖 00–98 共 **99 份**，每份只出现一次：CURRENT 52 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 99。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-18。
