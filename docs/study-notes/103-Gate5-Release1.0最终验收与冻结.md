@@ -2,7 +2,7 @@
 
 ## Feature Complete 不等于 Release Accepted
 
-Feature complete 表示计划内的代码、界面、脚本和测试已经完成；Release accepted 则要求这些事实被统一审计，并由独立的最终检查确认能在目标环境中持续成立。前者是开发结论，后者是交付结论。Release 1.0 因此保持 `review_pending`，直到远端 CI 和 Reviewer 完成最终签字。
+Feature complete 表示计划内的代码、界面、脚本和测试已经完成；Release accepted 则要求这些事实被统一审计，并由独立的最终检查确认能在目标环境中持续成立。前者是开发结论，后者是交付结论。Release 1.0 已在远端 CI 与 Reviewer 最终签字后正式 accepted。
 
 ## 为什么 CI 是最后一道 Gate
 
@@ -38,3 +38,7 @@ freeze 不能自指：如果 JSON 既要包含自己的提交 SHA，又必须在
 - Gate5 将环境锁定、CI、启动 smoke、全应用联调、能力发现、Demo、README 和仓库卫生收敛为可交付 Release。
 
 面试时可以用这条演进说明 Release engineering：我不把“模型能回答”当作项目结束，而是为依赖、数据身份、API contract、进程启动、用户界面、安全 trace、演示边界、正式评测和已知限制分别建立证据；最后用一个不自指的 freeze artifact 把候选代码和审计状态交给 Reviewer。
+
+## Reviewer Final Sign-off
+
+`9e6c5f34e157f273b1827c50474d0974c037ae9f` 已通过最终 CI。Gate5 最终 acceptance matrix 全部为 `PASS` 或 `PASS / FROZEN`，Release 1.0 已正式 accepted。V1.1 技术债保持为后续规划，不反向阻塞已经冻结的 V1.0。

@@ -3,7 +3,7 @@
 ## Review Scope
 
 - Release candidate source commit: `a4d5b6c778ec234d0fe38b1b58a6fd794068a90d`
-- Review status: `REVIEW PENDING`
+- Review status: `REVIEWER ACCEPTED`
 - This closeout records existing evidence only. It does not rerun a benchmark, access sealed Holdout material, call a real LLM, or modify production behavior.
 - The release candidate is the completed feature/code baseline. This document and the accompanying freeze metadata are release documentation, so they deliberately do not bind their source field to their own later documentation commit.
 
@@ -13,7 +13,7 @@
 |---|---|---|
 | Reproducible environment | `requirements.lock`; G5-ENV-02; `reproducibility/public_data_lock.json` | PASS |
 | Public corpus provenance | `reproducibility/public_data_lock.json`; `scripts/verify_public_corpus.py` | PASS |
-| Continuous Integration | `.github/workflows/ci.yml` | REVIEWER FINAL CHECK |
+| Continuous Integration | `.github/workflows/ci.yml` | PASS |
 | Backend startup | `scripts/smoke_local_api.py`; `tests/test_release_startup.py` | PASS |
 | Full App startup | `scripts/smoke_local_app.py`; `tests/test_release_app_startup.py` | PASS |
 | Basic RAG UI/API | `POST /query`; Streamlit Basic RAG mode; UI regression tests | PASS |
@@ -30,7 +30,10 @@
 
 ## Reviewer Final Check
 
-The CI row intentionally has no fabricated GitHub Actions run ID, pass count, or conclusion. After this commit is pushed, the Reviewer must verify the remote CI result and then decide whether to change the release status from `review_pending` to accepted. Until then, Gate5 remains `IN PROGRESS — FINAL REVIEW`.
+- CI-validated release candidate: `9e6c5f34e157f273b1827c50474d0974c037ae9f`
+- Verdict: Release 1.0 accepted; Gate 5 closed.
+
+No GitHub Actions run ID, exact pass count, job ID, or duration is recorded because those details were not part of the validated release fact.
 
 ## Evidence Boundary
 

@@ -1,13 +1,14 @@
 {
   "schema_version": "gate5_release_freeze_v1",
   "release": "1.0.0",
-  "status": "review_pending",
+  "status": "accepted",
   "release_candidate_source_commit": "a4d5b6c778ec234d0fe38b1b58a6fd794068a90d",
+  "ci_validated_candidate_commit": "9e6c5f34e157f273b1827c50474d0974c037ae9f",
   "gate1_status": "closed",
   "gate2_status": "closed/frozen",
   "gate3_status": "closed/frozen",
   "gate4_status": "closed/frozen",
-  "gate5_status": "review_pending",
+  "gate5_status": "closed/frozen",
   "evidence_refs": {
     "gate2_freeze_artifact": "docs/experiments/gate2_freeze.json",
     "gate3_system_freeze_id": "2ec11a69b173",
