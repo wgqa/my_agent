@@ -58,7 +58,7 @@ def _submit(question: str, mode: str, top_k: int) -> dict:
     try:
         if mode == "basic":
             result = client.query(question, top_k)
-            renderers.render_basic_sources(result.get("sources") or [])
+            renderers.render_basic_result(result)
             return {"content": result.get("answer", ""), "kind": "basic", "result": result}
         if mode == "agent":
             result = client.agent_query(question, top_k)
@@ -81,8 +81,7 @@ def _render_message(msg: dict) -> None:
         result = msg.get("result")
         kind = msg.get("kind")
         if result and kind == "basic":
-            st.markdown(result.get("answer", ""))
-            renderers.render_basic_sources(result.get("sources") or [])
+            renderers.render_basic_result(result)
         elif result and kind == "agent":
             renderers.render_agent_result(result)
         elif result and kind == "tool_agent":

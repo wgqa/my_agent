@@ -47,6 +47,12 @@ def render_basic_sources(sources: list) -> None:
             st.text(content or "（无内容）")
 
 
+def render_basic_result(result: dict) -> None:
+    """Render the complete Basic RAG result in the current Streamlit run."""
+    st.markdown(result.get("answer", ""))
+    render_basic_sources(result.get("sources") or [])
+
+
 # ══════════════════════════════════════════════════════════════
 # Agentic RAG
 # ══════════════════════════════════════════════════════════════
@@ -60,9 +66,10 @@ def render_agent_planner(planner: dict) -> None:
     plan = planner.get("plan") or {}
     _kv("Plan ID", plan.get("plan_id", "—"))
     _kv("Query Type", plan.get("query_type", "—"))
-    _kv("Fallback Used", plan.get("fallback_used", "—"))
-    if planner.get("reason_code") is not None:
-        _kv("Reason", planner["reason_code"])
+    _kv("Action", plan.get("action", "—"))
+    _kv("Retrieval Required", plan.get("retrieval_required", "—"))
+    _kv("Reason Code", plan.get("reason_code", "—"))
+    _kv("Fallback Used", planner.get("fallback_used", "—"))
     if planner.get("failure_code") is not None:
         _kv("Failure Code", planner["failure_code"])
 
@@ -70,7 +77,8 @@ def render_agent_planner(planner: dict) -> None:
     if subqueries:
         st.markdown("**Subqueries**")
         for i, sq in enumerate(subqueries, start=1):
-            st.markdown(f"**sq{i}**  —  {sq.get('query', '—')}")
+            subquery_id = sq.get("id") or f"sq{i}"
+            st.markdown(f"**{subquery_id}**  —  {sq.get('query', '—')}")
             if sq.get("evidence_target") is not None:
                 st.markdown(f"Evidence target: {sq['evidence_target']}")
 
