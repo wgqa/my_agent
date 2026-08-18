@@ -88,6 +88,9 @@ class ApiClient:
     def stats(self) -> dict:
         return self._request("GET", "/stats")
 
+    def capabilities(self) -> dict:
+        return self._request("GET", "/capabilities")
+
     def index_file(self, file_bytes: bytes, filename: str) -> dict:
         files = {"file": (filename, file_bytes)}
         try:

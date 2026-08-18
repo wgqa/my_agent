@@ -26,6 +26,17 @@ MODE_KEY = {
     "Agentic RAG": "agent",
     "Structured Tool Agent": "tool_agent",
 }
+MODE_FEATURE = {
+    "Basic RAG": "basic_rag",
+    "Agentic RAG": "agentic_rag",
+    "Structured Tool Agent": "structured_tool_agent",
+}
+MODE_FEATURE_BY_KEY = {value: MODE_FEATURE[label] for label, value in MODE_KEY.items()}
+CAPABILITY_LABELS = (
+    ("Basic RAG", "basic_rag"),
+    ("Agentic RAG", "agentic_rag"),
+    ("Structured Tool Agent", "structured_tool_agent"),
+)
 DEFAULT_API_URL = os.getenv("RAG_API_URL", "http://localhost:8000")
 
 
@@ -34,6 +45,26 @@ def _init_state() -> None:
         st.session_state.api_client = ApiClient(DEFAULT_API_URL)
     if "messages_by_mode" not in st.session_state:
         st.session_state.messages_by_mode = {"basic": [], "agent": [], "tool_agent": []}
+    if "runtime_capabilities" not in st.session_state:
+        st.session_state.runtime_capabilities = None
+    if "capabilities_available" not in st.session_state:
+        st.session_state.capabilities_available = False
+
+
+def _feature_enabled(feature: str) -> bool:
+    capabilities = getattr(st.session_state, "runtime_capabilities", None)
+    if not isinstance(capabilities, dict):
+        return False
+    features = capabilities.get("features")
+    return isinstance(features, dict) and features.get(feature) is True
+
+
+def _read_capabilities(client: ApiClient) -> dict | None:
+    try:
+        result = client.capabilities()
+    except ApiError:
+        return None
+    return result if isinstance(result, dict) else None
 
 
 def _show_error(err: ApiError) -> None:
@@ -56,6 +87,15 @@ def _show_error(err: ApiError) -> None:
 # ── 提交 ────────────────────────────────────────────────────────
 
 def _submit(question: str, mode: str, top_k: int) -> dict:
+    if hasattr(st.session_state, "runtime_capabilities"):
+        feature = MODE_FEATURE_BY_KEY.get(mode)
+        if feature and not _feature_enabled(feature):
+            st.warning(f"{mode} runtime 当前不可用，请检查后端运行时初始化状态。")
+            return {
+                "content": f"⚠️ {mode} runtime 当前不可用",
+                "kind": mode,
+                "result": None,
+            }
     client = st.session_state.api_client
     try:
         if mode == "basic":
@@ -114,6 +154,20 @@ def _sidebar() -> tuple[str, int]:
         except ApiError:
             st.error("❌ 服务不可用 — 请确认后端已启动")
 
+        capabilities = _read_capabilities(st.session_state.api_client)
+        st.session_state.runtime_capabilities = capabilities
+        st.session_state.capabilities_available = capabilities is not None
+        st.divider()
+        if capabilities is None:
+            st.warning("⚠️ Runtime Capabilities unavailable")
+        else:
+            st.markdown("#### Runtime Capabilities")
+            for label, feature in CAPABILITY_LABELS:
+                if _feature_enabled(feature):
+                    st.success(f"✅ {label}")
+                else:
+                    st.error(f"❌ {label}")
+
         st.divider()
         mode = st.radio(
             "运行模式",
@@ -138,22 +192,25 @@ def _tab_knowledge_base() -> None:
     col1, col2 = st.columns([1, 1])
     with col1:
         st.subheader("上传文件")
-        uploaded = st.file_uploader(
-            "选择文件上传到知识库",
-            type=["txt", "md", "pdf", "py", "js", "java"],
-        )
-        if uploaded is not None:
-            with st.spinner(f"正在索引 {uploaded.name}..."):
-                try:
-                    result = st.session_state.api_client.index_file(
-                        uploaded.getvalue(), uploaded.name
-                    )
-                    st.success(
-                        f"✅ {result.get('file_name', uploaded.name)} 索引完成 — "
-                        f"生成 {result.get('chunks', '?')} 个块"
-                    )
-                except ApiError as err:
-                    _show_error(err)
+        if not _feature_enabled("indexing"):
+            st.warning("索引能力当前不可用")
+        else:
+            uploaded = st.file_uploader(
+                "选择文件上传到知识库",
+                type=["txt", "md", "pdf", "py", "js", "java"],
+            )
+            if uploaded is not None:
+                with st.spinner(f"正在索引 {uploaded.name}..."):
+                    try:
+                        result = st.session_state.api_client.index_file(
+                            uploaded.getvalue(), uploaded.name
+                        )
+                        st.success(
+                            f"✅ {result.get('file_name', uploaded.name)} 索引完成 — "
+                            f"生成 {result.get('chunks', '?')} 个块"
+                        )
+                    except ApiError as err:
+                        _show_error(err)
     with col2:
         st.subheader("知识库状态")
         try:
@@ -173,6 +230,11 @@ def _tab_console(mode: str, top_k: int) -> None:
 
     for msg in messages:
         _render_message(msg)
+
+    feature = MODE_FEATURE[mode]
+    if not _feature_enabled(feature):
+        st.warning(f"{mode} runtime 当前不可用，请检查后端运行时初始化状态。")
+        return
 
     if prompt := st.chat_input("输入你的问题..."):
         messages.append({"role": "user", "content": prompt})

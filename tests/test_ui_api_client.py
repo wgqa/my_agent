@@ -49,6 +49,23 @@ def test_health_get_url_and_parse(monkeypatch):
     assert captured["url"] == f"{BASE}/health"
 
 
+def test_capabilities_get_url_and_parse(monkeypatch):
+    payload = {
+        "schema_version": "capabilities_response_v1",
+        "features": {
+            "indexing": True,
+            "basic_rag": True,
+            "agentic_rag": False,
+            "structured_tool_agent": False,
+        },
+    }
+    captured = _install(monkeypatch, _Resp(200, payload))
+    client = ApiClient(base_url=BASE)
+    assert client.capabilities() == payload
+    assert captured["method"] == "GET"
+    assert captured["url"] == f"{BASE}/capabilities"
+
+
 def test_query_payload_question_and_top_k(monkeypatch):
     captured = _install(monkeypatch, _Resp(200, {"answer": "a", "sources": []}))
     client = ApiClient(base_url=BASE)

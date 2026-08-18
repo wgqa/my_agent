@@ -47,6 +47,7 @@
 | G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED |
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED |
 | G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING |
+| G5-APP-07B（Capability-aware UI） | ⏳ REVIEW PENDING |
 | G5-DEMO-07（Release Demo harness） | ⏳ REVIEW PENDING |
 
 Gate 4 当前真实状态：
@@ -99,6 +100,7 @@ Gate 5 当前真实状态：
 - **G5-RUN-05-FULL-APP-STARTUP-AND-INTEGRATION-SMOKE = ✅ Reviewer accepted / CLOSED（08-18）**：真实 uvicorn + Streamlit server、动态端口、`RAG_API_URL`、AppTest 页面执行和 health/stats 真实连接均通过；本地输出 `FULL_APP_SMOKE_OK`；未调用 query/LLM/Planner/BGE；Study Note 97；
 - **G5-BE-06-RELEASE-API-CONTRACT-AND-RUNTIME-CAPABILITIES = ⏳ REVIEW PENDING（08-18）**：`/stats` 使用 allowlist `StatsResponse`，不暴露 `_path`、`vector_store_path` 或原始 Config；新增无条件 200 的 `/capabilities`，分别报告 Pipeline、AgentRuntime、ToolAgentRuntime 和 feature readiness；FastAPI title/description 更新；`tests/test_api.py` 71 passed；Study Note 98；未改 UI/core/smoke/frozen artifacts；
 - **G5-DEMO-07-RELEASE-DEMO-HARNESS = ⏳ REVIEW PENDING（08-18）**：新增 `scripts/demo_release.py`、两份公开 demo fixture 和 6-case catalog；preflight 使用 `/capabilities`，每 case 只请求一次，5 required + 1 observational，safety case 验证无 shell；`tests/test_release_demo.py` 10 passed；无真实 key 时清晰退出，未运行 live LLM；Study Note 99；
+- **G5-APP-07B-CAPABILITY-AWARE-UI = ⏳ REVIEW PENDING（08-18）**：UI 新增 `GET /capabilities` 消费，Sidebar 显示 Basic / Agentic / Tool Agent readiness；不可用模式在提交前隐藏 chat input，`indexing=false` 时阻止 `/index/file`；capability 请求失败采用保守降级；新增 UI capability 回归测试与 smoke 消费断言；Study Note 100；未改 API/core/Planner/Tool Agent/README；
 - **核心能力已就绪**：1716 passed + 4 skipped、三类 API（`/query` `/agent/query` `/tool-agent/query`）、Gate 4 评测集已入库、Gate 3/4 trace 已安全化；
 - **后续任务顺序建议**：G5-README-08 → G5-HYGIENE-09 → G5-FINAL-10。
 
@@ -181,6 +183,7 @@ Gate 5 当前真实状态：
 | G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED | scripts/smoke_local_app.py（真实 uvicorn + Streamlit 子进程、AppTest 页面执行、RAG_API_URL 动态连接、health/stats 与三模式检查）+ tests/test_release_app_startup.py；Study Note 97 | 本地 smoke 实测 FULL_APP_SMOKE_OK；0 真实 key / 0 query / 0 LLM / 0 Planner / 0 BGE 下载；两个进程均清理 |
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED | ui/app.py + ui/api_client.py + ui/renderers.py（三模式 RAG Agent Demo Console：Basic / Agentic / Tool Agent；按模式隔离历史；ApiClient 统一错误分类；/agent 与 /tool-agent 结构化面板）；tests/test_ui_api_client.py 10 passed；Study Note 96 | 未改 api/core/config/requirements/CI/frozen/README；未消耗 DeepSeek；前端适配后端非改 AI 内核 |
 | G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING | `/stats` 显式 allowlist response model，新增 `/capabilities` runtime readiness contract；tests/test_api.py 71 passed；Study Note 98 | 未改 core/UI/smoke/frozen artifacts；未调用真实模型 |
+| G5-APP-07B（Capability-aware UI） | ⏳ REVIEW PENDING | ui/api_client.py + ui/app.py：Sidebar 消费 `/capabilities`，模式与 indexing fail-closed；tests/test_ui_capabilities.py + smoke AppTest 断言；Study Note 100 | 未改 api/core/renderers/README/requirements；未调用真实模型 |
 | G5-DEMO-07（Release Demo harness） | ⏳ REVIEW PENDING | scripts/demo_release.py + two public demo fixtures + release_demo_cases.json + tests/test_release_demo.py；Study Note 99 | 6 bounded cases / 5 required + 1 observational；CI no real LLM；live demo requires DEEPSEEK_API_KEY |
 
 ## 修复清单

@@ -97,6 +97,35 @@ def _assert_app_test(backend_base: str) -> None:
                     f"{config_caption!r}"
                 )
 
+        capability_status, capabilities = _http_get(f"{backend_base}/capabilities")
+        if capability_status != 200:
+            raise AssertionError(
+                f"backend /capabilities status={capability_status}"
+            )
+        features = capabilities.get("features", {})
+        success_status = [getattr(item, "value", "") for item in app_test.success]
+        error_status = [getattr(item, "value", "") for item in app_test.error]
+        for label, feature in (
+            ("Basic RAG", "basic_rag"),
+            ("Agentic RAG", "agentic_rag"),
+            ("Structured Tool Agent", "structured_tool_agent"),
+        ):
+            expected_status = success_status if features.get(feature) is True else error_status
+            if not any(label in value for value in expected_status):
+                raise AssertionError(
+                    f"capability {feature!r} was not consumed by UI: "
+                    f"expected label {label!r}, success={success_status!r}, "
+                    f"error={error_status!r}"
+                )
+        warnings = [getattr(item, "value", "") for item in app_test.warning]
+        if features.get("indexing") is False:
+            if not any("索引能力当前不可用" in value for value in warnings):
+                raise AssertionError(
+                    "indexing=false was not reflected in Knowledge Base tab"
+                )
+        elif len(app_test.file_uploader) == 0:
+            raise AssertionError("indexing=true did not render file uploader")
+
         metrics = [getattr(item, "label", "") for item in app_test.metric]
         if "文档块总数" not in metrics:
             raise AssertionError(f"stats was not rendered: {metrics!r}")
@@ -125,6 +154,17 @@ def _assert_app_test(backend_base: str) -> None:
                 raise AssertionError(f"mode {mode!r} raised: {details}")
             slider_labels = [getattr(item, "label", "") for item in app_test.slider]
             has_top_k = any("top_k" in label or "检索数量" in label for label in slider_labels)
+            feature = {
+                "Basic RAG": "basic_rag",
+                "Agentic RAG": "agentic_rag",
+                "Structured Tool Agent": "structured_tool_agent",
+            }[mode]
+            if features.get(feature) is not True:
+                if len(app_test.chat_input) != 0:
+                    raise AssertionError(
+                        f"unavailable mode {mode!r} still exposes chat input"
+                    )
+                continue
             if mode == "Structured Tool Agent" and has_top_k:
                 raise AssertionError("tool-agent mode unexpectedly exposes top_k")
             if mode != "Structured Tool Agent" and not has_top_k:
