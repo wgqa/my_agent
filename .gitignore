@@ -11,7 +11,9 @@ data/vector_store/
 data/test_store/
 experiments/results/tmp/
 experiments/*/*/vector_store/
+experiments/*/*/config.yaml
 .tmp_pytest*/
+.tmp_g5env02_lock
 *.log
 .DS_Store
 Thumbs.db

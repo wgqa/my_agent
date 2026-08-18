@@ -46,10 +46,11 @@
 | G5-RUN-04（Startup & local API smoke） | ✅ Reviewer accepted / CLOSED |
 | G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED |
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED |
-| G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING |
-| G5-APP-07B（Capability-aware UI） | ⏳ REVIEW PENDING |
-| G5-README-08（Release project front door） | ⏳ REVIEW PENDING |
-| G5-DEMO-07（Release Demo harness） | ⏳ REVIEW PENDING |
+| G5-BE-06（Release API contract & runtime capabilities） | ✅ Reviewer accepted / CLOSED |
+| G5-APP-07B（Capability-aware UI） | ✅ Reviewer accepted / CLOSED |
+| G5-README-08（Release project front door） | ✅ Reviewer accepted / CLOSED |
+| G5-DEMO-07（Release Demo harness） | ✅ Reviewer accepted / CLOSED |
+| G5-HYGIENE-09（Release security & repo hygiene） | IN PROGRESS |
 
 Gate 4 当前真实状态：
 
@@ -99,10 +100,11 @@ Gate 5 当前真实状态：
 - **G5-RUN-04-STARTUP-AND-LOCAL-API-SMOKE = ✅ Reviewer accepted / CLOSED（08-16）**：真实 uvicorn 子进程、临时 cwd/vector store、dummy key、HF offline、`/health`、OpenAPI contract 与自动测试均通过；本地 smoke 实测 `STARTUP_SMOKE_OK`；0 真实 key / 0 模型下载 / 0 公网；
 - **G5-APP-04-FRONTEND-AGENT-DEMO-ALIGNMENT = ✅ Reviewer accepted / CLOSED（08-17）**：三模式 RAG Agent Demo Console、ApiClient 错误分类、结构化 Agent/Tool Agent 面板和 UI 回归测试已完成；未改 api/core/config/requirements/CI/frozen/README；
 - **G5-RUN-05-FULL-APP-STARTUP-AND-INTEGRATION-SMOKE = ✅ Reviewer accepted / CLOSED（08-18）**：真实 uvicorn + Streamlit server、动态端口、`RAG_API_URL`、AppTest 页面执行和 health/stats 真实连接均通过；本地输出 `FULL_APP_SMOKE_OK`；未调用 query/LLM/Planner/BGE；Study Note 97；
-- **G5-BE-06-RELEASE-API-CONTRACT-AND-RUNTIME-CAPABILITIES = ⏳ REVIEW PENDING（08-18）**：`/stats` 使用 allowlist `StatsResponse`，不暴露 `_path`、`vector_store_path` 或原始 Config；新增无条件 200 的 `/capabilities`，分别报告 Pipeline、AgentRuntime、ToolAgentRuntime 和 feature readiness；FastAPI title/description 更新；`tests/test_api.py` 71 passed；Study Note 98；未改 UI/core/smoke/frozen artifacts；
-- **G5-DEMO-07-RELEASE-DEMO-HARNESS = ⏳ REVIEW PENDING（08-18）**：新增 `scripts/demo_release.py`、两份公开 demo fixture 和 6-case catalog；preflight 使用 `/capabilities`，每 case 只请求一次，5 required + 1 observational，safety case 验证无 shell；`tests/test_release_demo.py` 10 passed；无真实 key 时清晰退出，未运行 live LLM；Study Note 99；
-- **G5-APP-07B-CAPABILITY-AWARE-UI = ⏳ REVIEW PENDING（08-18）**：UI 新增 `GET /capabilities` 消费，Sidebar 显示 Basic / Agentic / Tool Agent readiness；不可用模式在提交前隐藏 chat input，`indexing=false` 时阻止 `/index/file`；capability 请求失败采用保守降级；新增 UI capability 回归测试与 smoke 消费断言；Study Note 100；未改 API/core/Planner/Tool Agent/README；
-- **G5-README-08-RELEASE-PROJECT-FRONT-DOOR = ⏳ REVIEW PENDING（08-18）**：重写 README 为 Release 1.0 项目入口，补充真实 Mermaid 总架构、三种 API/UI 模式、Smoke/Demo/Benchmark 边界、Gate 2/3/4 冻结 headline、公共语料复现入口、安全边界、已知限制、工程决策与 Gate 演进；新增 Study Note 101；未改生产代码、API、Agent、Demo harness 或冻结 artifact；
+- **G5-BE-06-RELEASE-API-CONTRACT-AND-RUNTIME-CAPABILITIES = ✅ Reviewer accepted / CLOSED（08-18）**：`/stats` 使用 allowlist `StatsResponse`，不暴露 `_path`、`vector_store_path` 或原始 Config；新增无条件 200 的 `/capabilities`，分别报告 Pipeline、AgentRuntime、ToolAgentRuntime 和 feature readiness；FastAPI title/description 更新；`tests/test_api.py` 71 passed；Study Note 98；未改 UI/core/smoke/frozen artifacts；
+- **G5-DEMO-07-RELEASE-DEMO-HARNESS = ✅ Reviewer accepted / CLOSED（08-18）**：新增 `scripts/demo_release.py`、两份公开 demo fixture 和 6-case catalog；preflight 使用 `/capabilities`，每 case 只请求一次，5 required + 1 observational，safety case 验证无 shell；`tests/test_release_demo.py` 10 passed；无真实 key 时清晰退出，未运行 live LLM；Study Note 99；
+- **G5-APP-07B-CAPABILITY-AWARE-UI = ✅ Reviewer accepted / CLOSED（08-18）**：UI 新增 `GET /capabilities` 消费，Sidebar 显示 Basic / Agentic / Tool Agent readiness；不可用模式在提交前隐藏 chat input，`indexing=false` 时阻止 `/index/file`；capability 请求失败采用保守降级；新增 UI capability 回归测试与 smoke 消费断言；Study Note 100；未改 API/core/Planner/Tool Agent/README；
+- **G5-README-08-RELEASE-PROJECT-FRONT-DOOR = ✅ Reviewer accepted / CLOSED（08-18）**：重写 README 为 Release 1.0 项目入口，补充真实 Mermaid 总架构、三种 API/UI 模式、Smoke/Demo/Benchmark 边界、Gate 2/3/4 冻结 headline、公共语料复现入口、安全边界、已知限制、工程决策与 Gate 演进；新增 Study Note 101；未改生产代码、API、Agent、Demo harness 或冻结 artifact；
+- **G5-HYGIENE-09-RELEASE-SECURITY-AND-REPO-HYGIENE = IN PROGRESS（08-18）**：本轮收口 secret/path/holdout/large-file 审计、pytest 配置、Demo summary、ignore 噪音和文档状态；新增 Hygiene Audit 与 Study Note 102；
 - **核心能力已就绪**：1716 passed + 4 skipped、三类 API（`/query` `/agent/query` `/tool-agent/query`）、Gate 4 评测集已入库、Gate 3/4 trace 已安全化；
 - **后续任务顺序建议**：G5-HYGIENE-09 → G5-FINAL-10。
 
@@ -184,10 +186,11 @@ Gate 5 当前真实状态：
 | G5-RUN-04（Startup & local API smoke） | ✅ Reviewer accepted / CLOSED | scripts/smoke_local_api.py（真实 uvicorn 子进程 + 临时 cwd + dummy key + offline HF + /health 校验 + /openapi 四条路由 + 自动空闲端口）+ tests/test_release_startup.py（同命令断言 exit 0，进 CI）+ README Quick Start 修正（Python 3.14 / requirements.lock / smoke / Key 说明）；Study Note 95 | 本地 smoke 实测 STARTUP_SMOKE_OK；0 真实 key / 0 模型下载 / 模型网络非必需（仅 127.0.0.1）；未改 api/core/config/requirements/CI workflow/frozen artifacts/UI |
 | G5-RUN-05（Full App startup & integration smoke） | ✅ Reviewer accepted / CLOSED | scripts/smoke_local_app.py（真实 uvicorn + Streamlit 子进程、AppTest 页面执行、RAG_API_URL 动态连接、health/stats 与三模式检查）+ tests/test_release_app_startup.py；Study Note 97 | 本地 smoke 实测 FULL_APP_SMOKE_OK；0 真实 key / 0 query / 0 LLM / 0 Planner / 0 BGE 下载；两个进程均清理 |
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED | ui/app.py + ui/api_client.py + ui/renderers.py（三模式 RAG Agent Demo Console：Basic / Agentic / Tool Agent；按模式隔离历史；ApiClient 统一错误分类；/agent 与 /tool-agent 结构化面板）；tests/test_ui_api_client.py 10 passed；Study Note 96 | 未改 api/core/config/requirements/CI/frozen/README；未消耗 DeepSeek；前端适配后端非改 AI 内核 |
-| G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING | `/stats` 显式 allowlist response model，新增 `/capabilities` runtime readiness contract；tests/test_api.py 71 passed；Study Note 98 | 未改 core/UI/smoke/frozen artifacts；未调用真实模型 |
-| G5-APP-07B（Capability-aware UI） | ⏳ REVIEW PENDING | ui/api_client.py + ui/app.py：Sidebar 消费 `/capabilities`，模式与 indexing fail-closed；tests/test_ui_capabilities.py + smoke AppTest 断言；Study Note 100 | 未改 api/core/renderers/README/requirements；未调用真实模型 |
-| G5-README-08（Release project front door） | ⏳ REVIEW PENDING | README.md 重写为项目定位、架构、三模式、体验路径、API、冻结证据、复现、安全边界、限制与路线；Study Note 101 | 仅文档；未改生产代码、未重跑 benchmark、未调用真实模型 |
-| G5-DEMO-07（Release Demo harness） | ⏳ REVIEW PENDING | scripts/demo_release.py + two public demo fixtures + release_demo_cases.json + tests/test_release_demo.py；Study Note 99 | 6 bounded cases / 5 required + 1 observational；CI no real LLM；live demo requires DEEPSEEK_API_KEY |
+| G5-BE-06（Release API contract & runtime capabilities） | ✅ Reviewer accepted / CLOSED | `/stats` 显式 allowlist response model，新增 `/capabilities` runtime readiness contract；tests/test_api.py 71 passed；Study Note 98 | 未改 core/UI/smoke/frozen artifacts；未调用真实模型 |
+| G5-APP-07B（Capability-aware UI） | ✅ Reviewer accepted / CLOSED | ui/api_client.py + ui/app.py：Sidebar 消费 `/capabilities`，模式与 indexing fail-closed；tests/test_ui_capabilities.py + smoke AppTest 断言；Study Note 100 | 未改 api/core/renderers/README/requirements；未调用真实模型 |
+| G5-README-08（Release project front door） | ✅ Reviewer accepted / CLOSED | README.md 重写为项目定位、架构、三模式、体验路径、API、冻结证据、复现、安全边界、限制与路线；Study Note 101 | 仅文档；未改生产代码、未重跑 benchmark、未调用真实模型 |
+| G5-DEMO-07（Release Demo harness） | ✅ Reviewer accepted / CLOSED | scripts/demo_release.py + two public demo fixtures + release_demo_cases.json + tests/test_release_demo.py；Study Note 99 | 6 bounded cases / 5 required + 1 observational；CI no real LLM；live demo requires DEEPSEEK_API_KEY |
+| G5-HYGIENE-09（Release security & repo hygiene） | IN PROGRESS | Secret/path/holdout/large-file audit；pytest.ini、scripts/demo_release.py、.gitignore、tests/test_pipeline.py；Study Note 102 | 未改 API/core/UI/README/frozen evidence；未删除用户 untracked 文件 |
 
 ## 修复清单
 
@@ -280,7 +283,7 @@ Gate 5 当前真实状态：
 | README.md | 快速上手（安装/配置/API） |
 | docs/baseline.md | M0 工程基线 |
 | docs/known-issues.md | 已知问题（仅剩增强级 Bug 15） |
-| docs/study-notes/ | 学习笔记 00-91 |
+| docs/study-notes/ | 学习笔记 00-102 |
 | docs/design/ | 设计文档（tokenizer-aligned chunk intervention 契约、Gate 3 评测协议与架构契约、Gate 4 Structured Tool Agent 契约等） |
 | docs/adr/ | 架构决策记录（ADR-001 Gate 3 规划/路由/证据边界） |
 | docs/archive/ | 历史大规划（改进路线图 / RAG 与 Agent 融合），备查不跟进 |

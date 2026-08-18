@@ -444,6 +444,21 @@ def _print_case(index: int, total: int, case: dict, result: CaseResult) -> None:
         print(f"Reason: {safe_text(result.error)}")
 
 
+def summarize_results(results: list[CaseResult]) -> dict[str, int | str]:
+    """Summarize required cases separately from the observational case."""
+    required_results = [result for result in results if result.required]
+    observational_results = [result for result in results if result.observational]
+    return {
+        "required_count": len(required_results),
+        "required_passed": sum(result.status == "pass" for result in required_results),
+        "required_failed": sum(result.status == "fail" for result in required_results),
+        "required_skipped": sum(
+            result.status == "skipped" for result in required_results
+        ),
+        "observational_status": (
+            observational_results[0].status if observational_results else "none"
+        ),
+    }
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the live Release 1.0 demo harness")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
@@ -491,19 +506,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"LIVE DEMO FAILED — artifact write failed: {safe_text(exc)}")
         return 1
 
-    required_results = [result for result in results if result.required]
-    passed = sum(result.status == "pass" for result in results)
-    failed = sum(result.status == "fail" for result in required_results)
-    skipped_required = sum(result.status == "skipped" for result in required_results)
+    summary = summarize_results(results)
     print("\n" + "=" * 48)
     print("Demo Summary")
     print("=" * 48)
-    print(f"Required cases: {len(required_results)}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failed}")
-    print(f"Skipped required: {skipped_required}")
-    print("Observational: multi-step")
-    return 1 if failed or skipped_required else 0
+    print(f"Required cases: {summary['required_count']}")
+    print(f"Required passed: {summary['required_passed']}")
+    print(f"Required failed: {summary['required_failed']}")
+    print(f"Required skipped: {summary['required_skipped']}")
+    print(f"Observational: {summary['observational_status']}")
+    return 1 if summary["required_failed"] or summary["required_skipped"] else 0
 
 
 if __name__ == "__main__":

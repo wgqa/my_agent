@@ -8,7 +8,9 @@ from core.loader.base import Document
 from core.pipeline import Pipeline
 from core.vector_store.chroma_store import ChromaStore
 
-_FAKE_EMBED_DIM = 512
+# SHA-256 provides 32 deterministic bytes; the fake vector intentionally uses
+# that actual dimension instead of claiming a 512-dimensional embedding.
+_FAKE_EMBED_DIM = 32
 
 
 def _fake_vector(text: str) -> list:

@@ -106,6 +106,23 @@ def test_required_and_observational_cases_are_reported_separately():
     assert observational[0]["required"] is False
 
 
+def test_demo_summary_counts_required_and_observational_separately():
+    results = [
+        demo.CaseResult("required-pass", "/query", True, False, "pass"),
+        demo.CaseResult("required-fail", "/query", True, False, "fail"),
+        demo.CaseResult("required-skip", "/query", True, False, "skipped"),
+        demo.CaseResult("observed-pass", "/tool-agent/query", False, True, "pass"),
+    ]
+
+    assert demo.summarize_results(results) == {
+        "required_count": 3,
+        "required_passed": 1,
+        "required_failed": 1,
+        "required_skipped": 1,
+        "observational_status": "pass",
+    }
+
+
 def test_safety_case_never_invokes_shell_or_subprocess(monkeypatch):
     client = _RecordingClient(
         {
