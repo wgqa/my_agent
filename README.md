@@ -1,91 +1,255 @@
-# RAG 知识库问答系统
+# RAG Agent：可评测的 Agentic Retrieval 与 Structured Tool Use 系统
 
-从零实现的 RAG 管线，用于技术文档的智能检索与问答。
+[![CI](https://github.com/wgqa/my_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wgqa/my_agent/actions/workflows/ci.yml)
 
-## 架构
+面向技术文档与代码的可评测 RAG Agent。项目从基础 RAG 演进到 Query Decomposition、Adaptive Retrieval、Evidence Verification 与 Structured Tool Agent，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。
 
+## 项目亮点
+
+| 能力 | 当前实现 |
+|---|---|
+| Basic RAG | Dense / BM25 / Hybrid 检索、Reranker、grounded citation |
+| Agentic RAG | Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier |
+| Tool Agent | `knowledge_search`、`code_search`、`calculator` |
+| Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace |
+| Evaluation | Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据 |
+| Engineering | FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke |
+| Reproducibility | `requirements.lock`、公共语料 provenance、冻结 artifact 身份 |
+
+这不是只展示一个问答页面的 RAG Demo：每条能力链路都有 API contract、运行时边界、测试或冻结证据可供审计。
+
+## 总体架构
+
+```mermaid
+flowchart TD
+    U[User] --> UI[Streamlit Demo Console]
+    UI --> API[FastAPI]
+
+    API --> B[Basic RAG /query]
+    B --> BR[Retriever]
+    BR --> RR[Reranker]
+    RR --> BG[Generator]
+    BG --> BA[Answer + Citations]
+
+    API --> A[Agentic RAG /agent/query]
+    A --> P[Planner]
+    P --> D[Query Decomposition]
+    D --> R[Adaptive Router]
+    R --> E[Retrieval / Evidence Merge]
+    E --> V[Verifier]
+    V --> G[Grounded Answer]
+
+    API --> T[Structured Tool Agent /tool-agent/query]
+    T --> TD[Decision]
+    TD --> TC[Allowlisted Tool Call]
+    TC --> O[Observation]
+    O --> L[Bounded Iteration]
+    L --> TF[Final Answer]
 ```
-文件上传 → Loader → Chunker → Embedding → VectorStore (ChromaDB)
-用户问题 → Retriever (Dense + BM25 RRF) → Reranker → Generator (DeepSeek) → 答案 + 引用
-```
 
-### 核心组件
+Basic、Agentic 和 Tool Agent 共用 HTTP 入口层，但使用相互独立的 runtime contract。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。
 
-| 组件 | 支持 |
-|------|------|
-| Loader | TXT / Markdown / PDF / Python / JS / Java |
-| Chunker | FixedSize / Recursive / Semantic |
-| Embedding | BGE (本地) / OpenAI (云端) |
-| VectorStore | ChromaDB (持久化 + 内存模式) |
-| Retriever | Simple (Dense) / Hybrid (Dense+BM25 RRF) / MMR |
-| Reranker | BGE Cross-Encoder |
-| Generator | DeepSeek / OpenAI 兼容 |
+## 三种运行模式
 
-## 环境要求
+### Basic RAG
 
-- **正式验证环境：Python 3.14**（复现入口见 `requirements.lock`；不声称"所有 Python 3.11+ 均已验证"）
-- BGE-small-zh-v1.5 模型缓存 (~33MB，仅 Embedding 时使用)
-- BGE-reranker-v2-m3 模型缓存 (~2.2GB，可选，Rerank 时使用)
-- DeepSeek API Key（生成答案 / Agent 真调用需要；**仅启动 /health smoke 不需要**）
+`POST /query`
 
-## 安装（复现入口）
+适合普通知识库问答：检索候选、可选重排、生成有证据约束的答案，并返回来源。Dense、BM25 和 Hybrid 是可比较的检索策略；Gate 2 的冻结 primary 是 BM25，不代表所有问题或所有配置都应盲选 BM25。
+
+### Agentic RAG
+
+`POST /agent/query`
+
+Planner 先产生结构化 QueryPlan，再根据 Query Type 和 evidence target 做 Query Decomposition；Adaptive Router 选择检索策略，Evidence Merge 合并子问题证据，Verifier 检查覆盖后才进入 grounded answer。响应中的 planner、route、verification 和 trace 是可审计执行事实，不是模型私有 Chain-of-Thought。
+
+### Structured Tool Agent
+
+`POST /tool-agent/query`
+
+Decision → Tool Call → Observation → bounded iteration → Final Answer。当前真实只读工具是 `knowledge_search`、`code_search` 和 `calculator`。运行时控制最大 iteration、tool calls、tool errors，并对重复调用和未注册工具 fail closed。
+
+## 5 分钟体验
+
+### 安装
+
+正式验证环境为 Python 3.14，复现入口是锁定依赖：
 
 ```bash
 python -m pip install -r requirements.lock
 ```
 
-> `requirements.lock` 是 Release 1.0 的精确版本快照（Python 3.14 已验证）。
-> `requirements.txt` 保留为宽松的开发依赖描述（范围下限），不作为复现入口。
-
-## 配置
-
-创建 `.env` 文件：
-```
-DEEPSEEK_API_KEY=sk-your-key
-```
-
-`config.yaml` 中可调整 chunker 策略、检索策略等参数。非法配置会启动即报错。
-
-## 运行测试
+生成答案和 Agent 真调用需要设置环境变量：
 
 ```bash
-python -m pytest --basetemp=.tmp_pytest
+export DEEPSEEK_API_KEY="your-key"
 ```
 
-`--basetemp=.tmp_pytest` 是 Windows 中文用户名环境的临时目录权限规避。
+PowerShell 等价写法是 `$env:DEEPSEEK_API_KEY = "your-key"`。不要把真实凭据写入仓库文件。
 
-## 启动自检（startup smoke）
+### 启动 API 与 UI
 
-```bash
-python scripts/smoke_local_api.py
-```
-
-启动一个**真实** uvicorn 进程并验证 `/health` 与 `/openapi.json` 是否暴露预期路由；
-不依赖真实 API Key、不下载模型、不访问公网（仅 `127.0.0.1`）。成功输出 `STARTUP_SMOKE_OK`。
-启动 /health smoke **不需要**真实 API Key；生成回答与 Agent 真调用才需要相应 Key。
-
-## 启动服务
-
-**API：**
 ```bash
 uvicorn api.app:app --host 127.0.0.1 --port 8000
-```
-
-**UI（新终端）：**
-```bash
 streamlit run ui/app.py
 ```
 
-浏览器访问 `http://localhost:8501`。
+打开 Streamlit 地址后，可以在 Agent Console 中切换 Basic RAG、Agentic RAG 和 Structured Tool Agent。侧栏会先读取 `/health` 与 `/capabilities`；runtime 未 ready 的模式会在提交前提示，不会等一次 503 才暴露问题。
 
-> **监听地址说明**：当前项目默认是本地 Demo，API 只监听 `127.0.0.1`，仅允许本机访问。`0.0.0.0` 会把服务暴露到所有网卡接口，同网段设备均可访问。如未来公开部署，必须另行增加认证、反向代理、TLS、限流和部署安全配置。
+如果 API 不在默认地址，可设置 `RAG_API_URL=http://127.0.0.1:<port>` 后再启动 UI。
 
-## 已知限制
+### Release Demo
 
-- BM25 索引重启后需从 ChromaDB 重建（已实现自动重建）
-- 多轮对话仅 API 支持（`history` 字段 + 指代改写），UI 暂未接入
-- 未实现流式输出
+```bash
+python scripts/demo_release.py
+```
 
-## Roadmap
+Release Demo 是面向用户的固定演示，不是 benchmark。catalog 固定 6 个场景：Basic RAG、Agentic RAG、calculator、code search、多步工具链观察项和安全边界；其中 5 个 required，1 个 observational。每个场景最多请求一次，不自动重试模型调用。Live Demo 需要真实 `DEEPSEEK_API_KEY`；本轮 Release Demo 尚未产生成功的 live LLM 结果，不把其他 Gate 的 HTTP evidence 冒充为 Demo 结果。
 
-见 `docs/status.md`（实时状态）。历史大规划见 `docs/archive/`。
+## Smoke、Demo 与 Benchmark
+
+三者回答不同问题：
+
+| 层次 | 命令 | 证明什么 |
+|---|---|---|
+| Backend Startup Smoke | `python scripts/smoke_local_api.py` | 真实 uvicorn、`/health`、OpenAPI 路由；不调用真实模型，输出 `model_network_not_required=true` |
+| Full App Smoke | `python scripts/smoke_local_app.py` | FastAPI + Streamlit server + AppTest 页面执行 + 真实 UI → API integration + runtime capabilities |
+| Live Release Demo | `python scripts/demo_release.py` | 真实用户能力演示，需要真实 `DEEPSEEK_API_KEY` |
+| Formal Benchmark | 冻结 runner / evidence | 固定数据、配置、身份和指标上的可比较质量结果 |
+
+Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold-based 分数，Benchmark 也不应通过反复重跑来挑选更好看的结果。
+
+## 公共 API
+
+| Endpoint | 作用 |
+|---|---|
+| `GET /health` | 基础 Pipeline readiness 与公开运行配置 |
+| `GET /capabilities` | Basic / Agentic / Tool Agent / indexing 的 runtime capability |
+| `GET /stats` | 经过 allowlist 的运行统计与配置快照 |
+| `POST /index/file` | 将支持的文档索引到知识库 |
+| `POST /query` | Basic RAG |
+| `POST /agent/query` | Agentic RAG |
+| `POST /tool-agent/query` | Structured Tool Agent |
+
+完整 request/response schema 以 FastAPI `/docs` 与 OpenAPI 为准；README 只保留产品层入口，不复制每个 Pydantic 字段。
+
+## Evaluation & Evidence
+
+下面只列冻结 artifact 中的 headline，指标定义、配置和 SHA 以对应文件为准。
+
+### Gate 2 — Retrieval
+
+当前 37 个文档、50 个 case、Top-5 chunk 的 document-level 指标中，冻结 primary 是 Recursive + BM25 + `cl100k_content_v1`：
+
+| 指标 | 结果 |
+|---|---:|
+| Hit@5 | 0.98 |
+| Recall@5 | 0.9533 |
+| MRR | 0.7873 |
+| nDCG@5 | 0.8206 |
+
+证据：[docs/experiments/gate2_freeze.json](docs/experiments/gate2_freeze.json)。这是当前冻结范围内的结果，不是跨数据集的普遍结论。
+
+### Gate 3 — Agentic RAG
+
+Dev 侧冻结系统 evidence（24 cases）记录：retrieval obligation `35/44 = 0.7955`、answer obligation `21/44 = 0.4773`、answer pass `8/20 = 0.40`、citation valid `16/16 = 1.0`。正式 sealed holdout 的最终记录（12 cases，10 个 answerable）是：retrieval obligation `18/21 = 0.8571`、answer obligation `8/21 = 0.3810`、answer pass `4/10 = 0.40`、citation valid `6/6 = 1.0`。
+
+证据：[docs/experiments/gate3_system_freeze.json](docs/experiments/gate3_system_freeze.json) 与 [docs/experiments/gate3_holdout_final.json](docs/experiments/gate3_holdout_final.json)。其中 4/24 Dev generation failures 和 retrieval-to-answer gap 都保留在 headline 中，没有被删除或重新解释。
+
+### Gate 4 — Structured Tool Agent
+
+冻结 public Dev baseline（24 cases）记录：
+
+| 指标 | 结果 |
+|---|---:|
+| First action accuracy | 21/24 = 0.875 |
+| Required tool coverage | 14/20 = 0.70 |
+| Task completion | 20/24 = 0.8333 |
+| Forbidden tool rate | 0/24 = 0 |
+| Duplicate tool rate | 0/24 = 0 |
+| Allowed sequence match | 1/4 = 0.25 |
+
+证据：[docs/experiments/gate4_tool_use_dev_baseline.json](docs/experiments/gate4_tool_use_dev_baseline.json)、[docs/experiments/gate4_tool_use_dev_seal.json](docs/experiments/gate4_tool_use_dev_seal.json) 和 [docs/experiments/gate4_freeze.json](docs/experiments/gate4_freeze.json)。`Allowed sequence match` 与 required coverage 是已知限制，不通过修改展示层掩盖。
+
+### 冻结评测语义
+
+Gate 2、Gate 3、Gate 4 的正式实验与证据已经冻结。Release 1.0 使用已有 evidence 作为审计依据，不通过重新调参、重复执行 sealed holdout 或挑选结果来制造更漂亮的数字。
+
+## Reproducibility
+
+- Python 3.14 是当前验证版本。
+- `requirements.lock` 是安装入口。
+- `reproducibility/public_data_lock.json` 锁定公共语料身份。
+- `scripts/verify_public_corpus.py` 使用 `--data-root` 重新构建并核对身份。
+
+公共 corpus 来源为 `wgqa/agent_data`，固定 commit 为 `179f18e812ad63c36c5569de8e86c5ff9a931cb5`，路径为 `agent_ai_v1/02_corpus_candidate`，37 files，`corpus_id=870e5864df67`。该 commit 和 corpus identity 以 [reproducibility/public_data_lock.json](reproducibility/public_data_lock.json) 为准。
+
+```bash
+python scripts/verify_public_corpus.py --data-root /path/to/agent_data
+```
+
+验证命令只读取指定 checkout，不把外部语料复制进本仓库。
+
+## Safety Boundaries
+
+- Tool registry 只暴露 `calculator`、`code_search`、`knowledge_search`；不存在任意 shell tool。
+- Tool Agent 使用系统控制的预算：最多 5 iterations、4 tool calls、2 tool errors。
+- duplicate tool call 会停止或拒绝继续执行，未注册工具 fail closed。
+- Tool Agent decision baseline 不自动重试模型调用；HTTP transport failure 与结构化 Agent failure 分开处理。
+- Safe Trace 只记录受控执行事实，不暴露私有 Chain-of-Thought、Prompt、原始模型输出、凭据或本机路径。
+- 文档内容、检索结果和 Tool Observation 都按 untrusted input 处理，不获得系统控制权。
+- 敏感凭据只通过环境变量注入；默认服务监听 `127.0.0.1`。
+
+## Known Limitations
+
+- Basic `/query` schema 支持 `history`；当前 Streamlit UI 不把会话历史发送给后端。
+- Agentic RAG 与 Tool Agent 当前是单轮 request contract；UI 也按模式隔离历史。
+- 当前没有 streaming 输出。
+- Tool Agent 正式 Dev baseline 的 multi-step allowed sequence match 为 `1/4`，required tool coverage 为 `14/20`；`ACTION_PARSE_FAILED` 为 `2/24`，budget stop 为 `1/24`。
+- Gate 3 Dev 侧有 `4/24` generation failures；检索找到证据不等于 Generator 覆盖全部 answer obligation。
+- 当前默认是本地单用户 Demo，不包含认证、租户隔离或面向公网的部署安全层。
+
+这些是冻结证据中的已知限制，不是 README 里等待偷偷修掉的数字。
+
+## Engineering Decisions
+
+1. **冻结 primary 选择 BM25。** 在 Gate 2 的明确数据、文档和 Top-5 指标范围内，Recursive + BM25 的 Hit@5、Recall@5 和 nDCG@5 高于对照组；因此记录事实，不把更复杂的 Hybrid 自动当成更好。
+2. **冻结 sealed evidence 后不反复调参。** Holdout 只执行授权次数，结果与 provenance 一起封存，避免把评测集变成调参集。
+3. **Adaptive Router 使用 deterministic policy。** 路由策略由结构化 Planner 结果和固定 policy 表决定，减少把一次 LLM 随机输出误写成系统设计。
+4. **Tool Agent 使用 allowlist + budgets。** 模型只提出结构化 action，Registry/Executor 和 runtime budget 决定是否真正执行。
+5. **Safe Trace 不暴露 CoT。** 产品需要展示可审计的事件、工具和结果，不需要也不应展示模型私有推理文本。
+
+相关背景见 [Gate 2 总结](docs/study-notes/60-Gate2评测体系与RAG实验方法总结.md)、[Adaptive Retrieval 记录](docs/study-notes/75-Gate3子查询RRF合并实验.md)、[Tool Agent 总结](docs/study-notes/91-Gate4最终冻结与Structured-Tool-Agent项目总结.md) 和 [能力发现与前端降级](docs/study-notes/100-Gate5-能力发现与前端降级.md)。
+
+## Project Evolution
+
+| 阶段 | 交付重点 |
+|---|---|
+| Gate 1 | 基础 RAG 正确性、上下文与引用 |
+| Gate 2 | 可复现实验、Retrieval Evaluation、策略与分块消融 |
+| Gate 3 | Query Decomposition、Adaptive Retrieval、Evidence Verification |
+| Gate 4 | Structured Tool Agent、只读工具、安全执行与 formal Dev baseline |
+| Gate 5 | Release Engineering、UI、CI、API contract、Smoke 与 Demo |
+
+## Repository Map
+
+- `api/`：FastAPI routes、public response schemas 和 runtime lifecycle。
+- `core/`：Pipeline、retrieval、Agent runtime、Tool registry 与执行器。
+- `ui/`：Streamlit console、ApiClient 和结果 renderers。
+- `scripts/`：startup/full-app smoke、Demo harness、corpus verification 与评测入口。
+- `tests/`：unit、API contract、runtime boundary、UI logic 和 release smoke tests。
+- `docs/experiments/`：tracked freeze、seal 和 release readiness evidence。
+- `docs/study-notes/`：设计演进与面向学习的解释；当前状态以 `docs/status.md` 为准。
+
+推荐阅读顺序是：先看本 README 的架构和限制，再看 `ui/app.py` / `api/app.py` 的入口，最后沿对应 Gate 的 evidence path 核对数字。这样可以把产品路径、实现路径和评测证据保持在同一条可追溯链上。
+
+## Docs
+
+- [实时项目状态](docs/status.md)
+- [Release readiness 基线](docs/experiments/gate5_release_readiness_baseline.md)
+- [API contract 与 runtime capabilities](docs/study-notes/98-Gate5-后端API契约与运行时能力.md)
+- [前后端联调与 Full App Smoke](docs/study-notes/97-Gate5-前后端联调与全应用Smoke.md)
+- [Release Demo 与产品验收](docs/study-notes/99-Gate5-Release-Demo与产品验收.md)
+- [学习笔记索引](docs/study-notes/README.md)
+
+API 交互细节请运行服务后查看 `/docs`；README 负责项目入口、证据路径和边界，不替代 OpenAPI 或冻结报告。

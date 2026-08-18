@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（54 份）
+## CURRENT（55 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -80,6 +80,7 @@
 | 98 | [98-Gate5-后端API契约与运行时能力.md](98-Gate5-后端API契约与运行时能力.md) | G5-BE-06：`/stats` 显式 allowlist response_model、OpenAPI contract 与本机路径防泄露；`/capabilities` 区分 Pipeline、AgentRuntime、ToolAgentRuntime readiness；health 与业务状态/503 的边界 |
 | 99 | [99-Gate5-Release-Demo与产品验收.md](99-Gate5-Release-Demo与产品验收.md) | G5-DEMO-07：Smoke / Release Demo / Benchmark 边界；固定 demo fixture 与 case catalog；required / observational；真实 LLM 不进 CI；安全 case 的无执行证明；5 分钟现场演示与产品验收 |
 | 100 | [100-Gate5-能力发现与前端降级.md](100-Gate5-能力发现与前端降级.md) | G5-APP-07B：health 与 capability 的边界、readiness/liveness、前端 fail-closed 降级、提交前暴露不可用能力，以及 API contract 的产品层消费 |
+| 101 | [101-Gate5-README与项目叙事.md](101-Gate5-README与项目叙事.md) | G5-README-08：README front door、功能/实验/工程证据分层、冻结结果与负结果叙事、Gate 演进和面试讲法 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -147,6 +148,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–100 共 **101 份**，每份只出现一次：CURRENT 54 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 101。
+- 编号覆盖 00–101 共 **102 份**，每份只出现一次：CURRENT 55 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 102。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-18。

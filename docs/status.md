@@ -48,6 +48,7 @@
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED |
 | G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING |
 | G5-APP-07B（Capability-aware UI） | ⏳ REVIEW PENDING |
+| G5-README-08（Release project front door） | ⏳ REVIEW PENDING |
 | G5-DEMO-07（Release Demo harness） | ⏳ REVIEW PENDING |
 
 Gate 4 当前真实状态：
@@ -101,8 +102,9 @@ Gate 5 当前真实状态：
 - **G5-BE-06-RELEASE-API-CONTRACT-AND-RUNTIME-CAPABILITIES = ⏳ REVIEW PENDING（08-18）**：`/stats` 使用 allowlist `StatsResponse`，不暴露 `_path`、`vector_store_path` 或原始 Config；新增无条件 200 的 `/capabilities`，分别报告 Pipeline、AgentRuntime、ToolAgentRuntime 和 feature readiness；FastAPI title/description 更新；`tests/test_api.py` 71 passed；Study Note 98；未改 UI/core/smoke/frozen artifacts；
 - **G5-DEMO-07-RELEASE-DEMO-HARNESS = ⏳ REVIEW PENDING（08-18）**：新增 `scripts/demo_release.py`、两份公开 demo fixture 和 6-case catalog；preflight 使用 `/capabilities`，每 case 只请求一次，5 required + 1 observational，safety case 验证无 shell；`tests/test_release_demo.py` 10 passed；无真实 key 时清晰退出，未运行 live LLM；Study Note 99；
 - **G5-APP-07B-CAPABILITY-AWARE-UI = ⏳ REVIEW PENDING（08-18）**：UI 新增 `GET /capabilities` 消费，Sidebar 显示 Basic / Agentic / Tool Agent readiness；不可用模式在提交前隐藏 chat input，`indexing=false` 时阻止 `/index/file`；capability 请求失败采用保守降级；新增 UI capability 回归测试与 smoke 消费断言；Study Note 100；未改 API/core/Planner/Tool Agent/README；
+- **G5-README-08-RELEASE-PROJECT-FRONT-DOOR = ⏳ REVIEW PENDING（08-18）**：重写 README 为 Release 1.0 项目入口，补充真实 Mermaid 总架构、三种 API/UI 模式、Smoke/Demo/Benchmark 边界、Gate 2/3/4 冻结 headline、公共语料复现入口、安全边界、已知限制、工程决策与 Gate 演进；新增 Study Note 101；未改生产代码、API、Agent、Demo harness 或冻结 artifact；
 - **核心能力已就绪**：1716 passed + 4 skipped、三类 API（`/query` `/agent/query` `/tool-agent/query`）、Gate 4 评测集已入库、Gate 3/4 trace 已安全化；
-- **后续任务顺序建议**：G5-README-08 → G5-HYGIENE-09 → G5-FINAL-10。
+- **后续任务顺序建议**：G5-HYGIENE-09 → G5-FINAL-10。
 
 ## 任务状态
 
@@ -184,6 +186,7 @@ Gate 5 当前真实状态：
 | G5-APP-04（Frontend Agent Demo alignment） | ✅ Reviewer accepted / CLOSED | ui/app.py + ui/api_client.py + ui/renderers.py（三模式 RAG Agent Demo Console：Basic / Agentic / Tool Agent；按模式隔离历史；ApiClient 统一错误分类；/agent 与 /tool-agent 结构化面板）；tests/test_ui_api_client.py 10 passed；Study Note 96 | 未改 api/core/config/requirements/CI/frozen/README；未消耗 DeepSeek；前端适配后端非改 AI 内核 |
 | G5-BE-06（Release API contract & runtime capabilities） | ⏳ REVIEW PENDING | `/stats` 显式 allowlist response model，新增 `/capabilities` runtime readiness contract；tests/test_api.py 71 passed；Study Note 98 | 未改 core/UI/smoke/frozen artifacts；未调用真实模型 |
 | G5-APP-07B（Capability-aware UI） | ⏳ REVIEW PENDING | ui/api_client.py + ui/app.py：Sidebar 消费 `/capabilities`，模式与 indexing fail-closed；tests/test_ui_capabilities.py + smoke AppTest 断言；Study Note 100 | 未改 api/core/renderers/README/requirements；未调用真实模型 |
+| G5-README-08（Release project front door） | ⏳ REVIEW PENDING | README.md 重写为项目定位、架构、三模式、体验路径、API、冻结证据、复现、安全边界、限制与路线；Study Note 101 | 仅文档；未改生产代码、未重跑 benchmark、未调用真实模型 |
 | G5-DEMO-07（Release Demo harness） | ⏳ REVIEW PENDING | scripts/demo_release.py + two public demo fixtures + release_demo_cases.json + tests/test_release_demo.py；Study Note 99 | 6 bounded cases / 5 required + 1 observational；CI no real LLM；live demo requires DEEPSEEK_API_KEY |
 
 ## 修复清单
