@@ -44,6 +44,7 @@ from core.tool_agent.openai_compatible import (
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC
 from core.tool_agent.tools.code_search import CODE_SEARCH_SPEC
 from core.tool_agent.tools.knowledge_search import KNOWLEDGE_SEARCH_SPEC
+from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
 
 GOOD_CALC = '{"action": "tool_call", "tool_name": "calculator", "arguments": {"expression": "12 * 7"}}'
 
@@ -95,11 +96,13 @@ def build_registry():
         "calculator": CountingHandler(),
         "code_search": CountingHandler(),
         "knowledge_search": CountingHandler(),
+        "read_project_context": CountingHandler(),
     }
     reg = ToolRegistry()
     reg.register(CALCULATOR_SPEC, handlers["calculator"])
     reg.register(CODE_SEARCH_SPEC, handlers["code_search"])
     reg.register(KNOWLEDGE_SEARCH_SPEC, handlers["knowledge_search"])
+    reg.register(READ_PROJECT_CONTEXT_SPEC, handlers["read_project_context"])
     return reg, handlers
 
 
@@ -383,16 +386,24 @@ class TestSafetyIdentity:
         ).hexdigest()
 
     def test_prompt_version(self):
-        assert DECISION_PROMPT_VERSION == "tool_agent_decision_prompt_v2"
+        assert DECISION_PROMPT_VERSION == "tool_agent_decision_prompt_v3"
 
     def test_tool_specs_deterministic_order(self):
         reg, _ = build_registry()
         messages = build_decision_messages(reg.list_specs(), "x")
         system = messages[0]["content"]
         names = [s.name for s in reg.list_specs()]
-        assert names == ["calculator", "code_search", "knowledge_search"]
+        assert names == [
+            "calculator",
+            "code_search",
+            "knowledge_search",
+            "read_project_context",
+        ]
         assert system.index("- name: calculator") < system.index("- name: code_search")
         assert system.index("- name: code_search") < system.index("- name: knowledge_search")
+        assert system.index("- name: knowledge_search") < system.index(
+            "- name: read_project_context"
+        )
         # 只提供 name/description/input_schema；工具列表段不暴露 output_schema/handler
         # （模板整体允许出现 "handler" 一词作为"禁止输出"指令，因此只查工具段）
         assert "output_schema" not in system
@@ -454,7 +465,7 @@ class TestR1JSONReliability:
         provider.decide(reg, "x")
         assert client.last_kwargs["response_format"] == {"type": "json_object"}
 
-    def test_prompt_v2_contains_examples_and_reason_codes(self):
+    def test_prompt_v3_contains_examples_and_reason_codes(self):
         reg, _ = build_registry()
         system = build_decision_messages(reg.list_specs(), "x")[0]["content"]
         assert '"action": "tool_call"' in system
@@ -465,6 +476,27 @@ class TestR1JSONReliability:
         assert "UNSUPPORTED_REQUEST" in system
         assert "UNSAFE_REQUEST" in system
         assert "INSUFFICIENT_INFORMATION" in system
+
+    def test_grounded_engineering_policy_is_visible_to_model(self):
+        reg, _ = build_registry()
+        system = build_decision_messages(reg.list_specs(), "x")[0]["content"]
+
+        assert "当前绑定 Engineering Project 的源码、README/项目文档、配置、SQL、测试、调用关系或实现行为" in system
+        assert "优先使用 code_search 和 read_project_context" in system
+        assert "knowledge_search 是独立的已索引技术知识库" in system
+        assert "不是当前绑定 Engineering Project 的源码或项目文档索引" in system
+        assert "code_search 只负责定位 path + line" in system
+        assert "应先调用 read_project_context" in system
+        assert "不要仅由单个匹配行推断完整行为" in system
+        assert "简短、可能真实存在的关键词" in system
+        assert "不要反复搜索整句自然语言" in system
+        assert "不要重复完全相同的 Tool call" in system
+        assert "可继续读取多个 project context" in system
+
+        tool_section = system.split("可用 Tool：", 1)[1]
+        assert "不要传整句自然语言" in tool_section
+        assert "绝不重复相同搜索" in tool_section
+        assert "它不是当前绑定 Engineering Project 的源码、README、配置、SQL 或测试索引" in tool_section
 
     def test_toolset_sha256_stable_for_same_registry(self):
         reg, _ = build_registry()

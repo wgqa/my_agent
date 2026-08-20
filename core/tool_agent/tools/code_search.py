@@ -15,7 +15,7 @@ from typing import Any, Mapping
 
 from core.tool_agent.models import ToolSpec
 
-CODE_SEARCH_VERSION = "code_search_v3"
+CODE_SEARCH_VERSION = "code_search_v4"
 
 ALLOWED_SUFFIXES = frozenset(
     {
@@ -107,12 +107,13 @@ CODE_SEARCH_OUTPUT_SCHEMA = {
 CODE_SEARCH_SPEC = ToolSpec(
     name="code_search",
     description=(
-        "在当前绑定工程项目的代码与技术文档中做只读文本搜索。当问题需要定位某个类/"
-        "方法/符号/配置的实现位置（如 'PipelineRetrievalAdapter' 在哪定义）时 "
-        "使用；只接受一个 query。它只负责定位 path + line；若要查看附近实现，"
-        "随后调用 read_project_context。涉及文档与实现、配置是否一致或配置如何生效"
-        "的问题时，应分别定位文档和源码并读取双方上下文。返回 repo 相对路径 + 行号"
-        "+ 匹配行文本。"
+        "在当前绑定 Engineering Project 的代码、README 和技术文档中做只读、"
+        "case-insensitive literal text search。query 应是简短且可能真实存在的 literal，"
+        "例如 endpoint、annotation、config key、exception 名、method/symbol、SQL identifier"
+        "或关键字符串；不要传整句自然语言。它只负责定位 repo-relative path + line。"
+        "当匹配结果需要解释实际实现、行为、调用关系或多文件关系时，随后必须调用 "
+        "read_project_context 读取上下文，不要只从单个匹配行推断答案。若已有结果，"
+        "读取它或换不同关键词，绝不重复相同搜索。"
     ),
     input_schema=CODE_SEARCH_INPUT_SCHEMA,
     output_schema=CODE_SEARCH_OUTPUT_SCHEMA,

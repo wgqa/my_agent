@@ -1,4 +1,4 @@
-"""G4-TOOLS-03：knowledge_search —— 从现有技术知识库检索证据的 Tool。
+"""G4-TOOLS-03：knowledge_search —— 从独立技术知识库检索证据的 Tool。
 
 复用 Gate 3 的 RetrievalPort 契约（core.agent_runtime.RetrievalPort），
 不重建 Retriever / 不建索引 / 不复制 Gate 3 检索算法。strategy / top_k
@@ -15,7 +15,7 @@ from typing import Any, Mapping
 from core.agent_runtime import Document, RetrievalPort
 from core.tool_agent.models import ToolSpec
 
-KNOWLEDGE_SEARCH_VERSION = "knowledge_search_v1"
+KNOWLEDGE_SEARCH_VERSION = "knowledge_search_v2"
 
 DEFAULT_STRATEGY = "bm25"
 DEFAULT_TOP_K = 5
@@ -59,9 +59,11 @@ KNOWLEDGE_SEARCH_OUTPUT_SCHEMA = {
 KNOWLEDGE_SEARCH_SPEC = ToolSpec(
     name="knowledge_search",
     description=(
-        "在项目的技术知识库中检索证据片段。当问题需要基于项目文档/实验资料 "
-        "给出有依据的答案时使用；只接受一个 query。检索策略与条数由系统固定 "
-        "（bm25 / 前 5 条），模型不能调整。返回证据片段，不是最终答案。"
+        "在系统预先索引的独立技术知识库中检索证据片段。当问题需要该知识库中的"
+        "技术资料或实验资料时使用；它不是当前绑定 Engineering Project 的源码、README、"
+        "配置、SQL 或测试索引。不要用它回答当前仓库如何实现的问题；这类问题使用 "
+        "code_search 和 read_project_context。只接受一个 query。检索策略与条数由系统"
+        "固定（bm25 / 前 5 条），模型不能调整。返回证据片段，不是最终答案。"
     ),
     input_schema=KNOWLEDGE_SEARCH_INPUT_SCHEMA,
     output_schema=KNOWLEDGE_SEARCH_OUTPUT_SCHEMA,
