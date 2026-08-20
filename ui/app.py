@@ -67,6 +67,23 @@ def _read_capabilities(client: ApiClient) -> dict | None:
     return result if isinstance(result, dict) else None
 
 
+def _read_project(client: ApiClient) -> dict | None:
+    try:
+        result = client.project()
+    except ApiError:
+        return None
+    return result if isinstance(result, dict) else None
+
+
+def _render_project_identity(project: dict) -> None:
+    project_name = project.get("project_name")
+    if not isinstance(project_name, str) or not project_name:
+        return
+    suffix = " (default)" if project.get("source") == "default_repo" else ""
+    st.markdown("#### Engineering Project")
+    st.caption(f"✓ {project_name}{suffix}")
+
+
 def _show_error(err: ApiError) -> None:
     if err.kind == "connection_error":
         st.error("无法连接 API，请先启动后端")
@@ -153,6 +170,10 @@ def _sidebar() -> tuple[str, int]:
             )
         except ApiError:
             st.error("❌ 服务不可用 — 请确认后端已启动")
+
+        project = _read_project(st.session_state.api_client)
+        if project is not None:
+            _render_project_identity(project)
 
         capabilities = _read_capabilities(st.session_state.api_client)
         st.session_state.runtime_capabilities = capabilities

@@ -66,6 +66,15 @@ def test_capabilities_get_url_and_parse(monkeypatch):
     assert captured["url"] == f"{BASE}/capabilities"
 
 
+def test_project_get_url_and_parse(monkeypatch):
+    payload = {"project_name": "fastapi", "source": "configured"}
+    captured = _install(monkeypatch, _Resp(200, payload))
+    client = ApiClient(base_url=BASE)
+    assert client.project() == payload
+    assert captured["method"] == "GET"
+    assert captured["url"] == f"{BASE}/project"
+
+
 def test_query_payload_question_and_top_k(monkeypatch):
     captured = _install(monkeypatch, _Resp(200, {"answer": "a", "sources": []}))
     client = ApiClient(base_url=BASE)

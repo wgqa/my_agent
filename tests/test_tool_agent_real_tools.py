@@ -289,9 +289,9 @@ def build_repo(tmp_path):
     (tmp_path / "core" / "big.py").write_text(
         "PipelineRetrievalAdapter\n" * (2 * 1024 * 1024), encoding="utf-8"
     )
-    # repo 根但不在允许目录 → 不扫描
+    # repo 根文件：G6 起应与子目录一起扫描
     (tmp_path / "root_notes.txt").write_text(
-        "PipelineRetrievalAdapter outside allowed dirs\n", encoding="utf-8"
+        "ROOT_ONLY_MARKER outside former allowed dirs\n", encoding="utf-8"
     )
     return tmp_path
 
@@ -331,7 +331,7 @@ class TestCodeSearch:
         paths = [m["path"] for m in obs.result["matches"]]
         for banned in (
             "__pycache__", "experiments/", "venv/", ".hidden", ".env",
-            "secret_token", "data.bin", "big.py", "root_notes",
+            "secret_token", "data.bin", "big.py",
         ):
             assert not any(banned in p for p in paths), f"{banned} 不应出现在结果中"
         assert len(obs.result["matches"]) <= 10
@@ -358,11 +358,44 @@ class TestCodeSearch:
             assert ":" not in m["path"].split("/")[0]  # 无盘符
             assert str(repo) not in m["path"]
 
-    def test_does_not_scan_outside_allowed_dirs(self, tmp_path):
+    def test_scans_repo_root_files(self, tmp_path):
         repo = build_repo(tmp_path)
         executor = self._executor(repo)
-        obs = executor.execute(ToolCall.create("code_search", {"query": "root_notes"}))
-        assert obs.result["matches"] == []
+        obs = executor.execute(
+            ToolCall.create("code_search", {"query": "ROOT_ONLY_MARKER"})
+        )
+        assert obs.result["matches"] == [
+            {
+                "path": "root_notes.txt",
+                "line": 1,
+                "text": "ROOT_ONLY_MARKER outside former allowed dirs",
+            }
+        ]
+
+    def test_searches_generic_src_repository_and_skips_noise(self, tmp_path):
+        repo = tmp_path / "demo_project"
+        (repo / "src").mkdir(parents=True)
+        (repo / "src" / "service.py").write_text(
+            "class PaymentService:\n    pass\n", encoding="utf-8"
+        )
+        (repo / "README.md").write_text("Demo project\n", encoding="utf-8")
+        for dirname in (".git", ".hidden", "node_modules", "venv"):
+            blocked = repo / dirname
+            blocked.mkdir()
+            (blocked / "ignored.py").write_text(
+                "class HiddenPaymentService:\n", encoding="utf-8"
+            )
+        (repo / ".env").write_text(
+            "PaymentService secret\n", encoding="utf-8"
+        )
+
+        executor = self._executor(repo)
+        obs = executor.execute(ToolCall.create("code_search", {"query": "PaymentService"}))
+
+        assert obs.status == "ok"
+        assert obs.result["matches"] == [
+            {"path": "src/service.py", "line": 1, "text": "class PaymentService:"}
+        ]
 
     def test_root_not_dir_fails_fast(self, tmp_path):
         with pytest.raises(ValueError, match="不是目录"):

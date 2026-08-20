@@ -1,8 +1,8 @@
-"""G4-TOOLS-03：code_search —— 当前项目代码/技术文件的只读文本搜索 Tool。
+"""G6-VERTICAL-01：code_search —— 绑定工程项目的只读文本搜索 Tool。
 
 模型只传 query；repo_root 由系统在构造 Handler 时注入，模型不能控制。
 v1 做确定性的 case-insensitive literal substring search（不执行正则）。
-只扫描固定允许目录与后缀；跳过隐藏/排除目录、超大文件、secret/凭证文件、
+从绑定根目录递归扫描允许后缀；跳过隐藏/排除目录、超大文件、secret/凭证文件、
 不可读文件。path 一律为 repo-relative POSIX 风格，绝不返回绝对路径；
 结果按 (path, line) 确定性排序。
 """
@@ -15,14 +15,58 @@ from typing import Any, Mapping
 
 from core.tool_agent.models import ToolSpec
 
-CODE_SEARCH_VERSION = "code_search_v1"
+CODE_SEARCH_VERSION = "code_search_v2"
 
-ALLOWED_DIRS = ("core", "api", "evaluation", "scripts", "tests", "docs")
 ALLOWED_SUFFIXES = frozenset(
-    {".py", ".md", ".json", ".yaml", ".yml", ".toml", ".txt"}
+    {
+        ".c",
+        ".cc",
+        ".cpp",
+        ".cs",
+        ".css",
+        ".go",
+        ".h",
+        ".hpp",
+        ".html",
+        ".ini",
+        ".java",
+        ".js",
+        ".json",
+        ".jsx",
+        ".md",
+        ".php",
+        ".properties",
+        ".py",
+        ".rb",
+        ".rs",
+        ".rst",
+        ".sh",
+        ".sql",
+        ".toml",
+        ".ts",
+        ".tsx",
+        ".txt",
+        ".xml",
+        ".yaml",
+        ".yml",
+    }
 )
 EXCLUDED_DIR_NAMES = frozenset(
-    {".git", "__pycache__", "experiments", "venv", ".venv", "node_modules"}
+    {
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".tox",
+        "__pycache__",
+        "build",
+        "dist",
+        "env",
+        "experiments",
+        "node_modules",
+        "site-packages",
+        "venv",
+        ".venv",
+    }
 )
 
 MAX_MATCHES = 10
@@ -63,7 +107,7 @@ CODE_SEARCH_OUTPUT_SCHEMA = {
 CODE_SEARCH_SPEC = ToolSpec(
     name="code_search",
     description=(
-        "在当前项目的代码与技术文档中做只读文本搜索。当问题需要定位某个类/"
+        "在当前绑定工程项目的代码与技术文档中做只读文本搜索。当问题需要定位某个类/"
         "方法/符号/配置的实现位置（如 'PipelineRetrievalAdapter' 在哪定义）时 "
         "使用；只接受一个 query。返回 repo 相对路径 + 行号 + 匹配行文本。"
     ),
@@ -142,12 +186,7 @@ class CodeSearchHandler:
         query = arguments["query"]
         needle = query.lower()
         root_resolved = self._root.resolve()
-        candidates: list[Path] = []
-        for base in sorted(ALLOWED_DIRS):
-            base_dir = self._root / base
-            if base_dir.is_symlink() or not base_dir.is_dir():
-                continue  # allowed base 是 symlink → 不扫描
-            candidates.extend(self._collect_files(base_dir, root_resolved))
+        candidates = self._collect_files(self._root, root_resolved)
         # 确定性：按 lexical repo-relative path 排序 → 自然顺序即 (path, line)
         candidates.sort(key=lambda p: p.relative_to(self._root).as_posix())
         matches = []
@@ -179,23 +218,31 @@ class CodeSearchHandler:
                 continue
         return {"matches": matches}
 
-    def _collect_files(self, base_dir: Path, root_resolved: Path) -> list[Path]:
+    def _collect_files(self, search_root: Path, root_resolved: Path) -> list[Path]:
         out: list[Path] = []
-        for dirpath, dirnames, filenames in os.walk(base_dir, followlinks=False):
+        for dirpath, dirnames, filenames in os.walk(search_root, followlinks=False):
+            current_dir = Path(dirpath)
+            try:
+                if not is_path_within(current_dir.resolve(), root_resolved):
+                    dirnames[:] = []
+                    continue
+            except OSError:
+                dirnames[:] = []
+                continue
             # 目录 symlink 不进入；排除/隐藏目录过滤
             dirnames[:] = sorted(
                 d
                 for d in dirnames
                 if d not in EXCLUDED_DIR_NAMES
                 and not d.startswith(".")
-                and not (Path(dirpath) / d).is_symlink()
+                and not (current_dir / d).is_symlink()
             )
             for fname in sorted(filenames):
                 if Path(fname).suffix.lower() not in ALLOWED_SUFFIXES:
                     continue
                 if _is_secret_file(fname):
                     continue
-                fpath = Path(dirpath) / fname
+                fpath = current_dir / fname
                 if fpath.is_symlink():
                     continue  # 文件 symlink → 不读取
                 # resolved containment：真正 stat/open 前必须仍位于 resolved root 内

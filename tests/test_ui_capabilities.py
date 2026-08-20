@@ -92,3 +92,15 @@ def test_capabilities_failure_is_converted_to_unavailable(monkeypatch):
             raise ApiError("connection_error", "offline")
 
     assert app._read_capabilities(Client()) is None
+
+
+def test_project_identity_display_uses_only_api_fields(monkeypatch):
+    rendered = []
+    monkeypatch.setattr(app.st, "markdown", lambda value: rendered.append(value))
+    monkeypatch.setattr(app.st, "caption", lambda value: rendered.append(value))
+
+    app._render_project_identity(
+        {"project_name": "fastapi", "source": "configured"}
+    )
+
+    assert rendered == ["#### Engineering Project", "✓ fastapi"]

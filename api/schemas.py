@@ -93,6 +93,13 @@ class CapabilitiesResponse(BaseModel):
     features: FeatureCapabilities
 
 
+class ProjectResponse(BaseModel):
+    """Public identity for the single bound Engineering Project Workspace."""
+
+    project_name: str
+    source: Literal["default_repo", "configured"]
+
+
 class AgentQueryRequest(BaseModel):
     """/agent/query 请求。本版本不接 history：未定义字段（含 history）显式
     拒绝（extra=forbid），绝不静默忽略。"""

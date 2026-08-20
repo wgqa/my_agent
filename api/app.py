@@ -35,7 +35,9 @@ from api.schemas import (
     FeatureCapabilities,
     ToolAgentQueryRequest,
     ToolAgentQueryResponse,
+    ProjectResponse,
 )
+from api.project_workspace import EngineeringProject, resolve_engineering_project
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +55,15 @@ _WINDOWS_ILLEGAL_CHARS = set('<>:"|?*')
 pipeline: Optional[Pipeline] = None
 agent_runtime: Optional[AgentRuntime] = None
 tool_agent_runtime: Optional[ToolAgentRuntime] = None
+engineering_project: Optional[EngineeringProject] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline, agent_runtime, tool_agent_runtime
+    global pipeline, agent_runtime, tool_agent_runtime, engineering_project
+    # The system owns this binding. A bad explicit value aborts startup instead
+    # of silently running code_search against a different repository.
+    engineering_project = resolve_engineering_project(REPO_ROOT)
     try:
         pipeline = Pipeline(
             config_path="config.yaml",
@@ -84,7 +90,7 @@ async def lifespan(app: FastAPI):
         try:
             port = PipelineRetrievalAdapter(pipeline.retriever)
             tool_agent_runtime = build_tool_agent_runtime(
-                repo_root=REPO_ROOT,
+                repo_root=engineering_project.root,
                 retrieval_port=port,
                 api_key=os.getenv("DEEPSEEK_API_KEY"),
                 base_url=DEEPSEEK_BASE_URL,
@@ -96,6 +102,7 @@ async def lifespan(app: FastAPI):
     pipeline = None
     agent_runtime = None
     tool_agent_runtime = None
+    engineering_project = None
 
 
 app = FastAPI(
@@ -212,6 +219,15 @@ def _get_tool_agent_runtime() -> ToolAgentRuntime:
     return tool_agent_runtime
 
 
+def _get_engineering_project() -> EngineeringProject:
+    if engineering_project is not None:
+        return engineering_project
+    try:
+        return resolve_engineering_project(REPO_ROOT)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResponse:
     return ToolAgentQueryResponse(
         schema_version="tool_agent_query_response_v1",
@@ -234,6 +250,16 @@ def health():
         embedding_provider=p.config.embedding_provider,
         retriever_strategy=p.config.retriever_strategy,
         generator_provider=p.config.generator_provider,
+    )
+
+
+@app.get("/project", response_model=ProjectResponse)
+def project() -> ProjectResponse:
+    """Return only public project identity, never a local filesystem path."""
+    bound_project = _get_engineering_project()
+    return ProjectResponse(
+        project_name=bound_project.project_name,
+        source=bound_project.source,
     )
 
 
