@@ -515,9 +515,11 @@ class TestCodeSearchSandbox:
         assert not is_path_within(outside, root)
 
     def test_symlink_file_to_outside_not_read(self, tmp_path):
-        repo = tmp_path
+        repo = tmp_path / "repo"
+        repo.mkdir()
         outside = tmp_path / "outside.txt"
         outside.write_text("SENSITIVE PipelineRetrievalAdapter\n", encoding="utf-8")
+        assert not outside.resolve().is_relative_to(repo.resolve())
         (repo / "core").mkdir()
         try:
             (repo / "core" / "link.py").symlink_to(outside)
@@ -533,10 +535,12 @@ class TestCodeSearchSandbox:
         assert "core/real.py" in paths
 
     def test_symlink_directory_to_outside_not_entered(self, tmp_path):
-        repo = tmp_path
+        repo = tmp_path / "repo"
+        repo.mkdir()
         outside = tmp_path / "outside_dir"
         outside.mkdir()
         (outside / "leak.py").write_text("leak PipelineRetrievalAdapter\n", encoding="utf-8")
+        assert not outside.resolve().is_relative_to(repo.resolve())
         (repo / "core").mkdir()
         try:
             (repo / "core" / "linkdir").symlink_to(outside, target_is_directory=True)
@@ -549,12 +553,15 @@ class TestCodeSearchSandbox:
         obs = executor.execute(ToolCall.create("code_search", {"query": "PipelineRetrievalAdapter"}))
         assert not any("linkdir" in m["path"] or "outside" in m["path"]
                        for m in obs.result["matches"])
+        assert any(m["path"] == "core/ok.py" for m in obs.result["matches"])
 
     def test_allowed_base_is_symlink_not_scanned(self, tmp_path):
-        repo = tmp_path
+        repo = tmp_path / "repo"
+        repo.mkdir()
         outside = tmp_path / "outside_core"
         outside.mkdir()
         (outside / "leak.py").write_text("leak PipelineRetrievalAdapter\n", encoding="utf-8")
+        assert not outside.resolve().is_relative_to(repo.resolve())
         try:
             (repo / "core").symlink_to(outside, target_is_directory=True)
         except OSError:
