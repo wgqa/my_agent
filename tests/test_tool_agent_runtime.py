@@ -31,6 +31,7 @@ from core.tool_agent import (
     ToolCallAction,
     ToolExecutor,
     ToolRegistry,
+    build_readonly_tool_registry,
 )
 from core.tool_agent.decision_prompt import build_decision_messages
 from core.tool_agent.runtime_models import DecisionContextItem
@@ -139,6 +140,7 @@ class TestCalculatorLoop:
         assert ctx["tool_name"] == "calculator"
         assert ctx["observation_status"] == "ok"
         assert ctx["observation_result"] == {"value": 84}
+        assert result.evidence == ()
 
 
 # ---- §23C 真实 Code Search ----
@@ -160,6 +162,7 @@ class TestCodeSearchLoop:
         assert result.tool_calls_used == 1
         assert counters["code_search"].calls == 1
         assert any(e.tool_status == "ok" for e in result.trace)
+        assert result.evidence == ()
 
 
 # ---- §23D 真实 Knowledge Search（Fake port） ----

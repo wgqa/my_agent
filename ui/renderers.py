@@ -221,6 +221,21 @@ def render_tool_trace(trace: list) -> None:
                 st.markdown(f"Error Code: `{error_code}`")
 
 
+def render_tool_evidence(evidence: list) -> None:
+    if not evidence:
+        return
+    st.subheader("Evidence")
+    for item in evidence:
+        evidence_id = item.get("evidence_id", "?")
+        kind_label = "CODE" if item.get("kind") == "project_code" else "DOC"
+        path = item.get("path", "?")
+        start_line = item.get("start_line", "?")
+        end_line = item.get("end_line", "?")
+        st.markdown(f"**{evidence_id} · {kind_label}**")
+        st.caption(f"{path} · lines {start_line}-{end_line}")
+        st.text(item.get("snippet", ""))
+
+
 def render_tool_result(result: dict) -> None:
     _status_ui(result.get("status", "?"))
     render_tool_counters(result)
@@ -232,4 +247,5 @@ def render_tool_result(result: dict) -> None:
     if answer:
         st.markdown("#### Answer")
         st.markdown(answer)
+    render_tool_evidence(result.get("evidence") or [])
     render_tool_trace(result.get("trace") or [])

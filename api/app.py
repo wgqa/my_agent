@@ -34,6 +34,7 @@ from api.schemas import (
     CapabilitiesResponse,
     FeatureCapabilities,
     ToolAgentQueryRequest,
+    ToolAgentEvidence,
     ToolAgentQueryResponse,
     ProjectResponse,
 )
@@ -239,6 +240,17 @@ def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResp
         tool_calls_used=result.tool_calls_used,
         tool_errors_used=result.tool_errors_used,
         trace=_safe_trace([event.to_dict() for event in result.trace]),
+        evidence=[
+            ToolAgentEvidence(
+                evidence_id=item.evidence_id,
+                kind=item.kind,
+                path=item.path,
+                start_line=item.start_line,
+                end_line=item.end_line,
+                snippet=item.snippet,
+            )
+            for item in result.evidence
+        ],
     )
 
 

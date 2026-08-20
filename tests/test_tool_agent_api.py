@@ -10,6 +10,7 @@ traceback、trace 不泄漏源文件正文。无 real LLM / 无网络。
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -59,10 +60,10 @@ class ScriptedProvider:
         return item
 
 
-def _install(monkeypatch, decisions, port=None):
+def _install(monkeypatch, decisions, port=None, repo_root=REPO_ROOT):
     provider = ScriptedProvider(decisions)
     rt = build_tool_agent_runtime(
-        repo_root=REPO_ROOT,
+        repo_root=repo_root,
         retrieval_port=port or FakeRetrievalPort(),
         provider=provider,
     )
@@ -107,6 +108,7 @@ class TestToolAgentEndpoint:
         assert data["answer"] == "84"
         assert data["tool_calls_used"] == 1
         assert data["tool_errors_used"] == 0
+        assert data["evidence"] == []
 
     def test_code_search_real_handler_repo_sandbox(self, monkeypatch):
         _install(monkeypatch, [
@@ -121,6 +123,7 @@ class TestToolAgentEndpoint:
         assert data["status"] == "completed"
         assert "core/tool_agent/runtime.py" in data["answer"]
         assert data["tool_calls_used"] == 1
+        assert data["evidence"] == []
 
     def test_code_search_then_read_project_context_trace(self, monkeypatch):
         def read_context(_registry, _user_query, context):
@@ -169,6 +172,116 @@ class TestToolAgentEndpoint:
             for event in data["trace"]
             if event["event_type"] == "tool_observation"
         ] == ["code_search", "read_project_context"]
+
+    def test_doc_and_code_context_return_evidence(self, monkeypatch, tmp_path):
+        repo = tmp_path / "demo_project"
+        (repo / "src").mkdir(parents=True)
+        (repo / "README.md").write_text(
+            "ENABLE_CACHE=true enables application caching.\n", encoding="utf-8"
+        )
+        (repo / "src" / "config.py").write_text(
+            "def load_settings():\n"
+            "    enable_cache = True\n"
+            "    return {\"enable_cache\": enable_cache}\n",
+            encoding="utf-8",
+        )
+
+        def read_readme(_registry, _user_query, context):
+            match = context[-1].observation_result["matches"][0]
+            assert match["path"] == "README.md"
+            return _outcome(ToolCallAction(
+                action="tool_call",
+                tool_name="read_project_context",
+                arguments={"path": match["path"], "line": match["line"], "context_lines": 1},
+            ))
+
+        def search_code(_registry, _user_query, context):
+            assert context[-1].tool_name == "read_project_context"
+            return _outcome(ToolCallAction(
+                action="tool_call",
+                tool_name="code_search",
+                arguments={"query": "def load_settings"},
+            ))
+
+        def read_config(_registry, _user_query, context):
+            match = context[-1].observation_result["matches"][0]
+            assert match["path"] == "src/config.py"
+            return _outcome(ToolCallAction(
+                action="tool_call",
+                tool_name="read_project_context",
+                arguments={"path": match["path"], "line": match["line"], "context_lines": 2},
+            ))
+
+        def final_after_code(_registry, _user_query, context):
+            assert context[-1].tool_name == "read_project_context"
+            assert "enable_cache" in str(context[-1].observation_result)
+            return _outcome(FinalAnswerAction("final_answer", "Caching is documented and enabled in settings."))
+
+        _install(monkeypatch, [
+            _outcome(ToolCallAction(
+                action="tool_call", tool_name="code_search",
+                arguments={"query": "ENABLE_CACHE=true"},
+            )),
+            read_readme,
+            search_code,
+            read_config,
+            final_after_code,
+        ], repo_root=repo)
+
+        response = _post("Where is ENABLE_CACHE documented and implemented?")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["tool_calls_used"] == 4
+        assert data["evidence"] == [
+            {
+                "evidence_id": "E1",
+                "kind": "project_doc",
+                "path": "README.md",
+                "start_line": 1,
+                "end_line": 1,
+                "snippet": "ENABLE_CACHE=true enables application caching.",
+            },
+            {
+                "evidence_id": "E2",
+                "kind": "project_code",
+                "path": "src/config.py",
+                "start_line": 1,
+                "end_line": 3,
+                "snippet": (
+                    "def load_settings():\n"
+                    "    enable_cache = True\n"
+                    "    return {\"enable_cache\": enable_cache}"
+                ),
+            },
+        ]
+        assert str(repo) not in response.text
+        trace_text = json.dumps(data["trace"])
+        assert "ENABLE_CACHE" not in trace_text
+        allowed = {
+            "event_type", "iteration", "action_type", "tool_name", "call_id",
+            "tool_status", "error_code", "iterations_used", "tool_calls_used",
+            "tool_errors_used",
+        }
+        assert all(set(event) <= allowed for event in data["trace"])
+
+    def test_failed_context_has_no_evidence(self, monkeypatch, tmp_path):
+        repo = tmp_path / "demo_project"
+        repo.mkdir()
+        _install(monkeypatch, [
+            _outcome(ToolCallAction(
+                action="tool_call",
+                tool_name="read_project_context",
+                arguments={"path": "missing.py", "line": 1, "context_lines": 0},
+            )),
+            _outcome(FinalAnswerAction("final_answer", "The file is unavailable.")),
+        ], repo_root=repo)
+
+        response = _post("Read a missing file")
+
+        assert response.status_code == 200
+        assert response.json()["evidence"] == []
 
     def test_knowledge_search_fake_port_real_handler(self, monkeypatch):
         _install(monkeypatch, [

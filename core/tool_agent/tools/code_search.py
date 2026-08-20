@@ -110,7 +110,9 @@ CODE_SEARCH_SPEC = ToolSpec(
         "在当前绑定工程项目的代码与技术文档中做只读文本搜索。当问题需要定位某个类/"
         "方法/符号/配置的实现位置（如 'PipelineRetrievalAdapter' 在哪定义）时 "
         "使用；只接受一个 query。它只负责定位 path + line；若要查看附近实现，"
-        "随后调用 read_project_context。返回 repo 相对路径 + 行号 + 匹配行文本。"
+        "随后调用 read_project_context。涉及文档与实现、配置是否一致或配置如何生效"
+        "的问题时，应分别定位文档和源码并读取双方上下文。返回 repo 相对路径 + 行号"
+        "+ 匹配行文本。"
     ),
     input_schema=CODE_SEARCH_INPUT_SCHEMA,
     output_schema=CODE_SEARCH_OUTPUT_SCHEMA,

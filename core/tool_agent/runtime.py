@@ -11,6 +11,7 @@ DecisionContextItem 反馈给模型，但绝不作为系统指令。本模块不
 from __future__ import annotations
 
 import json
+from pathlib import PurePosixPath
 
 from core.tool_agent.actions import (
     AgentDecisionOutcome,
@@ -26,9 +27,37 @@ from core.tool_agent.runtime_models import (
     AGENT_TOOL_ERROR_LIMIT,
     AgentDecisionProvider,
     DecisionContextItem,
+    EngineeringEvidence,
+    MAX_EVIDENCE_SNIPPET_LENGTH,
     RuntimeTraceEvent,
     ToolAgentBudget,
     ToolAgentRunResult,
+)
+
+
+_PROJECT_CODE_SUFFIXES = frozenset(
+    {
+        ".c",
+        ".cc",
+        ".cpp",
+        ".cs",
+        ".css",
+        ".go",
+        ".h",
+        ".hpp",
+        ".html",
+        ".java",
+        ".js",
+        ".jsx",
+        ".php",
+        ".py",
+        ".rb",
+        ".rs",
+        ".sh",
+        ".sql",
+        ".ts",
+        ".tsx",
+    }
 )
 
 
@@ -41,6 +70,50 @@ def _canonical_call(tool_name: str, arguments) -> tuple[str, str]:
         ensure_ascii=False,
     )
     return (tool_name, canonical)
+
+
+def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
+    """Convert one successful context read into bounded public evidence.
+
+    The executor has already validated the Tool output schema. The defensive
+    checks here keep the runtime fail-closed if a future handler violates that
+    contract: malformed observations never become API-visible evidence.
+    """
+    if observation.status != "ok" or observation.tool_name != "read_project_context":
+        return None
+    result = observation.result
+    if type(result) is not dict:
+        return None
+    path = result.get("path")
+    start_line = result.get("start_line")
+    end_line = result.get("end_line")
+    lines = result.get("lines")
+    if type(lines) is not list:
+        return None
+    texts: list[str] = []
+    for item in lines:
+        if type(item) is not dict or type(item.get("text")) is not str:
+            return None
+        texts.append(item["text"])
+    snippet = "\n".join(texts)[:MAX_EVIDENCE_SNIPPET_LENGTH]
+    if not snippet:
+        return None
+    try:
+        kind = (
+            "project_code"
+            if PurePosixPath(path).suffix.lower() in _PROJECT_CODE_SUFFIXES
+            else "project_doc"
+        )
+        return EngineeringEvidence(
+            evidence_id="E1",
+            kind=kind,
+            path=path,
+            start_line=start_line,
+            end_line=end_line,
+            snippet=snippet,
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 class ToolAgentRuntime:
@@ -83,12 +156,19 @@ class ToolAgentRuntime:
         tool_calls = 0
         tool_errors = 0
         trace: list[RuntimeTraceEvent] = []
+        evidence: list[EngineeringEvidence] = []
+        seen_evidence: set[tuple[str, int, int]] = set()
 
         while True:
             iterations += 1
             if iterations > self._budget.max_agent_iterations:
                 return self._hard_stop(
-                    trace, iterations, tool_calls, tool_errors, AGENT_BUDGET_EXCEEDED
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    AGENT_BUDGET_EXCEEDED,
                 )
 
             outcome = self._provider.decide(
@@ -121,6 +201,7 @@ class ToolAgentRuntime:
                     tool_calls_used=tool_calls,
                     tool_errors_used=tool_errors,
                     trace=tuple(trace),
+                    evidence=tuple(evidence),
                 )
 
             action = outcome.action
@@ -137,6 +218,7 @@ class ToolAgentRuntime:
                     tool_calls_used=tool_calls,
                     tool_errors_used=tool_errors,
                     trace=tuple(trace),
+                    evidence=tuple(evidence),
                 )
             if isinstance(action, RefuseAction):
                 self._append_terminal(
@@ -151,22 +233,38 @@ class ToolAgentRuntime:
                     tool_calls_used=tool_calls,
                     tool_errors_used=tool_errors,
                     trace=tuple(trace),
+                    evidence=tuple(evidence),
                 )
 
             # ToolCallAction：执行前按 §11 顺序检查
             if iterations >= self._budget.max_agent_iterations:
                 # 最后一次 Decision 若仍要 tool_call：没有下一次 Decision 读 Observation
                 return self._hard_stop(
-                    trace, iterations, tool_calls, tool_errors, AGENT_BUDGET_EXCEEDED
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    AGENT_BUDGET_EXCEEDED,
                 )
             if tool_calls >= self._budget.max_tool_calls:
                 return self._hard_stop(
-                    trace, iterations, tool_calls, tool_errors, AGENT_BUDGET_EXCEEDED
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    AGENT_BUDGET_EXCEEDED,
                 )
             canonical = _canonical_call(action.tool_name, action.arguments)
             if canonical in executed:
                 return self._hard_stop(
-                    trace, iterations, tool_calls, tool_errors, AGENT_DUPLICATE_TOOL_CALL
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    AGENT_DUPLICATE_TOOL_CALL,
                 )
 
             call = ToolCall.create(action.tool_name, action.arguments)
@@ -211,9 +309,33 @@ class ToolAgentRuntime:
                     observation_error_code=observation.error_code,
                 )
             )
+            project_evidence = _evidence_from_project_context(observation)
+            if project_evidence is not None:
+                key = (
+                    project_evidence.path,
+                    project_evidence.start_line,
+                    project_evidence.end_line,
+                )
+                if key not in seen_evidence:
+                    seen_evidence.add(key)
+                    evidence.append(
+                        EngineeringEvidence(
+                            evidence_id=f"E{len(evidence) + 1}",
+                            kind=project_evidence.kind,
+                            path=project_evidence.path,
+                            start_line=project_evidence.start_line,
+                            end_line=project_evidence.end_line,
+                            snippet=project_evidence.snippet,
+                        )
+                    )
             if tool_errors >= self._budget.max_tool_errors:
                 return self._hard_stop(
-                    trace, iterations, tool_calls, tool_errors, AGENT_TOOL_ERROR_LIMIT
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    AGENT_TOOL_ERROR_LIMIT,
                 )
             # 否则继续下一次 Decision
 
@@ -244,6 +366,7 @@ class ToolAgentRuntime:
     def _hard_stop(
         self,
         trace: list[RuntimeTraceEvent],
+        evidence: list[EngineeringEvidence],
         iterations: int,
         tool_calls: int,
         tool_errors: int,
@@ -259,4 +382,5 @@ class ToolAgentRuntime:
             tool_calls_used=tool_calls,
             tool_errors_used=tool_errors,
             trace=tuple(trace),
+            evidence=tuple(evidence),
         )

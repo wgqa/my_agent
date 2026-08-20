@@ -159,6 +159,17 @@ class ToolAgentQueryRequest(BaseModel):
         return v
 
 
+class ToolAgentEvidence(BaseModel):
+    """Public, bounded project evidence read by read_project_context."""
+
+    evidence_id: str = Field(pattern=r"^E[1-9][0-9]*$")
+    kind: Literal["project_code", "project_doc"]
+    path: str = Field(min_length=1)
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    snippet: str = Field(min_length=1, max_length=2000)
+
+
 class ToolAgentQueryResponse(BaseModel):
     """/tool-agent/query 响应 v1（冻结）。
 
@@ -175,3 +186,4 @@ class ToolAgentQueryResponse(BaseModel):
     tool_calls_used: int
     tool_errors_used: int
     trace: List[dict]
+    evidence: List[ToolAgentEvidence]

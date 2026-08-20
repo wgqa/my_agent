@@ -69,3 +69,41 @@ def test_planner_renderer_reads_api_contract_fields(monkeypatch):
     assert ("Failure Code", "PLANNER_TIMEOUT") in values
     assert "**api-sq-a**  —  甲" in markdown
     assert ("Reason", "old-top-level-value") not in values
+
+
+def test_tool_evidence_renderer_shows_doc_and_code(monkeypatch):
+    markdown = []
+    captions = []
+    snippets = []
+    headers = []
+    monkeypatch.setattr(renderers.st, "subheader", lambda value: headers.append(value))
+    monkeypatch.setattr(renderers.st, "markdown", lambda value: markdown.append(value))
+    monkeypatch.setattr(renderers.st, "caption", lambda value: captions.append(value))
+    monkeypatch.setattr(renderers.st, "text", lambda value: snippets.append(value))
+
+    renderers.render_tool_evidence([
+        {
+            "evidence_id": "E1",
+            "kind": "project_doc",
+            "path": "README.md",
+            "start_line": 1,
+            "end_line": 1,
+            "snippet": "ENABLE_CACHE=true enables application caching.",
+        },
+        {
+            "evidence_id": "E2",
+            "kind": "project_code",
+            "path": "src/config.py",
+            "start_line": 1,
+            "end_line": 3,
+            "snippet": "def load_settings():",
+        },
+    ])
+
+    assert headers == ["Evidence"]
+    assert markdown == ["**E1 · DOC**", "**E2 · CODE**"]
+    assert captions == ["README.md · lines 1-1", "src/config.py · lines 1-3"]
+    assert snippets == [
+        "ENABLE_CACHE=true enables application caching.",
+        "def load_settings():",
+    ]
