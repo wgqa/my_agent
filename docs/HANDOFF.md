@@ -18,38 +18,17 @@
 7. `docs/HANDOFF.md`（快速交接）
 8. study-notes / archive（设计演进与学习历史）
 
-## 1. 当前状态（Gate 4 接管点）
+## 1. 当前状态（Release 2.0 kickoff）
 
-- **Gate 1 = CLOSED**、**Gate 2 = CLOSED / FROZEN**、**Gate 3 = CLOSED / FROZEN**
-  （Gate 3 Holdout 保持冻结，不得重跑）
-- **Gate 4 = CLOSED / FROZEN**（gate4_system_freeze_id=96c159b1ca2c）
-- **NEXT = Gate 5**（端到端评测与工程收口，尚未开始，不得提前开始）
-
-**Gate 4 已有一个有界 Structured Tool Agent：**
-
-- strict structured decisions（强类型 Decision，禁止未定义字段/重复 key）
-- 3 个真实只读 Tool：calculator / code_search / knowledge_search
-- 固定预算 5 / 4 / 2（iterations / tool_calls / tool_errors），系统控制、不可 API 覆盖
-- duplicate / error 保护（重复 ToolCall 拒绝、Tool error 2 次封顶）
-- untrusted observations（Tool 结果作为不可信数据回喂，不拼 system role）
-- safe trace（Trace ≠ CoT；API 只透出安全字段白名单）
-- public Dev benchmark（24-case，evaluation_set_id=5639ca57b09a）
-- real HTTP endpoint（`POST /tool-agent/query`）
-- real DeepSeek E2E smoke（6 条固定请求全 HTTP 200 结构化）
-
-**关键冻结证据：**
-
-- 正式 baseline：`docs/experiments/gate4_tool_use_dev_baseline.json`（run_id=fa4ab9aa5f13）
-- offline seal：`docs/experiments/gate4_tool_use_dev_seal.json`（verdict=valid_public_dev_baseline）
-- 系统 freeze：`docs/experiments/gate4_freeze.json`（gate4_system_freeze_id=96c159b1ca2c）
-
-**Do NOT：**
-
-- **不要重跑 Gate 4 正式 Dev baseline `fa4ab9aa5f13`**；
-- **不要针对冻结的 24-case 结果调参**（未经单独授权的实验）；
-- **Gate 3 Holdout 保持冻结，不得重跑**。
-
-实时状态以 `docs/status.md` 为准，长期路线以 `docs/roadmap.md` 为准。
+- **Gate 1 = CLOSED**
+- **Gate 2 = CLOSED / FROZEN**
+- **Gate 3 = CLOSED / FROZEN**
+- **Gate 4 = CLOSED / FROZEN**
+- **Gate 5 = CLOSED**
+- **Release 1.0 = CLOSED / FROZEN**
+- **Release 2.0 = STARTED**
+- **ACTIVE roadmap = `docs/roadmap.md`**
+- **NEXT = G6-VERTICAL-01**
 
 ## 2. 工作流约定
 
