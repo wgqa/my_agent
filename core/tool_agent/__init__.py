@@ -2,8 +2,8 @@
 
 公开 ToolSpec / ToolCall / ToolObservation / RegisteredTool / ToolRegistry /
 ToolExecutor / ToolHandler 与错误码常量。本包不调用 LLM、不实现 Tool
-Loop、不注册真实工具（G4-TOOLS-03 才会接入 knowledge_search /
-code_search / calculator）。
+Loop、不注册真实工具（G4-TOOLS-03/G6 才会接入 knowledge_search /
+code_search / read_project_context / calculator）。
 """
 
 from core.tool_agent.action_parser import strict_json_loads_no_duplicates
@@ -36,8 +36,13 @@ from core.tool_agent.models import (
     TOOL_OBSERVATION_STATUSES,
     TOOL_PERMISSION_DENIED,
     TOOL_RESULT_INVALID,
+    PROJECT_CONTEXT_FILE_NOT_FOUND,
+    PROJECT_CONTEXT_FILE_UNREADABLE,
+    PROJECT_CONTEXT_LINE_OUT_OF_RANGE,
+    PROJECT_CONTEXT_PATH_NOT_ALLOWED,
     UNKNOWN_TOOL,
     ToolCall,
+    ToolExecutionError,
     ToolObservation,
     ToolSpec,
     json_deep_copy,
@@ -62,9 +67,11 @@ from core.tool_agent.tools import (
     CALCULATOR_SPEC,
     CODE_SEARCH_SPEC,
     KNOWLEDGE_SEARCH_SPEC,
+    READ_PROJECT_CONTEXT_SPEC,
     CalculatorHandler,
     CodeSearchHandler,
     KnowledgeSearchHandler,
+    ReadProjectContextHandler,
 )
 
 __all__ = [
@@ -79,6 +86,10 @@ __all__ = [
     "INVALID_TOOL_ARGUMENTS",
     "TOOL_PERMISSION_DENIED",
     "TOOL_EXECUTION_FAILED",
+    "PROJECT_CONTEXT_PATH_NOT_ALLOWED",
+    "PROJECT_CONTEXT_FILE_NOT_FOUND",
+    "PROJECT_CONTEXT_LINE_OUT_OF_RANGE",
+    "PROJECT_CONTEXT_FILE_UNREADABLE",
     "TOOL_RESULT_INVALID",
     "TOOL_BUDGET_EXCEEDED",
     "ACTION_PARSE_FAILED",
@@ -89,13 +100,16 @@ __all__ = [
     "AGENT_ERROR_CODES",
     "TOOL_AGENT_ERROR_CODES",
     "TOOL_OBSERVATION_STATUSES",
+    "ToolExecutionError",
     "json_deep_copy",
     "CALCULATOR_SPEC",
     "CODE_SEARCH_SPEC",
     "KNOWLEDGE_SEARCH_SPEC",
+    "READ_PROJECT_CONTEXT_SPEC",
     "CalculatorHandler",
     "CodeSearchHandler",
     "KnowledgeSearchHandler",
+    "ReadProjectContextHandler",
     "build_readonly_tool_registry",
     "build_tool_agent_runtime",
     "FROZEN_TOOL_PROVIDER",

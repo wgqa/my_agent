@@ -27,6 +27,10 @@ TOOL_ERROR_CODES = (
     "TOOL_EXECUTION_FAILED",
     "TOOL_RESULT_INVALID",
     "TOOL_BUDGET_EXCEEDED",
+    "PROJECT_CONTEXT_PATH_NOT_ALLOWED",
+    "PROJECT_CONTEXT_FILE_NOT_FOUND",
+    "PROJECT_CONTEXT_LINE_OUT_OF_RANGE",
+    "PROJECT_CONTEXT_FILE_UNREADABLE",
 )
 
 # Agent-level 错误码：G4-TOOL-02 只定义常量，不触发 Agent 行为。
@@ -50,8 +54,22 @@ TOOL_PERMISSION_DENIED = "TOOL_PERMISSION_DENIED"
 TOOL_EXECUTION_FAILED = "TOOL_EXECUTION_FAILED"
 TOOL_RESULT_INVALID = "TOOL_RESULT_INVALID"
 TOOL_BUDGET_EXCEEDED = "TOOL_BUDGET_EXCEEDED"
+PROJECT_CONTEXT_PATH_NOT_ALLOWED = "PROJECT_CONTEXT_PATH_NOT_ALLOWED"
+PROJECT_CONTEXT_FILE_NOT_FOUND = "PROJECT_CONTEXT_FILE_NOT_FOUND"
+PROJECT_CONTEXT_LINE_OUT_OF_RANGE = "PROJECT_CONTEXT_LINE_OUT_OF_RANGE"
+PROJECT_CONTEXT_FILE_UNREADABLE = "PROJECT_CONTEXT_FILE_UNREADABLE"
 ACTION_PARSE_FAILED = "ACTION_PARSE_FAILED"
 AGENT_BUDGET_EXCEEDED = "AGENT_BUDGET_EXCEEDED"
+
+
+class ToolExecutionError(Exception):
+    """A Handler may return one approved code without exposing exception detail."""
+
+    def __init__(self, error_code: str) -> None:
+        if error_code not in _TOOL_ERROR_CODES_SET:
+            raise ValueError(f"error_code 未知：{error_code!r}")
+        self.error_code = error_code
+        super().__init__(error_code)
 
 
 # ---- 校验工具（类型错误统一 TypeError，值/不变量错误统一 ValueError）----

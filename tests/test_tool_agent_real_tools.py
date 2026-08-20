@@ -416,11 +416,11 @@ class TestCodeSearch:
         assert [m["path"] for m in obs.result["matches"]] == ["core/good.py"]
 
 
-# ---- Integration：三个真实 Tool 统一注册与执行 ----
+# ---- Integration：四个真实 Tool 统一注册与执行 ----
 
 
 class TestIntegration:
-    def test_all_three_tools_via_default_factory(self, tmp_path):
+    def test_all_readonly_tools_via_default_factory(self, tmp_path):
         repo = build_repo(tmp_path)
         port = FakeRetrievalPort(
             docs=(make_doc("RRF 采用确定性 tie breaker", source_name="docs/rrf.md"),),
@@ -432,6 +432,9 @@ class TestIntegration:
         cases = [
             (ToolCall.create("calculator", {"expression": "2 * 21"}), {"value": 42}),
             (ToolCall.create("code_search", {"query": "helper"}), None),
+            (ToolCall.create("read_project_context", {
+                "path": "core/foo.py", "line": 1, "context_lines": 1,
+            }), None),
             (ToolCall.create("knowledge_search", {"query": "RRF"}), None),
         ]
         for call, expected in cases:
@@ -441,12 +444,17 @@ class TestIntegration:
                 assert obs.result == expected
         assert port.calls == [("RRF", "bm25", 5)]
 
-    def test_all_three_go_through_registry(self, tmp_path):
+    def test_all_readonly_tools_go_through_registry(self, tmp_path):
         repo = build_repo(tmp_path)
         port = FakeRetrievalPort(docs=(), strategies=("bm25",))
         registry = build_readonly_tool_registry(repo_root=repo, retrieval_port=port)
         names = sorted(spec.name for spec in registry.list_specs())
-        assert names == ["calculator", "code_search", "knowledge_search"]
+        assert names == [
+            "calculator",
+            "code_search",
+            "knowledge_search",
+            "read_project_context",
+        ]
 
 
 # ---- R1-1：Calculator 资源上界 ----

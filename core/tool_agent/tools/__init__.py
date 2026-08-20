@@ -13,6 +13,10 @@ from core.tool_agent.tools.code_search import (
     CODE_SEARCH_SPEC,
     CodeSearchHandler,
 )
+from core.tool_agent.tools.read_project_context import (
+    READ_PROJECT_CONTEXT_SPEC,
+    ReadProjectContextHandler,
+)
 from core.tool_agent.tools.knowledge_search import (
     KNOWLEDGE_SEARCH_SPEC,
     KnowledgeSearchHandler,
@@ -24,6 +28,8 @@ __all__ = [
     "evaluate_expression",
     "CODE_SEARCH_SPEC",
     "CodeSearchHandler",
+    "READ_PROJECT_CONTEXT_SPEC",
+    "ReadProjectContextHandler",
     "KNOWLEDGE_SEARCH_SPEC",
     "KnowledgeSearchHandler",
 ]

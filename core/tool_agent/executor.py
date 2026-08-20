@@ -21,6 +21,7 @@ from core.tool_agent.models import (
     TOOL_EXECUTION_FAILED,
     TOOL_PERMISSION_DENIED,
     TOOL_RESULT_INVALID,
+    ToolExecutionError,
     UNKNOWN_TOOL,
     ToolCall,
     ToolObservation,
@@ -96,6 +97,8 @@ class ToolExecutor:
         #    反向污染 ToolCall 内部 arguments（R1-3）。
         try:
             raw_result: object = handler.execute(call.arguments_copy())
+        except ToolExecutionError as exc:
+            return _error_observation(call, exc.error_code)
         except Exception:
             return _error_observation(call, TOOL_EXECUTION_FAILED)
 

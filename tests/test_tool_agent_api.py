@@ -122,6 +122,54 @@ class TestToolAgentEndpoint:
         assert "core/tool_agent/runtime.py" in data["answer"]
         assert data["tool_calls_used"] == 1
 
+    def test_code_search_then_read_project_context_trace(self, monkeypatch):
+        def read_context(_registry, _user_query, context):
+            search = context[-1]
+            assert search.tool_name == "code_search"
+            match = search.observation_result["matches"][0]
+            assert match["path"] == "core/tool_agent/runtime.py"
+            return _outcome(ToolCallAction(
+                action="tool_call",
+                tool_name="read_project_context",
+                arguments={
+                    "path": match["path"],
+                    "line": match["line"],
+                    "context_lines": 2,
+                },
+            ))
+
+        def final_after_context(_registry, _user_query, context):
+            source = context[-1]
+            assert source.tool_name == "read_project_context"
+            assert any(
+                "class ToolAgentRuntime" in row["text"]
+                for row in source.observation_result["lines"]
+            )
+            return _outcome(
+                FinalAnswerAction("final_answer", "runtime.py implements the loop")
+            )
+
+        _install(monkeypatch, [
+            _outcome(ToolCallAction(
+                action="tool_call",
+                tool_name="code_search",
+                arguments={"query": "class ToolAgentRuntime"},
+            )),
+            read_context,
+            final_after_context,
+        ])
+        response = _post("How is the Tool Agent loop implemented?")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["tool_calls_used"] == 2
+        assert [
+            event["tool_name"]
+            for event in data["trace"]
+            if event["event_type"] == "tool_observation"
+        ] == ["code_search", "read_project_context"]
+
     def test_knowledge_search_fake_port_real_handler(self, monkeypatch):
         _install(monkeypatch, [
             _outcome(ToolCallAction(action="tool_call", tool_name="knowledge_search",

@@ -1,6 +1,6 @@
 """G4-E2E-07A：薄 integration builder——把已验收组件接起来，不重写 Tool / Runtime。
 
-只做装配：build_readonly_tool_registry + AgentDecisionProvider + ToolAgentRuntime。
+只做装配：四个 read-only Tool + AgentDecisionProvider + ToolAgentRuntime。
 正式 Provider 默认 deepseek / deepseek-chat / base_url=DEEPSEEK_BASE_URL；
 测试可注入 Fake/Scripted Provider（provider 参数），0 网络调用。
 预算固定 5/4/2（ToolAgentBudget），不开放调用方 override。
