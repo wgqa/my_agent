@@ -70,9 +70,8 @@ READ_PROJECT_CONTEXT_SPEC = ToolSpec(
     name="read_project_context",
     description=(
         "读取当前绑定工程项目中一个已定位文件的有限源码上下文。先用 code_search "
-        "定位 repo 相对 path + line，再调用本 Tool 查看该行前后实现；该 Observation 才是"
-        "当前项目实现行为的可靠工程证据。多部分问题只为尚未覆盖的义务读取相关上下文；"
-        "一个上下文已经足够时不要机械多读。只读，不接受绝对路径或 repo 外路径。"
+        "定位 repo 相对 path + line，再调用本 Tool 查看该行前后实现；只读，不接受 "
+        "绝对路径或 repo 外路径。"
     ),
     input_schema=READ_PROJECT_CONTEXT_INPUT_SCHEMA,
     output_schema=READ_PROJECT_CONTEXT_OUTPUT_SCHEMA,

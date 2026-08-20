@@ -77,3 +77,10 @@ All prior Gate 6 artifacts remain preserved. No v4 success claim is made.
 - Worst remaining case: SPCR-01 used all four calls for search and never read project context.
 - Evidence-sufficient-but-wrong cases: 0 identified in this comparison.
 - Actual blocker: the fixed four-call budget is still consumed by search-first or duplicate-search behavior on multi-obligation questions; the policy text alone did not reliably force economical coverage.
+
+## Retention Decision
+
+- v4 双仓库结果发生回归。
+- v4 rejected as default。
+- Production Tool policy restored to v3。
+- Experiment retained as negative evidence。

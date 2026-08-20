@@ -62,10 +62,8 @@ KNOWLEDGE_SEARCH_SPEC = ToolSpec(
         "在系统预先索引的独立技术知识库中检索证据片段。当问题需要该知识库中的"
         "技术资料或实验资料时使用；它不是当前绑定 Engineering Project 的源码、README、"
         "配置、SQL 或测试索引。不要用它回答当前仓库如何实现的问题；这类问题使用 "
-        "code_search 和 read_project_context；它不能替代当前项目的 Engineering Evidence，"
-        "也不能标记当前项目义务为已覆盖。只接受一个 query。"
-        "检索策略与条数由系统固定（bm25 / 前 5 条），模型不能调整。返回证据片段，"
-        "不是最终答案。"
+        "code_search 和 read_project_context。只接受一个 query。检索策略与条数由系统"
+        "固定（bm25 / 前 5 条），模型不能调整。返回证据片段，不是最终答案。"
     ),
     input_schema=KNOWLEDGE_SEARCH_INPUT_SCHEMA,
     output_schema=KNOWLEDGE_SEARCH_OUTPUT_SCHEMA,
