@@ -27,6 +27,7 @@ from core.tool_agent import (
     ToolCallAction,
     ToolRegistry,
     ToolSpec,
+    ToolAgentBudget,
 )
 from core.tool_agent.action_parser import parse_agent_action_text, strict_json_loads_no_duplicates
 from core.tool_agent.actions import ActionValidationError
@@ -386,7 +387,7 @@ class TestSafetyIdentity:
         ).hexdigest()
 
     def test_prompt_version(self):
-        assert DECISION_PROMPT_VERSION == "tool_agent_decision_prompt_v3"
+        assert DECISION_PROMPT_VERSION == "tool_agent_decision_prompt_v4"
 
     def test_tool_specs_deterministic_order(self):
         reg, _ = build_registry()
@@ -465,7 +466,7 @@ class TestR1JSONReliability:
         provider.decide(reg, "x")
         assert client.last_kwargs["response_format"] == {"type": "json_object"}
 
-    def test_prompt_v3_contains_examples_and_reason_codes(self):
+    def test_prompt_v4_contains_examples_and_reason_codes(self):
         reg, _ = build_registry()
         system = build_decision_messages(reg.list_specs(), "x")[0]["content"]
         assert '"action": "tool_call"' in system
@@ -486,17 +487,49 @@ class TestR1JSONReliability:
         assert "knowledge_search 是独立的已索引技术知识库" in system
         assert "不是当前绑定 Engineering Project 的源码或项目文档索引" in system
         assert "code_search 只负责定位 path + line" in system
-        assert "应先调用 read_project_context" in system
+        assert "已返回明显相关位置，下一步优先调用read_project_context" in system
         assert "不要仅由单个匹配行推断完整行为" in system
         assert "简短、可能真实存在的关键词" in system
         assert "不要反复搜索整句自然语言" in system
         assert "不要重复完全相同的 Tool call" in system
-        assert "可继续读取多个 project context" in system
+        assert "多部分问题按未覆盖义务选择下一次 query 或 context" in system
+        assert "显式信息义务" in system
+        assert "coverage checklist" in system
+        assert "每个显式义务都必须有足够的 Observation/context 支撑" in system
+        assert "只有相关的 read_project_context Observation" in system
+        assert "在 final_answer 前逐项检查 coverage checklist" in system
+        assert "若仍有明显未覆盖义务且还可调用 Tool" in system
+        assert "Search 和 read 应交替推进" in system
+        assert "下一步优先调用read_project_context" in system
+        assert "只针对当前缺口换一个 literal 搜索" in system
+        assert "不要为了文件数量机械多读" in system
+        assert "系统 Tool 预算保持固定" in system
+        assert "不能编造未被证据支持的内容" in system
 
         tool_section = system.split("可用 Tool：", 1)[1]
         assert "不要传整句自然语言" in tool_section
         assert "绝不重复相同搜索" in tool_section
         assert "它不是当前绑定 Engineering Project 的源码、README、配置、SQL 或测试索引" in tool_section
+        assert "命中明显相关位置后优先 read_project_context" in tool_section
+        assert "只针对仍未覆盖的信息义务换不同关键词" in tool_section
+        assert "不能替代当前项目的 Engineering Evidence" in tool_section
+        assert "一个上下文已经足够时不要机械多读" in tool_section
+
+        for forbidden in (
+            "Petclinic",
+            "spring_petclinic",
+            "OwnerController",
+            "PetAgeValidator",
+        ):
+            assert forbidden not in system
+
+    def test_evidence_policy_keeps_frozen_budget(self):
+        budget = ToolAgentBudget()
+        assert (
+            budget.max_agent_iterations,
+            budget.max_tool_calls,
+            budget.max_tool_errors,
+        ) == (5, 4, 2)
 
     def test_toolset_sha256_stable_for_same_registry(self):
         reg, _ = build_registry()

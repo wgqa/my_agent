@@ -1,6 +1,6 @@
-"""G6-VERTICAL-05：Tool 决策 Prompt v3 + Toolset 身份。
+"""G6-VERTICAL-07：Evidence Coverage Policy v1 + Toolset 身份。
 
-tool_agent_decision_prompt_v3 在 v2 的结构化 JSON 合约之上加入当前绑定
+tool_agent_decision_prompt_v4 在 v3 的结构化 JSON 合约之上加入当前绑定
 Engineering Project 的 grounded Tool policy。Tool 列表从 registry.list_specs()
 动态生成（deterministic name order），提供给模型的只有 name / description /
 input_schema。toolset_sha256 对模型实际看见的 canonical payload 计算稳定哈希，
@@ -15,7 +15,7 @@ from typing import Any, Sequence
 
 from core.tool_agent.models import json_deep_copy
 
-DECISION_PROMPT_VERSION = "tool_agent_decision_prompt_v3"
+DECISION_PROMPT_VERSION = "tool_agent_decision_prompt_v4"
 DECISION_TEMPERATURE = 0
 DECISION_MAX_OUTPUT_TOKENS = 600
 DECISION_TIMEOUT_SECONDS = 20.0
@@ -40,16 +40,29 @@ DECISION_PROMPT_TEMPLATE = (
     "- knowledge_search 是独立的已索引技术知识库，不是当前绑定 Engineering Project "
     "的源码或项目文档索引。不要用 knowledge_search 回答当前仓库 README、配置、"
     "代码或测试如何实现的问题；\n"
-    "- code_search 只负责定位 path + line。若结果可能支持实际实现、行为或调用关系的"
-    "答案，应先调用 read_project_context 读取对应上下文，再 final_answer 或 refuse；"
-    "不要仅由单个匹配行推断完整行为；\n"
+    "- 先在内部识别用户问题中的显式信息义务，并维护一个不输出的 coverage checklist。"
+    "信息义务是用户要求回答的一项独立事实、关系、比较、条件、测试结论或结果，"
+    "不是 Gold 文件清单；一个问题可能有多个义务；\n"
+    "- code_search 只负责定位 path + line。Engineering Project 问题的每个显式义务都"
+    "必须有足够的 Observation/context 支撑；只有相关的 read_project_context Observation"
+    "才能作为实现行为、调用关系、配置生效、数据保存或测试行为的可靠工程证据。"
+    "不要仅由单个匹配行推断完整行为；knowledge_search Observation 不能覆盖当前项目源码义务；\n"
+    "- 在 final_answer 前逐项检查 coverage checklist。若仍有明显未覆盖义务且还可调用 Tool，"
+    "不得提前 final；下一步应继续 search/read。若没有足够预算，不能编造未被证据支持的内容，"
+    "应使用 INSUFFICIENT_INFORMATION refuse；\n"
+    "- Search 和 read 应交替推进：若 code_search 已返回明显相关位置，下一步优先调用"
+    "read_project_context；读取上下文后，只针对当前缺口换一个 literal 搜索。不要在已有"
+    "明显候选时连续做 exploratory search；前一个搜索明显无关时才换 literal；\n"
+    "- 多部分问题按未覆盖义务选择下一次 query 或 context。已经覆盖一个组件后，下一步"
+    "应寻找尚未覆盖的另一项信息，而不是重复相同位置；一个 context 若已足够覆盖全部义务，"
+    "允许直接 final_answer，不要为了文件数量机械多读；\n"
     "- code_search 是 literal text search。使用简短、可能真实存在的关键词，例如 endpoint、"
     "annotation、config key、exception 名、method/symbol、SQL identifier 或关键字符串；"
     "不要反复搜索整句自然语言。首次搜索不理想时，换一个不同的简短 literal；\n"
     "- 不要重复完全相同的 Tool call。已有 code_search 结果时，优先读取其中的上下文，"
     "或使用不同关键词，而不是重复相同搜索；\n"
-    "- 明显需要比较或串联多个文件时，可继续读取多个 project context；不要只搜索一次就"
-    "立即以 INSUFFICIENT_INFORMATION 拒绝。仍必须遵守系统 Tool 预算。\n"
+    "- 系统 Tool 预算保持固定；选择经济的 search/read 路径，不假设可以无限调用，也不要"
+    "通过增加调用次数替代覆盖判断。\n"
     "合法输出只存在以下三种形状：\n\n"
     "Tool Call：\n"
     '{\n  "action": "tool_call",\n  "tool_name": "<必须来自可用 Tool>",\n  "arguments": {}\n}\n'

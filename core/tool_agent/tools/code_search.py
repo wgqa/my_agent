@@ -112,8 +112,9 @@ CODE_SEARCH_SPEC = ToolSpec(
         "例如 endpoint、annotation、config key、exception 名、method/symbol、SQL identifier"
         "或关键字符串；不要传整句自然语言。它只负责定位 repo-relative path + line。"
         "当匹配结果需要解释实际实现、行为、调用关系或多文件关系时，随后必须调用 "
-        "read_project_context 读取上下文，不要只从单个匹配行推断答案。若已有结果，"
-        "读取它或换不同关键词，绝不重复相同搜索。"
+        "read_project_context 读取上下文，不要只从单个匹配行推断答案。对于多部分问题，"
+        "命中明显相关位置后优先 read_project_context；读取后只针对仍未覆盖的信息义务换"
+        "不同关键词，绝不连续做无目标 exploratory search，绝不重复相同搜索。"
     ),
     input_schema=CODE_SEARCH_INPUT_SCHEMA,
     output_schema=CODE_SEARCH_OUTPUT_SCHEMA,
