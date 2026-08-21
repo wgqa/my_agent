@@ -81,12 +81,8 @@ def _assert_app_test(backend_base: str) -> None:
             raise AssertionError(f"Streamlit AppTest exception: {details}")
 
         titles = [getattr(item, "value", "") for item in app_test.title]
-        if not any("RAG Agent Demo Console" in title for title in titles):
+        if not any("RAG Agent" in title for title in titles):
             raise AssertionError(f"page title missing: {titles!r}")
-
-        successes = [getattr(item, "value", "") for item in app_test.success]
-        if not any("服务正常" in value for value in successes):
-            raise AssertionError(f"sidebar did not report backend online: {successes!r}")
 
         captions = [getattr(item, "value", "") for item in app_test.caption]
         config_caption = " ".join(captions)
@@ -103,37 +99,29 @@ def _assert_app_test(backend_base: str) -> None:
                 f"backend /capabilities status={capability_status}"
             )
         features = capabilities.get("features", {})
-        success_status = [getattr(item, "value", "") for item in app_test.success]
-        error_status = [getattr(item, "value", "") for item in app_test.error]
         for label, feature in (
             ("Basic RAG", "basic_rag"),
             ("Agentic RAG", "agentic_rag"),
             ("Structured Tool Agent", "structured_tool_agent"),
         ):
-            expected_status = success_status if features.get(feature) is True else error_status
-            if not any(label in value for value in expected_status):
+            expected_status = "available" if features.get(feature) is True else "unavailable"
+            if not any(f"{label}: {expected_status}" in value for value in captions):
                 raise AssertionError(
                     f"capability {feature!r} was not consumed by UI: "
-                    f"expected label {label!r}, success={success_status!r}, "
-                    f"error={error_status!r}"
+                    f"expected caption={label}: {expected_status!r}, captions={captions!r}"
                 )
-        warnings = [getattr(item, "value", "") for item in app_test.warning]
         if features.get("indexing") is False:
-            if not any("索引能力当前不可用" in value for value in warnings):
+            if not any("Indexing capability is currently unavailable" in value for value in captions):
                 raise AssertionError(
-                    "indexing=false was not reflected in Knowledge Base tab"
+                    "indexing=false was not reflected in Settings"
                 )
         elif len(app_test.file_uploader) == 0:
             raise AssertionError("indexing=true did not render file uploader")
 
-        metrics = [getattr(item, "label", "") for item in app_test.metric]
-        if "文档块总数" not in metrics:
-            raise AssertionError(f"stats was not rendered: {metrics!r}")
-
-        tabs = [getattr(item, "label", "") for item in app_test.tabs]
-        for required_tab in ("知识库", "Agent Console"):
-            if not any(required_tab in label for label in tabs):
-                raise AssertionError(f"missing tab {required_tab!r}: {tabs!r}")
+        if not any("Documents:" in value for value in captions):
+            raise AssertionError(f"knowledge base status was not rendered: {captions!r}")
+        if len(app_test.tabs) != 0:
+            raise AssertionError("legacy parallel tabs are still present")
 
         if len(app_test.radio) == 0:
             raise AssertionError("mode radio is missing")
@@ -146,14 +134,12 @@ def _assert_app_test(backend_base: str) -> None:
         if not all(mode in modes for mode in required_modes):
             raise AssertionError(f"required modes missing: {modes!r}")
 
-        # Mode changes rerun only health/stats; no query endpoint is submitted.
+        # Mode changes rerun only the chat shell; no query endpoint is submitted.
         for mode in required_modes:
             app_test.radio[0].set_value(mode).run(timeout=30)
             if len(app_test.exception) > 0:
                 details = "\n".join(str(item) for item in app_test.exception)
                 raise AssertionError(f"mode {mode!r} raised: {details}")
-            slider_labels = [getattr(item, "label", "") for item in app_test.slider]
-            has_top_k = any("top_k" in label or "检索数量" in label for label in slider_labels)
             feature = {
                 "Basic RAG": "basic_rag",
                 "Agentic RAG": "agentic_rag",
@@ -165,10 +151,6 @@ def _assert_app_test(backend_base: str) -> None:
                         f"unavailable mode {mode!r} still exposes chat input"
                     )
                 continue
-            if mode == "Structured Tool Agent" and has_top_k:
-                raise AssertionError("tool-agent mode unexpectedly exposes top_k")
-            if mode != "Structured Tool Agent" and not has_top_k:
-                raise AssertionError(f"{mode!r} does not expose top_k")
     finally:
         if previous_url is None:
             os.environ.pop("RAG_API_URL", None)
