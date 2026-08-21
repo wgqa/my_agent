@@ -6,7 +6,14 @@ import json
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    APIStatusError,
+    AuthenticationError,
+    OpenAI,
+    RateLimitError,
+)
 
 from core.conversation_context.models import ContextMessage
 
@@ -34,6 +41,62 @@ class ConversationQueryResolution:
 
 def _valid_query(value: object) -> bool:
     return type(value) is str and bool(value.strip())
+
+
+class _ResolverResponseError(Exception):
+    """Expected response shape/schema failure, without exposing provider text."""
+
+
+_KNOWN_PROVIDER_EXCEPTIONS = (
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+    APIStatusError,
+    TimeoutError,
+)
+
+
+def _extract_response_content(response: object) -> str:
+    """Validate the provider envelope and return only its content field."""
+    try:
+        choices = response.choices
+    except AttributeError as exc:
+        raise _ResolverResponseError("response.choices missing") from exc
+    if not isinstance(choices, list) or not choices:
+        raise _ResolverResponseError("response.choices invalid")
+    try:
+        message = choices[0].message
+    except AttributeError as exc:
+        raise _ResolverResponseError("response message missing") from exc
+    if message is None:
+        raise _ResolverResponseError("response message missing")
+    try:
+        content = message.content
+    except AttributeError as exc:
+        raise _ResolverResponseError("response content missing") from exc
+    if type(content) is not str:
+        raise _ResolverResponseError("response content invalid")
+    return content
+
+
+def _parse_standalone_query(content: str) -> str:
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise _ResolverResponseError("response JSON invalid") from exc
+    if (
+        type(payload) is not dict
+        or set(payload) != {"standalone_query"}
+        or not _valid_query(payload["standalone_query"])
+    ):
+        raise _ResolverResponseError("response schema invalid")
+    return payload["standalone_query"].strip()
+
+
+_EXPECTED_RESOLVER_FAILURES = _KNOWN_PROVIDER_EXCEPTIONS + (
+    _ResolverResponseError,
+)
 
 
 class OpenAICompatibleConversationQueryResolver:
@@ -98,18 +161,11 @@ class OpenAICompatibleConversationQueryResolver:
                 temperature=RESOLVER_TEMPERATURE,
                 max_tokens=RESOLVER_MAX_OUTPUT_TOKENS,
             )
-            content = response.choices[0].message.content
-            if type(content) is not str:
-                raise ValueError("resolver response content is invalid")
-            payload = json.loads(content)
-            if (
-                type(payload) is not dict
-                or set(payload) != {"standalone_query"}
-                or not _valid_query(payload["standalone_query"])
-            ):
-                raise ValueError("resolver response schema is invalid")
-            return ConversationQueryResolution(
-                payload["standalone_query"].strip(), True, False
+            standalone_query = _parse_standalone_query(
+                _extract_response_content(response)
             )
-        except Exception:
+            return ConversationQueryResolution(
+                standalone_query, True, False
+            )
+        except _EXPECTED_RESOLVER_FAILURES:
             return ConversationQueryResolution(question, True, True)

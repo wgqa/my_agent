@@ -5,6 +5,16 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import httpx
+import pytest
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    APIStatusError,
+    AuthenticationError,
+    RateLimitError,
+)
+
 from core.agent_runtime import AgentRuntime
 from core.conversation_context import (
     CONTEXT_RESOLUTION_FALLBACK,
@@ -107,7 +117,9 @@ def test_resolver_preserves_a_new_topic_from_current_question():
 
 
 def test_resolver_failure_falls_back_without_exposing_error():
-    client = _FakeClient(error=RuntimeError("secret provider response"))
+    client = _FakeClient(
+        error=APIConnectionError(request=httpx.Request("POST", "https://x"))
+    )
     resolver = OpenAICompatibleConversationQueryResolver(
         provider="fake", model="model", api_key="secret-key", client=client
     )
@@ -115,6 +127,69 @@ def test_resolver_failure_falls_back_without_exposing_error():
     assert result.standalone_query == "新主题"
     assert result.fallback is True
     assert CONTEXT_RESOLUTION_FALLBACK == "CONTEXT_RESOLUTION_FALLBACK"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        42,
+        "not-json",
+        "{}",
+        '{"standalone_query": 42}',
+        '{"standalone_query": "ok", "extra": true}',
+    ],
+)
+def test_resolver_expected_response_failures_fallback(content):
+    client = _FakeClient(content)
+    resolver = OpenAICompatibleConversationQueryResolver(
+        provider="fake", model="model", api_key="key", client=client
+    )
+    result = resolver.resolve((ContextMessage("user", "旧问题"),), "当前问题")
+    assert result.standalone_query == "当前问题"
+    assert result.resolver_used is True
+    assert result.fallback is True
+
+
+def test_resolver_unknown_programming_error_propagates():
+    client = _FakeClient(error=RuntimeError("programming bug"))
+    resolver = OpenAICompatibleConversationQueryResolver(
+        provider="fake", model="model", api_key="secret-key", client=client
+    )
+    with pytest.raises(RuntimeError, match="programming bug"):
+        resolver.resolve((ContextMessage("user", "旧问题"),), "当前问题")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        APIConnectionError(request=httpx.Request("POST", "https://x")),
+        APITimeoutError(request=httpx.Request("POST", "https://x")),
+        AuthenticationError(
+            "unauthorized",
+            response=httpx.Response(401, request=httpx.Request("POST", "https://x")),
+            body=None,
+        ),
+        RateLimitError(
+            "rate limited",
+            response=httpx.Response(429, request=httpx.Request("POST", "https://x")),
+            body=None,
+        ),
+        APIStatusError(
+            "server",
+            response=httpx.Response(500, request=httpx.Request("POST", "https://x")),
+            body=None,
+        ),
+    ],
+)
+def test_resolver_known_provider_errors_fallback(error):
+    client = _FakeClient(error=error)
+    resolver = OpenAICompatibleConversationQueryResolver(
+        provider="fake", model="model", api_key="key", client=client
+    )
+    result = resolver.resolve((ContextMessage("user", "旧问题"),), "当前问题")
+    assert result.standalone_query == "当前问题"
+    assert result.resolver_used is True
+    assert result.fallback is True
 
 
 class _Planner(BaseQueryPlanner):
