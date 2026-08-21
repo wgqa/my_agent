@@ -49,6 +49,7 @@ AGENT_RUN_STATUSES = ("completed", "refused", "deferred", "failed")
 AGENT_ANSWER_MODES = ("direct", "grounded")
 AGENT_TRACE_EVENTS = (
     "run_started",
+    "context_prepared",
     "planning_completed",
     "routing_completed",
     "retrieval_completed",

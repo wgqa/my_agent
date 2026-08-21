@@ -377,13 +377,17 @@ def query(req: QueryRequest):
 def agent_query(req: AgentQueryRequest):
     """Agentic RAG 问答入口：Planner → Runtime → BM25 → Generator → Citation。
 
-    本版本不接 history（AgentQueryRequest extra=forbid，显式拒绝）；
+    history 只传入 Agentic RAG runtime；Tool Agent 仍有独立且冻结的请求契约。
     completed/refused/deferred/failed 都返回结构化结果，deferred 不伪装成
     成功回答。Agent Runtime 未初始化时返回 503，不泄露内部异常。
     """
     rt = _get_agent_runtime()
     try:
-        result = rt.run(req.question, top_k=req.top_k)
+        result = rt.run(
+            req.question,
+            history=tuple(message.model_dump() for message in req.history),
+            top_k=req.top_k,
+        )
     except Exception:
         logger.exception("Agent query failed")
         raise HTTPException(status_code=500, detail="Internal agent query error")

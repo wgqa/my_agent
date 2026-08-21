@@ -35,6 +35,10 @@ from core.agent_runtime.models import (
     VerificationResult,
 )
 from core.query_planning import BaseQueryPlanner, PlannerOutcome, QueryPlan
+from core.conversation_context import (
+    ConversationQueryResolution,
+    RecentContextWindow,
+)
 
 # decomposed 路径的子问题稳定标识（QueryPlan 已保证 sq1/sq2/sq3 顺序）。
 _SUBQUERY_IDS = ("sq1", "sq2", "sq3")
@@ -230,6 +234,8 @@ class AgentRuntime:
         merge_policy: str = SUBQUERY_ROUND_ROBIN_V1,
         merge_rrf_k: float = DEFAULT_MERGE_RRF_K,
         run_id_factory=None,
+        context_window: Optional[RecentContextWindow] = None,
+        query_resolver=None,
     ) -> None:
         if not isinstance(planner, BaseQueryPlanner):
             raise TypeError(
@@ -261,10 +267,19 @@ class AgentRuntime:
         self._merge_policy = merge_policy
         self._merge_rrf_k = float(merge_rrf_k)
         self._run_id_factory = run_id_factory
+        self._context_window = context_window or RecentContextWindow()
+        self._query_resolver = query_resolver
         self._router = DeterministicRouter()
         self._verifier = MinimalEvidenceVerifier()
 
-    def run(self, question: str, top_k: int = 5) -> AgentRunResult:
+    def run(
+        self, question: str, history=(), top_k: int = 5
+    ) -> AgentRunResult:
+        # Keep the old positional run(question, top_k) form working while the
+        # public API uses run(question, history, top_k).
+        if type(history) is int and not isinstance(history, bool) and top_k == 5:
+            top_k = history
+            history = ()
         if type(question) is not str or not question.strip():
             raise ValueError("question 必须是非空字符串")
         if type(top_k) is not int or isinstance(top_k, bool) or top_k <= 0:
@@ -287,6 +302,7 @@ class AgentRuntime:
         planner_calls = 0
         retrieval_calls = 0
         generation_calls = 0
+        runtime_warnings: list[str] = []
 
         def ensure_budget(port: str) -> bool:
             if steps >= self._budget.max_steps:
@@ -366,7 +382,7 @@ class AgentRuntime:
                 sources=sources,
                 trace=tuple(trace),
                 error_code=error_code,
-                warnings=(),
+                warnings=tuple(runtime_warnings),
             )
 
         run_id = (
@@ -374,13 +390,35 @@ class AgentRuntime:
         )
         emit("run_started", "run started", {"run_id": run_id})
 
+        context = self._context_window.prepare(history)
+        resolution = ConversationQueryResolution(question, False, False)
+        if context.selected_messages and self._query_resolver is not None:
+            resolution = self._query_resolver.resolve(
+                context.selected_messages, question
+            )
+        if resolution.fallback:
+            runtime_warnings.append("CONTEXT_RESOLUTION_FALLBACK")
+        emit(
+            "context_prepared",
+            "conversation context prepared",
+            {
+                "history_messages_received": context.received_count,
+                "history_messages_used": context.used_count,
+                "history_tokens_used": context.used_tokens,
+                "history_truncated": context.truncated,
+                "resolver_used": resolution.resolver_used,
+                "resolver_fallback": resolution.fallback,
+            },
+        )
+        resolved_question = resolution.standalone_query
+
         # ---- Planner（所有路径恰好调用一次）----
         if not ensure_budget("planner"):
             return budget_failed(None, None, None, None)
         planner_calls += 1
         steps += 1
         try:
-            outcome = self._planner.plan(question)
+            outcome = self._planner.plan(resolved_question)
         except Exception as exc:
             return run_failed(
                 "PLANNING_FAILED",
@@ -441,7 +479,9 @@ class AgentRuntime:
             generation_calls += 1
             steps += 1
             try:
-                answer = self._answer_port.answer(question, bundle, mode="direct")
+                answer = self._answer_port.answer(
+                    resolved_question, bundle, mode="direct"
+                )
             except Exception as exc:
                 return run_failed(
                     "GENERATION_FAILED", type(exc).__name__,
@@ -480,7 +520,7 @@ class AgentRuntime:
             steps += 1
             try:
                 documents = self._retrieval_port.search(
-                    question, strategy=initial_strategy, top_k=top_k
+                    resolved_question, strategy=initial_strategy, top_k=top_k
                 )
                 documents = tuple(documents)
             except Exception as exc:
@@ -509,7 +549,7 @@ class AgentRuntime:
                 upgrade_attempted = True
                 try:
                     documents = self._retrieval_port.search(
-                        question, strategy="hybrid", top_k=top_k
+                        resolved_question, strategy="hybrid", top_k=top_k
                     )
                     documents = tuple(documents)
                 except Exception as exc:
@@ -532,7 +572,7 @@ class AgentRuntime:
             try:
                 bundle = EvidenceBundle.from_documents(
                     documents,
-                    query_id=question,
+                    query_id=resolved_question,
                     max_items=self._budget.max_evidence_items,
                     retrieval_call_count=retrieval_calls,
                     query_count=len(route.queries),
@@ -568,7 +608,7 @@ class AgentRuntime:
                 steps += 1
                 try:
                     answer = self._answer_port.answer(
-                        question, bundle, mode="grounded"
+                        resolved_question, bundle, mode="grounded"
                     )
                 except Exception as exc:
                     return run_failed(
@@ -737,7 +777,7 @@ class AgentRuntime:
             steps += 1
             try:
                 answer = self._answer_port.answer(
-                    question, bundle, mode="grounded"
+                    resolved_question, bundle, mode="grounded"
                 )
             except Exception as exc:
                 return run_failed(

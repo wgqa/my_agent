@@ -786,7 +786,7 @@ class TestAgentQuery:
         resp = client.post("/agent/query", json={"question": "alpha"})
         assert resp.status_code == 503
 
-    def test_history_rejected_not_silently_ignored(self, client, monkeypatch):
+    def test_history_accepted_for_agentic_runtime(self, client, monkeypatch):
         _install_agent_runtime(
             monkeypatch,
             plan_json=_SINGLE_PLAN_JSON,
@@ -800,7 +800,28 @@ class TestAgentQuery:
                 "history": [{"role": "user", "content": "旧问题"}],
             },
         )
-        assert resp.status_code == 422  # extra=forbid 显式拒绝 history
+        assert resp.status_code == 200
+        data = resp.json()
+        context_event = next(
+            event for event in data["trace"]
+            if event["event_type"] == "context_prepared"
+        )
+        assert context_event["data"]["history_messages_received"] == 1
+
+    @pytest.mark.parametrize(
+        "history",
+        [
+            [{"role": "system", "content": "x"}],
+            [{"role": "user", "content": "   "}],
+            [{"role": "user", "content": "x" * 8001}],
+            [{"role": "user", "content": "x"}] * 21,
+        ],
+    )
+    def test_history_validation(self, client, history):
+        resp = client.post(
+            "/agent/query", json={"question": "alpha", "history": history}
+        )
+        assert resp.status_code == 422
 
     def test_no_key_or_prompt_leak(self, client, monkeypatch):
         _install_agent_runtime(

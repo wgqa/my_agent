@@ -101,13 +101,20 @@ class ProjectResponse(BaseModel):
 
 
 class AgentQueryRequest(BaseModel):
-    """/agent/query 请求。本版本不接 history：未定义字段（含 history）显式
-    拒绝（extra=forbid），绝不静默忽略。"""
+    """/agent/query 请求。history 只属于 Agentic RAG 的用户会话上下文。"""
 
     model_config = {"extra": "forbid"}
 
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
     top_k: int = Field(default=5, ge=1, le=MAX_TOP_K)
+    history: List[HistoryMessage] = Field(default_factory=list)
+
+    @field_validator("history")
+    @classmethod
+    def _limit_history(cls, v: List[HistoryMessage]) -> List[HistoryMessage]:
+        if len(v) > MAX_HISTORY_MESSAGES:
+            raise ValueError(f"history must have at most {MAX_HISTORY_MESSAGES} messages")
+        return v
 
     @field_validator("question")
     @classmethod

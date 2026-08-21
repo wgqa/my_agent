@@ -20,6 +20,7 @@ from core.agent_runtime.models import (
     validate_answer_mode,
 )
 from core.agent_runtime.runtime import AgentRuntime
+from core.conversation_context import OpenAICompatibleConversationQueryResolver
 from core.context.assembler import ContextBlock
 from core.generator.citation import CitationValidator
 from core.loader.base import Document as LoaderDocument
@@ -283,6 +284,7 @@ def build_pipeline_agent_runtime(
     base_url: Optional[str] = None,
     planner_client=None,
     direct_answer_client=None,
+    context_resolver_client=None,
 ) -> AgentRuntime:
     """用真实 Pipeline 的 Retriever / Generator 组装一个 AgentRuntime。
 
@@ -318,8 +320,16 @@ def build_pipeline_agent_runtime(
         direct_api_key=api_key,
         direct_base_url=resolved_base_url,
     )
+    resolver = OpenAICompatibleConversationQueryResolver(
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        base_url=resolved_base_url,
+        client=context_resolver_client,
+    )
     return AgentRuntime(
         planner=planner,
         retrieval_port=retrieval,
         answer_port=answer,
+        query_resolver=resolver,
     )

@@ -1348,6 +1348,7 @@ class TestRuntimeTrace:
         types = [t.event_type for t in result.trace]
         assert types == [
             "run_started",
+            "context_prepared",
             "planning_completed",
             "routing_completed",
             "retrieval_completed",

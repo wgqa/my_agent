@@ -97,6 +97,21 @@ def test_agent_query_only_question_and_top_k(monkeypatch):
         assert forbidden not in body
 
 
+def test_agent_query_sends_history_only_to_agent_endpoint(monkeypatch):
+    captured = _install(monkeypatch, _Resp(200, {"status": "completed"}))
+    client = ApiClient(base_url=BASE)
+    history = [
+        {"role": "user", "content": "旧问题"},
+        {"role": "assistant", "content": "旧答案"},
+    ]
+    client.agent_query("追问", 5, history=history)
+    assert captured["kwargs"]["json"] == {
+        "question": "追问",
+        "top_k": 5,
+        "history": history,
+    }
+
+
 def test_tool_agent_query_only_question(monkeypatch):
     captured = _install(monkeypatch, _Resp(200, {"status": "completed"}))
     client = ApiClient(base_url=BASE)

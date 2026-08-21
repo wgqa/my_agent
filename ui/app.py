@@ -197,7 +197,14 @@ def _show_error(err: ApiError) -> None:
         st.error(err.message)
 
 
-def _submit(question: str, mode: str, top_k: int, *, render: bool = True) -> dict:
+def _submit(
+    question: str,
+    mode: str,
+    top_k: int,
+    *,
+    history=None,
+    render: bool = True,
+) -> dict:
     feature = MODE_FEATURE_BY_KEY.get(mode)
     if feature and hasattr(st.session_state, "runtime_capabilities"):
         if not _feature_enabled(feature):
@@ -214,7 +221,10 @@ def _submit(question: str, mode: str, top_k: int, *, render: bool = True) -> dic
                 renderers.render_basic_result(result)
             return {"content": result.get("answer", ""), "kind": mode, "result": result}
         if mode == "agent":
-            result = client.agent_query(question, top_k)
+            if history:
+                result = client.agent_query(question, top_k, history=history)
+            else:
+                result = client.agent_query(question, top_k)
             if render:
                 renderers.render_agent_result(result)
             return {"content": result.get("answer", "") or "", "kind": mode, "result": result}
@@ -387,10 +397,21 @@ def _tab_console(mode: str, top_k: int) -> None:
         _render_empty_conversation()
     prompt = st.chat_input("Message RAG Agent")
     if prompt:
+        previous_messages = [
+            {"role": item.get("role"), "content": item.get("content", "")}
+            for item in conversation.get("messages", [])[-20:]
+            if item.get("role") in ("user", "assistant") and item.get("content", "").strip()
+        ]
         conversation["messages"].append({"role": "user", "content": prompt})
         if conversation.get("title") == "New conversation":
             conversation["title"] = _title_for_question(prompt)
-        reply = _submit(prompt, mode, top_k, render=False)
+        reply = _submit(
+            prompt,
+            mode,
+            top_k,
+            history=previous_messages if mode == "agent" else None,
+            render=False,
+        )
         conversation["messages"].append({"role": "assistant", **reply})
         st.rerun()
 

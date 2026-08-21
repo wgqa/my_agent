@@ -106,10 +106,17 @@ class ApiClient:
             "POST", "/query", json_body={"question": question, "top_k": top_k}
         )
 
-    def agent_query(self, question: str, top_k: int) -> dict:
-        # 后端 AgentQueryRequest extra=forbid：只允许 question + top_k
+    def agent_query(self, question: str, top_k: int, history=None) -> dict:
+        # history is an Agentic-only conversation field; other endpoints never
+        # receive it. Omit the field when there is no history for compatibility.
+        body = {"question": question, "top_k": top_k}
+        if history:
+            body["history"] = [
+                {"role": item["role"], "content": item["content"]}
+                for item in history
+            ]
         return self._request(
-            "POST", "/agent/query", json_body={"question": question, "top_k": top_k}
+            "POST", "/agent/query", json_body=body
         )
 
     def tool_agent_query(self, question: str) -> dict:
