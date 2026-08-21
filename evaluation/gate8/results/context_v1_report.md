@@ -1,5 +1,10 @@
 # G8 Context v1 Capability Check
 
+> **INVALID EVALUATION RUN**
+>
+> Reasons: `CONTAMINATED_VECTOR_STORE`, `TURN1_VALIDITY_NOT_ENFORCED`.
+> Original results are retained for audit only and are not valid Context capability metrics.
+
 - schema: `gate8_context_report_v1`
 - endpoint: `http://127.0.0.1:8001/agent/query`
 - dataset: `conversation_context_cases_v1.jsonl` (6 public-knowledge cases)
