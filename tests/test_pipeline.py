@@ -278,6 +278,16 @@ def test_index_file_update_refreshes_bm25(tmp_path):
 
 # ── P0-3: reranker 配置接线 ──────────────────────────
 
+
+class _SuccessfulGenerator:
+    """Keep reranker wiring tests independent of provider availability."""
+
+    def available_context_tokens(self, question):
+        return 1000
+
+    def generate(self, query, context_docs):
+        return "答案 [C1]"
+
 def test_query_wires_reranker_candidate_and_final_k(tmp_path):
     """reranker_candidate_k/final_k 配置真正生效"""
     pipeline = _make_pipeline(tmp_path)
@@ -295,6 +305,7 @@ def test_query_wires_reranker_candidate_and_final_k(tmp_path):
 
     pipeline.retriever = FakeRetriever()
     pipeline.reranker = FakeReranker()
+    pipeline.generator = _SuccessfulGenerator()
     pipeline.config.reranker_candidate_k = 7
     pipeline.config.reranker_final_k = 2
     pipeline.config.min_score = 0.95  # 高阈值 → 拒答，不触发 generator
@@ -324,6 +335,7 @@ def test_query_disabled_reranker_skips_rerank(tmp_path):
     spy = SpyReranker()
     pipeline.retriever = FakeRetriever()
     pipeline.reranker = spy
+    pipeline.generator = _SuccessfulGenerator()
     pipeline.config.reranker_enabled = False
     pipeline.config.min_score = 0.95
 

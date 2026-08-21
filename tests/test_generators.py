@@ -136,16 +136,18 @@ from unittest.mock import MagicMock, patch
 
 
 def test_auth_error_not_retried():
-    """认证错误不重试，立即返回 AUTH_ERROR"""
+    """认证错误不重试，并转成脱敏 typed error"""
     from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.errors import GeneratorAuthenticationError
     gen = DeepSeekGenerator(api_key="sk-test")
     gen.client.chat.completions.create = MagicMock(
         side_effect=__import__("openai").AuthenticationError(
             "bad key", response=MagicMock(status_code=401), body={}
         )
     )
-    result = gen.generate("q", [])
-    assert "[GENERATOR_AUTH_ERROR]" in result
+    with pytest.raises(GeneratorAuthenticationError):
+        gen.generate("q", [])
+    assert gen.client.chat.completions.create.call_count == 1
 
 
 def test_rate_limit_retried_then_succeeds():
@@ -171,16 +173,17 @@ def test_rate_limit_retried_then_succeeds():
 
 
 def test_timeout_retried_then_fails():
-    """超时重试后仍失败 → GENERATOR_TIMEOUT"""
+    """超时重试后仍失败 → typed timeout error"""
     from core.generator.deepseek_gen import DeepSeekGenerator
+    from core.generator.errors import GeneratorTimeoutError
     from openai import APITimeoutError
 
     gen = DeepSeekGenerator(api_key="sk-test", max_retries=1)
     gen.client.chat.completions.create = MagicMock(
         side_effect=APITimeoutError("timeout")
     )
-    result = gen.generate("q", [])
-    assert "[GENERATOR_TIMEOUT]" in result
+    with pytest.raises(GeneratorTimeoutError):
+        gen.generate("q", [])
 
 
 def test_max_tokens_set():

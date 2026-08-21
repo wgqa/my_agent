@@ -1,8 +1,21 @@
 from typing import List, Optional
 from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+)
 
 from core.loader.base import Document
 from core.generator.base import BaseGenerator
+from core.generator.errors import (
+    GeneratorAuthenticationError,
+    GeneratorTimeoutError,
+    GeneratorUnavailableError,
+    extract_response_content,
+)
 
 
 class OpenAIGenerator(BaseGenerator):
@@ -34,6 +47,10 @@ class OpenAIGenerator(BaseGenerator):
                 temperature=self.temperature,
                 max_tokens=self.max_output_tokens,
             )
-            return resp.choices[0].message.content
-        except Exception as e:
-            return f"[生成失败: {type(e).__name__}] {str(e)[:300]}"
+            return extract_response_content(resp)
+        except AuthenticationError:
+            raise GeneratorAuthenticationError from None
+        except APITimeoutError:
+            raise GeneratorTimeoutError from None
+        except (APIConnectionError, RateLimitError, APIStatusError):
+            raise GeneratorUnavailableError from None

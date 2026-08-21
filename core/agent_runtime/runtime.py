@@ -344,10 +344,18 @@ class AgentRuntime:
             error_code: str, exception_type: str, planner_outcome, route_decision,
             bundle, verification,
         ) -> AgentRunResult:
+            # Generator implementation details are not part of the public
+            # Agent trace. Keep the stable runtime failure contract while
+            # preserving diagnostic type names for planner/retrieval faults.
+            safe_exception_type = (
+                "GENERATION_FAILED"
+                if error_code == "GENERATION_FAILED"
+                else exception_type
+            )
             emit(
                 "run_failed",
                 "run failed",
-                {"error_code": error_code, "exception_type": exception_type},
+                {"error_code": error_code, "exception_type": safe_exception_type},
             )
             return _result(
                 status="failed",

@@ -2,16 +2,24 @@ import time
 from typing import List
 
 from openai import OpenAI
-from openai import APITimeoutError, RateLimitError, AuthenticationError, APIStatusError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+)
 
 from core.loader.base import Document
 from core.generator.base import BaseGenerator
+from core.generator.errors import (
+    GeneratorAuthenticationError,
+    GeneratorTimeoutError,
+    GeneratorUnavailableError,
+    extract_response_content,
+)
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-
-# 可重试的错误类型（429 / 5xx / 超时）
-_RETRYABLE = (RateLimitError, APITimeoutError)
-
 
 class DeepSeekGenerator(BaseGenerator):
 
@@ -41,8 +49,6 @@ class DeepSeekGenerator(BaseGenerator):
         # 发送前防御校验：只校验不截断（预算由 ContextAssembler 完成）
         self.validate_budget(query, context_docs)
         messages = self._build_messages(query, context_docs)
-        last_error: Exception | None = None
-
         for attempt in range(self.max_retries + 1):
             try:
                 resp = self.client.chat.completions.create(
@@ -51,27 +57,31 @@ class DeepSeekGenerator(BaseGenerator):
                     temperature=self.temperature,
                     max_tokens=self.max_output_tokens,
                 )
-                return resp.choices[0].message.content
-            except AuthenticationError as e:
-                # 认证错误不重试
-                return f"[GENERATOR_AUTH_ERROR] API key 无效"
-            except APIStatusError as e:
-                if e.status_code >= 500 and attempt < self.max_retries:
-                    last_error = e
+                return extract_response_content(resp)
+            except AuthenticationError:
+                # Authentication failure is deterministic; never retry it.
+                raise GeneratorAuthenticationError from None
+            except APITimeoutError:
+                if attempt < self.max_retries:
                     time.sleep(2 ** attempt)  # 指数退避: 1s, 2s
                     continue
-                if e.status_code == 429 and attempt < self.max_retries:
-                    last_error = e
-                    time.sleep(2 ** attempt)
-                    continue
-                return f"[GENERATOR_UNAVAILABLE] HTTP {e.status_code}"
-            except _RETRYABLE as e:
+                raise GeneratorTimeoutError from None
+            except RateLimitError:
                 if attempt < self.max_retries:
-                    last_error = e
                     time.sleep(2 ** attempt)
                     continue
-                return f"[GENERATOR_TIMEOUT] 请求超时"
-            except Exception as e:
-                return f"[生成失败: {type(e).__name__}] {str(e)[:300]}"
+                raise GeneratorUnavailableError from None
+            except APIStatusError as error:
+                if (
+                    (error.status_code >= 500 or error.status_code == 429)
+                    and attempt < self.max_retries
+                ):
+                    time.sleep(2 ** attempt)
+                    continue
+                raise GeneratorUnavailableError from None
+            except APIConnectionError:
+                raise GeneratorUnavailableError from None
 
-        return f"[生成失败: {type(last_error).__name__}]"
+        # The loop always returns or raises. Keep a defensive typed failure if
+        # a future retry policy changes that invariant.
+        raise GeneratorUnavailableError from None
