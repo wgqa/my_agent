@@ -4,15 +4,43 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-20
+**更新日期：** 2026-08-22
 
 ## 当前状态
 
 - **Release 1.0 = CLOSED / FROZEN**
-- **Release 2.0 = STARTED**
-- **NEXT = G6-VERTICAL-01**
+- **Release 2.0 = IN PROGRESS**
+- **G6 = CLOSED**
+- **G7 = CLOSED / Ledger optional**
+- **G8 = CLOSED / Context v1 mixed**
+- **G9-RELIABILITY-01 = CLOSED**
+- **CURRENT BASELINE = 2603ab788b6dbb4b079f5383525fb9d2cea8d388**
+- **NEXT = Core Evidence Tools Expansion**
+
+## 项目定位
+
+**Evidence-Grounded AI Engineering Agent**
+
+面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent。系统在长期共享的领域知识与当前真实代码仓库之间进行异构证据检索、工具调用、诊断与验证。
+
+## Knowledge 与 Repository 边界
+
+- **Knowledge RAG = persistent shared domain KB**：长期共享、稳定复用的 AI/RAG/Agent 领域知识使用持久化共享知识库。
+- **Repository = on-demand retrieval by default**：临时代码仓库默认按需使用 exact/lexical、symbol/path、`code_search`、`read_project_context`、Git diff 和测试/配置检索。
+- **Per-repo Vector DB = conditional, not default**：只有大型仓库语义定位成为已证实瓶颈、仓库会长期重复分析，或 A/B 证明语义代码检索显著优于 lexical/symbol baseline 时，才条件考虑隔离且绑定 commit 的仓库向量库。
+
+## Core 与 Advanced 顺序
+
+Release 2.0 先完成 Core Evidence Tools 与 Core AI Engineering Agent workflows；只有 **Core Agent 完成** 后，才进入 **EvoAgent-inspired Advanced Agent Systems**，选择性评估 Specialist/Critic、Checkpoint/Resume、Controlled Evolution、Memory 或 MCP 等高级能力。高级能力不得反向改变 Core 主线，也不得成为当前 Core 的强依赖。
 
 ## 历史状态记录
+
+### 2026-08-22 v6 当前路线收口
+
+- 项目定位收口为 **Evidence-Grounded AI Engineering Agent**。
+- Release 1.0 保持 CLOSED / FROZEN；Release 2.0 进入 IN PROGRESS。
+- G6、G7、G8、G9-RELIABILITY-01 的当前状态以本文件“当前状态”区为准；下方旧记录保留为历史快照，不重写历史实验结论。
+- 下一阶段从 Core Evidence Tools Expansion 开始，优先 Git / Change Evidence 与 Test Evidence。
 
 ### 2026-08-18 阶段记录
 
