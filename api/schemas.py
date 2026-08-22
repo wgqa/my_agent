@@ -1,4 +1,6 @@
-from typing import List, Literal, Optional
+import math
+from pathlib import PurePosixPath, PureWindowsPath
+from typing import Annotated, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -83,6 +85,7 @@ class FeatureCapabilities(BaseModel):
     basic_rag: bool
     agentic_rag: bool
     structured_tool_agent: bool
+    engineering_agent: bool
 
 
 class CapabilitiesResponse(BaseModel):
@@ -175,6 +178,79 @@ class ToolAgentEvidence(BaseModel):
     start_line: int = Field(ge=1)
     end_line: int = Field(ge=1)
     snippet: str = Field(min_length=1, max_length=2000)
+
+
+class EngineeringQueryRequest(BaseModel):
+    """Unified Engineering Agent request v1: only the user question is public."""
+
+    model_config = {"extra": "forbid"}
+
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+
+    @field_validator("question")
+    @classmethod
+    def _reject_blank_question(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("question must not be blank")
+        return v
+
+
+class KnowledgeEvidence(BaseModel):
+    """Public bounded evidence from the persistent knowledge backend."""
+
+    evidence_id: str = Field(pattern=r"^E[1-9][0-9]*$")
+    kind: Literal["knowledge"]
+    source_name: str = Field(min_length=1)
+    chunk_id: Optional[str] = None
+    score: Optional[float] = None
+    rank: int = Field(ge=1)
+    snippet: str = Field(min_length=1, max_length=500)
+
+    @field_validator("source_name")
+    @classmethod
+    def _reject_unsafe_source_name(cls, v: str) -> str:
+        windows_path = PureWindowsPath(v)
+        posix_path = PurePosixPath(v)
+        if (
+            not v.strip()
+            or v != v.strip()
+            or windows_path.is_absolute()
+            or windows_path.drive
+            or posix_path.is_absolute()
+            or v.startswith("\\")
+            or any(part in (".", "..") for part in windows_path.parts)
+            or any(part in (".", "..") for part in posix_path.parts)
+        ):
+            raise ValueError("source_name must be a safe relative identity")
+        return v
+
+    @field_validator("score")
+    @classmethod
+    def _require_finite_score(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not math.isfinite(v):
+            raise ValueError("score must be finite")
+        return v
+
+
+EngineeringEvidence = Annotated[
+    Union[KnowledgeEvidence, ToolAgentEvidence],
+    Field(discriminator="kind"),
+]
+
+
+class EngineeringQueryResponse(BaseModel):
+    """Unified public contract for Knowledge/Repository/Change/Test evidence."""
+
+    schema_version: str
+    status: str
+    answer: Optional[str] = None
+    reason_code: Optional[str] = None
+    failure_code: Optional[str] = None
+    iterations_used: int
+    tool_calls_used: int
+    tool_errors_used: int
+    trace: List[dict]
+    evidence: List[EngineeringEvidence]
 
 
 class ToolAgentQueryResponse(BaseModel):

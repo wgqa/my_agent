@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
+from core.engineering_agent import EngineeringAgentFacade
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
 from core.pipeline import Pipeline
 from core.tool_agent import (
@@ -37,8 +38,15 @@ from api.schemas import (
     ToolAgentEvidence,
     ToolAgentQueryResponse,
     ProjectResponse,
+    EngineeringQueryRequest,
+    EngineeringQueryResponse,
+    KnowledgeEvidence,
 )
 from api.project_workspace import EngineeringProject, resolve_engineering_project
+from core.tool_agent.runtime_models import (
+    EngineeringEvidence as RuntimeEngineeringEvidence,
+    KnowledgeEvidence as RuntimeKnowledgeEvidence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +64,13 @@ _WINDOWS_ILLEGAL_CHARS = set('<>:"|?*')
 pipeline: Optional[Pipeline] = None
 agent_runtime: Optional[AgentRuntime] = None
 tool_agent_runtime: Optional[ToolAgentRuntime] = None
+engineering_agent_facade: Optional[EngineeringAgentFacade] = None
 engineering_project: Optional[EngineeringProject] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline, agent_runtime, tool_agent_runtime, engineering_project
+    global pipeline, agent_runtime, tool_agent_runtime, engineering_agent_facade, engineering_project
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
     engineering_project = resolve_engineering_project(REPO_ROOT)
@@ -76,6 +85,7 @@ async def lifespan(app: FastAPI):
         pipeline = None
     agent_runtime = None
     tool_agent_runtime = None
+    engineering_agent_facade = None
     if pipeline is not None:
         try:
             provider, api_key = _resolve_agent_provider(pipeline)
@@ -96,6 +106,7 @@ async def lifespan(app: FastAPI):
                 api_key=os.getenv("DEEPSEEK_API_KEY"),
                 base_url=DEEPSEEK_BASE_URL,
             )
+            engineering_agent_facade = EngineeringAgentFacade(tool_agent_runtime)
         except Exception:
             logger.exception("Tool agent runtime init failed")
             tool_agent_runtime = None
@@ -103,14 +114,15 @@ async def lifespan(app: FastAPI):
     pipeline = None
     agent_runtime = None
     tool_agent_runtime = None
+    engineering_agent_facade = None
     engineering_project = None
 
 
 app = FastAPI(
-    title="RAG Agent API",
+    title="Evidence-Grounded AI Engineering Agent",
     description=(
-        "Evaluable RAG system with Basic RAG, Agentic RAG and "
-        "Structured Tool Agent capabilities."
+        "Evidence-Grounded AI Engineering Agent with evaluable knowledge "
+        "retrieval, repository evidence and bounded tool use."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -220,6 +232,18 @@ def _get_tool_agent_runtime() -> ToolAgentRuntime:
     return tool_agent_runtime
 
 
+def _get_engineering_agent_facade() -> EngineeringAgentFacade:
+    if engineering_agent_facade is not None:
+        return engineering_agent_facade
+    # This fallback keeps tests and embedded callers that inject the legacy
+    # runtime working without creating a second execution path.
+    if tool_agent_runtime is not None:
+        return EngineeringAgentFacade(tool_agent_runtime)
+    raise HTTPException(
+        status_code=503, detail="Engineering agent runtime not initialized"
+    )
+
+
 def _get_engineering_project() -> EngineeringProject:
     if engineering_project is not None:
         return engineering_project
@@ -250,7 +274,50 @@ def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResp
                 snippet=item.snippet,
             )
             for item in result.evidence
+            if type(item) is RuntimeEngineeringEvidence
         ],
+    )
+
+
+def _build_engineering_response(
+    result: ToolAgentRunResult,
+) -> EngineeringQueryResponse:
+    evidence = []
+    for item in result.evidence:
+        if type(item) is RuntimeKnowledgeEvidence:
+            evidence.append(
+                KnowledgeEvidence(
+                    evidence_id=item.evidence_id,
+                    kind="knowledge",
+                    source_name=item.source_name,
+                    chunk_id=item.chunk_id,
+                    score=item.score,
+                    rank=item.rank,
+                    snippet=item.snippet,
+                )
+            )
+        elif type(item) is RuntimeEngineeringEvidence:
+            evidence.append(
+                ToolAgentEvidence(
+                    evidence_id=item.evidence_id,
+                    kind=item.kind,
+                    path=item.path,
+                    start_line=item.start_line,
+                    end_line=item.end_line,
+                    snippet=item.snippet,
+                )
+            )
+    return EngineeringQueryResponse(
+        schema_version="engineering_query_response_v1",
+        status=result.status,
+        answer=result.answer,
+        reason_code=result.reason_code,
+        failure_code=result.failure_code,
+        iterations_used=result.iterations_used,
+        tool_calls_used=result.tool_calls_used,
+        tool_errors_used=result.tool_errors_used,
+        trace=_safe_trace([event.to_dict() for event in result.trace]),
+        evidence=evidence,
     )
 
 
@@ -414,6 +481,21 @@ def tool_agent_query(req: ToolAgentQueryRequest):
     return _build_tool_agent_response(result)
 
 
+@app.post("/engineering/query", response_model=EngineeringQueryResponse)
+def engineering_query(req: EngineeringQueryRequest):
+    """Unified product entry backed by the existing ToolAgentRuntime loop."""
+
+    facade = _get_engineering_agent_facade()
+    try:
+        result = facade.run(req.question)
+    except Exception:
+        logger.exception("Engineering agent query failed")
+        raise HTTPException(
+            status_code=500, detail="Internal engineering agent query error"
+        )
+    return _build_engineering_response(result)
+
+
 @app.get("/stats", response_model=StatsResponse)
 def stats() -> StatsResponse:
     p = _get_pipeline()
@@ -451,5 +533,6 @@ def capabilities() -> CapabilitiesResponse:
             basic_rag=pipeline_ready,
             agentic_rag=agent_runtime_ready,
             structured_tool_agent=tool_agent_runtime_ready,
+            engineering_agent=tool_agent_runtime_ready,
         ),
     )

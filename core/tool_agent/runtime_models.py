@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
@@ -47,8 +48,18 @@ TRACE_EVENT_TYPES = (
     "runtime_stopped",
 )
 
-EVIDENCE_KINDS = ("project_code", "project_doc", "project_change", "project_test")
+EVIDENCE_KINDS = (
+    "knowledge",
+    "project_code",
+    "project_doc",
+    "project_change",
+    "project_test",
+)
+PROJECT_EVIDENCE_KINDS = frozenset(
+    {"project_code", "project_doc", "project_change", "project_test"}
+)
 MAX_EVIDENCE_SNIPPET_LENGTH = 2000
+MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH = 500
 
 
 def _require_non_negative_int(value: object, label: str) -> None:
@@ -211,8 +222,10 @@ class EngineeringEvidence:
             or int(self.evidence_id[1:]) < 1
         ):
             raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
-        if self.kind not in EVIDENCE_KINDS:
-            raise ValueError(f"kind 必须是 {'、'.join(EVIDENCE_KINDS)} 之一")
+        if self.kind not in PROJECT_EVIDENCE_KINDS:
+            raise ValueError(
+                f"kind 必须是 {'、'.join(sorted(PROJECT_EVIDENCE_KINDS))} 之一"
+            )
         if type(self.path) is not str or not self.path.strip() or self.path != self.path.strip():
             raise ValueError("path 必须是非空 repo-relative 路径")
         windows_path = PureWindowsPath(self.path)
@@ -249,6 +262,79 @@ class EngineeringEvidence:
 
 
 @dataclass(frozen=True)
+class KnowledgeEvidence:
+    """A bounded fact extracted from one successful knowledge_search match."""
+
+    evidence_id: str
+    kind: str
+    source_name: str
+    chunk_id: Optional[str]
+    score: Optional[float]
+    rank: int
+    snippet: str
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.evidence_id) is not str
+            or not self.evidence_id.startswith("E")
+            or not self.evidence_id[1:].isdigit()
+            or int(self.evidence_id[1:]) < 1
+        ):
+            raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
+        if self.kind != "knowledge":
+            raise ValueError("KnowledgeEvidence.kind 必须是 knowledge")
+        if (
+            type(self.source_name) is not str
+            or not self.source_name.strip()
+            or self.source_name != self.source_name.strip()
+        ):
+            raise ValueError("source_name 必须是非空安全身份")
+        windows_path = PureWindowsPath(self.source_name)
+        posix_path = PurePosixPath(self.source_name)
+        if (
+            windows_path.is_absolute()
+            or windows_path.drive
+            or posix_path.is_absolute()
+            or self.source_name.startswith("\\")
+            or any(part in (".", "..") for part in windows_path.parts)
+            or any(part in (".", "..") for part in posix_path.parts)
+        ):
+            raise ValueError("source_name 必须是安全的相对身份")
+        if self.chunk_id is not None and (
+            type(self.chunk_id) is not str
+            or not self.chunk_id.strip()
+            or self.chunk_id != self.chunk_id.strip()
+        ):
+            raise ValueError("chunk_id 必须是非空字符串或 None")
+        if self.score is not None and (
+            type(self.score) not in (int, float)
+            or isinstance(self.score, bool)
+            or not math.isfinite(float(self.score))
+        ):
+            raise ValueError("score 必须是有限数字或 None")
+        _require_non_negative_int(self.rank, "rank")
+        if self.rank < 1:
+            raise ValueError("rank 必须 >= 1")
+        if type(self.snippet) is not str or not self.snippet:
+            raise ValueError("snippet 必须是非空字符串")
+        if len(self.snippet) > MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH:
+            raise ValueError(
+                f"snippet 不允许超过 {MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH} 个字符"
+            )
+
+    def to_dict(self) -> dict:
+        return {
+            "evidence_id": self.evidence_id,
+            "kind": self.kind,
+            "source_name": self.source_name,
+            "chunk_id": self.chunk_id,
+            "score": self.score,
+            "rank": self.rank,
+            "snippet": self.snippet,
+        }
+
+
+@dataclass(frozen=True)
 class ToolAgentRunResult:
     """Bounded Loop 的一次运行结果。
 
@@ -266,7 +352,7 @@ class ToolAgentRunResult:
     tool_calls_used: int
     tool_errors_used: int
     trace: Sequence[RuntimeTraceEvent]
-    evidence: Sequence[EngineeringEvidence] = ()
+    evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = ()
 
     def __post_init__(self) -> None:
         if self.status not in RUN_STATUSES:
@@ -306,11 +392,13 @@ class ToolAgentRunResult:
             ):
                 raise ValueError("failed 要求 failure_code 是已定义 Agent Decision failure code")
         if isinstance(self.evidence, (str, bytes)):
-            raise TypeError("evidence 必须是 EngineeringEvidence 序列")
+            raise TypeError("evidence 必须是统一 Evidence 序列")
         normalized_evidence = tuple(self.evidence)
         for item in normalized_evidence:
-            if type(item) is not EngineeringEvidence:
-                raise TypeError("evidence 必须全部是 EngineeringEvidence")
+            if type(item) not in (EngineeringEvidence, KnowledgeEvidence):
+                raise TypeError(
+                    "evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
+                )
         object.__setattr__(self, "evidence", normalized_evidence)
 
     def to_dict(self) -> dict:

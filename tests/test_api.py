@@ -130,6 +130,7 @@ class TestCapabilities:
             "basic_rag": pipeline_ready,
             "agentic_rag": agent_ready,
             "structured_tool_agent": tool_ready,
+            "engineering_agent": tool_ready,
         }
 
     def test_capabilities_is_200_when_all_runtimes_unavailable(self, client, monkeypatch):
@@ -145,6 +146,7 @@ class TestCapabilities:
             "basic_rag": False,
             "agentic_rag": False,
             "structured_tool_agent": False,
+            "engineering_agent": False,
         }
 
 
@@ -156,6 +158,7 @@ class TestOpenAPIContract:
         paths = document["paths"]
         assert "/capabilities" in paths
         assert "/stats" in paths
+        assert "/engineering/query" in paths
 
         stats_schema = paths["/stats"]["get"]["responses"]["200"]["content"][
             "application/json"
@@ -171,6 +174,12 @@ class TestOpenAPIContract:
         assert "FeatureCapabilities" in components
         assert "StatsResponse" in components
         assert "CapabilitiesResponse" in components
+        engineering_schema = paths["/engineering/query"]["post"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
+        assert engineering_schema["$ref"].endswith("/EngineeringQueryResponse")
+        assert "EngineeringQueryRequest" in components
+        assert "EngineeringQueryResponse" in components
 
 
 class TestIndex:

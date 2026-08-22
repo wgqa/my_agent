@@ -11,6 +11,7 @@ DecisionContextItem 反馈给模型，但绝不作为系统指令。本模块不
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import PurePosixPath
 
 from core.tool_agent.actions import (
@@ -28,6 +29,7 @@ from core.tool_agent.runtime_models import (
     AgentDecisionProvider,
     DecisionContextItem,
     EngineeringEvidence,
+    KnowledgeEvidence,
     MAX_EVIDENCE_SNIPPET_LENGTH,
     RuntimeTraceEvent,
     ToolAgentBudget,
@@ -153,6 +155,36 @@ def _evidence_from_git_diff(observation) -> EngineeringEvidence | None:
         return None
 
 
+def _evidence_from_knowledge_search(observation) -> tuple[KnowledgeEvidence, ...]:
+    """Convert only valid matches from one successful knowledge observation."""
+
+    if observation.status != "ok" or observation.tool_name != "knowledge_search":
+        return ()
+    result = observation.result
+    if type(result) is not dict or type(result.get("matches")) is not list:
+        return ()
+    evidence: list[KnowledgeEvidence] = []
+    for match in result["matches"]:
+        if type(match) is not dict:
+            continue
+        try:
+            evidence.append(
+                KnowledgeEvidence(
+                    evidence_id="E1",
+                    kind="knowledge",
+                    source_name=match.get("source_name"),
+                    chunk_id=match.get("chunk_id"),
+                    score=match.get("score"),
+                    rank=match.get("rank"),
+                    snippet=match.get("snippet"),
+                )
+            )
+        except (TypeError, ValueError):
+            # Invalid backend data is not public evidence.
+            continue
+    return tuple(evidence)
+
+
 class ToolAgentRuntime:
     """Bounded Decision → Tool → Observation loop。预算唯一所有者是 Runtime。
 
@@ -193,8 +225,8 @@ class ToolAgentRuntime:
         tool_calls = 0
         tool_errors = 0
         trace: list[RuntimeTraceEvent] = []
-        evidence: list[EngineeringEvidence] = []
-        seen_evidence: set[tuple[str, str, int, int]] = set()
+        evidence: list[EngineeringEvidence | KnowledgeEvidence] = []
+        seen_evidence: set[tuple] = set()
 
         while True:
             iterations += 1
@@ -346,30 +378,33 @@ class ToolAgentRuntime:
                     observation_error_code=observation.error_code,
                 )
             )
-            for project_evidence in (
-                _evidence_from_project_context(observation),
-                _evidence_from_git_diff(observation),
-            ):
-                if project_evidence is None:
-                    continue
-                key = (
-                    project_evidence.kind,
-                    project_evidence.path,
-                    project_evidence.start_line,
-                    project_evidence.end_line,
+            observed_evidence = list(_evidence_from_knowledge_search(observation))
+            observed_evidence.extend(
+                item
+                for item in (
+                    _evidence_from_project_context(observation),
+                    _evidence_from_git_diff(observation),
                 )
-                if key not in seen_evidence:
-                    seen_evidence.add(key)
-                    evidence.append(
-                        EngineeringEvidence(
-                            evidence_id=f"E{len(evidence) + 1}",
-                            kind=project_evidence.kind,
-                            path=project_evidence.path,
-                            start_line=project_evidence.start_line,
-                            end_line=project_evidence.end_line,
-                            snippet=project_evidence.snippet,
-                        )
+                if item is not None
+            )
+            for observed in observed_evidence:
+                if isinstance(observed, KnowledgeEvidence):
+                    key = (
+                        "knowledge",
+                        observed.source_name,
+                        observed.chunk_id or observed.snippet,
                     )
+                else:
+                    key = (
+                        observed.kind,
+                        observed.path,
+                        observed.start_line,
+                        observed.end_line,
+                    )
+                if key in seen_evidence:
+                    continue
+                seen_evidence.add(key)
+                evidence.append(replace(observed, evidence_id=f"E{len(evidence) + 1}"))
             if tool_errors >= self._budget.max_tool_errors:
                 return self._hard_stop(
                     trace,
@@ -408,7 +443,7 @@ class ToolAgentRuntime:
     def _hard_stop(
         self,
         trace: list[RuntimeTraceEvent],
-        evidence: list[EngineeringEvidence],
+        evidence: list[EngineeringEvidence | KnowledgeEvidence],
         iterations: int,
         tool_calls: int,
         tool_errors: int,

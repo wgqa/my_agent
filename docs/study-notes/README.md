@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（60 份）
+## CURRENT（61 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -86,6 +86,7 @@
 | 105 | [105-LLM调用失败语义与轻量可靠性.md](105-LLM调用失败语义与轻量可靠性.md) | G9-RELIABILITY-01：Generator typed failure、有限 retry、Basic/Agentic/Tool Agent 失败边界、脱敏与 fail-fast/graceful degradation |
 | 106 | [106-Git变更证据与只读工程Agent.md](106-Git变更证据与只读工程Agent.md) | Git Change Evidence v1：changed_files → git_diff 两阶段链路、固定 Git argv、ref/path 安全边界、bounded diff 与 project_change evidence |
 | 107 | [107-测试发现与工程变更证据.md](107-测试发现与工程变更证据.md) | G10-02：bounded find_tests 候选发现、测试约定、确定性排序、project_test evidence 与 Git change 组合 |
+| 108 | [108-统一Engineering-Agent与异构Evidence架构.md](108-统一Engineering-Agent与异构Evidence架构.md) | G11-01：统一 Engineering Agent 产品入口、Tool Agent 控制平面与 Knowledge/Repository/Change/Test Evidence Contract |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -153,6 +154,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–107 共 **107 份**，每份只出现一次：CURRENT 60 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 107。
+- 编号覆盖 00–108 共 **108 份**，每份只出现一次：CURRENT 61 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 108。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-18。
