@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（58 份）
+## CURRENT（59 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -84,6 +84,7 @@
 | 102 | [102-Gate5-Release安全与仓库卫生.md](102-Gate5-Release安全与仓库卫生.md) | G5-HYGIENE-09：tracked secret scan、untracked 分类、精确 `.gitignore`、pytest 配置、冻结 artifact 边界和 Release blocker 判定 |
 | 103 | [103-Gate5-Release1.0最终验收与冻结.md](103-Gate5-Release1.0最终验收与冻结.md) | G5-FINAL-10：Feature complete 与 Release accepted、CI final gate、非自指 freeze、Smoke/Demo/Benchmark 边界、V1.1 debt 与 Gate 1→5 工程演进 |
 | 105 | [105-LLM调用失败语义与轻量可靠性.md](105-LLM调用失败语义与轻量可靠性.md) | G9-RELIABILITY-01：Generator typed failure、有限 retry、Basic/Agentic/Tool Agent 失败边界、脱敏与 fail-fast/graceful degradation |
+| 106 | [106-Git变更证据与只读工程Agent.md](106-Git变更证据与只读工程Agent.md) | Git Change Evidence v1：changed_files → git_diff 两阶段链路、固定 Git argv、ref/path 安全边界、bounded diff 与 project_change evidence |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -151,6 +152,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–105 共 **105 份**，每份只出现一次：CURRENT 58 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 105。
+- 编号覆盖 00–106 共 **106 份**，每份只出现一次：CURRENT 59 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 106。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-18。

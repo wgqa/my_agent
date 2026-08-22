@@ -416,7 +416,7 @@ class TestCodeSearch:
         assert [m["path"] for m in obs.result["matches"]] == ["core/good.py"]
 
 
-# ---- Integration：四个真实 Tool 统一注册与执行 ----
+# ---- Integration：六个真实 Tool 统一注册与执行 ----
 
 
 class TestIntegration:
@@ -451,7 +451,9 @@ class TestIntegration:
         names = sorted(spec.name for spec in registry.list_specs())
         assert names == [
             "calculator",
+            "changed_files",
             "code_search",
+            "git_diff",
             "knowledge_search",
             "read_project_context",
         ]

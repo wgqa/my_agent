@@ -116,6 +116,39 @@ def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
         return None
 
 
+def _evidence_from_git_diff(observation) -> EngineeringEvidence | None:
+    """Convert one successful bounded git_diff observation into public evidence."""
+
+    if observation.status != "ok" or observation.tool_name != "git_diff":
+        return None
+    result = observation.result
+    if type(result) is not dict:
+        return None
+    path = result.get("path")
+    start_line = result.get("start_line")
+    end_line = result.get("end_line")
+    snippet = result.get("diff")
+    if (
+        type(path) is not str
+        or type(start_line) is not int
+        or type(end_line) is not int
+        or type(snippet) is not str
+        or not snippet
+    ):
+        return None
+    try:
+        return EngineeringEvidence(
+            evidence_id="E1",
+            kind="project_change",
+            path=path,
+            start_line=start_line,
+            end_line=end_line,
+            snippet=snippet[:MAX_EVIDENCE_SNIPPET_LENGTH],
+        )
+    except (TypeError, ValueError):
+        return None
+
+
 class ToolAgentRuntime:
     """Bounded Decision → Tool → Observation loop。预算唯一所有者是 Runtime。
 
@@ -309,9 +342,14 @@ class ToolAgentRuntime:
                     observation_error_code=observation.error_code,
                 )
             )
-            project_evidence = _evidence_from_project_context(observation)
-            if project_evidence is not None:
+            for project_evidence in (
+                _evidence_from_project_context(observation),
+                _evidence_from_git_diff(observation),
+            ):
+                if project_evidence is None:
+                    continue
                 key = (
+                    project_evidence.kind,
                     project_evidence.path,
                     project_evidence.start_line,
                     project_evidence.end_line,

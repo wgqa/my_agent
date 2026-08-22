@@ -26,6 +26,7 @@ from core.tool_agent import (
     ToolCallAction,
     build_tool_agent_runtime,
 )
+from api.schemas import ToolAgentEvidence
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -361,6 +362,17 @@ class TestToolAgentEndpoint:
 
 
 class TestToolAgentBoundaries:
+    def test_project_change_evidence_is_public_api_schema(self):
+        evidence = ToolAgentEvidence(
+            evidence_id="E1",
+            kind="project_change",
+            path="src/app.py",
+            start_line=1,
+            end_line=4,
+            snippet="@@ -1 +1 @@\n-old\n+new",
+        )
+        assert evidence.model_dump()["kind"] == "project_change"
+
     def test_runtime_none_returns_503(self, monkeypatch):
         monkeypatch.setattr(api.app, "tool_agent_runtime", None)
         resp = _post("你好")

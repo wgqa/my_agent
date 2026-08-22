@@ -1,9 +1,8 @@
 """G4-TOOL-02：Gate 4 Structured Tool Agent 核心（纯确定性底座）。
 
 公开 ToolSpec / ToolCall / ToolObservation / RegisteredTool / ToolRegistry /
-ToolExecutor / ToolHandler 与错误码常量。本包不调用 LLM、不实现 Tool
-Loop、不注册真实工具（G4-TOOLS-03/G6 才会接入 knowledge_search /
-code_search / read_project_context / calculator）。
+ToolExecutor / ToolHandler 与错误码常量。本包不调用 LLM；真实只读工具由
+default registry 显式装配。
 """
 
 from core.tool_agent.action_parser import strict_json_loads_no_duplicates
@@ -40,6 +39,11 @@ from core.tool_agent.models import (
     PROJECT_CONTEXT_FILE_UNREADABLE,
     PROJECT_CONTEXT_LINE_OUT_OF_RANGE,
     PROJECT_CONTEXT_PATH_NOT_ALLOWED,
+    GIT_COMMAND_FAILED,
+    GIT_DIFF_UNAVAILABLE,
+    GIT_PATH_NOT_ALLOWED,
+    GIT_REF_INVALID,
+    GIT_REPOSITORY_UNAVAILABLE,
     UNKNOWN_TOOL,
     ToolCall,
     ToolExecutionError,
@@ -73,6 +77,10 @@ from core.tool_agent.tools import (
     CodeSearchHandler,
     KnowledgeSearchHandler,
     ReadProjectContextHandler,
+    CHANGED_FILES_SPEC,
+    GIT_DIFF_SPEC,
+    ChangedFilesHandler,
+    GitDiffHandler,
 )
 
 __all__ = [
@@ -91,6 +99,11 @@ __all__ = [
     "PROJECT_CONTEXT_FILE_NOT_FOUND",
     "PROJECT_CONTEXT_LINE_OUT_OF_RANGE",
     "PROJECT_CONTEXT_FILE_UNREADABLE",
+    "GIT_REPOSITORY_UNAVAILABLE",
+    "GIT_REF_INVALID",
+    "GIT_PATH_NOT_ALLOWED",
+    "GIT_DIFF_UNAVAILABLE",
+    "GIT_COMMAND_FAILED",
     "TOOL_RESULT_INVALID",
     "TOOL_BUDGET_EXCEEDED",
     "ACTION_PARSE_FAILED",
@@ -111,6 +124,10 @@ __all__ = [
     "CodeSearchHandler",
     "KnowledgeSearchHandler",
     "ReadProjectContextHandler",
+    "CHANGED_FILES_SPEC",
+    "GIT_DIFF_SPEC",
+    "ChangedFilesHandler",
+    "GitDiffHandler",
     "build_readonly_tool_registry",
     "build_tool_agent_runtime",
     "FROZEN_TOOL_PROVIDER",

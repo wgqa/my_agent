@@ -1,4 +1,4 @@
-"""G4-TOOLS-03：真实 read-only Tools（calculator / code_search / knowledge_search）。
+"""真实 read-only Tools。
 
 每个 Tool = 一个 ToolSpec + 一个 ToolHandler，经 ToolRegistry / ToolExecutor
 安全注册与执行。本包不调用 LLM、不实现 Tool Loop。
@@ -21,6 +21,12 @@ from core.tool_agent.tools.knowledge_search import (
     KNOWLEDGE_SEARCH_SPEC,
     KnowledgeSearchHandler,
 )
+from core.tool_agent.tools.git_change import (
+    CHANGED_FILES_SPEC,
+    GIT_DIFF_SPEC,
+    ChangedFilesHandler,
+    GitDiffHandler,
+)
 
 __all__ = [
     "CALCULATOR_SPEC",
@@ -32,4 +38,8 @@ __all__ = [
     "ReadProjectContextHandler",
     "KNOWLEDGE_SEARCH_SPEC",
     "KnowledgeSearchHandler",
+    "CHANGED_FILES_SPEC",
+    "GIT_DIFF_SPEC",
+    "ChangedFilesHandler",
+    "GitDiffHandler",
 ]

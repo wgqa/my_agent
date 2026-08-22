@@ -1,6 +1,6 @@
-"""G4-E2E-07A：薄 integration builder——把已验收组件接起来，不重写 Tool / Runtime。
+"""薄 integration builder——把已验收组件接起来，不重写 Tool / Runtime。
 
-只做装配：四个 read-only Tool + AgentDecisionProvider + ToolAgentRuntime。
+只做装配：六个 read-only Tool + AgentDecisionProvider + ToolAgentRuntime。
 正式 Provider 默认 deepseek / deepseek-chat / base_url=DEEPSEEK_BASE_URL；
 测试可注入 Fake/Scripted Provider（provider 参数），0 网络调用。
 预算固定 5/4/2（ToolAgentBudget），不开放调用方 override。
@@ -30,9 +30,9 @@ def build_tool_agent_runtime(
     knowledge_strategy: str = "bm25",
     knowledge_top_k: int = 5,
 ) -> ToolAgentRuntime:
-    """把三个只读 Tool + Decision Provider + Bounded Runtime 装配成 Tool Agent。
+    """把六个只读 Tool + Decision Provider + Bounded Runtime 装配成 Tool Agent。
 
-    - registry：build_readonly_tool_registry（calculator / code_search / knowledge_search）；
+    - registry：build_readonly_tool_registry（六个只读工具）；
     - code_search 的 repo_root 由调用方注入（仓库根），不来自用户请求；
     - knowledge_search 复用传入的 RetrievalPort（Pipeline/Adapter），不另造检索器；
     - provider：默认真实 OpenAI-compatible（deepseek/deepseek-chat），测试可注入 Fake；
