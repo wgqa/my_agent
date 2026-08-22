@@ -13,6 +13,7 @@ import sys
 import subprocess
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -182,6 +183,52 @@ def _post_json(url: str, payload: dict) -> dict:
         raise RuntimeError(f"API returned HTTP {exc.code}: {body[:200]}") from exc
 
 
+def _get_json(url: str) -> dict:
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"API returned HTTP {exc.code}: {body[:200]}") from exc
+
+
+def _knowledge_url(query_url: str) -> str:
+    parsed = urllib.parse.urlsplit(query_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("engineering query URL must be an absolute HTTP URL")
+    path = parsed.path.rstrip("/")
+    suffix = "/engineering/query"
+    if not path.endswith(suffix):
+        raise ValueError("engineering query URL must end with /engineering/query")
+    knowledge_path = path[: -len(suffix)] + "/engineering/knowledge"
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, parsed.netloc, knowledge_path, "", "")
+    )
+
+
+def validate_knowledge_backend(status: object) -> dict:
+    """Require the service's verified backend identity before any query call."""
+
+    if not isinstance(status, dict):
+        raise ValueError("Engineering Knowledge status is not an object")
+    expected = {
+        "schema_version": "engineering_knowledge_status_v1",
+        "ready": True,
+        "verified": True,
+        "corpus_id": KNOWLEDGE_CORPUS_ID,
+        "file_count": 37,
+        "chunk_count": 215,
+        "retrieval_strategy": "bm25",
+        "manifest_experiment_id": "dbc497c796d5",
+    }
+    for field, value in expected.items():
+        if status.get(field) != value:
+            raise ValueError(
+                f"Engineering Knowledge status mismatch: {field}={status.get(field)!r}"
+            )
+    return {field: status[field] for field in expected}
+
+
 def _safe_trace(trace: object) -> list[dict]:
     if not isinstance(trace, list):
         return []
@@ -287,6 +334,7 @@ def _write_report(path: Path, manifest: dict, cases: list[dict], metrics: dict) 
         f"- prompt_version: `{manifest['prompt_version']}`",
         f"- prompt_sha256: `{manifest['prompt_sha256']}`",
         f"- knowledge_corpus_id: `{manifest['knowledge_corpus_id']}`",
+        f"- knowledge_backend: `{json.dumps(manifest['knowledge_backend'], ensure_ascii=False, sort_keys=True)}`",
         "- correctness: not automatically scored; Gold obligations are provided for manual audit.",
         "",
         "## Metrics",
@@ -333,6 +381,11 @@ def _write_report(path: Path, manifest: dict, cases: list[dict], metrics: dict) 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:8765/engineering/query")
+    parser.add_argument(
+        "--knowledge-url",
+        default=None,
+        help="Optional backend status URL; defaults to /engineering/knowledge on --url host",
+    )
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--label", default="baseline")
@@ -350,6 +403,9 @@ def main() -> int:
     prompt_version, prompt_sha256 = validate_prompt_identity(
         args.prompt_version, args.prompt_sha256
     )
+    knowledge_status = validate_knowledge_backend(
+        _get_json(args.knowledge_url or _knowledge_url(args.url))
+    )
     output = Path(args.output_root).resolve() / args.run_id
     output.mkdir(parents=True, exist_ok=False)
     manifest = {
@@ -360,7 +416,8 @@ def main() -> int:
         "source_commit": source_commit,
         "source_commit_attestation": "operator_declared_and_locally_verified_checkout",
         "project_identity": PROJECT_IDENTITY,
-        "knowledge_corpus_id": KNOWLEDGE_CORPUS_ID,
+        "knowledge_corpus_id": knowledge_status["corpus_id"],
+        "knowledge_backend": knowledge_status,
         "provider": "deepseek",
         "model": "deepseek-chat",
         "prompt_version": prompt_version,

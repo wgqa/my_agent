@@ -68,3 +68,7 @@ Retrieval Success 与 Answer Grounding 不是一回事：工具可能拿到了�
 ## R3：Routing Success ≠ Evidence Success
 
 `knowledge_search` 被调用不等于知识检索成功；检索成功不等于 Knowledge Evidence 成功；Knowledge Evidence 成功也不等于最终答案 grounded。应先确定 index health、Tool boundary 和 evidence conversion 的实际状态，再决定是否需要产品修复，而不是直接继续修改 Prompt。R3 的诊断因此只读检查 vector store、BM25/hybrid 和 `KnowledgeSearchHandler`，不调用 Provider，也不改变生产策略。
+
+## R4：Verified Engineering Knowledge Backend
+
+Engineering Agent 的 Knowledge backend 绑定到冻结的 37 文件、215 chunk corpus，并在启动时校验 manifest identity、文件集合、SHA256、大小和 chunk 数。它使用独立的 BM25 retrieval port，不复用 legacy `./data/vector_store`；backend 或校验失败时 Engineering 入口不可用，也不回退到 legacy store。服务通过安全的 `/engineering/knowledge` identity endpoint 暴露 ready/verified、corpus、文件数、chunk 数和策略，正式 runner 先核验该身份，再发送四个 Theory ↔ Code 请求。

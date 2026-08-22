@@ -14,6 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
 from core.engineering_agent import EngineeringAgentFacade
+from core.engineering_knowledge import (
+    CORPUS_ENV_VAR,
+    VerifiedEngineeringKnowledge,
+    build_verified_engineering_knowledge,
+)
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
 from core.pipeline import Pipeline
 from core.tool_agent import (
@@ -35,6 +40,7 @@ from api.schemas import (
     StatsResponse,
     CapabilitiesResponse,
     FeatureCapabilities,
+    EngineeringKnowledgeStatusResponse,
     ToolAgentQueryRequest,
     ToolAgentEvidence,
     ToolAgentQueryResponse,
@@ -67,13 +73,14 @@ agent_runtime: Optional[AgentRuntime] = None
 tool_agent_runtime: Optional[ToolAgentRuntime] = None
 engineering_agent_runtime: Optional[ToolAgentRuntime] = None
 engineering_agent_facade: Optional[EngineeringAgentFacade] = None
+engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
 engineering_project: Optional[EngineeringProject] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pipeline, agent_runtime, tool_agent_runtime, engineering_agent_runtime
-    global engineering_agent_facade, engineering_project
+    global engineering_agent_facade, engineering_knowledge_backend, engineering_project
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
     engineering_project = resolve_engineering_project(REPO_ROOT)
@@ -90,6 +97,7 @@ async def lifespan(app: FastAPI):
     tool_agent_runtime = None
     engineering_agent_runtime = None
     engineering_agent_facade = None
+    engineering_knowledge_backend = None
     if pipeline is not None:
         try:
             provider, api_key = _resolve_agent_provider(pipeline)
@@ -117,9 +125,13 @@ async def lifespan(app: FastAPI):
             engineering_agent_facade = None
         else:
             try:
+                engineering_knowledge_backend = build_verified_engineering_knowledge(
+                    os.getenv(CORPUS_ENV_VAR),
+                    repo_root=REPO_ROOT,
+                )
                 engineering_agent_runtime = build_tool_agent_runtime(
                     repo_root=engineering_project.root,
-                    retrieval_port=port,
+                    retrieval_port=engineering_knowledge_backend.retrieval_port,
                     api_key=os.getenv("DEEPSEEK_API_KEY"),
                     base_url=DEEPSEEK_BASE_URL,
                     prompt_profile=ENGINEERING_DECISION_PROMPT_PROFILE,
@@ -137,6 +149,7 @@ async def lifespan(app: FastAPI):
     tool_agent_runtime = None
     engineering_agent_runtime = None
     engineering_agent_facade = None
+    engineering_knowledge_backend = None
     engineering_project = None
 
 
@@ -259,6 +272,21 @@ def _get_engineering_agent_facade() -> EngineeringAgentFacade:
         return engineering_agent_facade
     raise HTTPException(
         status_code=503, detail="Engineering agent runtime not initialized"
+    )
+
+
+def _engineering_knowledge_status() -> EngineeringKnowledgeStatusResponse:
+    backend = engineering_knowledge_backend
+    identity = backend.identity if backend is not None else None
+    return EngineeringKnowledgeStatusResponse(
+        schema_version="engineering_knowledge_status_v1",
+        ready=engineering_agent_facade is not None,
+        verified=bool(identity and identity.verified),
+        corpus_id=identity.corpus_id if identity else None,
+        file_count=identity.file_count if identity else None,
+        chunk_count=identity.chunk_count if identity else None,
+        retrieval_strategy=identity.retrieval_strategy if identity else None,
+        manifest_experiment_id=identity.manifest_experiment_id if identity else None,
     )
 
 
@@ -516,6 +544,16 @@ def engineering_query(req: EngineeringQueryRequest):
     return _build_engineering_response(result)
 
 
+@app.get(
+    "/engineering/knowledge",
+    response_model=EngineeringKnowledgeStatusResponse,
+)
+def engineering_knowledge() -> EngineeringKnowledgeStatusResponse:
+    """Return verified backend identity without local paths or corpus contents."""
+
+    return _engineering_knowledge_status()
+
+
 @app.get("/stats", response_model=StatsResponse)
 def stats() -> StatsResponse:
     p = _get_pipeline()
@@ -553,6 +591,6 @@ def capabilities() -> CapabilitiesResponse:
             basic_rag=pipeline_ready,
             agentic_rag=agent_runtime_ready,
             structured_tool_agent=tool_agent_runtime_ready,
-            engineering_agent=tool_agent_runtime_ready,
+            engineering_agent=engineering_agent_facade is not None,
         ),
     )

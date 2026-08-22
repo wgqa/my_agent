@@ -96,6 +96,19 @@ class CapabilitiesResponse(BaseModel):
     features: FeatureCapabilities
 
 
+class EngineeringKnowledgeStatusResponse(BaseModel):
+    """Safe public identity/readiness for the dedicated Engineering backend."""
+
+    schema_version: str
+    ready: bool
+    verified: bool
+    corpus_id: Optional[str] = None
+    file_count: Optional[int] = None
+    chunk_count: Optional[int] = None
+    retrieval_strategy: Optional[str] = None
+    manifest_experiment_id: Optional[str] = None
+
+
 class ProjectResponse(BaseModel):
     """Public identity for the single bound Engineering Project Workspace."""
 

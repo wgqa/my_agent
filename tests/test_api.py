@@ -95,17 +95,23 @@ class TestStats:
 
 class TestCapabilities:
     @pytest.mark.parametrize(
-        "pipeline_ready,agent_ready,tool_ready",
+        "pipeline_ready,agent_ready,tool_ready,engineering_ready",
         [
-            (True, True, True),
-            (True, False, True),
-            (True, True, False),
-            (True, False, False),
-            (False, False, False),
+            (True, True, True, True),
+            (True, False, True, False),
+            (True, True, False, False),
+            (True, False, False, False),
+            (False, False, False, False),
         ],
     )
     def test_capabilities_reports_independent_runtime_readiness(
-        self, client, monkeypatch, pipeline_ready, agent_ready, tool_ready
+        self,
+        client,
+        monkeypatch,
+        pipeline_ready,
+        agent_ready,
+        tool_ready,
+        engineering_ready,
     ):
         monkeypatch.setattr(api.app, "pipeline", object() if pipeline_ready else None)
         monkeypatch.setattr(
@@ -115,6 +121,11 @@ class TestCapabilities:
             api.app,
             "tool_agent_runtime",
             object() if tool_ready else None,
+        )
+        monkeypatch.setattr(
+            api.app,
+            "engineering_agent_facade",
+            object() if engineering_ready else None,
         )
 
         resp = client.get("/capabilities")
@@ -130,7 +141,7 @@ class TestCapabilities:
             "basic_rag": pipeline_ready,
             "agentic_rag": agent_ready,
             "structured_tool_agent": tool_ready,
-            "engineering_agent": tool_ready,
+            "engineering_agent": engineering_ready,
         }
 
     def test_capabilities_is_200_when_all_runtimes_unavailable(self, client, monkeypatch):
