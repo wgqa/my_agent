@@ -170,7 +170,7 @@ class ToolAgentEvidence(BaseModel):
     """Public, bounded project evidence read by read_project_context."""
 
     evidence_id: str = Field(pattern=r"^E[1-9][0-9]*$")
-    kind: Literal["project_code", "project_doc", "project_change"]
+    kind: Literal["project_code", "project_doc", "project_change", "project_test"]
     path: str = Field(min_length=1)
     start_line: int = Field(ge=1)
     end_line: int = Field(ge=1)

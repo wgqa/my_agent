@@ -81,6 +81,9 @@ from core.tool_agent.tools import (
     GIT_DIFF_SPEC,
     ChangedFilesHandler,
     GitDiffHandler,
+    FIND_TESTS_SPEC,
+    FindTestsHandler,
+    is_test_path,
 )
 
 __all__ = [
@@ -128,6 +131,9 @@ __all__ = [
     "GIT_DIFF_SPEC",
     "ChangedFilesHandler",
     "GitDiffHandler",
+    "FIND_TESTS_SPEC",
+    "FindTestsHandler",
+    "is_test_path",
     "build_readonly_tool_registry",
     "build_tool_agent_runtime",
     "FROZEN_TOOL_PROVIDER",

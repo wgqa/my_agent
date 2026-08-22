@@ -33,6 +33,7 @@ from core.tool_agent.runtime_models import (
     ToolAgentBudget,
     ToolAgentRunResult,
 )
+from core.tool_agent.tools.test_discovery import is_test_path
 
 
 _PROJECT_CODE_SUFFIXES = frozenset(
@@ -99,11 +100,14 @@ def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
     if not snippet:
         return None
     try:
-        kind = (
-            "project_code"
-            if PurePosixPath(path).suffix.lower() in _PROJECT_CODE_SUFFIXES
-            else "project_doc"
-        )
+        if is_test_path(path):
+            kind = "project_test"
+        else:
+            kind = (
+                "project_code"
+                if PurePosixPath(path).suffix.lower() in _PROJECT_CODE_SUFFIXES
+                else "project_doc"
+            )
         return EngineeringEvidence(
             evidence_id="E1",
             kind=kind,
@@ -190,7 +194,7 @@ class ToolAgentRuntime:
         tool_errors = 0
         trace: list[RuntimeTraceEvent] = []
         evidence: list[EngineeringEvidence] = []
-        seen_evidence: set[tuple[str, int, int]] = set()
+        seen_evidence: set[tuple[str, str, int, int]] = set()
 
         while True:
             iterations += 1

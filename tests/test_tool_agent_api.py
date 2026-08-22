@@ -346,6 +346,92 @@ class TestToolAgentEndpoint:
         assert str(repo) not in response.text
         assert "\\" not in data["evidence"][0]["path"]
 
+    def test_git_change_and_test_evidence_http_vertical_slice(self, monkeypatch, tmp_path):
+        repo = tmp_path / "demo_project"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        (repo / "src").mkdir()
+        (repo / "tests").mkdir()
+        source = repo / "src" / "service.py"
+        source.write_text("return old\n", encoding="utf-8")
+        (repo / "tests" / "test_service.py").write_text(
+            "def test_service():\n    assert service() == 'new'\n",
+            encoding="utf-8",
+        )
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-qm", "initial")
+        source.write_text("return new\n", encoding="utf-8")
+
+        def choose_diff(_registry, _user_query, context):
+            assert context[-1].tool_name == "changed_files"
+            return _outcome(
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="git_diff",
+                    arguments={"mode": "working_tree", "path": "src/service.py"},
+                )
+            )
+
+        def choose_tests(_registry, _user_query, context):
+            assert context[-1].tool_name == "git_diff"
+            return _outcome(
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="find_tests",
+                    arguments={"path": "src/service.py"},
+                )
+            )
+
+        def read_test(_registry, _user_query, context):
+            candidate = context[-1].observation_result["candidates"][0]
+            assert candidate["path"] == "tests/test_service.py"
+            return _outcome(
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="read_project_context",
+                    arguments={
+                        "path": candidate["path"],
+                        "line": candidate["line"],
+                        "context_lines": 1,
+                    },
+                )
+            )
+
+        _install(
+            monkeypatch,
+            [
+                _outcome(
+                    ToolCallAction(
+                        action="tool_call",
+                        tool_name="changed_files",
+                        arguments={"mode": "working_tree"},
+                    )
+                ),
+                choose_diff,
+                choose_tests,
+                read_test,
+                _outcome(FinalAnswerAction("final_answer", "Candidate test found.")),
+            ],
+            repo_root=repo,
+        )
+        response = _post("Which test may relate to this change?")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["tool_calls_used"] == 4
+        assert data["iterations_used"] == 5
+        assert [item["kind"] for item in data["evidence"]] == [
+            "project_change",
+            "project_test",
+        ]
+        assert [item["path"] for item in data["evidence"]] == [
+            "src/service.py",
+            "tests/test_service.py",
+        ]
+        assert str(repo) not in response.text
+        assert all("\\" not in item["path"] for item in data["evidence"])
+
     def test_failed_context_has_no_evidence(self, monkeypatch, tmp_path):
         repo = tmp_path / "demo_project"
         repo.mkdir()

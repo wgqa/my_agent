@@ -27,6 +27,11 @@ from core.tool_agent.tools.git_change import (
     ChangedFilesHandler,
     GitDiffHandler,
 )
+from core.tool_agent.tools.test_discovery import (
+    FIND_TESTS_SPEC,
+    FindTestsHandler,
+    is_test_path,
+)
 
 __all__ = [
     "CALCULATOR_SPEC",
@@ -42,4 +47,7 @@ __all__ = [
     "GIT_DIFF_SPEC",
     "ChangedFilesHandler",
     "GitDiffHandler",
+    "FIND_TESTS_SPEC",
+    "FindTestsHandler",
+    "is_test_path",
 ]

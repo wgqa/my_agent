@@ -416,7 +416,7 @@ class TestCodeSearch:
         assert [m["path"] for m in obs.result["matches"]] == ["core/good.py"]
 
 
-# ---- Integration：六个真实 Tool 统一注册与执行 ----
+# ---- Integration：七个真实 Tool 统一注册与执行 ----
 
 
 class TestIntegration:
@@ -436,6 +436,7 @@ class TestIntegration:
                 "path": "core/foo.py", "line": 1, "context_lines": 1,
             }), None),
             (ToolCall.create("knowledge_search", {"query": "RRF"}), None),
+            (ToolCall.create("find_tests", {"path": "core/foo.py"}), None),
         ]
         for call, expected in cases:
             obs = executor.execute(call)
@@ -453,6 +454,7 @@ class TestIntegration:
             "calculator",
             "changed_files",
             "code_search",
+            "find_tests",
             "git_diff",
             "knowledge_search",
             "read_project_context",

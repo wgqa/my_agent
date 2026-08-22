@@ -47,7 +47,7 @@ TRACE_EVENT_TYPES = (
     "runtime_stopped",
 )
 
-EVIDENCE_KINDS = ("project_code", "project_doc", "project_change")
+EVIDENCE_KINDS = ("project_code", "project_doc", "project_change", "project_test")
 MAX_EVIDENCE_SNIPPET_LENGTH = 2000
 
 
