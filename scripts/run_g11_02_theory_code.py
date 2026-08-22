@@ -22,7 +22,7 @@ PROJECT_IDENTITY = "my_agent_repository"
 KNOWLEDGE_CORPUS_ID = "870e5864df67"
 TOOLSET_SHA256 = "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
 KNOWN_PROMPT_IDENTITIES = {
-    "tool_agent_decision_prompt_v3": "a6092bffdfee3236575ae0f801985e6c8d6aeced1dc1",
+    "tool_agent_decision_prompt_v3": "a6092bffdfee3236575ae0f801985e6c8d6aecedba339672bde838f1daed1dc1",
     "engineering_agent_decision_prompt_v1": "aa99e543d2bfbd3315113842e5377bf52bff7dcf50fc843840785ddee34dfa0a",
 }
 _COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
