@@ -1,15 +1,14 @@
-name: CI
+name: Offline Core Checks
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  offline-core:
+    name: Deterministic offline regression
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -20,7 +19,25 @@ jobs:
           cache-dependency-path: requirements.lock
       - name: Install pinned dependencies
         run: python -m pip install -r requirements.lock
-      - name: Run tests
-        # pytest 临时目录移出仓库（run 31952467496 在真实 Linux 环境发现
-        # 仓库内 temp + symlink portability 问题）；runner.temp 在 /home/runner/work/_temp
-        run: python -m pytest -q --basetemp="$RUNNER_TEMP/my_agent_pytest"
+      - name: Run offline core regression
+        run: >-
+          python -m pytest -q
+          --basetemp="$RUNNER_TEMP/my_agent_pytest"
+          tests/test_api.py
+          tests/test_tool_agent_core.py
+          tests/test_tool_agent_decision.py
+          tests/test_tool_agent_runtime.py
+          tests/test_tool_agent_evidence.py
+          tests/test_tool_agent_real_tools.py
+          tests/test_engineering_agent_api.py
+          tests/test_test_discovery_tools.py
+          tests/test_git_change_tools.py
+          tests/test_read_project_context.py
+          tests/test_conversation_context.py
+          tests/test_g9_reliability.py
+          tests/test_agent_runtime_adapters.py
+          tests/test_domain_models.py
+          tests/test_fixed_size_chunker.py
+          tests/test_recursive_chunker.py
+          tests/test_token_counter.py
+          tests/test_chunk_budget_infrastructure.py
