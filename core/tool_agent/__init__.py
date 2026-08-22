@@ -52,6 +52,12 @@ from core.tool_agent.models import (
     json_deep_copy,
 )
 from core.tool_agent.openai_compatible import OpenAICompatibleAgentDecisionProvider
+from core.tool_agent.decision_prompt import (
+    DecisionPromptProfile,
+    ENGINEERING_DECISION_PROMPT_PROFILE,
+    ENGINEERING_DECISION_PROMPT_SHA256,
+    LEGACY_DECISION_PROMPT_PROFILE,
+)
 from core.tool_agent.registry import (
     RegisteredTool,
     ToolHandler,
@@ -146,6 +152,10 @@ __all__ = [
     "AgentDecisionOutcome",
     "AgentDecisionCallMetadata",
     "OpenAICompatibleAgentDecisionProvider",
+    "DecisionPromptProfile",
+    "LEGACY_DECISION_PROMPT_PROFILE",
+    "ENGINEERING_DECISION_PROMPT_PROFILE",
+    "ENGINEERING_DECISION_PROMPT_SHA256",
     "strict_json_loads_no_duplicates",
     "ToolAgentRuntime",
     "ToolAgentBudget",

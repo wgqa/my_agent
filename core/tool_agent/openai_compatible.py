@@ -31,11 +31,10 @@ from core.tool_agent.actions import (
 from core.tool_agent.decision_prompt import (
     DECISION_MAX_OUTPUT_TOKENS,
     DECISION_MAX_RETRIES,
-    DECISION_PROMPT_SHA256,
-    DECISION_PROMPT_VERSION,
     DECISION_TEMPERATURE,
     DECISION_TIMEOUT_SECONDS,
-    build_decision_messages,
+    DecisionPromptProfile,
+    LEGACY_DECISION_PROMPT_PROFILE,
     compute_toolset_sha256,
 )
 from core.tool_agent.models import ACTION_PARSE_FAILED
@@ -152,6 +151,7 @@ class OpenAICompatibleAgentDecisionProvider:
         api_key: str,
         base_url: Optional[str] = None,
         client: Optional[object] = None,
+        prompt_profile: Optional[DecisionPromptProfile] = None,
     ):
         _validate_nonempty_str(provider, "provider")
         _validate_nonempty_str(model, "model")
@@ -161,6 +161,11 @@ class OpenAICompatibleAgentDecisionProvider:
         self._provider = provider
         self._model = model
         self._base_url = base_url
+        if prompt_profile is not None and not isinstance(
+            prompt_profile, DecisionPromptProfile
+        ):
+            raise TypeError("prompt_profile 必须是 DecisionPromptProfile 或 None")
+        self._prompt_profile = prompt_profile or LEGACY_DECISION_PROMPT_PROFILE
         self._client = (
             client if client is not None else self._build_default_client(api_key)
         )
@@ -197,7 +202,9 @@ class OpenAICompatibleAgentDecisionProvider:
         """
         tool_specs = registry.list_specs()
         toolset_sha256 = compute_toolset_sha256(tool_specs)
-        messages = build_decision_messages(tool_specs, user_query, context=context)
+        messages = self._prompt_profile.build_messages(
+            tool_specs, user_query, context=context
+        )
 
         start = time.perf_counter()
         try:
@@ -256,8 +263,8 @@ class OpenAICompatibleAgentDecisionProvider:
         return AgentDecisionCallMetadata(
             provider=self._provider,
             model=self._model,
-            prompt_version=DECISION_PROMPT_VERSION,
-            prompt_sha256=DECISION_PROMPT_SHA256,
+            prompt_version=self._prompt_profile.version,
+            prompt_sha256=self._prompt_profile.sha256,
             toolset_sha256=toolset_sha256,
             call_count=1,
             input_tokens=input_tokens,

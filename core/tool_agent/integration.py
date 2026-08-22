@@ -12,6 +12,7 @@ import os
 from typing import Any, Optional
 
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
+from core.tool_agent.decision_prompt import DecisionPromptProfile
 from core.tool_agent.default_tools import build_readonly_tool_registry
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget
@@ -29,6 +30,7 @@ def build_tool_agent_runtime(
     base_url: str = DEEPSEEK_BASE_URL,
     knowledge_strategy: str = "bm25",
     knowledge_top_k: int = 5,
+    prompt_profile: Optional[DecisionPromptProfile] = None,
 ) -> ToolAgentRuntime:
     """把七个只读 Tool + Decision Provider + Bounded Runtime 装配成 Tool Agent。
 
@@ -56,6 +58,7 @@ def build_tool_agent_runtime(
             model=FROZEN_TOOL_MODEL,
             api_key=api_key,
             base_url=base_url,
+            prompt_profile=prompt_profile,
         )
     return ToolAgentRuntime(
         registry=registry,
