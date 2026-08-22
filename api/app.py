@@ -266,15 +266,17 @@ def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResp
         trace=_safe_trace([event.to_dict() for event in result.trace]),
         evidence=[
             ToolAgentEvidence(
-                evidence_id=item.evidence_id,
+                evidence_id=f"E{legacy_id}",
                 kind=item.kind,
                 path=item.path,
                 start_line=item.start_line,
                 end_line=item.end_line,
                 snippet=item.snippet,
             )
-            for item in result.evidence
-            if type(item) is RuntimeEngineeringEvidence
+            for legacy_id, item in enumerate(
+                (item for item in result.evidence if type(item) is RuntimeEngineeringEvidence),
+                1,
+            )
         ],
     )
 

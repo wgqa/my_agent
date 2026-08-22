@@ -292,6 +292,53 @@ def test_cross_source_combines_knowledge_and_repository_evidence(monkeypatch, tm
         "project_code",
     ]
 
+    # The legacy view receives the same unified Runtime result, but re-numbers
+    # only the project evidence it exposes.
+    _install(
+        monkeypatch,
+        [
+            _outcome(
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="knowledge_search",
+                    arguments={"query": "RRF"},
+                )
+            ),
+            _outcome(
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="code_search",
+                    arguments={"query": "def rrf"},
+                )
+            ),
+            read_context,
+            _outcome(FinalAnswerAction("final_answer", "legacy view")),
+        ],
+        repo_root=tmp_path,
+        docs=docs,
+    )
+    legacy = client.post(
+        "/tool-agent/query",
+        json={"question": "How does theory differ from this implementation?"},
+    )
+    assert legacy.status_code == 200
+    legacy_data = legacy.json()
+    assert legacy_data["schema_version"] == "tool_agent_query_response_v1"
+    assert legacy_data["evidence"] == [
+        {
+            "evidence_id": "E1",
+            "kind": "project_code",
+            "path": "core/retrieval.py",
+            "start_line": 1,
+            "end_line": 2,
+            "snippet": "def rrf(scores):\n    return sorted(scores)",
+        }
+    ]
+    assert all(
+        key not in legacy_data["evidence"][0]
+        for key in ("source_name", "chunk_id", "score", "rank")
+    )
+
 
 def test_change_test_vertical_returns_both_project_evidence(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
