@@ -64,3 +64,7 @@ Retrieval Success 与 Answer Grounding 不是一回事：工具可能拿到了�
 `source_commit` 必须绑定真实被测 checkout；runner 是 HTTP client，只能记录操作者声明并在本地 Git checkout 验证过的 commit，不能假称自动知道远程 API server 的版本。baseline 与 post-change 不能共用硬编码 SHA，否则结果无法证明实际测到的是哪一版代码。
 
 单次 run 的 `run_report.md` 只描述该次运行；只有独立 comparator 同时读取 baseline 与 post-change manifest、验证 project/corpus/provider/model/toolset/budget/cases 等控制变量后，生成的 `comparison_report.md` 才是 A/B comparison。实验可复现性本身是工程能力：身份、控制变量和失败边界必须先可审计，指标才有解释意义。
+
+## R3：Routing Success ≠ Evidence Success
+
+`knowledge_search` 被调用不等于知识检索成功；检索成功不等于 Knowledge Evidence 成功；Knowledge Evidence 成功也不等于最终答案 grounded。应先确定 index health、Tool boundary 和 evidence conversion 的实际状态，再决定是否需要产品修复，而不是直接继续修改 Prompt。R3 的诊断因此只读检查 vector store、BM25/hybrid 和 `KnowledgeSearchHandler`，不调用 Provider，也不改变生产策略。

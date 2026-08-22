@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 
 from scripts import compare_g11_02_theory_code as comparator
+from scripts import diagnose_g11_02_knowledge as diagnostic
 from scripts import run_g11_02_theory_code as runner
 
 
@@ -18,6 +20,35 @@ BASELINE_SHA = "a" * 40
 POST_SHA = "b" * 40
 TOOLSET_SHA = "c" * 64
 BUDGET = {"max_agent_iterations": 5, "max_tool_calls": 4, "max_tool_errors": 2}
+
+
+def _make_git_repo(tmp_path: Path) -> tuple[Path, str, str]:
+    repo = tmp_path / "checkout"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
+    git("init", "--quiet")
+    git("config", "user.email", "test@example.invalid")
+    git("config", "user.name", "G11 test")
+    tracked = repo / "tracked.txt"
+    tracked.write_text("A\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "--quiet", "-m", "A")
+    commit_a = git("rev-parse", "HEAD")
+    tracked.write_text("B\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "--quiet", "-m", "B")
+    commit_b = git("rev-parse", "HEAD")
+    return repo, commit_a, commit_b
 
 
 def test_invalid_39_char_source_commit_fails_before_http(monkeypatch, tmp_path):
@@ -40,6 +71,8 @@ def test_invalid_39_char_source_commit_fails_before_http(monkeypatch, tmp_path):
             "invalid",
             "--source-commit",
             "540b9bc674a76f535947179329bee572fdb4148",
+            "--git-root",
+            str(REPO_ROOT),
             "--prompt-version",
             "tool_agent_decision_prompt_v3",
             "--prompt-sha256",
@@ -51,12 +84,57 @@ def test_invalid_39_char_source_commit_fails_before_http(monkeypatch, tmp_path):
     assert called is False
 
 
-def test_valid_40_char_source_commit_is_verified_against_git_checkout():
-    head = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True
-    ).strip()
+def test_valid_40_char_source_commit_is_verified_against_clean_git_checkout(tmp_path):
+    repo, _, head = _make_git_repo(tmp_path)
     assert len(head) == 40
-    assert runner.validate_source_commit(head, git_root=REPO_ROOT) == head
+    assert runner.validate_source_commit(head, git_root=repo) == head
+
+
+def test_source_commit_head_mismatch_fails_before_http(monkeypatch, tmp_path):
+    repo, commit_a, commit_b = _make_git_repo(tmp_path)
+    called = False
+
+    def fail_http(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("HTTP must not be called")
+
+    monkeypatch.setattr(runner, "_post_json", fail_http)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_g11_02_theory_code.py",
+            "--output-root",
+            str(tmp_path / "outputs"),
+            "--run-id",
+            "mismatch",
+            "--source-commit",
+            commit_a,
+            "--git-root",
+            str(repo),
+            "--prompt-version",
+            "tool_agent_decision_prompt_v3",
+            "--prompt-sha256",
+            runner.KNOWN_PROMPT_IDENTITIES["tool_agent_decision_prompt_v3"],
+        ],
+    )
+    with pytest.raises(ValueError, match="does not match git_root HEAD"):
+        runner.main()
+    assert called is False
+    assert runner.validate_source_commit(commit_b, git_root=repo) == commit_b
+
+
+def test_tracked_dirty_checkout_rejected_but_untracked_file_allowed(tmp_path):
+    repo, _, head = _make_git_repo(tmp_path)
+    tracked = repo / "tracked.txt"
+    tracked.write_text("dirty\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="tracked modifications"):
+        runner.validate_source_commit(head, git_root=repo)
+
+    tracked.write_text("B\n", encoding="utf-8")
+    (repo / "diagnostic.json").write_text("{}\n", encoding="utf-8")
+    assert runner.validate_source_commit(head, git_root=repo) == head
 
 
 @pytest.mark.parametrize(
@@ -73,6 +151,51 @@ def test_prompt_identity_requires_explicit_known_pair():
         runner.validate_prompt_identity(
             "tool_agent_decision_prompt_v3", "b" * 64
         )
+
+
+def test_unknown_prompt_identity_is_rejected():
+    with pytest.raises(ValueError, match="supported G11-02 identity"):
+        runner.validate_prompt_identity("unknown_prompt_v999", "a" * 64)
+
+
+def test_known_v3_and_v1_prompt_pairs_are_accepted():
+    assert runner.validate_prompt_identity(
+        "tool_agent_decision_prompt_v3",
+        runner.KNOWN_PROMPT_IDENTITIES["tool_agent_decision_prompt_v3"],
+    ) == (
+        "tool_agent_decision_prompt_v3",
+        runner.KNOWN_PROMPT_IDENTITIES["tool_agent_decision_prompt_v3"],
+    )
+    assert runner.validate_prompt_identity(
+        "engineering_agent_decision_prompt_v1",
+        runner.KNOWN_PROMPT_IDENTITIES["engineering_agent_decision_prompt_v1"],
+    ) == (
+        "engineering_agent_decision_prompt_v1",
+        runner.KNOWN_PROMPT_IDENTITIES["engineering_agent_decision_prompt_v1"],
+    )
+
+
+def test_diagnostic_serialization_redacts_absolute_paths():
+    absolute = SimpleNamespace(
+        metadata={
+            "source": r"C:\Users\secret\AppData\Temp\knowledge.md",
+            "id": "chunk-1",
+            "sparse_score": 1.0,
+        },
+        content="secret source content",
+    )
+    safe = diagnostic._safe_match(1, absolute, "sparse_score")
+    encoded = json.dumps(safe, ensure_ascii=False)
+    assert "C:\\Users" not in encoded
+    assert "AppData" not in encoded
+    assert safe["provenance_classification"] == "ABSOLUTE_PROVENANCE"
+    assert safe["snippet"] is None
+
+
+def test_diagnostic_has_exact_fixed_query_set():
+    assert [query_id for query_id, _ in diagnostic.QUERIES] == [
+        "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8"
+    ]
 
 
 def test_fixed_cases_store_full_gold_obligations():

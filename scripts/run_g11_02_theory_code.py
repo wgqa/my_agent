@@ -110,26 +110,54 @@ CASES = (
 )
 
 
-def validate_source_commit(value: object, *, git_root: str | Path = ".") -> str:
-    """Validate an operator-declared commit against the local API checkout."""
-    if type(value) is not str or not _COMMIT_RE.fullmatch(value):
-        raise ValueError("source_commit must be exactly 40 hexadecimal characters")
-    normalized = value.lower()
-    verified = subprocess.run(
-        ["git", "rev-parse", "--verify", f"{normalized}^{{commit}}"],
+def _run_git(git_root: str | Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
         cwd=git_root,
         capture_output=True,
         text=True,
         check=False,
     )
-    if verified.returncode != 0 or verified.stdout.strip().lower() != normalized:
-        raise ValueError("source_commit is not a verified commit in git_root")
+
+
+def validate_source_commit(value: object, *, git_root: str | Path) -> str:
+    """Validate the declared commit against the actual tested checkout."""
+    if type(value) is not str or not _COMMIT_RE.fullmatch(value):
+        raise ValueError("source_commit must be exactly 40 hexadecimal characters")
+    normalized = value.lower()
+
+    requested_root = Path(git_root)
+    top_level = _run_git(requested_root, "rev-parse", "--show-toplevel")
+    if top_level.returncode != 0 or not top_level.stdout.strip():
+        raise ValueError("git_root is not a Git working tree")
+    # Keep the operator-provided cwd for subsequent Git calls. On Windows
+    # this avoids re-encoding a non-ASCII path returned by Git.
+    checkout_root = requested_root
+
+    actual_head = _run_git(checkout_root, "rev-parse", "HEAD")
+    actual_head_value = actual_head.stdout.strip().lower()
+    if actual_head.returncode != 0 or not _COMMIT_RE.fullmatch(actual_head_value):
+        raise ValueError("git_root HEAD is not a valid commit")
+    if actual_head_value != normalized:
+        raise ValueError("declared source_commit does not match git_root HEAD")
+
+    verified = _run_git(checkout_root, "cat-file", "-e", f"{normalized}^{{commit}}")
+    if verified.returncode != 0:
+        raise ValueError("source_commit is not a valid commit object")
+
+    status = _run_git(checkout_root, "status", "--porcelain", "--untracked-files=no")
+    if status.returncode != 0:
+        raise ValueError("could not inspect git_root tracked status")
+    if status.stdout.strip():
+        raise ValueError("git_root has tracked modifications")
     return normalized
 
 
 def validate_prompt_identity(version: object, sha256: object) -> tuple[str, str]:
     if type(version) is not str or not _PROMPT_VERSION_RE.fullmatch(version):
         raise ValueError("prompt_version must be a bounded non-empty identifier")
+    if version not in KNOWN_PROMPT_IDENTITIES:
+        raise ValueError("prompt_version is not a supported G11-02 identity")
     if type(sha256) is not str or not _SHA256_RE.fullmatch(sha256):
         raise ValueError("prompt_sha256 must be exactly 64 hexadecimal characters")
     normalized_sha = sha256.lower()
@@ -311,8 +339,8 @@ def main() -> int:
     parser.add_argument("--source-commit", required=True)
     parser.add_argument(
         "--git-root",
-        default=".",
-        help="local checkout used to verify the operator-declared source commit",
+        required=True,
+        help="Git checkout root of the API server being evaluated",
     )
     parser.add_argument("--prompt-version", required=True)
     parser.add_argument("--prompt-sha256", required=True)
