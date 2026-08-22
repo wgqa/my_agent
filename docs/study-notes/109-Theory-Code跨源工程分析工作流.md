@@ -58,3 +58,9 @@ Retrieval Success 与 Answer Grounding 不是一回事：工具可能拿到了�
 ## R1：Runtime Failure Isolation
 
 复用同一份 Runtime implementation，不等于两个产品入口必须共享同一个初始化生命周期。`/tool-agent/query` 的 legacy runtime 与 `/engineering/query` 的 engineering runtime 仍共用同一个 `ToolAgentRuntime` loop，但各自拥有初始化成功/失败边界。engineering 初始化失败时只能使 engineering facade 不可用，不能清空已经成功的 legacy runtime；legacy 初始化失败时则不伪造 engineering 正常工作。这样既复用执行框架，又避免新增产品扩大历史入口的故障域。
+
+## R2：Experiment Provenance
+
+`source_commit` 必须绑定真实被测 checkout；runner 是 HTTP client，只能记录操作者声明并在本地 Git checkout 验证过的 commit，不能假称自动知道远程 API server 的版本。baseline 与 post-change 不能共用硬编码 SHA，否则结果无法证明实际测到的是哪一版代码。
+
+单次 run 的 `run_report.md` 只描述该次运行；只有独立 comparator 同时读取 baseline 与 post-change manifest、验证 project/corpus/provider/model/toolset/budget/cases 等控制变量后，生成的 `comparison_report.md` 才是 A/B comparison。实验可复现性本身是工程能力：身份、控制变量和失败边界必须先可审计，指标才有解释意义。
