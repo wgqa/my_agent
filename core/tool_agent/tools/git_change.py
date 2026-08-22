@@ -104,7 +104,13 @@ CHANGED_FILES_OUTPUT_SCHEMA = {
                 "required": ["path", "status"],
             },
         },
-        "total_count": {"type": "integer", "minimum": 0},
+        "total_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": (
+                "完整输出时为全部变更数；truncated=true 时仅表示已安全观察到的数量。"
+            ),
+        },
         "returned_count": {"type": "integer", "minimum": 0},
         "truncated": {"type": "boolean"},
         "omitted_sensitive_count": {"type": "integer", "minimum": 0},
@@ -151,7 +157,8 @@ CHANGED_FILES_SPEC = ToolSpec(
         "比较 HEAD 与当前 tracked working tree，并标记 untracked path；"
         "mode=commit_range 比较已解析的 base_ref 到 head_ref。只返回 repo-relative "
         "path + status，不读取 untracked 文件正文，也不返回整个 diff。敏感文件只计入 "
-        "omitted_sensitive_count。发现具体文件后，再调用 git_diff 读取单文件变更。"
+        "omitted_sensitive_count。truncated=true 时 total_count 仅是已观察数量。发现具体 "
+        "文件后，再调用 git_diff 读取单文件变更。"
     ),
     input_schema=CHANGED_FILES_INPUT_SCHEMA,
     output_schema=CHANGED_FILES_OUTPUT_SCHEMA,
@@ -343,19 +350,26 @@ class _GitHandlerBase:
         output, returncode, truncated = _capture_process(
             args, self._root, max_bytes=MAX_GIT_CAPTURE_BYTES
         )
-        if returncode != 0:
+        if returncode != 0 and not truncated:
             raise ToolExecutionError(GIT_COMMAND_FAILED)
-        changes = _parse_name_status(output)
+        changes = _parse_name_status(output, truncated=truncated)
         if mode == "working_tree":
             untracked_output, untracked_code, untracked_truncated = _capture_process(
                 ["git", "ls-files", "--others", "--exclude-standard", "-z", "--"],
                 self._root,
                 max_bytes=MAX_GIT_CAPTURE_BYTES,
             )
-            if untracked_code != 0:
+            if untracked_code != 0 and not untracked_truncated:
                 raise ToolExecutionError(GIT_COMMAND_FAILED)
             truncated = truncated or untracked_truncated
-            for raw_path in untracked_output.split(b"\0"):
+            untracked_parts = untracked_output.split(b"\0")
+            if (
+                untracked_truncated
+                and untracked_output
+                and not untracked_output.endswith(b"\0")
+            ):
+                untracked_parts.pop()
+            for raw_path in untracked_parts:
                 if not raw_path:
                     continue
                 path = _decode(raw_path)
@@ -415,8 +429,10 @@ def _valid_git_output_path(path: str) -> bool:
     )
 
 
-def _parse_name_status(output: bytes) -> list[_Change]:
+def _parse_name_status(output: bytes, *, truncated: bool = False) -> list[_Change]:
     parts = output.split(b"\0")
+    if truncated and output and not output.endswith(b"\0"):
+        parts.pop()
     changes: list[_Change] = []
     index = 0
     while index < len(parts):
@@ -538,7 +554,7 @@ class GitDiffHandler(_GitHandlerBase):
         raw_output, returncode, capture_truncated = _capture_process(
             args, self._root, max_bytes=MAX_GIT_CAPTURE_BYTES
         )
-        if returncode != 0:
+        if returncode != 0 and not capture_truncated:
             raise ToolExecutionError(GIT_COMMAND_FAILED)
         raw_diff = _sanitize_diff(_decode(raw_output), self._root)
         raw_lines = raw_diff.splitlines(keepends=True)

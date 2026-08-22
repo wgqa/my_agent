@@ -11,7 +11,9 @@ traceback、trace 不泄漏源文件正文。无 real LLM / 无网络。
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,6 +33,25 @@ from api.schemas import ToolAgentEvidence
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 client = TestClient(api.app.app)
+
+
+def _git(repo: Path, *args: str) -> None:
+    env = os.environ.copy()
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "test",
+            "GIT_AUTHOR_EMAIL": "test@example.invalid",
+            "GIT_COMMITTER_NAME": "test",
+            "GIT_COMMITTER_EMAIL": "test@example.invalid",
+        }
+    )
+    subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
 
 
 class FakeRetrievalPort:
@@ -266,6 +287,64 @@ class TestToolAgentEndpoint:
             "tool_errors_used",
         }
         assert all(set(event) <= allowed for event in data["trace"])
+
+    def test_git_change_evidence_http_vertical_slice(self, monkeypatch, tmp_path):
+        repo = tmp_path / "demo_project"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        (repo / "src").mkdir()
+        path = repo / "src" / "app.py"
+        path.write_text("return old\n", encoding="utf-8")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-qm", "initial")
+        path.write_text("return new\n", encoding="utf-8")
+
+        def read_diff(_registry, _user_query, context):
+            located = context[-1]
+            assert located.tool_name == "changed_files"
+            assert located.observation_result["changes"] == [
+                {"path": "src/app.py", "status": "modified"}
+            ]
+            return _outcome(
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="git_diff",
+                    arguments={"mode": "working_tree", "path": "src/app.py"},
+                )
+            )
+
+        _install(
+            monkeypatch,
+            [
+                _outcome(
+                    ToolCallAction(
+                        action="tool_call",
+                        tool_name="changed_files",
+                        arguments={"mode": "working_tree"},
+                    )
+                ),
+                read_diff,
+                _outcome(FinalAnswerAction("final_answer", "src/app.py changed.")),
+            ],
+            repo_root=repo,
+        )
+        response = _post("What changed in the project?")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["tool_calls_used"] == 2
+        assert len(data["evidence"]) == 1
+        evidence = data["evidence"][0]
+        assert evidence["evidence_id"] == "E1"
+        assert evidence["kind"] == "project_change"
+        assert evidence["path"] == "src/app.py"
+        assert evidence["start_line"] == 1
+        assert evidence["end_line"] == 1
+        assert "-return old" in evidence["snippet"]
+        assert "+return new" in evidence["snippet"]
+        assert str(repo) not in response.text
+        assert "\\" not in data["evidence"][0]["path"]
 
     def test_failed_context_has_no_evidence(self, monkeypatch, tmp_path):
         repo = tmp_path / "demo_project"

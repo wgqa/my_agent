@@ -60,6 +60,7 @@ Git 输出必须有资源上界。当前契约限制：
 - `git_diff` 一次只读取一个 path。
 - diff 最多 20,000 个字符、400 行。
 - 输出带有 `truncated`、`start_line` 和 `end_line`，让调用方知道证据是否完整以及它覆盖的范围。
+- `changed_files.total_count` 在未截断时是完整数量；截断时只代表已经安全观察到的数量，不暗示完整列表已读取。
 
 binary diff 可以返回 Git 的 bounded unified metadata；它不会为了产生文本而把二进制文件正文读入 Agent context。Git stderr、异常正文、完整本机路径都不进入 Observation。
 

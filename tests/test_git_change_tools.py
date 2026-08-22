@@ -16,6 +16,7 @@ from core.tool_agent import (
     AgentDecisionOutcome,
     CHANGED_FILES_SPEC,
     FinalAnswerAction,
+    GIT_COMMAND_FAILED,
     GIT_DIFF_SPEC,
     GIT_DIFF_UNAVAILABLE,
     GIT_PATH_NOT_ALLOWED,
@@ -247,6 +248,54 @@ def test_diff_output_is_bounded(git_repo: Path):
     assert obs.result["truncated"] is True
 
 
+def test_raw_diff_capture_overflow_returns_safe_prefix(git_repo: Path):
+    path = git_repo / "src" / "capture-overflow.txt"
+    path.write_text("old\n", encoding="utf-8")
+    _commit(git_repo, "capture overflow base")
+    path.write_text(
+        "".join(f"line-{index:05d}-{'x' * 24}\n" for index in range(12000)),
+        encoding="utf-8",
+    )
+
+    obs = _git_executor(git_repo).execute(
+        ToolCall.create(
+            "git_diff",
+            {"mode": "working_tree", "path": "src/capture-overflow.txt"},
+        )
+    )
+    assert obs.status == "ok"
+    assert obs.error_code is None
+    assert obs.result["truncated"] is True
+    assert 0 < len(obs.result["diff"]) <= git_change.MAX_DIFF_CHARS
+    assert len(obs.result["diff"].splitlines()) <= git_change.MAX_DIFF_LINES
+
+
+def test_name_status_capture_overflow_returns_observed_records(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    for index in range(10):
+        (git_repo / f"changed-{index:02d}.txt").write_text(
+            "old\n", encoding="utf-8"
+        )
+    _commit(git_repo, "name status overflow base")
+    for index in range(10):
+        (git_repo / f"changed-{index:02d}.txt").write_text(
+            "new\n", encoding="utf-8"
+        )
+    monkeypatch.setattr(git_change, "MAX_GIT_CAPTURE_BYTES", 64)
+
+    obs = _git_executor(git_repo).execute(
+        ToolCall.create("changed_files", {"mode": "working_tree"})
+    )
+    assert obs.status == "ok"
+    assert obs.result["truncated"] is True
+    assert 0 < obs.result["total_count"] < 10
+    assert obs.result["returned_count"] == obs.result["total_count"]
+    expected_paths = {f"changed-{index:02d}.txt" for index in range(10)}
+    assert all(item["status"] == "modified" for item in obs.result["changes"])
+    assert {item["path"] for item in obs.result["changes"]} <= expected_paths
+
+
 def test_binary_diff_is_bounded_and_safe(git_repo: Path):
     path = git_repo / "blob.bin"
     path.write_bytes(b"\x00\x01old\x00")
@@ -296,6 +345,26 @@ def test_git_failures_have_stable_codes_and_unknown_errors_propagate(
     monkeypatch.setattr(git_change, "_capture_process", programming_bug)
     with pytest.raises(RuntimeError, match="programming bug"):
         handler.execute({"mode": "working_tree"})
+
+
+def test_real_git_command_failure_is_not_confused_with_capture_truncation(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    responses = iter(
+        [
+            (b"true\n", 0, False),
+            (f"{git_repo.resolve()}\n".encode(), 0, False),
+            (b"0" * 40 + b"\n", 0, False),
+            (b"", 1, False),
+        ]
+    )
+    monkeypatch.setattr(git_change, "_capture_process", lambda *args, **kwargs: next(responses))
+
+    with pytest.raises(ToolExecutionError) as exc_info:
+        GitDiffHandler(git_repo).execute(
+            {"mode": "working_tree", "path": "src/app.py"}
+        )
+    assert exc_info.value.error_code == GIT_COMMAND_FAILED
 
 
 class _EmptyRetrievalPort:
