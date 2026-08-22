@@ -54,3 +54,7 @@ Retrieval Success 与 Answer Grounding 不是一回事：工具可能拿到了�
 如果 v1 没有改善、增加错误 Tool、产生 budget stop 或降低 cross-source coverage，应保留负结果并停止继续调 prompt。负结果说明当前 bounded loop、预算或 provider 行为仍是瓶颈，不应被包装成能力成功。
 
 面试中可以简洁表述：共享 Knowledge KB 提供“原理事实”，Repository on-demand retrieval 提供“当前实现事实”，Tool Agent 在 5/4/2 边界内编排两者，code_search 只是定位，read_project_context 才把实现读入可审计证据。实验用固定题目和 prompt identity 做前后对照，区分检索覆盖、证据接入和答案综合三个层次。
+
+## R1：Runtime Failure Isolation
+
+复用同一份 Runtime implementation，不等于两个产品入口必须共享同一个初始化生命周期。`/tool-agent/query` 的 legacy runtime 与 `/engineering/query` 的 engineering runtime 仍共用同一个 `ToolAgentRuntime` loop，但各自拥有初始化成功/失败边界。engineering 初始化失败时只能使 engineering facade 不可用，不能清空已经成功的 legacy runtime；legacy 初始化失败时则不伪造 engineering 正常工作。这样既复用执行框架，又避免新增产品扩大历史入口的故障域。

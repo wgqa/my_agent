@@ -110,19 +110,27 @@ async def lifespan(app: FastAPI):
                 api_key=os.getenv("DEEPSEEK_API_KEY"),
                 base_url=DEEPSEEK_BASE_URL,
             )
-            engineering_agent_runtime = build_tool_agent_runtime(
-                repo_root=engineering_project.root,
-                retrieval_port=port,
-                api_key=os.getenv("DEEPSEEK_API_KEY"),
-                base_url=DEEPSEEK_BASE_URL,
-                prompt_profile=ENGINEERING_DECISION_PROMPT_PROFILE,
-            )
-            engineering_agent_facade = EngineeringAgentFacade(
-                engineering_agent_runtime
-            )
         except Exception:
-            logger.exception("Tool agent runtime init failed")
+            logger.exception("Legacy tool agent runtime init failed")
             tool_agent_runtime = None
+            engineering_agent_runtime = None
+            engineering_agent_facade = None
+        else:
+            try:
+                engineering_agent_runtime = build_tool_agent_runtime(
+                    repo_root=engineering_project.root,
+                    retrieval_port=port,
+                    api_key=os.getenv("DEEPSEEK_API_KEY"),
+                    base_url=DEEPSEEK_BASE_URL,
+                    prompt_profile=ENGINEERING_DECISION_PROMPT_PROFILE,
+                )
+                engineering_agent_facade = EngineeringAgentFacade(
+                    engineering_agent_runtime
+                )
+            except Exception:
+                logger.exception("Engineering agent runtime init failed")
+                engineering_agent_runtime = None
+                engineering_agent_facade = None
     yield
     pipeline = None
     agent_runtime = None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 from core.tool_agent import (
@@ -18,6 +19,8 @@ from core.tool_agent.decision_prompt import (
     LEGACY_DECISION_PROMPT_PROFILE,
 )
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
+
+import api.app
 
 
 class FakeClient:
@@ -100,3 +103,65 @@ def test_engineering_provider_metadata_and_system_message_use_v1():
     system = client.last_kwargs["messages"][0]["content"]
     assert "只问通用技术知识时，可以独立使用 knowledge_search" in system
     assert "不要为了凑异构 evidence 强制 knowledge_search" in system
+
+
+def test_engineering_init_failure_does_not_clear_legacy_runtime(monkeypatch, tmp_path):
+    legacy_runtime = object()
+    calls = []
+
+    def fake_builder(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return legacy_runtime
+        raise RuntimeError("engineering init failure")
+
+    monkeypatch.setattr(api.app, "Pipeline", lambda **kwargs: SimpleNamespace(retriever=object()))
+    monkeypatch.setattr(
+        api.app,
+        "resolve_engineering_project",
+        lambda _root: SimpleNamespace(root=tmp_path),
+    )
+    monkeypatch.setattr(api.app, "_resolve_agent_provider", lambda _pipeline: ("fake", "key"))
+    monkeypatch.setattr(api.app, "build_pipeline_agent_runtime", lambda *args, **kwargs: object())
+    monkeypatch.setattr(api.app, "PipelineRetrievalAdapter", lambda _retriever: object())
+    monkeypatch.setattr(api.app, "build_tool_agent_runtime", fake_builder)
+
+    async def run_lifespan():
+        async with api.app.lifespan(api.app.app):
+            assert api.app.tool_agent_runtime is legacy_runtime
+            assert api.app.engineering_agent_runtime is None
+            assert api.app.engineering_agent_facade is None
+
+    asyncio.run(run_lifespan())
+    assert len(calls) == 2
+    assert calls[0].get("prompt_profile") is None
+    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_PROFILE
+
+
+def test_legacy_init_failure_blocks_engineering_init(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_builder(**kwargs):
+        calls.append(kwargs)
+        raise RuntimeError("legacy init failure")
+
+    monkeypatch.setattr(api.app, "Pipeline", lambda **kwargs: SimpleNamespace(retriever=object()))
+    monkeypatch.setattr(
+        api.app,
+        "resolve_engineering_project",
+        lambda _root: SimpleNamespace(root=tmp_path),
+    )
+    monkeypatch.setattr(api.app, "_resolve_agent_provider", lambda _pipeline: ("fake", "key"))
+    monkeypatch.setattr(api.app, "build_pipeline_agent_runtime", lambda *args, **kwargs: object())
+    monkeypatch.setattr(api.app, "PipelineRetrievalAdapter", lambda _retriever: object())
+    monkeypatch.setattr(api.app, "build_tool_agent_runtime", fake_builder)
+
+    async def run_lifespan():
+        async with api.app.lifespan(api.app.app):
+            assert api.app.tool_agent_runtime is None
+            assert api.app.engineering_agent_runtime is None
+            assert api.app.engineering_agent_facade is None
+
+    asyncio.run(run_lifespan())
+    assert len(calls) == 1
+    assert calls[0].get("prompt_profile") is None
