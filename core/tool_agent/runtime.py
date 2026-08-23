@@ -11,6 +11,7 @@ DecisionContextItem 反馈给模型，但绝不作为系统指令。本模块不
 from __future__ import annotations
 
 import json
+import inspect
 from dataclasses import replace
 from pathlib import PurePosixPath
 
@@ -27,6 +28,7 @@ from core.tool_agent.runtime_models import (
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
     AgentDecisionProvider,
+    DecisionControlState,
     DecisionContextItem,
     EngineeringEvidence,
     KnowledgeEvidence,
@@ -240,8 +242,21 @@ class ToolAgentRuntime:
                     AGENT_BUDGET_EXCEEDED,
                 )
 
-            outcome = self._provider.decide(
-                self._registry, user_query, context=tuple(context)
+            control_state = DecisionControlState(
+                iteration=iterations,
+                remaining_iterations=self._budget.max_agent_iterations - iterations,
+                remaining_tool_calls=self._budget.max_tool_calls - tool_calls,
+                tool_call_allowed=(
+                    iterations < self._budget.max_agent_iterations
+                    and tool_calls < self._budget.max_tool_calls
+                ),
+                must_terminate=(
+                    iterations >= self._budget.max_agent_iterations
+                    or tool_calls >= self._budget.max_tool_calls
+                ),
+            )
+            outcome = self._decide(
+                user_query, context=tuple(context), control_state=control_state
             )
             if not isinstance(outcome, AgentDecisionOutcome):
                 # Provider 违反 Protocol 属于程序契约错误，fail-fast
@@ -415,6 +430,34 @@ class ToolAgentRuntime:
                     AGENT_TOOL_ERROR_LIMIT,
                 )
             # 否则继续下一次 Decision
+
+    def _decide(
+        self,
+        user_query: str,
+        *,
+        context: tuple[DecisionContextItem, ...],
+        control_state: DecisionControlState,
+    ) -> AgentDecisionOutcome:
+        """Pass trusted control state without breaking pre-v1 test providers.
+
+        The production provider implements the extended protocol. Older
+        injected providers that only implement the original context keyword
+        remain valid; no provider exception is caught or reclassified here.
+        """
+        decide = self._provider.decide
+        try:
+            parameters = inspect.signature(decide).parameters.values()
+        except (TypeError, ValueError):
+            parameters = ()
+        accepts_control_state = any(
+            parameter.name == "control_state"
+            or parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters
+        )
+        kwargs = {"context": context}
+        if accepts_control_state:
+            kwargs["control_state"] = control_state
+        return decide(self._registry, user_query, **kwargs)
 
     def _append_terminal(
         self,

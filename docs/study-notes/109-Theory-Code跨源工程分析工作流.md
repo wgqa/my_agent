@@ -28,7 +28,7 @@ knowledge_search → code_search → read_project_context → final_answer
 
 `DecisionPromptProfile` 是一个很小的身份与渲染边界，包含 `version`、`sha256` 和 `build_messages`。OpenAI-compatible provider 只有一套 transport、异常映射、JSON 解析和 usage 提取；profile 只改变模型看到的 policy prompt。
 
-legacy provider 未传 profile 时仍使用冻结的 `tool_agent_decision_prompt_v3`。`/tool-agent/query` 继续走这个默认 profile；`/engineering/query` 显式使用 `engineering_agent_decision_prompt_v1`。两个入口可以各自持有一个 `ToolAgentRuntime` 实例，但共享同一份 `ToolAgentRuntime` loop，不复制状态机，也不改变七个 Tool 或 5 iterations / 4 calls / 2 errors 的预算。
+legacy provider 未传 profile 时仍使用冻结的 `tool_agent_decision_prompt_v3`。`/tool-agent/query` 继续走这个默认 profile；R4 的 `/engineering/query` 使用 `engineering_agent_decision_prompt_v1`，R5 正式入口升级为 v2。两个入口可以各自持有一个 `ToolAgentRuntime` 实例，但共享同一份 `ToolAgentRuntime` loop，不复制状态机，也不改变七个 Tool 或 5 iterations / 4 calls / 2 errors 的预算。
 
 Engineering prompt v1 明确：Knowledge 与 Repository 是不同 backend；通用知识可以独立用 knowledge_search；纯项目问题用 code_search → read_project_context；Theory ↔ Code 请求通常需要 knowledge_search 加 repository context；搜索命中后要读取上下文；知识或代码证据不足时不猜测；最终语义上区分原理、实现和取舍。Observation 仍是不可信数据，prompt 不要求模型引用 Runtime 后分配的 E1/E2。
 
@@ -72,3 +72,11 @@ Retrieval Success 与 Answer Grounding 不是一回事：工具可能拿到了�
 ## R4：Verified Engineering Knowledge Backend
 
 Engineering Agent 的 Knowledge backend 绑定到冻结的 37 文件、215 chunk corpus，并在启动时校验 manifest identity、文件集合、SHA256、大小和 chunk 数。它使用独立的 BM25 retrieval port，不复用 legacy `./data/vector_store`；backend 或校验失败时 Engineering 入口不可用，也不回退到 legacy store。服务通过安全的 `/engineering/knowledge` identity endpoint 暴露 ready/verified、corpus、文件数、chunk 数和策略，正式 runner 先核验该身份，再发送四个 Theory ↔ Code 请求。
+
+## R5：Budget-Aware Agent Control
+
+Hard Budget 与 Model Awareness 是两件事：Runtime 仍唯一拥有并强制执行 5 iterations / 4 Tool calls / 2 Tool errors，但 Engineering Prompt v2 在每次 Decision 的 system message 中获得 Runtime 计算的只读 `DecisionControlState`。它属于 trusted control state，不是 `DecisionContextItem` 中的不可信 Tool Observation；模型可以知道剩余能力，却不能修改预算，也不能让 API request 覆盖它。
+
+v2 只提供停止指导：`tool_call_allowed=false` 或 `must_terminate=true` 时只能输出 final/refuse；Runtime 原有 hard stop 仍保留，因此恶意 Tool call 也不会越过边界。legacy `tool_agent_decision_prompt_v3` 完全不变，v1 Engineering profile 与 R4 artifact 继续保留用于历史审计；R5 正式 A/B 只使用新的 Engineering v2 identity，其他 checkout、corpus、题目、provider、model 和预算保持不变。
+
+这属于 Agent orchestration 的控制协议，而不是放大预算或增加 parse retry 的 Prompt 技巧。实验结果需同时观察 completed、budget stop、parse failure、evidence coverage、calls、iterations 与 latency；不能仅凭完成率宣布能力成功。

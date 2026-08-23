@@ -39,6 +39,7 @@ from core.tool_agent.decision_prompt import (
 )
 from core.tool_agent.models import ACTION_PARSE_FAILED
 from core.tool_agent.registry import ToolRegistry
+from core.tool_agent.runtime_models import DecisionControlState
 
 
 class AgentDecisionTimeoutError(Exception):
@@ -192,6 +193,7 @@ class OpenAICompatibleAgentDecisionProvider:
         user_query: str,
         *,
         context=(),
+        control_state: DecisionControlState | None = None,
     ) -> AgentDecisionOutcome:
         """单步结构化决策：看见 ToolSpec + 用户请求（+ 可选 Observation context）。
 
@@ -203,7 +205,10 @@ class OpenAICompatibleAgentDecisionProvider:
         tool_specs = registry.list_specs()
         toolset_sha256 = compute_toolset_sha256(tool_specs)
         messages = self._prompt_profile.build_messages(
-            tool_specs, user_query, context=context
+            tool_specs,
+            user_query,
+            context=context,
+            control_state=control_state,
         )
 
         start = time.perf_counter()

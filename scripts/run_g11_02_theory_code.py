@@ -25,6 +25,7 @@ TOOLSET_SHA256 = "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb8
 KNOWN_PROMPT_IDENTITIES = {
     "tool_agent_decision_prompt_v3": "a6092bffdfee3236575ae0f801985e6c8d6aecedba339672bde838f1daed1dc1",
     "engineering_agent_decision_prompt_v1": "aa99e543d2bfbd3315113842e5377bf52bff7dcf50fc843840785ddee34dfa0a",
+    "engineering_agent_decision_prompt_v2": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107",
 }
 _COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _PROMPT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")

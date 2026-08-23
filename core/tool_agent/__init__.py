@@ -56,6 +56,8 @@ from core.tool_agent.decision_prompt import (
     DecisionPromptProfile,
     ENGINEERING_DECISION_PROMPT_PROFILE,
     ENGINEERING_DECISION_PROMPT_SHA256,
+    ENGINEERING_DECISION_PROMPT_V2_PROFILE,
+    ENGINEERING_DECISION_PROMPT_V2_SHA256,
     LEGACY_DECISION_PROMPT_PROFILE,
 )
 from core.tool_agent.registry import (
@@ -68,6 +70,7 @@ from core.tool_agent.runtime_models import (
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
     AgentDecisionProvider,
+    DecisionControlState,
     DecisionContextItem,
     EngineeringEvidence,
     KnowledgeEvidence,
@@ -156,6 +159,8 @@ __all__ = [
     "LEGACY_DECISION_PROMPT_PROFILE",
     "ENGINEERING_DECISION_PROMPT_PROFILE",
     "ENGINEERING_DECISION_PROMPT_SHA256",
+    "ENGINEERING_DECISION_PROMPT_V2_PROFILE",
+    "ENGINEERING_DECISION_PROMPT_V2_SHA256",
     "strict_json_loads_no_duplicates",
     "ToolAgentRuntime",
     "ToolAgentBudget",
@@ -165,6 +170,7 @@ __all__ = [
     "DecisionContextItem",
     "RuntimeTraceEvent",
     "AgentDecisionProvider",
+    "DecisionControlState",
     "AGENT_DUPLICATE_TOOL_CALL",
     "AGENT_TOOL_ERROR_LIMIT",
 ]

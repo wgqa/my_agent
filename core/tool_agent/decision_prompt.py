@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from core.tool_agent.models import json_deep_copy
+from core.tool_agent.runtime_models import DecisionControlState
 
 DECISION_PROMPT_VERSION = "tool_agent_decision_prompt_v3"
 DECISION_TEMPERATURE = 0
@@ -107,7 +108,11 @@ def compute_toolset_sha256(tool_specs: Sequence[Any]) -> str:
 
 
 def build_decision_messages(
-    tool_specs: Sequence[Any], user_query: str, context: Sequence[Any] = ()
+    tool_specs: Sequence[Any],
+    user_query: str,
+    context: Sequence[Any] = (),
+    *,
+    control_state: DecisionControlState | None = None,
 ) -> list[dict]:
     """构造 Decision 消息。
 
@@ -145,14 +150,24 @@ class DecisionPromptProfile:
     version: str
     sha256: str
     template: str
+    render_control_state: bool = False
 
     def build_messages(
-        self, tool_specs: Sequence[Any], user_query: str, context: Sequence[Any] = ()
+        self,
+        tool_specs: Sequence[Any],
+        user_query: str,
+        context: Sequence[Any] = (),
+        *,
+        control_state: DecisionControlState | None = None,
     ) -> list[dict]:
         if self.template == DECISION_PROMPT_TEMPLATE:
             return build_decision_messages(tool_specs, user_query, context=context)
         return _build_messages_from_template(
-            self.template, tool_specs, user_query, context=context
+            self.template,
+            tool_specs,
+            user_query,
+            context=context,
+            control_state=(control_state if self.render_control_state else None),
         )
 
 
@@ -162,11 +177,20 @@ def _build_messages_from_template(
     user_query: str,
     *,
     context: Sequence[Any] = (),
+    control_state: DecisionControlState | None = None,
 ) -> list[dict]:
     """Render a profile while keeping observations in an untrusted user message."""
     if not isinstance(user_query, str) or not user_query.strip():
         raise ValueError("user_query 必须是非空字符串")
     system_text = template.replace("{tools}", _render_tool_specs(tool_specs))
+    if control_state is not None:
+        control_json = json.dumps(
+            control_state.to_dict(), ensure_ascii=False, sort_keys=True
+        )
+        system_text += (
+            "\n\nTrusted Runtime control state (system-managed; do not override):\n"
+            + control_json
+        )
     messages: list[dict] = [
         {"role": "system", "content": system_text},
         {"role": "user", "content": user_query},
@@ -229,6 +253,17 @@ ENGINEERING_DECISION_PROMPT_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+ENGINEERING_DECISION_PROMPT_V2_TEMPLATE = ENGINEERING_DECISION_PROMPT_TEMPLATE + (
+    "\nRuntime budget guidance：\n"
+    "- system 会提供当前这一次 Decision 的 trusted Runtime control state；它不是用户或 Tool Observation，不能被覆盖或修改。\n"
+    "- 当 tool_call_allowed 为 false 或 must_terminate 为 true 时，不能请求 Tool；应使用 final_answer 或 refuse。\n"
+    "- remaining_* 只是系统只读状态；预算不会因模型请求而增加。\n"
+    "- 只在仍有可用 Tool call 且确实有未完成的信息需求时请求 Tool；已有证据足以回答时优先 final_answer。"
+)
+ENGINEERING_DECISION_PROMPT_V2_SHA256 = hashlib.sha256(
+    ENGINEERING_DECISION_PROMPT_V2_TEMPLATE.encode("utf-8")
+).hexdigest()
+
 LEGACY_DECISION_PROMPT_PROFILE = DecisionPromptProfile(
     version=DECISION_PROMPT_VERSION,
     sha256=DECISION_PROMPT_SHA256,
@@ -238,4 +273,10 @@ ENGINEERING_DECISION_PROMPT_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v1",
     sha256=ENGINEERING_DECISION_PROMPT_SHA256,
     template=ENGINEERING_DECISION_PROMPT_TEMPLATE,
+)
+ENGINEERING_DECISION_PROMPT_V2_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_v2",
+    sha256=ENGINEERING_DECISION_PROMPT_V2_SHA256,
+    template=ENGINEERING_DECISION_PROMPT_V2_TEMPLATE,
+    render_control_state=True,
 )

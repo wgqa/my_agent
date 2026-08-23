@@ -94,6 +94,48 @@ class ToolAgentBudget:
 
 
 @dataclass(frozen=True)
+class DecisionControlState:
+    """Trusted, immutable budget state owned by the Runtime.
+
+    This is control metadata for one provider decision, not a Tool
+    observation. The provider may use it to stop requesting work, but it
+    cannot change the Runtime's hard budget enforcement.
+    """
+
+    iteration: int
+    remaining_iterations: int
+    remaining_tool_calls: int
+    tool_call_allowed: bool
+    must_terminate: bool
+
+    def __post_init__(self) -> None:
+        _require_non_negative_int(self.iteration, "iteration")
+        if self.iteration < 1:
+            raise ValueError("iteration 必须 >= 1")
+        _require_non_negative_int(self.remaining_iterations, "remaining_iterations")
+        _require_non_negative_int(self.remaining_tool_calls, "remaining_tool_calls")
+        for label, value in (
+            ("tool_call_allowed", self.tool_call_allowed),
+            ("must_terminate", self.must_terminate),
+        ):
+            if type(value) is not bool:
+                raise TypeError(f"{label} 必须是严格 bool")
+        if self.tool_call_allowed and self.must_terminate:
+            raise ValueError("tool_call_allowed=True 时 must_terminate 必须为 False")
+        if self.must_terminate and self.tool_call_allowed:
+            raise ValueError("must_terminate=True 时禁止 Tool call")
+
+    def to_dict(self) -> dict[str, int | bool]:
+        return {
+            "iteration": self.iteration,
+            "remaining_iterations": self.remaining_iterations,
+            "remaining_tool_calls": self.remaining_tool_calls,
+            "tool_call_allowed": self.tool_call_allowed,
+            "must_terminate": self.must_terminate,
+        }
+
+
+@dataclass(frozen=True)
 class DecisionContextItem:
     """一次 Tool 执行的事实反馈给模型。
 
@@ -425,5 +467,6 @@ class AgentDecisionProvider(Protocol):
         user_query: str,
         *,
         context: Sequence[Any] = (),
+        control_state: DecisionControlState | None = None,
     ) -> AgentDecisionOutcome:
         ...

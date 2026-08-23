@@ -158,7 +158,7 @@ def test_unknown_prompt_identity_is_rejected():
         runner.validate_prompt_identity("unknown_prompt_v999", "a" * 64)
 
 
-def test_known_v3_and_v1_prompt_pairs_are_accepted():
+def test_known_v3_v1_and_v2_prompt_pairs_are_accepted():
     assert runner.validate_prompt_identity(
         "tool_agent_decision_prompt_v3",
         runner.KNOWN_PROMPT_IDENTITIES["tool_agent_decision_prompt_v3"],
@@ -172,6 +172,13 @@ def test_known_v3_and_v1_prompt_pairs_are_accepted():
     ) == (
         "engineering_agent_decision_prompt_v1",
         runner.KNOWN_PROMPT_IDENTITIES["engineering_agent_decision_prompt_v1"],
+    )
+    assert runner.validate_prompt_identity(
+        "engineering_agent_decision_prompt_v2",
+        runner.KNOWN_PROMPT_IDENTITIES["engineering_agent_decision_prompt_v2"],
+    ) == (
+        "engineering_agent_decision_prompt_v2",
+        runner.KNOWN_PROMPT_IDENTITIES["engineering_agent_decision_prompt_v2"],
     )
 
 

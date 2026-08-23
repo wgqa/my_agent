@@ -26,7 +26,7 @@ from core.tool_agent import (
     ToolAgentRuntime,
     build_tool_agent_runtime,
 )
-from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_PROFILE
+from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_V2_PROFILE
 from api.schemas import (
     AgentQueryRequest,
     AgentQueryResponse,
@@ -134,7 +134,7 @@ async def lifespan(app: FastAPI):
                     retrieval_port=engineering_knowledge_backend.retrieval_port,
                     api_key=os.getenv("DEEPSEEK_API_KEY"),
                     base_url=DEEPSEEK_BASE_URL,
-                    prompt_profile=ENGINEERING_DECISION_PROMPT_PROFILE,
+                    prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE,
                 )
                 engineering_agent_facade = EngineeringAgentFacade(
                     engineering_agent_runtime
