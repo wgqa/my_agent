@@ -211,50 +211,61 @@ CASES = (
     _case(
         "CI03",
         "129175ec422b88677b48c0c5d5997a1a8f229b92",
-        "core/tool_agent/runtime_models.py",
+        "core/tool_agent/decision_prompt.py",
         ["tests/test_g11_02_r5_budget_control.py"],
         (
             "审查 commit range "
             "base_ref=129175ec422b88677b48c0c5d5997a1a8f229b92^ "
             "head_ref=129175ec422b88677b48c0c5d5997a1a8f229b92。"
-            "重点分析 core/tool_agent/runtime_models.py 中 feat: add budget-aware "
-            "engineering decisions 的 DecisionControlState 契约、它与 Runtime hard "
-            "budget 的关系，以及最值得回归的测试。必须从读取到的测试源码解释实际 "
-            "budget invariant，不调用 knowledge_search 或 calculator。"
+            "围绕 Budget-Aware Decision Guidance，重点分析 core/tool_agent/decision_prompt.py "
+            "在 feat: add budget-aware engineering decisions 中如何把 trusted Runtime "
+            "control state 渲染到 Engineering v2 system policy；说明 tool_call_allowed、"
+            "must_terminate、remaining_* 的作用、它是否替代 Runtime hard enforcement，"
+            "以及最值得回归的测试。必须从读取到的测试源码解释实际 budget invariant，"
+            "不调用 knowledge_search 或 calculator。"
         ),
         [
             _obligation(
-                "D1", "changed_files 确认 runtime_models.py 属于 change set。"
+                "D1", "changed_files 确认 decision_prompt.py 属于 change set。"
             ),
             _obligation(
-                "D2", "git_diff 读取 DecisionControlState 的真实变化。"
+                "D2",
+                "git_diff 读取 decision_prompt.py 的真实变化：build_messages 与 "
+                "_build_messages_from_template 可以接收 control_state；trusted Runtime "
+                "control state 被渲染到 system message；Engineering v2 profile 设置 "
+                "render_control_state=True；Engineering v2 增加 budget guidance。",
             ),
             _obligation(
                 "I1",
-                "识别 iteration、remaining_iterations、remaining_tool_calls、"
-                "tool_call_allowed、must_terminate。",
+                "说明 control state 是 system-managed、trusted Runtime metadata，"
+                "不是用户输入或 Tool Observation。",
             ),
             _obligation(
-                "I2", "说明这是 Runtime-owned trusted control metadata。"
+                "I2",
+                "说明 remaining_iterations 与 remaining_tool_calls 是只读的剩余能力信息。",
             ),
             _obligation(
-                "I3", "不得声称模型可以修改或扩大 budget。"
+                "I3",
+                "当 tool_call_allowed=false 或 must_terminate=true 时，模型应使用 "
+                "final_answer 或 refuse，而不是请求新的 Tool。",
             ),
             _obligation(
-                "I4", "不得声称 DecisionControlState 替代 Runtime hard enforcement。"
+                "I4",
+                "不得声称 Prompt guidance 替代 Runtime hard budget enforcement。"
             ),
             _obligation(
                 "T1",
-                "使用 find_tests(runtime_models.py) 发现 candidate test。",
+                "使用 find_tests(core/tool_agent/decision_prompt.py) 发现 candidate test。",
             ),
             _obligation(
                 "T2", "最终推荐优先 tests/test_g11_02_r5_budget_control.py。"
             ),
             _obligation(
                 "T3",
-                "read_project_context 读取测试后，解释 must_terminate、"
-                "tool_call_allowed、remaining calls 或 profile control-state rendering "
-                "等真实断言。",
+                "read_project_context 读取目标测试后，解释其对 Engineering v2 trusted "
+                "state 只出现在 system message、remaining_tool_calls 实际渲染、legacy "
+                "v3 不渲染 control state、must_terminate/tool_call_allowed 边界，或 "
+                "Runtime 最终 hard-stop 越界 Tool call 中至少一类的真实覆盖。",
             ),
         ],
     ),

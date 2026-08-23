@@ -93,10 +93,16 @@ G11-03 固定使用真实历史验收 commit，并把 `base_ref` 固定为 `<tar
 |---|---|---|---|
 | CI01 | `465dd65e950e9c4a119820a5a27f558e74ad5892` | `api/app.py` | `tests/test_engineering_agent_api.py` |
 | CI02 | `766a836a6728dc7fd4f4f22e9ec8a2387758c5a9` | `core/engineering_knowledge.py` | `tests/test_g11_02_r4_knowledge.py` |
-| CI03 | `129175ec422b88677b48c0c5d5997a1a8f229b92` | `core/tool_agent/runtime_models.py` | `tests/test_g11_02_r5_budget_control.py` |
+| CI03 | `129175ec422b88677b48c0c5d5997a1a8f229b92` | `core/tool_agent/decision_prompt.py` | `tests/test_g11_02_r5_budget_control.py` |
 | CI04 | `23073a5aa6471b2e671385907108008253788dba` | `core/tool_agent/tools/git_change.py` | `tests/test_git_change_tools.py` |
 
-CI01 检查 legacy evidence 编号兼容性；CI02 检查 verified Knowledge backend 的身份与文件真实性边界；CI03 检查 Runtime-owned DecisionControlState 与 hard budget 的关系；CI04 检查 bounded Git output、truncation 和真正 command failure 的区分。
+CI01 检查 legacy evidence 编号兼容性；CI02 检查 verified Knowledge backend 的身份与文件真实性边界；CI03 检查 Budget-Aware Decision Guidance 如何把 Runtime-owned control state 送入 Engineering v2 policy，以及它与 hard budget 的关系；CI04 检查 bounded Git output、truncation 和真正 command failure 的区分。
+
+### Benchmark 可执行性也是评测契约
+
+Gold obligation 必须在当前 Tool 能力范围内可达。固定 case 在进入 Formal 前，由 `tests/test_g11_03_change_impact.py` 使用真实 repo 的 `FindTestsHandler` 执行 `find_tests`，确认 `accepted_test_paths` 至少有一个实际出现在返回的 candidate paths 中。这不是 mock，也不把 Gold test 人为塞进 Tool 输出；它只是验证 evaluation case 与当前 `find_tests_v1` contract 对齐。
+
+如果 Tool 正确返回 no candidate，说明 benchmark 的 focus path 与 discoverability contract 不可执行，属于 evaluation design error，不能误判成 Agent reasoning failure。CI03 因此使用该 commit 中真实 changed 的 `core/tool_agent/decision_prompt.py`，其目标测试通过 public import 直接引用 `decision_prompt`，可以被现有 `content_reference` 规则发现。
 
 ## 11. 为什么推荐测试不等于执行测试
 

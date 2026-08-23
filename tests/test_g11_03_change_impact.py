@@ -13,6 +13,7 @@ import scripts.run_g11_03_change_impact as runner
 from core.tool_agent import (
     ENGINEERING_DECISION_PROMPT_V2_PROFILE,
     ENGINEERING_DECISION_PROMPT_V2_SHA256,
+    FindTestsHandler,
     ToolAgentBudget,
     build_readonly_tool_registry,
     max_parse_repairs_for_profile,
@@ -66,10 +67,24 @@ def test_fixed_case_identity_and_commit_refs_are_frozen():
     assert [case["focus_path"] for case in runner.CASES] == [
         "api/app.py",
         "core/engineering_knowledge.py",
-        "core/tool_agent/runtime_models.py",
+        "core/tool_agent/decision_prompt.py",
         "core/tool_agent/tools/git_change.py",
     ]
     assert runner.validate_case_identities() == runner.CASES
+
+
+def test_fixed_case_accepted_tests_are_discoverable_by_real_find_tests():
+    """Fixed case accepted tests must be reachable through the real Tool contract."""
+    handler = FindTestsHandler(REPO_ROOT)
+
+    for case in runner.CASES:
+        result = handler.execute({"path": case["focus_path"]})
+        candidate_paths = {candidate["path"] for candidate in result["candidates"]}
+        accepted_paths = set(case["accepted_test_paths"])
+        assert accepted_paths & candidate_paths, (
+            f"{case['case_id']} accepted tests are not discoverable for "
+            f"{case['focus_path']}: candidates={sorted(candidate_paths)}"
+        )
 
 
 def test_target_commits_exist_in_the_current_checkout():
