@@ -133,3 +133,9 @@ G11-02 连接 Knowledge Evidence 与 Repository Evidence，回答理论、当前
 G11-03-01 只新增 runner、deterministic contract tests、Study Note 110 和状态记录。它不修改 API/runtime、任何 Prompt、Tool implementation/schema、Knowledge backend、Evidence schema、budget、registry 或 `find_tests` 算法。
 
 Runner 会记录 prompt/repair identity、source checkout、target commit/ref、toolset、budget、safe trace、per-case evidence 和 summary metrics，但不会记录 raw provider output、API key、CoT 或本机绝对路径。Formal DeepSeek 四 case 由用户在同一 real-provider 环境中显式运行；本任务不自动运行 Formal，也不提前判断 Gold correctness。
+
+## 16. Artifact Safety 与 Serialization Boundary
+
+semantic payload != serialized representation。JSON/JSONL 的安全校验必须先反序列化，再递归检查 string leaf；否则 JSON 对普通 literal backslash 的转义可能被 raw-text 扫描误报为 UNC path。Markdown 不是 JSON，因此保留文本层的 repo-root、实际 drive/UNC path 和 secret 防护，但 UNC 也必须满足真实 \\server\share 形状，不能看到任意 \\ 就拒绝。
+
+安全验证不能简单关闭，而应放在正确的 serialization abstraction layer。首轮 Formal run g11-03-change-impact-formal-20260823-235907 因 runner 的 artifact safety serialization false positive 判为 INVALID / INFRASTRUCTURE FAILURE；这是 runner infrastructure 结果，不作 Agent 结论。R2 后正式实验仍需生成新的 run_id。

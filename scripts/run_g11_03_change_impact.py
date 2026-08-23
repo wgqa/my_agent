@@ -76,7 +76,9 @@ _COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _PROMPT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
-_ABSOLUTE_PATH_RE = re.compile(r"(?i)(?:[A-Z]:[\\/]|\\\\)[^\s\"'<>]+")
+_ABSOLUTE_PATH_RE = re.compile(
+    r"(?i)(?:[A-Z]:[\\/][^\s\"'<>]+|\\\\[^\\/\s\"'<>]+[\\/][^\\/\s\"'<>]+(?:[\\/][^\s\"'<>]+)?)"
+)
 _SECRET_RE = re.compile(r"(?i)\bsk-[A-Za-z0-9_-]{4,}\b")
 
 
@@ -524,9 +526,9 @@ def _sanitize_for_artifact(value: Any, git_root: str | Path) -> Any:
         return value
     root = str(Path(git_root).resolve())
     sanitized = value.replace(root, "<repo>").replace(root.replace("\\", "/"), "<repo>")
-    sanitized = sanitized.replace("\\", "/")
     sanitized = _ABSOLUTE_PATH_RE.sub("<absolute-path>", sanitized)
-    return _SECRET_RE.sub("<redacted-secret>", sanitized)
+    sanitized = _SECRET_RE.sub("<redacted-secret>", sanitized)
+    return sanitized.replace("\\", "/")
 
 
 def _normalize_case(
@@ -723,19 +725,65 @@ def _write_report(path: Path, manifest: dict[str, Any], cases: list[dict[str, An
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _artifact_is_safe(text: str, git_root: str | Path) -> bool:
+def _string_is_safe(value: str, git_root: str | Path) -> bool:
     root = str(Path(git_root).resolve())
+    normalized_root = root.replace("\\", "/")
+    value_casefold = value.casefold()
     return (
-        root not in text
-        and root.replace("\\", "/") not in text
-        and _ABSOLUTE_PATH_RE.search(text) is None
-        and _SECRET_RE.search(text) is None
+        root.casefold() not in value_casefold
+        and normalized_root.casefold() not in value_casefold
+        and _ABSOLUTE_PATH_RE.search(value) is None
+        and _SECRET_RE.search(value) is None
     )
+
+
+def _validate_value_safety(value: Any, git_root: str | Path) -> bool:
+    """Validate decoded artifact values, keeping JSON escaping out of the scan."""
+    if isinstance(value, str):
+        return _string_is_safe(value, git_root)
+    if isinstance(value, dict):
+        return all(
+            _validate_value_safety(key, git_root)
+            and _validate_value_safety(item, git_root)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return all(_validate_value_safety(item, git_root) for item in value)
+    return True
+
+
+def _artifact_is_safe(text: str, git_root: str | Path) -> bool:
+    """Apply the text policy used for Markdown and unknown artifact files."""
+    return _string_is_safe(text, git_root)
 
 
 def validate_artifact_safety(output: Path, git_root: str | Path) -> None:
     for path in sorted(output.iterdir()):
-        if path.is_file() and not _artifact_is_safe(path.read_text(encoding="utf-8"), git_root):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() == ".json":
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError(f"artifact contains invalid JSON: {path.name}") from exc
+            safe = _validate_value_safety(payload, git_root)
+        elif path.suffix.lower() == ".jsonl":
+            safe = True
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if not line.strip():
+                    continue
+                try:
+                    payload = json.loads(line)
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    raise ValueError(
+                        f"artifact contains invalid JSONL at {path.name}:{line_number}"
+                    ) from exc
+                if not _validate_value_safety(payload, git_root):
+                    safe = False
+                    break
+        else:
+            safe = _artifact_is_safe(path.read_text(encoding="utf-8"), git_root)
+        if not safe:
             raise ValueError(f"artifact contains unsafe local path or secret: {path.name}")
 
 
@@ -821,6 +869,8 @@ def main() -> int:
     (output / "summary.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+    # Validate structured payloads before rendering the Markdown report.
+    validate_artifact_safety(output, args.git_root)
     _write_report(output / "run_report.md", manifest, cases, metrics)
     validate_artifact_safety(output, args.git_root)
     print(json.dumps({"output": str(output), "metrics": metrics}, ensure_ascii=False, indent=2))

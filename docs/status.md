@@ -52,7 +52,7 @@ evidence relevance、evidence sufficiency、claim-level grounding、knowledge re
 - **Forbidden tools：** `knowledge_search`、`calculator`；`code_search` 不属于 Gold-required，不为凑调用主动使用。
 - **Runner：** `scripts/run_g11_03_change_impact.py`；deterministic contract tests：`tests/test_g11_03_change_impact.py`。
 - **评测边界：** runner 自动统计 completion、Tool coverage、exact sequence、forbidden/non-target calls、`project_change`、`project_test` 与 change-test pair；Impact correctness、推荐理由和 claim-level grounding 仍需人工 Gold review，不自动判分。
-- **Formal：** 本任务未运行正式 DeepSeek 四 case；Formal 由用户在 real-provider 环境中显式运行。G11-04 未开始。
+- **Formal：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 因 runner artifact safety serialization false positive 判为 INVALID / INFRASTRUCTURE FAILURE；不作 Agent 结论。R2 后 Formal rerun 尚未运行，G11-04 未开始。
 
 Evidence Sufficiency debt 最终统一带入 G12 Engineering Evaluation 2.0，进行跨 task-family 验证；这不是当前 NEXT，也不改变 G11-03 Formal Validation 的顺序。
 

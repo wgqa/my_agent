@@ -220,3 +220,70 @@ def test_normalized_artifact_omits_raw_provider_output_paths_and_keys(tmp_path: 
     assert "sk-test-secret-12345" not in encoded
     assert str(repo) not in encoded
     runner.validate_artifact_safety(output, repo)
+
+
+def test_artifact_safety_checks_decoded_json_values_not_json_escapes(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    safe_value = r"ordinary\literal\backslash"
+    (output / "manifest.json").write_text(
+        json.dumps({"safe_value": safe_value}, ensure_ascii=False), encoding="utf-8"
+    )
+
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "unsafe_value",
+    [
+        r"C:\Users\example\secret.txt",
+        str(REPO_ROOT.resolve()),
+        r"\\server\share\file.txt",
+        "sk-real-looking-test-value",
+    ],
+)
+def test_artifact_safety_rejects_real_semantic_paths_and_secrets(
+    tmp_path: Path, unsafe_value: str
+):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "case_results.jsonl").write_text(
+        json.dumps({"value": unsafe_value}, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+def test_artifact_safety_accepts_sanitized_jsonl_and_markdown(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "case_results.jsonl").write_text(
+        json.dumps(
+            {
+                "path": "<absolute-path>",
+                "secret": "<redacted-secret>",
+                "root": "<repo>",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (output / "run_report.md").write_text(
+        "path: <absolute-path>\nsecret: <redacted-secret>\nroot: <repo>\n",
+        encoding="utf-8",
+    )
+
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+def test_markdown_artifact_rejects_actual_unc_path(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "run_report.md").write_text(
+        r"observed: \\server\share\file.txt\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
