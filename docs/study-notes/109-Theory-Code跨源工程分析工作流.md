@@ -100,3 +100,34 @@ Retrieval success 不等于 evidence relevance，tool called 不等于 evidence 
 Theory claim 需要 Knowledge Evidence 的语义支持。知识检索优先使用 mechanism、algorithm、evaluation concept 和 engineering tradeoff 等问题术语，避免把 repo symbol 或 path 混入理论查询；知识证据不能支持的内容不能由 model prior 补成“已验证事实”。这种边界把 Evidence Sufficiency 与 Hallucination 直接连接起来：证据不足时，模型必须减少声称，而不是用熟悉的先验补齐当前实现。对于 verifier/validator，只能声称 evidence 实际展示的能力；identity 或 existence check 不能被扩展成 semantic support validation。
 
 Finalization 的 grounding checklist 只要求模型做结果判断，不要求输出 CoT：识别用户的子问题；逐个检查当前实现 claim 是否有 Project Code Evidence；逐个检查 theory claim 是否有 Knowledge Evidence；确认源码问题不是只有 `project_doc`；确认 evidence 窗口实际展示了声称的公式、分支、参数、fallback、调用关系或返回字段。若检查失败且仍有 Tool budget，继续 Tool；若没有预算，输出缩小后的结论并标明未验证边界。Grounded Finalization 是 Evidence-Grounded Agent 的核心能力，因为它把“拿到证据”与“只声称证据真正支持的内容”连接起来。R7 不增加 Tool、不扩大 5/4/2、不改变 read window，也不引入 LLM-as-Judge。
+
+## R7 Formal Result：Negative Result & Stop Rule
+
+R7 的固定 run 是 `g11-02-r7-evidence-grounded-20260823-204821`，绑定 `source_commit = fc2679a4af75ae1fcb20ea787dba3224492f9f23`、`prompt = engineering_agent_decision_prompt_v3`。本次结果为：4/4 completed，final parse failure = 0，source-code cross-source = 3/4，required tool coverage = 100%，forbidden tool = 0，repair attempted/succeeded = 1/1，initial parse category = `OUTPUT_TRUNCATED`。R7 因而没有改善 R6 已观测的 3/4 source-code cross-source：`R7 = negative / inconclusive for grounding improvement`。
+
+### 人工审计结论
+
+- TC01：Project Code window insufficient；implementation claims 超过读取 Evidence。
+- TC02：window 停在 MMR loop 前；最终公式与真实实现不完全一致。
+- TC03：Project Code sufficient；Knowledge Evidence relevance weak。
+- TC04：仍只有 `project_doc`，没有 Pipeline source code；存在 validator capability overclaim。
+
+这次审计明确了三个不能混淆的判断：
+
+- `correct answer != grounded answer`
+- `project_code presence != sufficient project evidence`
+- `Tool coverage != claim coverage`
+
+### 为什么负结果仍有价值
+
+R7 把“模型回答正确”与“回答中的 claim 被当前证据支持”分开，并暴露了窗口位置、证据类型和 claim 级支持之间的缺口。它证明了 v3 的 grounding checklist 在固定四题上没有带来可观测的 source-code cross-source 改善，也保留了可复核的 negative result、人工审计记录和完整 artifact provenance。这个结果不是 Prompt 失败的泛化结论，而是对固定 TC01-TC04、固定预算、固定工具和固定 Knowledge backend 的受控观测。
+
+因此不继续针对 TC01-TC04 做 Prompt tuning。继续在同一组 case 上调 Prompt 会把 benchmark 适配误认为能力提升，放大 benchmark overfitting 风险，同时无法解决 evidence relevance、window sufficiency 和 claim-level grounding 的跨任务问题。Production 应恢复最后一个有实证支持的 baseline，而不是把未证明改善的实验 prompt 升级为默认值。
+
+### Production baseline、资产与 stop rule
+
+`/engineering/query` 恢复使用 `ENGINEERING_DECISION_PROMPT_V2_PROFILE`：`engineering_agent_decision_prompt_v2`，SHA-256 为 `14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107`。v2 已通过 Formal R6（4/4 completed、0 final parse failure）；v3 Formal R7 未证明 grounding 指标提升，因此保留为实验结果，不提升为 production default。
+
+R7 不删除任何实验身份或资产：Engineering v3 template、v3 SHA、v3 tests、runner v3 identity、Study Note R7 和 R7 artifact provenance 均保留。R7 artifact 位于外部 benchmark work directory，run manifest 继续记录 source commit、prompt/repair identity、Knowledge backend、budget 和安全记录。Repair matrix 继续为 Legacy = 0、Engineering v2 = 1、Engineering v3 = 1；v3 identity 仍可构造，历史 runner 仍接受 v3。
+
+G11-02 到此关闭。冻结 v2/v3/Repair Prompt、Strict Parser、Tool implementations、Knowledge backend、5/4/2 budget、7-tool registry、600 max output、四个 runner case 和 Gold obligations；不得开始 R8。Evidence Sufficiency debt 应跨 task family 重新验证后再设计系统机制，统一带入 G12 Engineering Evaluation 2.0。

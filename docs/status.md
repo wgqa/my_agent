@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-22
+**更新日期：** 2026-08-23
 
 ## 当前状态
 
@@ -14,8 +14,33 @@
 - **G7 = CLOSED / Ledger optional**
 - **G8 = CLOSED / Context v1 mixed**
 - **G9-RELIABILITY-01 = CLOSED**
-- **CURRENT BASELINE = 2603ab788b6dbb4b079f5383525fb9d2cea8d388**
-- **NEXT = Core Evidence Tools Expansion**
+- **G11-02 Theory ↔ Code = CLOSED / MIXED**
+- **G11-03 = NOT STARTED (STOP)**
+- **CURRENT BASELINE = fc2679a4af75ae1fcb20ea787dba3224492f9f23**
+- **NEXT = G12 Engineering Evaluation 2.0（跨 task family 验证 Evidence Sufficiency debt）**
+
+## G11-02 Theory ↔ Code Closure
+
+- **状态：** CLOSED / MIXED。
+- **Formal R7 run：** `g11-02-r7-evidence-grounded-20260823-204821`，`source_commit = fc2679a4af75ae1fcb20ea787dba3224492f9f23`，`prompt = engineering_agent_decision_prompt_v3`。
+- **R7 结果：** completion 4/4，final parse failure 0，source-code cross-source 3/4，required tool coverage 100%，forbidden 0，repair attempted/succeeded 1/1，initial parse category `OUTPUT_TRUNCATED`；v3 没有改善 R6 的 3/4 source-code cross-source，结论为 negative / inconclusive for grounding improvement。
+- **Production prompt：** `/engineering/query` 恢复 `ENGINEERING_DECISION_PROMPT_V2_PROFILE`，identity `engineering_agent_decision_prompt_v2`，SHA-256 `14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107`。v2 的 Formal R6 结果为 4/4 completed、0 final parse failure。
+- **保留：** Engineering v3 template、v3 SHA、v3 tests、runner v3 identity、Study Note R7 与 R7 artifact provenance；v3 仅作为实验结果。
+- **Repair matrix：** Legacy = 0；Engineering v2 = 1；Engineering v3 = 1。
+
+### Accepted
+
+routing、verified knowledge、repo evidence、budget control、structured repair、runtime completion、tool safety。
+
+### Known debt
+
+evidence relevance、evidence sufficiency、claim-level grounding、knowledge relevance、source-vs-doc selection。
+
+这些 debt 不再针对 TC01-TC04 tuning，统一带入 G12 Engineering Evaluation 2.0；Evidence Sufficiency 应跨 task family 重新验证后再设计系统机制。
+
+### Freeze
+
+不得再修改 v2 Prompt、v3 Prompt、Repair Prompt、Strict Parser、Tool implementations、Knowledge backend、budget 5/4/2、registry 7、600 max output、runner 四个 case 和 Gold obligations；不得开 R8。R7 artifact 保留在外部 `benchmark_work/gate11/theory_code_runs/g11-02-r7-evidence-grounded-20260823-204821`。
 
 ## 项目定位
 
