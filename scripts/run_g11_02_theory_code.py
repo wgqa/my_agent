@@ -26,6 +26,7 @@ KNOWN_PROMPT_IDENTITIES = {
     "tool_agent_decision_prompt_v3": "a6092bffdfee3236575ae0f801985e6c8d6aecedba339672bde838f1daed1dc1",
     "engineering_agent_decision_prompt_v1": "aa99e543d2bfbd3315113842e5377bf52bff7dcf50fc843840785ddee34dfa0a",
     "engineering_agent_decision_prompt_v2": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107",
+    "engineering_agent_decision_prompt_v3": "0e9554cffcd7240ad394afb24cc60239d583f1f0a7218b2fad0aab09507ff917",
 }
 REPAIR_PROMPT_VERSION = "engineering_action_repair_prompt_v1"
 REPAIR_PROMPT_SHA256 = "958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636"
@@ -323,6 +324,7 @@ def _metrics(cases: list[dict]) -> dict:
         {"knowledge", "project_code"}.issubset(set(item["evidence_kinds"]))
         for item in cases
     )
+    source_code_cross_source_cases = cross_source
     required_coverage = {
         tool: sum(tool in item["tool_sequence"] for item in cases)
         for tool in REQUIRED_TOOLS
@@ -337,6 +339,10 @@ def _metrics(cases: list[dict]) -> dict:
         "completion_rate": completed / len(cases) if cases else 0,
         "cross_source_cases": cross_source,
         "cross_source_evidence_rate": cross_source / len(cases) if cases else 0,
+        "source_code_cross_source_cases": source_code_cross_source_cases,
+        "source_code_cross_source_rate": (
+            source_code_cross_source_cases / len(cases) if cases else 0
+        ),
         "required_tool_coverage": required_coverage,
         "required_tool_coverage_rate": (
             sum(required_coverage.values()) / (len(REQUIRED_TOOLS) * len(cases))

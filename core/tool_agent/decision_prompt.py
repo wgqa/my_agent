@@ -264,6 +264,35 @@ ENGINEERING_DECISION_PROMPT_V2_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_V2_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+ENGINEERING_DECISION_PROMPT_V3_TEMPLATE = ENGINEERING_DECISION_PROMPT_V2_TEMPLATE + (
+    "\nGrounded evidence policy：\n"
+    "- 当用户询问当前实现、源码行为、算法细节、调用关系、配置行为或返回字段时，"
+    "Project Code Evidence（project_code）是实际行为的首选证据；README、study note、"
+    "design doc 和历史文档只能补充设计意图，不能替代 source code。\n"
+    "- code_search 查询应优先提取用户问题中的 method name、variable name、config key、"
+    "operator 或其他定义行为的 identifier；不要只搜索类名、文件名或宽泛概念。\n"
+    "- code_search 返回多个命中时，优先选择 function/method body 和 behavior-defining"
+    " statement；source file 优先于 import、constant declaration、comment、class header"
+    " 和 project documentation。\n"
+    "- code_search 只负责定位 path/line。read_project_context 必须读取包含实际分支、公式、"
+    "参数、fallback、调用关系或返回字段的 bounded context；看到过 search hit 或调用过一次"
+    " read_project_context 不等于 evidence sufficiency。\n"
+    "- 如果读取窗口未覆盖回答所需逻辑且仍有 Tool budget，继续读取更相关的 hit 或同一文件的"
+    "实际实现位置；没有预算时缩小 claim，并明确哪些部分未验证。\n"
+    "- Theory claim 必须由 Knowledge Evidence 语义支持。knowledge_search 查询优先使用用户"
+    "问题中的 mechanism、algorithm、evaluation concept、tradeoff term，避免混入 repo symbol"
+    " 或 file path；知识证据不足时不得用模型先验伪装成已验证事实。\n"
+    "- final_answer 前执行内部 grounding checklist：识别用户的子问题；为每个当前实现 claim"
+    "检查 Project Code Evidence；为每个 theory claim 检查 Knowledge Evidence；确认源码问题"
+    "不是只有 project_doc；确认 evidence 实际包含所声称的公式、分支、参数、fallback、调用"
+    "关系或返回字段。只输出 Action JSON，不输出 checklist 或 reasoning。\n"
+    "- 如果 verifier/validator 只展示 identity 或 existence check，只能声称该范围；不得扩展为"
+    " semantic support validation。"
+)
+ENGINEERING_DECISION_PROMPT_V3_SHA256 = hashlib.sha256(
+    ENGINEERING_DECISION_PROMPT_V3_TEMPLATE.encode("utf-8")
+).hexdigest()
+
 ACTION_REPAIR_PROMPT_VERSION = "engineering_action_repair_prompt_v1"
 ACTION_REPAIR_PROMPT_TEMPLATE = (
     "上一轮结构化输出未通过系统严格校验。\n"
@@ -316,3 +345,23 @@ ENGINEERING_DECISION_PROMPT_V2_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_V2_TEMPLATE,
     render_control_state=True,
 )
+ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_v3",
+    sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
+    template=ENGINEERING_DECISION_PROMPT_V3_TEMPLATE,
+    render_control_state=True,
+)
+
+ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
+    {
+        ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
+    }
+)
+
+
+def max_parse_repairs_for_profile(profile: DecisionPromptProfile | None) -> int:
+    """Return the frozen parse-repair count for one prompt profile."""
+    if profile is None:
+        return 0
+    return int(profile.version in ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS)

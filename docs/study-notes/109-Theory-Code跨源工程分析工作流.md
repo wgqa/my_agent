@@ -90,3 +90,13 @@ R6 在 strict parse 之后增加安全 taxonomy，至少区分 `OUTPUT_TRUNCATED
 Engineering v2 获得最多一次 bounded structured-action repair。它不是 network retry、Provider retry、Tool retry 或 Runtime retry，而是同一个 Decision 的第二次受控模型调用：复用原 system policy、user question、已有 trusted control state 和不可信 Observation context，再追加独立的 `engineering_action_repair_prompt_v1` 指令。Repair 不接收、不写入、不持久化 malformed raw output，因此 trace、API response、metadata 和 artifact 都只保存 category、bool、小整数等安全字段。Repair 成功后仍必须经过 Registry、schema validation、budget、duplicate detection 和 ToolExecutor；`must_terminate=true` 时产生 tool_call 也会被 Runtime 硬边界拒绝。
 
 Legacy v3 默认保持 0 次 repair，避免默默改变历史 `/tool-agent/query` 行为；Engineering v2 默认最多 1 次。R6 保持 `DECISION_MAX_OUTPUT_TOKENS=600`，因为在没有确认 baseline 失败确由 truncation 导致前，不应盲目增加输出预算。修复可能提升 completion，但会增加 Provider call、token、latency 和成本，所以必须同时报告 repair attempt/success rate、provider calls、parse failures、tool calls、iterations、cross-source evidence 和 evidence count，不能只看完成率。
+
+## R7：Evidence Sufficiency & Grounded Finalization
+
+Retrieval success 不等于 evidence relevance，tool called 不等于 evidence sufficient，答案正确也不等于答案 grounded。Engineering v3 因此把最终回答前的证据充分性判断写入通用 policy：当问题涉及当前实现、源码行为、算法细节、调用关系、配置行为或返回字段时，`project_code` source evidence 优先于 README、study note、design doc 和历史文档；文档可以补充设计意图，但不能证明当前代码实际如何执行。
+
+`code_search` 是 Locate，不是 Read。搜索应从用户问题提取 method、variable、config key、operator 等定义行为的 identifier；多个命中时优先 function/method body 和 behavior-defining statement。`read_project_context` 的 bounded window 必须真正包含回答所需的分支、公式、参数、fallback、调用关系或返回字段；调用过工具一次，或只读到 class header、loop 开头、调用点或文档，并不构成充分证据。仍有预算时继续读取更相关的代码位置，没有预算时缩小 claim 并明确未验证部分。
+
+Theory claim 需要 Knowledge Evidence 的语义支持。知识检索优先使用 mechanism、algorithm、evaluation concept 和 engineering tradeoff 等问题术语，避免把 repo symbol 或 path 混入理论查询；知识证据不能支持的内容不能由 model prior 补成“已验证事实”。这种边界把 Evidence Sufficiency 与 Hallucination 直接连接起来：证据不足时，模型必须减少声称，而不是用熟悉的先验补齐当前实现。对于 verifier/validator，只能声称 evidence 实际展示的能力；identity 或 existence check 不能被扩展成 semantic support validation。
+
+Finalization 的 grounding checklist 只要求模型做结果判断，不要求输出 CoT：识别用户的子问题；逐个检查当前实现 claim 是否有 Project Code Evidence；逐个检查 theory claim 是否有 Knowledge Evidence；确认源码问题不是只有 `project_doc`；确认 evidence 窗口实际展示了声称的公式、分支、参数、fallback、调用关系或返回字段。若检查失败且仍有 Tool budget，继续 Tool；若没有预算，输出缩小后的结论并标明未验证边界。Grounded Finalization 是 Evidence-Grounded Agent 的核心能力，因为它把“拿到证据”与“只声称证据真正支持的内容”连接起来。R7 不增加 Tool、不扩大 5/4/2、不改变 read window，也不引入 LLM-as-Judge。

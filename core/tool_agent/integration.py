@@ -12,7 +12,10 @@ import os
 from typing import Any, Optional
 
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
-from core.tool_agent.decision_prompt import DecisionPromptProfile
+from core.tool_agent.decision_prompt import (
+    DecisionPromptProfile,
+    max_parse_repairs_for_profile,
+)
 from core.tool_agent.default_tools import build_readonly_tool_registry
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget
@@ -59,12 +62,7 @@ def build_tool_agent_runtime(
             api_key=api_key,
             base_url=base_url,
             prompt_profile=prompt_profile,
-            max_parse_repairs=(
-                1
-                if prompt_profile is not None
-                and prompt_profile.version == "engineering_agent_decision_prompt_v2"
-                else 0
-            ),
+            max_parse_repairs=max_parse_repairs_for_profile(prompt_profile),
         )
     return ToolAgentRuntime(
         registry=registry,

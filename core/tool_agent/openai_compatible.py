@@ -40,6 +40,7 @@ from core.tool_agent.decision_prompt import (
     DecisionPromptProfile,
     LEGACY_DECISION_PROMPT_PROFILE,
     compute_toolset_sha256,
+    max_parse_repairs_for_profile,
 )
 from core.tool_agent.models import ACTION_PARSE_FAILED
 from core.tool_agent.registry import ToolRegistry
@@ -197,11 +198,7 @@ class OpenAICompatibleAgentDecisionProvider:
             raise TypeError("prompt_profile 必须是 DecisionPromptProfile 或 None")
         self._prompt_profile = prompt_profile or LEGACY_DECISION_PROMPT_PROFILE
         if max_parse_repairs is None:
-            max_parse_repairs = (
-                1
-                if self._prompt_profile.version == "engineering_agent_decision_prompt_v2"
-                else 0
-            )
+            max_parse_repairs = max_parse_repairs_for_profile(self._prompt_profile)
         if type(max_parse_repairs) is not int or isinstance(max_parse_repairs, bool):
             raise TypeError("max_parse_repairs 必须是严格 int")
         if max_parse_repairs not in (0, 1):

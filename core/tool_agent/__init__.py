@@ -64,7 +64,11 @@ from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_SHA256,
     ENGINEERING_DECISION_PROMPT_V2_PROFILE,
     ENGINEERING_DECISION_PROMPT_V2_SHA256,
+    ENGINEERING_DECISION_PROMPT_V3_PROFILE,
+    ENGINEERING_DECISION_PROMPT_V3_SHA256,
+    ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS,
     LEGACY_DECISION_PROMPT_PROFILE,
+    max_parse_repairs_for_profile,
 )
 from core.tool_agent.registry import (
     RegisteredTool,
@@ -167,6 +171,10 @@ __all__ = [
     "ENGINEERING_DECISION_PROMPT_SHA256",
     "ENGINEERING_DECISION_PROMPT_V2_PROFILE",
     "ENGINEERING_DECISION_PROMPT_V2_SHA256",
+    "ENGINEERING_DECISION_PROMPT_V3_PROFILE",
+    "ENGINEERING_DECISION_PROMPT_V3_SHA256",
+    "ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS",
+    "max_parse_repairs_for_profile",
     "strict_json_loads_no_duplicates",
     "parse_agent_action_text",
     "diagnose_agent_action_text",
