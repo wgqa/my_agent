@@ -139,3 +139,9 @@ Runner 会记录 prompt/repair identity、source checkout、target commit/ref、
 semantic payload != serialized representation。JSON/JSONL 的安全校验必须先反序列化，再递归检查 string leaf；否则 JSON 对普通 literal backslash 的转义可能被 raw-text 扫描误报为 UNC path。Markdown 不是 JSON，因此保留文本层的 repo-root、实际 drive/UNC path 和 secret 防护，但 UNC 也必须满足真实 \\server\share 形状，不能看到任意 \\ 就拒绝。
 
 安全验证不能简单关闭，而应放在正确的 serialization abstraction layer。首轮 Formal run g11-03-change-impact-formal-20260823-235907 因 runner 的 artifact safety serialization false positive 判为 INVALID / INFRASTRUCTURE FAILURE；这是 runner infrastructure 结果，不作 Agent 结论。R2 后正式实验仍需生成新的 run_id。
+
+## 17. Path Detection Requires Lexical Boundaries
+
+URL scheme 和 Windows drive path 共享部分表面语法：http:// 中的 p:/、https:// 中的 s:/ 看起来像 drive prefix。若 regex 在字符串任意位置 search，合法 endpoint 就会和 C:/ 本地路径发生 lexical collision。正确做法是给 local-path token 加左边界，例如 drive prefix 前不得紧邻 ASCII 字母或数字；这样字符串开头、空白、标点或等号后的 C:/ 仍会被拒绝。
+
+这不是把整个 URL whitelist 为安全值。URL query 或 fragment 中若出现 path=C:\\secret.txt，真正的本地路径 token 仍必须被拒绝；修复的是 path token boundary，而不是 endpoint 类型的绕过。第二次 Formal run g11-03-change-impact-formal-rerun-20260824-003342 因 URL scheme substring misclassified as Windows drive path 判为 INVALID / INFRASTRUCTURE FAILURE，同样不作 Agent 结论。

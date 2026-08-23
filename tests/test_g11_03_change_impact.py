@@ -234,9 +234,71 @@ def test_artifact_safety_checks_decoded_json_values_not_json_escapes(tmp_path: P
 
 
 @pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://127.0.0.1:8765/engineering/query",
+        "https://example.com/api/v1",
+        "http://localhost:8765/engineering/query",
+    ],
+)
+def test_artifact_safety_accepts_http_https_and_port_urls(
+    tmp_path: Path, endpoint: str
+):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "manifest.json").write_text(
+        json.dumps({"endpoint": endpoint}, ensure_ascii=False), encoding="utf-8"
+    )
+
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+def test_real_formal_manifest_shape_safety_preflight(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    manifest = {
+        "schema_version": "g11_03_change_impact_manifest_v1",
+        "workflow": runner.WORKFLOW_ID,
+        "run_id": "g11-03-r3-manifest-preflight",
+        "endpoint": "http://127.0.0.1:8765/engineering/query",
+        "source_commit": "a" * 40,
+        "source_commit_attestation": "operator_declared_and_locally_verified_checkout",
+        "project_identity": runner.PROJECT_IDENTITY,
+        "knowledge_corpus_id": runner.KNOWLEDGE_CORPUS_ID,
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "prompt_version": runner.PRODUCTION_PROMPT_VERSION,
+        "prompt_sha256": runner.PRODUCTION_PROMPT_SHA256,
+        "repair_prompt_version": runner.REPAIR_PROMPT_VERSION,
+        "repair_prompt_sha256": runner.REPAIR_PROMPT_SHA256,
+        "max_parse_repairs": runner.MAX_PARSE_REPAIRS,
+        "toolset_sha256": runner.TOOLSET_SHA256,
+        "registry_size": runner.REGISTRY_SIZE,
+        "max_output_tokens": runner.MAX_OUTPUT_TOKENS,
+        "provider_network_retries": runner.PROVIDER_NETWORK_RETRIES,
+        "budget": runner.BUDGET,
+        "required_tools": list(runner.REQUIRED_TOOLS),
+        "forbidden_tools": list(runner.FORBIDDEN_TOOLS),
+        "case_ids": [case["case_id"] for case in runner.CASES],
+        "target_commits": [case["target_commit"] for case in runner.CASES],
+        "absolute_paths_in_artifact": False,
+        "provider_raw_responses_recorded": False,
+        "cot_recorded": False,
+    }
+    (output / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
     "unsafe_value",
     [
         r"C:\Users\example\secret.txt",
+        r"observed C:\Users\example\secret.txt",
+        r"path=C:\Users\example\secret.txt",
+        r"https://example.test/?path=C:\Users\example\secret.txt",
         str(REPO_ROOT.resolve()),
         r"\\server\share\file.txt",
         "sk-real-looking-test-value",
@@ -271,6 +333,8 @@ def test_artifact_safety_accepts_sanitized_jsonl_and_markdown(tmp_path: Path):
         encoding="utf-8",
     )
     (output / "run_report.md").write_text(
+        "endpoint: http://127.0.0.1:8765/engineering/query\n"
+        "docs: https://example.com/api/v1\n"
         "path: <absolute-path>\nsecret: <redacted-secret>\nroot: <repo>\n",
         encoding="utf-8",
     )
@@ -278,11 +342,17 @@ def test_artifact_safety_accepts_sanitized_jsonl_and_markdown(tmp_path: Path):
     runner.validate_artifact_safety(output, REPO_ROOT)
 
 
-def test_markdown_artifact_rejects_actual_unc_path(tmp_path: Path):
+@pytest.mark.parametrize(
+    "unsafe_value",
+    [r"C:\Users\example\secret.txt", r"\\server\share\file.txt"],
+)
+def test_markdown_artifact_rejects_actual_local_paths(
+    tmp_path: Path, unsafe_value: str
+):
     output = tmp_path / "artifact"
     output.mkdir()
     (output / "run_report.md").write_text(
-        r"observed: \\server\share\file.txt\n", encoding="utf-8"
+        unsafe_value + "\n", encoding="utf-8"
     )
 
     with pytest.raises(ValueError, match="unsafe local path or secret"):

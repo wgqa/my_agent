@@ -77,7 +77,7 @@ _PROMPT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _ABSOLUTE_PATH_RE = re.compile(
-    r"(?i)(?:[A-Z]:[\\/][^\s\"'<>]+|\\\\[^\\/\s\"'<>]+[\\/][^\\/\s\"'<>]+(?:[\\/][^\s\"'<>]+)?)"
+    r"(?i)(?:(?<![a-z0-9])[a-z]:[\\/][^\s\"'<>]+|\\\\[^\\/\s\"'<>]+[\\/][^\\/\s\"'<>]+(?:[\\/][^\s\"'<>]+)?)"
 )
 _SECRET_RE = re.compile(r"(?i)\bsk-[A-Za-z0-9_-]{4,}\b")
 
