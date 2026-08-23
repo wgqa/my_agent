@@ -27,6 +27,9 @@ KNOWN_PROMPT_IDENTITIES = {
     "engineering_agent_decision_prompt_v1": "aa99e543d2bfbd3315113842e5377bf52bff7dcf50fc843840785ddee34dfa0a",
     "engineering_agent_decision_prompt_v2": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107",
 }
+REPAIR_PROMPT_VERSION = "engineering_action_repair_prompt_v1"
+REPAIR_PROMPT_SHA256 = "958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636"
+MAX_PARSE_REPAIRS = 1
 _COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _PROMPT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -170,6 +173,20 @@ def validate_prompt_identity(version: object, sha256: object) -> tuple[str, str]
     expected_sha = KNOWN_PROMPT_IDENTITIES.get(version)
     if expected_sha is not None and expected_sha != normalized_sha:
         raise ValueError("prompt_version and prompt_sha256 do not match")
+    return version, normalized_sha
+
+
+def validate_repair_prompt_identity(version: object, sha256: object) -> tuple[str, str]:
+    """Require the fixed R6 bounded-repair prompt identity."""
+    if type(version) is not str or not _PROMPT_VERSION_RE.fullmatch(version):
+        raise ValueError("repair_prompt_version must be a bounded non-empty identifier")
+    if version != REPAIR_PROMPT_VERSION:
+        raise ValueError("repair_prompt_version is not the supported R6 identity")
+    if type(sha256) is not str or not _SHA256_RE.fullmatch(sha256):
+        raise ValueError("repair_prompt_sha256 must be exactly 64 hexadecimal characters")
+    normalized_sha = sha256.lower()
+    if normalized_sha != REPAIR_PROMPT_SHA256:
+        raise ValueError("repair_prompt_version and repair_prompt_sha256 do not match")
     return version, normalized_sha
 
 
@@ -345,6 +362,9 @@ def _metrics(cases: list[dict]) -> dict:
         "repair_attempted_cases": sum(item["repair_attempted"] for item in cases),
         "repair_succeeded_cases": sum(item["repair_succeeded"] for item in cases),
         "parse_failure_cases": sum(
+            item.get("failure_code") == "ACTION_PARSE_FAILED" for item in cases
+        ),
+        "initial_parse_failure_cases": sum(
             bool(item["initial_parse_categories"]) for item in cases
         ),
         "initial_parse_categories": [
@@ -364,6 +384,9 @@ def _write_report(path: Path, manifest: dict, cases: list[dict], metrics: dict) 
         f"- endpoint: `{manifest['endpoint']}`",
         f"- prompt_version: `{manifest['prompt_version']}`",
         f"- prompt_sha256: `{manifest['prompt_sha256']}`",
+        f"- repair_prompt_version: `{manifest['repair_prompt_version']}`",
+        f"- repair_prompt_sha256: `{manifest['repair_prompt_sha256']}`",
+        f"- max_parse_repairs: `{manifest['max_parse_repairs']}`",
         f"- knowledge_corpus_id: `{manifest['knowledge_corpus_id']}`",
         f"- knowledge_backend: `{json.dumps(manifest['knowledge_backend'], ensure_ascii=False, sort_keys=True)}`",
         "- correctness: not automatically scored; Gold obligations are provided for manual audit.",
@@ -431,11 +454,22 @@ def main() -> int:
     )
     parser.add_argument("--prompt-version", required=True)
     parser.add_argument("--prompt-sha256", required=True)
+    parser.add_argument(
+        "--repair-prompt-version",
+        default=REPAIR_PROMPT_VERSION,
+    )
+    parser.add_argument(
+        "--repair-prompt-sha256",
+        default=REPAIR_PROMPT_SHA256,
+    )
     args = parser.parse_args()
 
     source_commit = validate_source_commit(args.source_commit, git_root=args.git_root)
     prompt_version, prompt_sha256 = validate_prompt_identity(
         args.prompt_version, args.prompt_sha256
+    )
+    repair_prompt_version, repair_prompt_sha256 = validate_repair_prompt_identity(
+        args.repair_prompt_version, args.repair_prompt_sha256
     )
     knowledge_status = validate_knowledge_backend(
         _get_json(args.knowledge_url or _knowledge_url(args.url))
@@ -456,6 +490,9 @@ def main() -> int:
         "model": "deepseek-chat",
         "prompt_version": prompt_version,
         "prompt_sha256": prompt_sha256,
+        "repair_prompt_version": repair_prompt_version,
+        "repair_prompt_sha256": repair_prompt_sha256,
+        "max_parse_repairs": MAX_PARSE_REPAIRS,
         "toolset_sha256": TOOLSET_SHA256,
         "budget": {"max_agent_iterations": 5, "max_tool_calls": 4, "max_tool_errors": 2},
         "case_ids": [case["case_id"] for case in CASES],

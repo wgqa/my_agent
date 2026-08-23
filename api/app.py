@@ -236,7 +236,7 @@ def _build_agent_response(result) -> AgentQueryResponse:
     )
 
 
-_TRACE_ALLOWED_KEYS = frozenset({
+LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS = frozenset({
     "event_type",
     "iteration",
     "action_type",
@@ -247,20 +247,35 @@ _TRACE_ALLOWED_KEYS = frozenset({
     "iterations_used",
     "tool_calls_used",
     "tool_errors_used",
-    "provider_call_count",
-    "repair_attempted",
-    "repair_succeeded",
-    "parse_failure_category",
 })
+ENGINEERING_TRACE_ALLOWED_KEYS = (
+    LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS
+    | frozenset(
+        {
+            "provider_call_count",
+            "repair_attempted",
+            "repair_succeeded",
+            "parse_failure_category",
+        }
+    )
+)
 
 
-def _safe_trace(trace) -> list[dict]:
+def _safe_trace(trace, allowed_keys=LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS) -> list[dict]:
     """只透出 Runtime Trace 的安全字段白名单；绝不含 raw/CoT/prompt/key/
     traceback/本机敏感绝对路径。code_search 匹配行文本也不进 trace。"""
     return [
-        {k: event.get(k) for k in _TRACE_ALLOWED_KEYS if k in event}
+        {k: event.get(k) for k in allowed_keys if k in event}
         for event in trace
     ]
+
+
+def _safe_legacy_trace(trace) -> list[dict]:
+    return _safe_trace(trace, LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS)
+
+
+def _safe_engineering_trace(trace) -> list[dict]:
+    return _safe_trace(trace, ENGINEERING_TRACE_ALLOWED_KEYS)
 
 
 def _get_tool_agent_runtime() -> ToolAgentRuntime:
@@ -313,7 +328,7 @@ def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResp
         iterations_used=result.iterations_used,
         tool_calls_used=result.tool_calls_used,
         tool_errors_used=result.tool_errors_used,
-        trace=_safe_trace([event.to_dict() for event in result.trace]),
+        trace=_safe_legacy_trace([event.to_dict() for event in result.trace]),
         evidence=[
             ToolAgentEvidence(
                 evidence_id=f"E{legacy_id}",
@@ -368,7 +383,7 @@ def _build_engineering_response(
         iterations_used=result.iterations_used,
         tool_calls_used=result.tool_calls_used,
         tool_errors_used=result.tool_errors_used,
-        trace=_safe_trace([event.to_dict() for event in result.trace]),
+        trace=_safe_engineering_trace([event.to_dict() for event in result.trace]),
         evidence=evidence,
     )
 
