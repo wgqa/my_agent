@@ -15,9 +15,9 @@
 - **G8 = CLOSED / Context v1 mixed**
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
-- **G11-03 = NOT STARTED (STOP)**
-- **CURRENT BASELINE = fc2679a4af75ae1fcb20ea787dba3224492f9f23**
-- **NEXT = G12 Engineering Evaluation 2.0（跨 task family 验证 Evidence Sufficiency debt）**
+- **G11-03 Change Impact & Test Recommendation Workflow = NOT STARTED / NEXT**
+- **CURRENT BASELINE = 0ce4dd4317fc47f84bd5d06ae605a8484aab6742**
+- **NEXT = G11-03 — Change Impact & Test Recommendation Workflow**
 
 ## G11-02 Theory ↔ Code Closure
 
