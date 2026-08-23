@@ -15,9 +15,9 @@
 - **G8 = CLOSED / Context v1 mixed**
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
-- **G11-03 Change Impact & Test Recommendation Workflow = NOT STARTED / NEXT**
-- **CURRENT BASELINE = 0ce4dd4317fc47f84bd5d06ae605a8484aab6742**
-- **NEXT = G11-03 — Change Impact & Test Recommendation Workflow**
+- **G11-03 Change Impact & Test Recommendation Workflow = IN PROGRESS / FORMAL PENDING**
+- **CURRENT PRODUCT BASELINE = 0ce4dd4317fc47f84bd5d06ae605a8484aab6742**
+- **NEXT = G11-03 Formal Validation**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -41,6 +41,20 @@ evidence relevance、evidence sufficiency、claim-level grounding、knowledge re
 ### Freeze
 
 不得再修改 v2 Prompt、v3 Prompt、Repair Prompt、Strict Parser、Tool implementations、Knowledge backend、budget 5/4/2、registry 7、600 max output、runner 四个 case 和 Gold obligations；不得开 R8。R7 artifact 保留在外部 `benchmark_work/gate11/theory_code_runs/g11-02-r7-evidence-grounded-20260823-204821`。
+
+## G11-03 Change Impact & Test Recommendation Workflow
+
+- **状态：** IN PROGRESS / FORMAL PENDING。
+- **任务性质：** transfer validation；复用 Engineering Prompt v2、现有 7 Tools、Repair v1 与 5/4/2 budget，不新增 Change Impact 专用 Prompt，不启用 v3。
+- **固定链路：** `changed_files → git_diff → find_tests → read_project_context → final_answer`。
+- **固定 cases：** CI01、CI02、CI03、CI04；各 case 使用真实历史验收 commit，`base_ref = <target_commit>^`，`head_ref = <target_commit>`。
+- **Required tools：** `changed_files`、`git_diff`、`find_tests`、`read_project_context`。
+- **Forbidden tools：** `knowledge_search`、`calculator`；`code_search` 不属于 Gold-required，不为凑调用主动使用。
+- **Runner：** `scripts/run_g11_03_change_impact.py`；deterministic contract tests：`tests/test_g11_03_change_impact.py`。
+- **评测边界：** runner 自动统计 completion、Tool coverage、exact sequence、forbidden/non-target calls、`project_change`、`project_test` 与 change-test pair；Impact correctness、推荐理由和 claim-level grounding 仍需人工 Gold review，不自动判分。
+- **Formal：** 本任务未运行正式 DeepSeek 四 case；Formal 由用户在 real-provider 环境中显式运行。G11-04 未开始。
+
+Evidence Sufficiency debt 最终统一带入 G12 Engineering Evaluation 2.0，进行跨 task-family 验证；这不是当前 NEXT，也不改变 G11-03 Formal Validation 的顺序。
 
 ## 项目定位
 

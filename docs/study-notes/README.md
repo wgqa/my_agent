@@ -88,6 +88,7 @@
 | 107 | [107-测试发现与工程变更证据.md](107-测试发现与工程变更证据.md) | G10-02：bounded find_tests 候选发现、测试约定、确定性排序、project_test evidence 与 Git change 组合 |
 | 108 | [108-统一Engineering-Agent与异构Evidence架构.md](108-统一Engineering-Agent与异构Evidence架构.md) | G11-01：统一 Engineering Agent 产品入口、Tool Agent 控制平面与 Knowledge/Repository/Change/Test Evidence Contract |
 | 109 | [109-Theory-Code跨源工程分析工作流.md](109-Theory-Code跨源工程分析工作流.md) | G11-02：Theory ↔ Code 跨源工程分析、Knowledge/Repository Evidence、Engineering Prompt Profile 与 baseline→intervention→rerun 实验方法 |
+| 110 | [110-Change-Impact与测试推荐工作流.md](110-Change-Impact与测试推荐工作流.md) | G11-03：Change Impact、Git Change/Test Evidence 链路、candidate 与 test evidence 边界、transfer validation |
 
 ## FROZEN_EVIDENCE（11 份）
 
