@@ -21,7 +21,10 @@ from openai import (
     RateLimitError,
 )
 
-from core.tool_agent.action_parser import parse_agent_action_text
+from core.tool_agent.action_parser import (
+    ActionParseCategory,
+    diagnose_agent_action_text,
+)
 from core.tool_agent.actions import (
     ACTION_PROVIDER_ERROR,
     ACTION_TIMEOUT,
@@ -29,6 +32,7 @@ from core.tool_agent.actions import (
     AgentDecisionOutcome,
 )
 from core.tool_agent.decision_prompt import (
+    build_action_repair_instruction,
     DECISION_MAX_OUTPUT_TOKENS,
     DECISION_MAX_RETRIES,
     DECISION_TEMPERATURE,
@@ -117,6 +121,30 @@ def _extract_content(response: object) -> str:
     return content
 
 
+def _extract_finish_reason(response: object) -> Optional[str]:
+    """Read only the provider's bounded finish-reason enum."""
+    try:
+        choices = response.choices
+        value = getattr(choices[0], "finish_reason", None)
+    except (AttributeError, IndexError):
+        return None
+    if value is None:
+        return None
+    if value == "stop":
+        return "stop"
+    if value == "length":
+        return "length"
+    return "other"
+
+
+def _sum_optional_tokens(
+    first: Optional[int], second: Optional[int]
+) -> Optional[int]:
+    if first is None or second is None:
+        return None
+    return first + second
+
+
 def _extract_usage(response: object) -> tuple[Optional[int], Optional[int]]:
     usage = getattr(response, "usage", None)
     if usage is None:
@@ -153,6 +181,7 @@ class OpenAICompatibleAgentDecisionProvider:
         base_url: Optional[str] = None,
         client: Optional[object] = None,
         prompt_profile: Optional[DecisionPromptProfile] = None,
+        max_parse_repairs: Optional[int] = None,
     ):
         _validate_nonempty_str(provider, "provider")
         _validate_nonempty_str(model, "model")
@@ -167,6 +196,17 @@ class OpenAICompatibleAgentDecisionProvider:
         ):
             raise TypeError("prompt_profile 必须是 DecisionPromptProfile 或 None")
         self._prompt_profile = prompt_profile or LEGACY_DECISION_PROMPT_PROFILE
+        if max_parse_repairs is None:
+            max_parse_repairs = (
+                1
+                if self._prompt_profile.version == "engineering_agent_decision_prompt_v2"
+                else 0
+            )
+        if type(max_parse_repairs) is not int or isinstance(max_parse_repairs, bool):
+            raise TypeError("max_parse_repairs 必须是严格 int")
+        if max_parse_repairs not in (0, 1):
+            raise ValueError("max_parse_repairs 只允许 0 或 1")
+        self._max_parse_repairs = max_parse_repairs
         self._client = (
             client if client is not None else self._build_default_client(api_key)
         )
@@ -195,10 +235,11 @@ class OpenAICompatibleAgentDecisionProvider:
         context=(),
         control_state: DecisionControlState | None = None,
     ) -> AgentDecisionOutcome:
-        """单步结构化决策：看见 ToolSpec + 用户请求（+ 可选 Observation context）。
+        """单步结构化决策，含可选的一次 Engineering Action repair。
 
-        只调用一次 LLM；不执行任何 Tool；不把 Observation 喂回模型以外的
-        任何东西。context 默认空，保持与 G4-AGENT-04 单步接口兼容。
+        Repair 不是 Runtime/Tool/Provider retry：它只在首次响应成功到达、
+        严格解析失败且 profile opt-in 时发生。模型输出不会进入 trace、
+        metadata 或 repair prompt。
         JSON mode（response_format）只保证"语法上是 JSON"，不替代
         Parser / Registry / JSON Schema 的语义约束。
         """
@@ -232,6 +273,7 @@ class OpenAICompatibleAgentDecisionProvider:
 
         try:
             content = _extract_content(response)
+            finish_reason = _extract_finish_reason(response)
             input_tokens, output_tokens = _extract_usage(response)
         except _ProviderResponseError:
             return AgentDecisionOutcome(
@@ -240,21 +282,105 @@ class OpenAICompatibleAgentDecisionProvider:
                 call_metadata=self._build_metadata(latency_ms, toolset_sha256),
             )
 
-        if content.strip() == "":
+        initial_result = diagnose_agent_action_text(content, registry)
+        initial_category = initial_result.category
+        if initial_result.failure_code is None:
+            return AgentDecisionOutcome(
+                action=initial_result.action,
+                failure_code=None,
+                call_metadata=self._build_metadata(
+                    latency_ms,
+                    toolset_sha256,
+                    input_tokens,
+                    output_tokens,
+                    initial_finish_reason=finish_reason,
+                ),
+            )
+        if finish_reason == "length":
+            initial_category = ActionParseCategory.OUTPUT_TRUNCATED
+        if self._max_parse_repairs == 0:
             return AgentDecisionOutcome(
                 action=None,
-                failure_code=ACTION_PARSE_FAILED,
+                failure_code=initial_result.failure_code,
                 call_metadata=self._build_metadata(
-                    latency_ms, toolset_sha256, input_tokens, output_tokens
+                    latency_ms,
+                    toolset_sha256,
+                    input_tokens,
+                    output_tokens,
+                    initial_parse_category=initial_category.value,
+                    initial_finish_reason=finish_reason,
                 ),
             )
 
-        action, failure_code = parse_agent_action_text(content, registry)
+        repair_messages = list(messages)
+        repair_messages.append(
+            {
+                "role": "system",
+                "content": build_action_repair_instruction(
+                    initial_category.value,
+                    must_terminate=bool(
+                        control_state is not None and control_state.must_terminate
+                    ),
+                ),
+            }
+        )
+        try:
+            repair_response = self._client.chat.completions.create(
+                model=self._model,
+                messages=repair_messages,
+                temperature=DECISION_TEMPERATURE,
+                max_tokens=DECISION_MAX_OUTPUT_TOKENS,
+                response_format={"type": "json_object"},
+            )
+        except _KNOWN_PROVIDER_EXCEPTIONS as exc:
+            return AgentDecisionOutcome(
+                action=None,
+                failure_code=_classify_provider_exception(exc),
+                call_metadata=self._build_metadata(
+                    (time.perf_counter() - start) * 1000.0,
+                    toolset_sha256,
+                    input_tokens,
+                    output_tokens,
+                    call_count=2,
+                    repair_attempted=True,
+                    repair_succeeded=False,
+                    initial_parse_category=initial_category.value,
+                    initial_finish_reason=finish_reason,
+                ),
+            )
+        try:
+            repair_content = _extract_content(repair_response)
+            repair_input_tokens, repair_output_tokens = _extract_usage(repair_response)
+        except _ProviderResponseError:
+            return AgentDecisionOutcome(
+                action=None,
+                failure_code=ACTION_PROVIDER_ERROR,
+                call_metadata=self._build_metadata(
+                    (time.perf_counter() - start) * 1000.0,
+                    toolset_sha256,
+                    input_tokens,
+                    output_tokens,
+                    call_count=2,
+                    repair_attempted=True,
+                    repair_succeeded=False,
+                    initial_parse_category=initial_category.value,
+                    initial_finish_reason=finish_reason,
+                ),
+            )
+        repair_result = diagnose_agent_action_text(repair_content, registry)
         return AgentDecisionOutcome(
-            action=action,
-            failure_code=failure_code,
+            action=repair_result.action,
+            failure_code=repair_result.failure_code,
             call_metadata=self._build_metadata(
-                latency_ms, toolset_sha256, input_tokens, output_tokens
+                (time.perf_counter() - start) * 1000.0,
+                toolset_sha256,
+                _sum_optional_tokens(input_tokens, repair_input_tokens),
+                _sum_optional_tokens(output_tokens, repair_output_tokens),
+                call_count=2,
+                repair_attempted=True,
+                repair_succeeded=repair_result.failure_code is None,
+                initial_parse_category=initial_category.value,
+                initial_finish_reason=finish_reason,
             ),
         )
 
@@ -264,6 +390,12 @@ class OpenAICompatibleAgentDecisionProvider:
         toolset_sha256: str,
         input_tokens: Optional[int] = None,
         output_tokens: Optional[int] = None,
+        *,
+        call_count: int = 1,
+        repair_attempted: bool = False,
+        repair_succeeded: bool = False,
+        initial_parse_category: Optional[str] = None,
+        initial_finish_reason: Optional[str] = None,
     ) -> AgentDecisionCallMetadata:
         return AgentDecisionCallMetadata(
             provider=self._provider,
@@ -271,8 +403,12 @@ class OpenAICompatibleAgentDecisionProvider:
             prompt_version=self._prompt_profile.version,
             prompt_sha256=self._prompt_profile.sha256,
             toolset_sha256=toolset_sha256,
-            call_count=1,
+            call_count=call_count,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             latency_ms=latency_ms,
+            repair_attempted=repair_attempted,
+            repair_succeeded=repair_succeeded,
+            initial_parse_category=initial_parse_category,
+            initial_finish_reason=initial_finish_reason,
         )

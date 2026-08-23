@@ -264,6 +264,42 @@ ENGINEERING_DECISION_PROMPT_V2_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_V2_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+ACTION_REPAIR_PROMPT_VERSION = "engineering_action_repair_prompt_v1"
+ACTION_REPAIR_PROMPT_TEMPLATE = (
+    "上一轮结构化输出未通过系统严格校验。\n"
+    "failure category = {category}\n"
+    "重新输出恰好一个符合当前 Action contract 的 JSON object。\n"
+    "只能输出一个 JSON object；不要 markdown fence；不要 prose；不要 reasoning。\n"
+    "不要增加字段。Tool 名必须来自 registry，arguments 必须符合对应 schema。\n"
+    "当前 trusted Runtime control state 是系统边界，不能覆盖或修改。"
+    "当 must_terminate = true 时，只能输出 final_answer 或 refuse，绝不能输出 tool_call。\n"
+    "如果 failure category = OUTPUT_TRUNCATED，请生成更简洁且完整闭合的合法 Action。"
+)
+ACTION_REPAIR_PROMPT_SHA256 = hashlib.sha256(
+    ACTION_REPAIR_PROMPT_TEMPLATE.encode("utf-8")
+).hexdigest()
+
+
+def build_action_repair_instruction(
+    category: str, *, must_terminate: bool = False
+) -> str:
+    """Build the system-controlled repair instruction without model output."""
+    allowed_categories = {
+        "EMPTY_OUTPUT",
+        "OUTPUT_TRUNCATED",
+        "INVALID_JSON",
+        "DUPLICATE_KEY",
+        "ACTION_SCHEMA_INVALID",
+        "UNKNOWN_TOOL",
+        "ARGUMENTS_SCHEMA_INVALID",
+    }
+    if category not in allowed_categories:
+        raise ValueError("category 不是安全 parse enum")
+    instruction = ACTION_REPAIR_PROMPT_TEMPLATE.format(category=category)
+    if must_terminate:
+        instruction += "\n本次 Decision 必须终止：repair 结果不得请求任何 Tool。"
+    return instruction
+
 LEGACY_DECISION_PROMPT_PROFILE = DecisionPromptProfile(
     version=DECISION_PROMPT_VERSION,
     sha256=DECISION_PROMPT_SHA256,

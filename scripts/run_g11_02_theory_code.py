@@ -43,6 +43,10 @@ SAFE_TRACE_KEYS = frozenset(
         "iterations_used",
         "tool_calls_used",
         "tool_errors_used",
+        "provider_call_count",
+        "repair_attempted",
+        "repair_succeeded",
+        "parse_failure_category",
     }
 )
 
@@ -260,6 +264,17 @@ def _evidence_kinds(response: dict) -> list[str]:
 def _normalize_case(case: dict, response: dict, elapsed_ms: float) -> dict:
     trace = _safe_trace(response.get("trace"))
     sequence = _tool_sequence(trace)
+    decision_events = [
+        event for event in trace if event.get("event_type") == "decision_completed"
+    ]
+    provider_calls = sum(event.get("provider_call_count") or 0 for event in decision_events)
+    repair_attempted = any(event.get("repair_attempted") is True for event in decision_events)
+    repair_succeeded = any(event.get("repair_succeeded") is True for event in decision_events)
+    parse_categories = [
+        event["parse_failure_category"]
+        for event in decision_events
+        if isinstance(event.get("parse_failure_category"), str)
+    ]
     return {
         "case_id": case["case_id"],
         "question": case["question"],
@@ -270,6 +285,10 @@ def _normalize_case(case: dict, response: dict, elapsed_ms: float) -> dict:
         "iterations_used": response.get("iterations_used"),
         "tool_calls_used": response.get("tool_calls_used"),
         "tool_errors_used": response.get("tool_errors_used"),
+        "provider_calls_total": provider_calls,
+        "repair_attempted": repair_attempted,
+        "repair_succeeded": repair_succeeded,
+        "initial_parse_categories": parse_categories,
         "latency_ms": round(elapsed_ms, 2),
         "trace": trace,
         "tool_sequence": sequence,
@@ -322,6 +341,17 @@ def _metrics(cases: list[dict]) -> dict:
         "evidence_count": sum(len(item.get("evidence", [])) for item in cases),
         "refused_cases": sum(item.get("status") == "refused" for item in cases),
         "failed_cases": sum(item.get("status") == "failed" for item in cases),
+        "provider_calls_total": sum(item["provider_calls_total"] for item in cases),
+        "repair_attempted_cases": sum(item["repair_attempted"] for item in cases),
+        "repair_succeeded_cases": sum(item["repair_succeeded"] for item in cases),
+        "parse_failure_cases": sum(
+            bool(item["initial_parse_categories"]) for item in cases
+        ),
+        "initial_parse_categories": [
+            category
+            for item in cases
+            for category in item["initial_parse_categories"]
+        ],
     }
 
 
@@ -353,6 +383,9 @@ def _write_report(path: Path, manifest: dict, cases: list[dict], metrics: dict) 
                 f"### {item['case_id']}",
                 "",
                 f"- status: `{item['status']}`",
+                f"- reason_code: `{item['reason_code']}`",
+                f"- failure_code: `{item['failure_code']}`",
+                f"- provider calls/repair attempted/succeeded: `{item['provider_calls_total']}/{item['repair_attempted']}/{item['repair_succeeded']}`",
                 f"- tool sequence: `{' -> '.join(item['tool_sequence']) or '(none)'}`",
                 f"- iterations/tool calls/errors: `{item['iterations_used']}/{item['tool_calls_used']}/{item['tool_errors_used']}`",
                 f"- evidence kinds: `{', '.join(item['evidence_kinds']) or '(none)'}`",

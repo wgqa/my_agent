@@ -59,6 +59,12 @@ def build_tool_agent_runtime(
             api_key=api_key,
             base_url=base_url,
             prompt_profile=prompt_profile,
+            max_parse_repairs=(
+                1
+                if prompt_profile is not None
+                and prompt_profile.version == "engineering_agent_decision_prompt_v2"
+                else 0
+            ),
         )
     return ToolAgentRuntime(
         registry=registry,

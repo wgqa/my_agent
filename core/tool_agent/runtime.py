@@ -269,6 +269,26 @@ class ToolAgentRuntime:
                     iterations_used=iterations,
                     tool_calls_used=tool_calls,
                     tool_errors_used=tool_errors,
+                    provider_call_count=(
+                        outcome.call_metadata.call_count
+                        if outcome.call_metadata is not None
+                        else None
+                    ),
+                    repair_attempted=(
+                        outcome.call_metadata.repair_attempted
+                        if outcome.call_metadata is not None
+                        else None
+                    ),
+                    repair_succeeded=(
+                        outcome.call_metadata.repair_succeeded
+                        if outcome.call_metadata is not None
+                        else None
+                    ),
+                    parse_failure_category=(
+                        outcome.call_metadata.initial_parse_category
+                        if outcome.call_metadata is not None
+                        else None
+                    ),
                 )
             )
 

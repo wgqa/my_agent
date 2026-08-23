@@ -80,3 +80,13 @@ Hard Budget 与 Model Awareness 是两件事：Runtime 仍唯一拥有并强制�
 v2 只提供停止指导：`tool_call_allowed=false` 或 `must_terminate=true` 时只能输出 final/refuse；Runtime 原有 hard stop 仍保留，因此恶意 Tool call 也不会越过边界。legacy `tool_agent_decision_prompt_v3` 完全不变，v1 Engineering profile 与 R4 artifact 继续保留用于历史审计；R5 正式 A/B 只使用新的 Engineering v2 identity，其他 checkout、corpus、题目、provider、model 和预算保持不变。
 
 这属于 Agent orchestration 的控制协议，而不是放大预算或增加 parse retry 的 Prompt 技巧。实验结果需同时观察 completed、budget stop、parse failure、evidence coverage、calls、iterations 与 latency；不能仅凭完成率宣布能力成功。
+
+## R6：Structured Action Reliability
+
+JSON mode 只要求 Provider 返回语法上的 JSON，并不保证 Action 的字段集合、Tool 名称或 arguments schema 正确。Strict parser 因而继续拒绝空输出、markdown fence、前后 prose、duplicate key、未知 action、未知 Tool 和错误参数；通过放宽 acceptance boundary 来提高完成率，会把不可审计的脏输出伪装成合法动作。
+
+R6 在 strict parse 之后增加安全 taxonomy，至少区分 `OUTPUT_TRUNCATED`、JSON syntax、Action semantic shape、unknown tool 和 arguments schema。syntax failure 与 semantic action failure 都保留公共 `ACTION_PARSE_FAILED`，但内部分类让诊断和实验指标知道失败发生在哪一层。Provider 读取 `finish_reason`：只有在严格解析失败时，`length` 才优先标记为 `OUTPUT_TRUNCATED`；如果 JSON 恰好完整且 parser 成功，仍以成功为准。
+
+Engineering v2 获得最多一次 bounded structured-action repair。它不是 network retry、Provider retry、Tool retry 或 Runtime retry，而是同一个 Decision 的第二次受控模型调用：复用原 system policy、user question、已有 trusted control state 和不可信 Observation context，再追加独立的 `engineering_action_repair_prompt_v1` 指令。Repair 不接收、不写入、不持久化 malformed raw output，因此 trace、API response、metadata 和 artifact 都只保存 category、bool、小整数等安全字段。Repair 成功后仍必须经过 Registry、schema validation、budget、duplicate detection 和 ToolExecutor；`must_terminate=true` 时产生 tool_call 也会被 Runtime 硬边界拒绝。
+
+Legacy v3 默认保持 0 次 repair，避免默默改变历史 `/tool-agent/query` 行为；Engineering v2 默认最多 1 次。R6 保持 `DECISION_MAX_OUTPUT_TOKENS=600`，因为在没有确认 baseline 失败确由 truncation 导致前，不应盲目增加输出预算。修复可能提升 completion，但会增加 Provider call、token、latency 和成本，所以必须同时报告 repair attempt/success rate、provider calls、parse failures、tool calls、iterations、cross-source evidence 和 evidence count，不能只看完成率。

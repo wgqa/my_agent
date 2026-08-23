@@ -216,6 +216,10 @@ class RuntimeTraceEvent:
     iterations_used: int = 0
     tool_calls_used: int = 0
     tool_errors_used: int = 0
+    provider_call_count: Optional[int] = None
+    repair_attempted: Optional[bool] = None
+    repair_succeeded: Optional[bool] = None
+    parse_failure_category: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.event_type not in TRACE_EVENT_TYPES:
@@ -224,9 +228,30 @@ class RuntimeTraceEvent:
         _require_non_negative_int(self.iterations_used, "iterations_used")
         _require_non_negative_int(self.tool_calls_used, "tool_calls_used")
         _require_non_negative_int(self.tool_errors_used, "tool_errors_used")
+        if self.provider_call_count is not None:
+            if self.provider_call_count not in (1, 2):
+                raise ValueError("provider_call_count 必须是 1 或 2")
+        for label, value in (
+            ("repair_attempted", self.repair_attempted),
+            ("repair_succeeded", self.repair_succeeded),
+        ):
+            if value is not None and type(value) is not bool:
+                raise TypeError(f"{label} 必须是 bool 或 None")
+        if self.repair_succeeded and not self.repair_attempted:
+            raise ValueError("repair_succeeded=True 要求 repair_attempted=True")
+        if self.parse_failure_category is not None and self.parse_failure_category not in {
+            "EMPTY_OUTPUT",
+            "OUTPUT_TRUNCATED",
+            "INVALID_JSON",
+            "DUPLICATE_KEY",
+            "ACTION_SCHEMA_INVALID",
+            "UNKNOWN_TOOL",
+            "ARGUMENTS_SCHEMA_INVALID",
+        }:
+            raise ValueError("parse_failure_category 不是安全 enum")
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "iteration": self.iteration,
             "event_type": self.event_type,
             "action_type": self.action_type,
@@ -238,6 +263,15 @@ class RuntimeTraceEvent:
             "tool_calls_used": self.tool_calls_used,
             "tool_errors_used": self.tool_errors_used,
         }
+        if self.provider_call_count is not None:
+            result["provider_call_count"] = self.provider_call_count
+        if self.repair_attempted is not None:
+            result["repair_attempted"] = self.repair_attempted
+        if self.repair_succeeded is not None:
+            result["repair_succeeded"] = self.repair_succeeded
+        if self.parse_failure_category is not None:
+            result["parse_failure_category"] = self.parse_failure_category
+        return result
 
 
 @dataclass(frozen=True)

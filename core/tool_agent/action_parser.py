@@ -10,6 +10,8 @@ arguments 过 input_schema 的第一道 schema 校验（第二道是 ToolExecuto
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Optional, Tuple
 
 from jsonschema import validate as js_validate
@@ -24,12 +26,47 @@ from core.tool_agent.models import ACTION_PARSE_FAILED
 from core.tool_agent.registry import ToolRegistry
 
 
+class ActionParseCategory(str, Enum):
+    """Safe, non-sensitive reason for a strict Action parse failure."""
+
+    EMPTY_OUTPUT = "EMPTY_OUTPUT"
+    OUTPUT_TRUNCATED = "OUTPUT_TRUNCATED"
+    INVALID_JSON = "INVALID_JSON"
+    DUPLICATE_KEY = "DUPLICATE_KEY"
+    ACTION_SCHEMA_INVALID = "ACTION_SCHEMA_INVALID"
+    UNKNOWN_TOOL = "UNKNOWN_TOOL"
+    ARGUMENTS_SCHEMA_INVALID = "ARGUMENTS_SCHEMA_INVALID"
+
+
+@dataclass(frozen=True)
+class ActionParseResult:
+    """Strict parse result with a safe failure taxonomy."""
+
+    action: Optional[AgentAction]
+    failure_code: Optional[str]
+    category: Optional[ActionParseCategory]
+
+    def __post_init__(self) -> None:
+        if self.action is not None and self.failure_code is not None:
+            raise ValueError("action 与 failure_code 不能同时为非 None")
+        if self.action is not None and self.category is not None:
+            raise ValueError("成功解析不能带 parse category")
+        if self.action is None and self.failure_code is None:
+            raise ValueError("失败解析必须带 failure_code")
+        if self.action is None and self.category is None:
+            raise ValueError("失败解析必须带 parse category")
+
+
+class _DuplicateKeyError(ValueError):
+    pass
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict:
     """json.loads 的 object_pairs_hook：任意层级重复 key 直接拒绝。"""
     result: dict = {}
     for key, value in pairs:
         if key in result:
-            raise ValueError(f"duplicate key: {key!r}")
+            raise _DuplicateKeyError(f"duplicate key: {key!r}")
         result[key] = value
     return result
 
@@ -47,6 +84,8 @@ def strict_json_loads_no_duplicates(text: str) -> dict:
         raise ValueError("空输出")
     try:
         obj = json.loads(stripped, object_pairs_hook=_reject_duplicate_keys)
+    except _DuplicateKeyError as exc:
+        raise ValueError(str(exc)) from exc
     except (json.JSONDecodeError, ValueError) as exc:
         raise ValueError("非法 JSON（含 duplicate key / 多余内容）") from exc
     if not isinstance(obj, dict):
@@ -54,28 +93,70 @@ def strict_json_loads_no_duplicates(text: str) -> dict:
     return obj
 
 
+def _parse_strict_object(
+    text: str,
+) -> tuple[Optional[dict], Optional[ActionParseCategory]]:
+    if not isinstance(text, str):
+        return None, ActionParseCategory.INVALID_JSON
+    stripped = text.strip()
+    if not stripped:
+        return None, ActionParseCategory.EMPTY_OUTPUT
+    try:
+        obj = json.loads(stripped, object_pairs_hook=_reject_duplicate_keys)
+    except _DuplicateKeyError:
+        return None, ActionParseCategory.DUPLICATE_KEY
+    except (json.JSONDecodeError, ValueError):
+        return None, ActionParseCategory.INVALID_JSON
+    if not isinstance(obj, dict):
+        return None, ActionParseCategory.ACTION_SCHEMA_INVALID
+    return obj, None
+
+
+def diagnose_agent_action_text(
+    text: str, registry: ToolRegistry
+) -> ActionParseResult:
+    """Strictly parse an Action and return a safe failure category."""
+
+    obj, category = _parse_strict_object(text)
+    if category is not None:
+        return ActionParseResult(
+            action=None, failure_code=ACTION_PARSE_FAILED, category=category
+        )
+    assert obj is not None
+    try:
+        action = parse_action_object(obj)
+    except ActionValidationError:
+        return ActionParseResult(
+            action=None,
+            failure_code=ACTION_PARSE_FAILED,
+            category=ActionParseCategory.ACTION_SCHEMA_INVALID,
+        )
+    if isinstance(action, ToolCallAction):
+        spec = registry.get_spec(action.tool_name)
+        if spec is None:
+            return ActionParseResult(
+                action=None,
+                failure_code=ACTION_PARSE_FAILED,
+                category=ActionParseCategory.UNKNOWN_TOOL,
+            )
+        try:
+            js_validate(action.arguments, spec.input_schema)
+        except Exception:
+            return ActionParseResult(
+                action=None,
+                failure_code=ACTION_PARSE_FAILED,
+                category=ActionParseCategory.ARGUMENTS_SCHEMA_INVALID,
+            )
+    return ActionParseResult(action=action, failure_code=None, category=None)
+
+
 def parse_agent_action_text(
     text: str, registry: ToolRegistry
 ) -> Tuple[Optional[AgentAction], Optional[str]]:
-    """把模型输出解析成 (action, failure_code)。模型输出非法时 failure_code 非 None。
+    """Backward-compatible ``(action, failure_code)`` strict parser wrapper.
 
     tool_name 必须存在于 Registry（模型不能发明 Tool）；arguments 在 Decision
     层就过 ToolSpec.input_schema。
     """
-    try:
-        obj = strict_json_loads_no_duplicates(text)
-    except ValueError:
-        return None, ACTION_PARSE_FAILED
-    try:
-        action = parse_action_object(obj)
-    except ActionValidationError:
-        return None, ACTION_PARSE_FAILED
-    if isinstance(action, ToolCallAction):
-        spec = registry.get_spec(action.tool_name)
-        if spec is None:
-            return None, ACTION_PARSE_FAILED  # 模型发明 Tool → 拒绝
-        try:
-            js_validate(action.arguments, spec.input_schema)
-        except Exception:
-            return None, ACTION_PARSE_FAILED  # arguments 不合 schema → 拒绝
-    return action, None
+    result = diagnose_agent_action_text(text, registry)
+    return result.action, result.failure_code

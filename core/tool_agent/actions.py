@@ -198,6 +198,10 @@ class AgentDecisionCallMetadata:
     input_tokens: Optional[int]
     output_tokens: Optional[int]
     latency_ms: float
+    repair_attempted: bool = False
+    repair_succeeded: bool = False
+    initial_parse_category: Optional[str] = None
+    initial_finish_reason: Optional[str] = None
 
     def __post_init__(self) -> None:
         for label in ("provider", "model", "prompt_version"):
@@ -208,8 +212,31 @@ class AgentDecisionCallMetadata:
                 raise ValueError(f"{label} 必须是 64 位小写十六进制")
         if type(self.call_count) is not int or isinstance(self.call_count, bool):
             raise TypeError("call_count 必须是严格 int")
-        if self.call_count != 1:
-            raise ValueError("call_count 必须等于 1（单次调用）")
+        if self.call_count not in (1, 2):
+            raise ValueError("call_count 必须是 1 或 2")
+        if type(self.repair_attempted) is not bool:
+            raise TypeError("repair_attempted 必须是严格 bool")
+        if type(self.repair_succeeded) is not bool:
+            raise TypeError("repair_succeeded 必须是严格 bool")
+        if self.repair_succeeded and not self.repair_attempted:
+            raise ValueError("repair_succeeded=True 要求 repair_attempted=True")
+        if self.repair_attempted and self.call_count != 2:
+            raise ValueError("repair_attempted=True 要求 call_count=2")
+        if not self.repair_attempted and self.call_count != 1:
+            raise ValueError("未 repair 时 call_count 必须是 1")
+        categories = {
+            "EMPTY_OUTPUT",
+            "OUTPUT_TRUNCATED",
+            "INVALID_JSON",
+            "DUPLICATE_KEY",
+            "ACTION_SCHEMA_INVALID",
+            "UNKNOWN_TOOL",
+            "ARGUMENTS_SCHEMA_INVALID",
+        }
+        if self.initial_parse_category is not None and self.initial_parse_category not in categories:
+            raise ValueError("initial_parse_category 不是安全 enum")
+        if self.initial_finish_reason not in (None, "stop", "length", "other"):
+            raise ValueError("initial_finish_reason 不是安全 enum")
         for label in ("input_tokens", "output_tokens"):
             value = getattr(self, label)
             if value is not None:
@@ -236,6 +263,10 @@ class AgentDecisionCallMetadata:
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
             "latency_ms": self.latency_ms,
+            "repair_attempted": self.repair_attempted,
+            "repair_succeeded": self.repair_succeeded,
+            "initial_parse_category": self.initial_parse_category,
+            "initial_finish_reason": self.initial_finish_reason,
         }
 
 

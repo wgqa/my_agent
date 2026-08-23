@@ -5,7 +5,13 @@ ToolExecutor / ToolHandler 与错误码常量。本包不调用 LLM；真实只�
 default registry 显式装配。
 """
 
-from core.tool_agent.action_parser import strict_json_loads_no_duplicates
+from core.tool_agent.action_parser import (
+    ActionParseCategory,
+    ActionParseResult,
+    diagnose_agent_action_text,
+    parse_agent_action_text,
+    strict_json_loads_no_duplicates,
+)
 from core.tool_agent.actions import (
     ACTION_PROVIDER_ERROR,
     ACTION_TIMEOUT,
@@ -162,6 +168,10 @@ __all__ = [
     "ENGINEERING_DECISION_PROMPT_V2_PROFILE",
     "ENGINEERING_DECISION_PROMPT_V2_SHA256",
     "strict_json_loads_no_duplicates",
+    "parse_agent_action_text",
+    "diagnose_agent_action_text",
+    "ActionParseCategory",
+    "ActionParseResult",
     "ToolAgentRuntime",
     "ToolAgentBudget",
     "ToolAgentRunResult",

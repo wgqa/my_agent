@@ -247,6 +247,10 @@ _TRACE_ALLOWED_KEYS = frozenset({
     "iterations_used",
     "tool_calls_used",
     "tool_errors_used",
+    "provider_call_count",
+    "repair_attempted",
+    "repair_succeeded",
+    "parse_failure_category",
 })
 
 
