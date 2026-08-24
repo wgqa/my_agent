@@ -17,7 +17,7 @@
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
-- **G11-05 Docs ↔ Code Consistency = IN PROGRESS / DESIGN READY**
+- **G11-05 Docs ↔ Code Consistency = IN PROGRESS / FORMAL BLOCKED**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
 - **NEXT = G11-05 Formal Validation**
 
@@ -82,19 +82,21 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **Prompt interpretation：** Production v2 已明确 `code_search → read_project_context`、locator 不等于 evidence、implementation claim 需要 context、不得重复 Tool call、证据不足不得声称已验证。因此不再开启 G11-04 Prompt tuning；结果表明 Prompt-only evidence discipline 不足。
 - **G12 debt：** evidence sufficiency、claim-evidence coverage、implementation-claim verifier、premature finalization、cross-file evidence requirements；另行记录 structured action reliability 与 duplicate-call recovery/handling。此处不实现这些机制。
 - **Invalid 历史 run：** `g11-04-diagnosis-config-formal-20260824-203224` 仍为 `INVALID / INFRASTRUCTURE FAILURE`，不与本次 valid negative 混淆，也不用于 Agent 能力结论。
-- **Closure：** docs-only；G11-05=`IN PROGRESS / DESIGN READY`，G12=`NOT STARTED`。
+- **Closure：** docs-only；G11-05=`IN PROGRESS / FORMAL BLOCKED`，G12=`NOT STARTED`。
 
 ## G11-05 Docs ↔ Code Consistency
 
-- **状态：** IN PROGRESS / DESIGN READY。
+- **状态：** IN PROGRESS / FORMAL BLOCKED；R2 正在修复 evaluator/project checkout contamination。
 - **Workflow：** `g11-05-docs-code-consistency-v1`；语义链路为 document claim → `code_search` → `read_project_context(document)` → locate implementation → `read_project_context(code)` → consistency judgment → bounded correction/no-change recommendation。
 - **固定 cases：** DOC01 Tool Registry Documentation Drift、DOC02 Public API / Product Mode Drift、DOC03 Runtime Budget Claim、DOC04 Safe Trace Documentation；Gold 分布为 2 个 `OUTDATED / INCOMPLETE` 或 `OUTDATED / INCONSISTENT`、2 个 `CONSISTENT`。
 - **Required tools：** `code_search`、`read_project_context`。**Forbidden：** `knowledge_search`、`calculator`、`changed_files`、`git_diff`、`find_tests`；不冻结唯一 Tool sequence。
 - **Source contract：** 每个 case 同时冻结 `document_source_paths`、`code_source_paths` 和 document claim anchors；path hit、`project_doc`/`project_code` evidence、doc-code pair、claim/behavior visibility 和 source pair 仅为 diagnostic，不自动判 consistency label、文档修复建议或 claim grounding。
-- **Runner：** `scripts/run_g11_05_docs_code_consistency.py`；固定 source commit 绑定本地 HEAD、tracked-clean、safe run_id、no-overwrite；manifest 记录 public Knowledge/Project provenance、Prompt/Repair identity、cap/budget/registry/retry、case identity、Gold labels 和 source paths，不记录 raw provider output、CoT、API key 或绝对路径。
+- **Runner：** `scripts/run_g11_05_docs_code_consistency.py`；evaluator/project 双 checkout 分别绑定 commit、tracked-clean、不同 resolved root、safe run_id、no-overwrite；manifest 记录 public Knowledge/Project provenance、Prompt/Repair identity、cap/budget/registry/retry、case identity、Gold labels 和 project-relative source paths，不记录 raw provider output、CoT、API key 或绝对路径。
 - **Environment：** 复用已验收的 G11-04 preflight；Knowledge=`870e5864df67 / 37 files / 215 chunks / bm25 / dbc497c796d5`，Project=`my_agent / default_repo`。`knowledge_search` 虽为 case forbidden，但 verified Knowledge backend 仍是 runtime environment dependency。
 - **Production freeze：** Engineering v2 Prompt identity/SHA、Repair v1 identity/SHA、Engineering cap=`1200`、budget=`5/4/2`、registry=`7`、network retry=`0` 保持不变；不修改 README，DOC01/DOC02 的当前文档漂移作为 benchmark evidence。
-- **Formal：** NOT RUN；审计通过后由用户在同一 real-provider 环境执行。G12=`NOT STARTED`。
+- **Contaminated Formal：** `g11-05-docs-code-consistency-formal-20260824-221006` = `INVALID / EVALUATION CONTAMINATION`；4/4 requests completed，但 DOC03 final answer 引用 evaluator Study Note 112 作为 5/4/2 consistency 依据。`capability conclusion = NONE`；不用于 Agent capability、manual Gold score 或 G11-05 PASS/MIXED/NEGATIVE 结论。
+- **Isolation repair：** evaluator checkout 与 project target checkout 必须不同且 tracked-clean；project source 固定为 `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`，拒绝 G11-05 evaluator-owned files；manifest 分别记录 `evaluator_commit` / `project_source_commit`，source paths 相对于 project checkout，artifact safety 同时覆盖两侧 local root。
+- **Formal：** NEW RUN NOT RUN；审计通过后由用户从 isolated project worktree 启动 API 并执行。不得复用 contaminated run。G12=`NOT STARTED`。
 
 ## 项目定位
 

@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -25,10 +26,9 @@ from scripts.run_g11_03_change_impact import (
     _knowledge_url,
     _post_json,
     _safe_trace,
-    _sanitize_for_artifact,
+    _sanitize_for_artifact as _sanitize_for_artifact_single,
     _tool_sequence,
-    validate_artifact_safety,
-    validate_source_commit as _validate_source_commit,
+    validate_artifact_safety as _validate_artifact_safety_single,
 )
 from scripts.run_g11_04_diagnosis_config import (
     validate_engineering_knowledge_status,
@@ -38,6 +38,7 @@ from scripts.run_g11_04_diagnosis_config import (
 
 PROJECT_IDENTITY = "my_agent_repository"
 WORKFLOW_ID = "g11-05-docs-code-consistency-v1"
+PROJECT_SOURCE_COMMIT = "3e0d5cd54ff916ae1df650ca9a55ad21b363234a"
 KNOWLEDGE_CORPUS_ID = "870e5864df67"
 PRODUCTION_PROMPT_VERSION = "engineering_agent_decision_prompt_v2"
 PRODUCTION_PROMPT_SHA256 = (
@@ -60,7 +61,11 @@ MAX_OUTPUT_TOKENS = 1200
 PROVIDER_NETWORK_RETRIES = 0
 EXPECTED_PROJECT_NAME = "my_agent"
 EXPECTED_PROJECT_SOURCE = "default_repo"
-
+EVALUATOR_OWNED_PATHS = (
+    "docs/study-notes/112-Docs与Code-Consistency工作流.md",
+    "scripts/run_g11_05_docs_code_consistency.py",
+    "tests/test_g11_05_docs_code_consistency.py",
+)
 REQUIRED_TOOLS = ("code_search", "read_project_context")
 FORBIDDEN_TOOLS = (
     "knowledge_search",
@@ -128,6 +133,7 @@ EXPECTED_CASE_CONTRACT_SHA256 = {
 }
 
 _PROMPT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
@@ -283,7 +289,7 @@ def validate_case_contract(
 def validate_case_identities(
     cases: tuple[dict[str, Any], ...] = CASES,
     *,
-    git_root: str | Path | None = None,
+    project_git_root: str | Path | None = None,
 ) -> tuple[dict[str, Any], ...]:
     """Validate fixed case identity and source boundaries only."""
 
@@ -309,13 +315,157 @@ def validate_case_identities(
                 for path in paths
             ):
                 raise ValueError(f"{case_id} source path is not repo-relative")
-            if git_root is not None:
-                root = Path(git_root)
+            if project_git_root is not None:
+                root = Path(project_git_root)
                 if any(not (root / Path(path.replace("/", "\\"))).is_file() for path in paths):
-                    raise ValueError(f"{case_id} source path is missing from git_root")
+                    raise ValueError(
+                        f"{case_id} source path is missing from project checkout"
+                    )
     validate_gold_label_distribution(cases)
     validate_case_contract(cases)
     return cases
+
+
+def _run_git(git_root: str | Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=git_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _normalize_repo_root(value: str | Path) -> Path:
+    root = Path(value).resolve()
+    if not root.is_dir():
+        raise ValueError(f"git root is not a directory: {root}")
+    top_level = _run_git(root, "rev-parse", "--show-toplevel")
+    if top_level.returncode != 0 or not top_level.stdout.strip():
+        raise ValueError(f"git root is not a Git working tree: {root}")
+    # Keep the caller-supplied path for subsequent Windows subprocess cwd
+    # values; decoding Git's Unicode top-level output can produce an invalid
+    # cwd under the bundled Python runtime even when the original path works.
+    return root
+
+
+def _validate_checkout_commit(
+    value: object,
+    *,
+    git_root: str | Path,
+    label: str,
+) -> str:
+    if type(value) is not str or not _COMMIT_RE.fullmatch(value):
+        raise ValueError(f"{label} must be exactly 40 hexadecimal characters")
+    normalized = value.lower()
+    root = _normalize_repo_root(git_root)
+    actual_head = _run_git(root, "rev-parse", "HEAD")
+    if actual_head.returncode != 0 or actual_head.stdout.strip().lower() != normalized:
+        raise ValueError(f"declared {label} does not match checkout HEAD")
+    verified = _run_git(root, "cat-file", "-e", f"{normalized}^{{commit}}")
+    if verified.returncode != 0:
+        raise ValueError(f"{label} is not a valid commit object")
+    status = _run_git(root, "status", "--porcelain", "--untracked-files=no")
+    if status.returncode != 0:
+        raise ValueError(f"could not inspect {label} checkout status")
+    if status.stdout.strip():
+        raise ValueError(f"{label} checkout has tracked modifications")
+    return normalized
+
+
+def validate_evaluator_checkout(
+    evaluator_commit: object,
+    *,
+    evaluator_git_root: str | Path,
+) -> tuple[Path, str]:
+    root = _normalize_repo_root(evaluator_git_root)
+    return root, _validate_checkout_commit(
+        evaluator_commit,
+        git_root=root,
+        label="evaluator_commit",
+    )
+
+
+def validate_project_checkout(
+    project_source_commit: object,
+    *,
+    project_git_root: str | Path,
+) -> tuple[Path, str]:
+    root = _normalize_repo_root(project_git_root)
+    normalized = _validate_checkout_commit(
+        project_source_commit,
+        git_root=root,
+        label="project_source_commit",
+    )
+    if normalized != PROJECT_SOURCE_COMMIT:
+        raise ValueError("project_source_commit is not the frozen G11-05 target")
+    return root, normalized
+
+
+def _repo_relative_path(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    candidate = Path(normalized)
+    if (
+        not normalized
+        or candidate.is_absolute()
+        or ".." in candidate.parts
+    ):
+        raise ValueError(f"source path is not project-relative: {path}")
+    return normalized
+
+
+def validate_project_source_paths(
+    cases: tuple[dict[str, Any], ...] = CASES,
+    *,
+    project_git_root: str | Path,
+) -> tuple[dict[str, Any], ...]:
+    root = _normalize_repo_root(project_git_root)
+    for case in cases:
+        for field in ("document_source_paths", "code_source_paths"):
+            for path in case[field]:
+                relative = _repo_relative_path(path)
+                if not (root / Path(relative)).is_file():
+                    raise ValueError(
+                        f"{case['case_id']} source path is missing from project checkout"
+                    )
+    return cases
+
+
+def validate_project_evaluator_isolation(
+    *,
+    evaluator_git_root: str | Path,
+    project_git_root: str | Path,
+) -> tuple[Path, Path]:
+    evaluator_root = _normalize_repo_root(evaluator_git_root)
+    project_root = _normalize_repo_root(project_git_root)
+    if evaluator_root == project_root:
+        raise ValueError("evaluator and project roots must be different checkouts")
+    for relative in EVALUATOR_OWNED_PATHS:
+        if (project_root / Path(relative)).exists():
+            raise ValueError(
+                f"project checkout contains evaluator-owned file: {relative}"
+            )
+    return evaluator_root, project_root
+
+
+def _sanitize_for_artifact(
+    value: Any,
+    evaluator_git_root: str | Path,
+    project_git_root: str | Path,
+) -> Any:
+    sanitized = _sanitize_for_artifact_single(value, evaluator_git_root)
+    return _sanitize_for_artifact_single(sanitized, project_git_root)
+
+
+def validate_artifact_safety(
+    output: Path,
+    evaluator_git_root: str | Path,
+    project_git_root: str | Path,
+) -> None:
+    """Apply the existing semantic artifact checks against both local roots."""
+
+    _validate_artifact_safety_single(output, evaluator_git_root)
+    _validate_artifact_safety_single(output, project_git_root)
 
 
 def validate_gold_label_distribution(
@@ -349,10 +499,6 @@ def validate_required_and_forbidden_tools() -> tuple[tuple[str, ...], tuple[str,
     if set(REQUIRED_TOOLS) & set(FORBIDDEN_TOOLS):
         raise ValueError("G11-05 required and forbidden tools overlap")
     return REQUIRED_TOOLS, FORBIDDEN_TOOLS
-
-
-def validate_source_commit(value: object, *, git_root: str | Path) -> str:
-    return _validate_source_commit(value, git_root=git_root)
 
 
 def validate_prompt_identity(version: object, sha256: object) -> tuple[str, str]:
@@ -505,20 +651,26 @@ def _normalize_case(
     case: dict[str, Any],
     response: dict[str, Any],
     elapsed_ms: float,
-    git_root: str | Path,
+    evaluator_git_root: str | Path,
+    project_git_root: str | Path,
 ) -> dict[str, Any]:
     raw_trace = _safe_trace(response.get("trace"))
-    trace = _sanitize_for_artifact(raw_trace, git_root)
+    trace = _sanitize_for_artifact(
+        raw_trace, evaluator_git_root, project_git_root
+    )
     sequence = _tool_sequence(trace)
     raw_evidence = _evidence_items(response)
-    evidence = _sanitize_for_artifact(raw_evidence, git_root)
+    evidence = _sanitize_for_artifact(
+        raw_evidence, evaluator_git_root, project_git_root
+    )
     evidence_kinds = _sanitize_for_artifact(
         [
             item["kind"]
             for item in raw_evidence
             if isinstance(item, dict) and isinstance(item.get("kind"), str)
         ],
-        git_root,
+        evaluator_git_root,
+        project_git_root,
     )
     project_paths = _evidence_paths(raw_evidence, kind_prefix="project_")
     document_source_hit = _project_source_hit(
@@ -538,9 +690,15 @@ def _normalize_case(
         "code_source_paths": list(case["code_source_paths"]),
         "doc_claim_anchors": list(case["doc_claim_anchors"]),
         "gold_obligations": case["obligations"],
-        "status": _sanitize_for_artifact(response.get("status"), git_root),
-        "reason_code": _sanitize_for_artifact(response.get("reason_code"), git_root),
-        "failure_code": _sanitize_for_artifact(response.get("failure_code"), git_root),
+        "status": _sanitize_for_artifact(
+            response.get("status"), evaluator_git_root, project_git_root
+        ),
+        "reason_code": _sanitize_for_artifact(
+            response.get("reason_code"), evaluator_git_root, project_git_root
+        ),
+        "failure_code": _sanitize_for_artifact(
+            response.get("failure_code"), evaluator_git_root, project_git_root
+        ),
         "iterations": response.get("iterations_used"),
         "tool_calls": response.get("tool_calls_used"),
         "tool_errors": response.get("tool_errors_used"),
@@ -550,7 +708,9 @@ def _normalize_case(
         "tool_sequence": sequence,
         "evidence_kinds": evidence_kinds,
         "evidence": evidence,
-        "answer": _sanitize_for_artifact(response.get("answer"), git_root),
+        "answer": _sanitize_for_artifact(
+            response.get("answer"), evaluator_git_root, project_git_root
+        ),
         "provider_calls_total": _provider_calls(trace),
         "repair_attempted": any(
             event.get("repair_attempted") is True for event in trace
@@ -687,7 +847,8 @@ def _write_report(
         "# G11-05 Docs <-> Code Consistency Run",
         "",
         f"- run_id: `{manifest['run_id']}`",
-        f"- source_commit: `{manifest['source_commit']}`",
+        f"- evaluator_commit: `{manifest['evaluator_commit']}`",
+        f"- project_source_commit: `{manifest['project_source_commit']}`",
         f"- endpoint: `{manifest['endpoint']}`",
         f"- workflow: `{manifest['workflow']}`",
         f"- prompt: `{manifest['prompt_version']}` / `{manifest['prompt_sha256']}`",
@@ -751,8 +912,10 @@ def execute_formal_run(
     query_url: str,
     output_root: str | Path,
     run_id: str,
-    source_commit: str,
-    git_root: str | Path,
+    evaluator_commit: str,
+    evaluator_git_root: str | Path,
+    project_source_commit: str = PROJECT_SOURCE_COMMIT,
+    project_git_root: str | Path,
     prompt_version: str,
     prompt_sha256: str,
     repair_prompt_version: str = REPAIR_PROMPT_VERSION,
@@ -761,11 +924,23 @@ def execute_formal_run(
     knowledge_url: str | None = None,
     project_url: str | None = None,
 ) -> Path:
-    """Run only after preflight and all HTTP case responses are valid JSON."""
+    """Run against an isolated project checkout after dual preflight."""
 
     run_id = _validate_run_id(run_id)
-    source_commit = validate_source_commit(source_commit, git_root=git_root)
-    validate_case_identities(git_root=git_root)
+    evaluator_root, evaluator_commit = validate_evaluator_checkout(
+        evaluator_commit,
+        evaluator_git_root=evaluator_git_root,
+    )
+    project_root, project_source_commit = validate_project_checkout(
+        project_source_commit,
+        project_git_root=project_git_root,
+    )
+    validate_project_evaluator_isolation(
+        evaluator_git_root=evaluator_root,
+        project_git_root=project_root,
+    )
+    validate_case_identities(project_git_root=project_root)
+    validate_project_source_paths(project_git_root=project_root)
     validate_required_and_forbidden_tools()
     prompt_version, prompt_sha256 = validate_prompt_identity(
         prompt_version, prompt_sha256
@@ -792,25 +967,36 @@ def execute_formal_run(
                 case,
                 response,
                 (time.perf_counter() - started) * 1000,
-                git_root,
+                evaluator_root,
+                project_root,
             )
         )
 
     output.mkdir(parents=True, exist_ok=False)
     manifest = {
-        "schema_version": "g11_05_docs_code_consistency_manifest_v1",
+        "schema_version": "g11_05_docs_code_consistency_manifest_v2",
         "workflow": WORKFLOW_ID,
         "run_id": run_id,
-        "label": _sanitize_for_artifact(label, git_root),
+        "label": _sanitize_for_artifact(label, evaluator_root, project_root),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "endpoint": _sanitize_for_artifact(query_url, git_root),
-        "source_commit": source_commit,
-        "source_commit_attestation": "operator_declared_and_locally_verified_checkout",
+        "endpoint": _sanitize_for_artifact(
+            query_url, evaluator_root, project_root
+        ),
+        "evaluator_commit": evaluator_commit,
+        "evaluator_commit_attestation": "operator_declared_and_locally_verified_checkout",
+        "project_source_commit": project_source_commit,
+        "project_source_commit_attestation": "operator_declared_and_locally_verified_checkout",
+        "project_target_isolated": True,
+        "project_evaluator_same_root": False,
+        "project_evaluator_gold_files_present": False,
+        "project_runtime_binding": "operator_must_start_api_from_project_git_root",
         "project_identity": PROJECT_IDENTITY,
         "engineering_knowledge_backend": _sanitize_for_artifact(
-            knowledge_status, git_root
+            knowledge_status, evaluator_root, project_root
         ),
-        "engineering_project": _sanitize_for_artifact(project_binding, git_root),
+        "engineering_project": _sanitize_for_artifact(
+            project_binding, evaluator_root, project_root
+        ),
         "provider": "deepseek",
         "model": "deepseek-chat",
         "prompt_version": prompt_version,
@@ -856,9 +1042,9 @@ def execute_formal_run(
     (output / "summary.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    validate_artifact_safety(output, git_root)
+    validate_artifact_safety(output, evaluator_root, project_root)
     _write_report(output / "run_report.md", manifest, normalized_cases, metrics)
-    validate_artifact_safety(output, git_root)
+    validate_artifact_safety(output, evaluator_root, project_root)
     return output
 
 
@@ -870,8 +1056,10 @@ def main() -> int:
     parser.add_argument("--output-root", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--label", default="docs-code-consistency-transfer-validation")
-    parser.add_argument("--source-commit", required=True)
-    parser.add_argument("--git-root", required=True)
+    parser.add_argument("--evaluator-git-root", required=True)
+    parser.add_argument("--evaluator-commit", required=True)
+    parser.add_argument("--project-git-root", required=True)
+    parser.add_argument("--project-source-commit", default=PROJECT_SOURCE_COMMIT)
     parser.add_argument("--prompt-version", required=True)
     parser.add_argument("--prompt-sha256", required=True)
     parser.add_argument("--repair-prompt-version", default=REPAIR_PROMPT_VERSION)
@@ -882,8 +1070,10 @@ def main() -> int:
         query_url=args.url,
         output_root=args.output_root,
         run_id=args.run_id,
-        source_commit=args.source_commit,
-        git_root=args.git_root,
+        evaluator_commit=args.evaluator_commit,
+        evaluator_git_root=args.evaluator_git_root,
+        project_source_commit=args.project_source_commit,
+        project_git_root=args.project_git_root,
         prompt_version=args.prompt_version,
         prompt_sha256=args.prompt_sha256,
         repair_prompt_version=args.repair_prompt_version,

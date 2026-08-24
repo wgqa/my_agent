@@ -23,6 +23,25 @@ from core.tool_agent.tools.read_project_context import ReadProjectContextHandler
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _head(repo: Path) -> str:
+    return _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def _clone_at(tmp_path: Path, commit: str, name: str) -> Path:
+    clone = tmp_path / name
+    env = os.environ.copy()
+    subprocess.run(
+        ["git", "clone", "--quiet", "--no-local", str(REPO_ROOT), str(clone)],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    _git(clone, "checkout", "--quiet", commit)
+    return clone
+
+
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(
@@ -78,13 +97,114 @@ def test_fixed_case_identity_has_balanced_gold_and_real_source_paths():
         "consistent": 2,
         "outdated_or_incomplete": 2,
     }
-    assert runner.validate_case_identities(git_root=REPO_ROOT) == runner.CASES
+    assert runner.validate_case_identities(project_git_root=REPO_ROOT) == runner.CASES
     assert all(case["document_source_paths"] == ["README.md"] for case in runner.CASES)
     assert runner.CASES[0]["code_source_paths"] == [
         "core/tool_agent/default_tools.py",
         "core/tool_agent/integration.py",
     ]
     assert runner.CASES[1]["code_source_paths"] == ["api/app.py"]
+
+
+def test_clean_isolated_project_checkout_passes_all_dual_checkout_guards(tmp_path: Path):
+    evaluator = _clone_at(tmp_path, _head(REPO_ROOT), "evaluator")
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "project")
+
+    evaluator_root, evaluator_commit = runner.validate_evaluator_checkout(
+        _head(REPO_ROOT), evaluator_git_root=evaluator
+    )
+    project_root, project_commit = runner.validate_project_checkout(
+        runner.PROJECT_SOURCE_COMMIT, project_git_root=project
+    )
+    isolated_roots = runner.validate_project_evaluator_isolation(
+        evaluator_git_root=evaluator_root,
+        project_git_root=project_root,
+    )
+
+    assert evaluator_root == evaluator.resolve()
+    assert evaluator_commit == _head(REPO_ROOT)
+    assert project_commit == runner.PROJECT_SOURCE_COMMIT
+    assert isolated_roots == (evaluator_root, project_root)
+    assert runner.validate_case_identities(project_git_root=project_root) == runner.CASES
+    assert runner.validate_project_source_paths(project_git_root=project_root) == runner.CASES
+    assert all(
+        not (project_root / Path(relative)).exists()
+        for relative in runner.EVALUATOR_OWNED_PATHS
+    )
+
+
+def test_same_evaluator_and_project_root_is_rejected():
+    with pytest.raises(ValueError, match="different checkouts"):
+        runner.validate_project_evaluator_isolation(
+            evaluator_git_root=REPO_ROOT,
+            project_git_root=REPO_ROOT,
+        )
+
+
+def test_project_head_must_match_frozen_target(tmp_path: Path):
+    wrong_project = _clone_at(tmp_path, _head(REPO_ROOT), "wrong-project")
+    with pytest.raises(ValueError, match="project_source_commit"):
+        runner.validate_project_checkout(
+            runner.PROJECT_SOURCE_COMMIT,
+            project_git_root=wrong_project,
+        )
+
+
+def test_project_tracked_dirty_checkout_is_rejected(tmp_path: Path):
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "dirty-project")
+    readme = project / "README.md"
+    readme.write_text(readme.read_text(encoding="utf-8") + "dirty\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="project_source_commit checkout has tracked modifications"):
+        runner.validate_project_checkout(
+            runner.PROJECT_SOURCE_COMMIT,
+            project_git_root=project,
+        )
+
+
+def test_evaluator_head_must_match_declared_commit(tmp_path: Path):
+    wrong_evaluator = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "wrong-evaluator")
+    with pytest.raises(ValueError, match="evaluator_commit"):
+        runner.validate_evaluator_checkout(
+            _head(REPO_ROOT), evaluator_git_root=wrong_evaluator
+        )
+
+
+def test_evaluator_tracked_dirty_checkout_is_rejected(tmp_path: Path):
+    evaluator = _clone_at(tmp_path, _head(REPO_ROOT), "dirty-evaluator")
+    readme = evaluator / "README.md"
+    readme.write_text(readme.read_text(encoding="utf-8") + "dirty\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="evaluator_commit checkout has tracked modifications"):
+        runner.validate_evaluator_checkout(_head(REPO_ROOT), evaluator_git_root=evaluator)
+
+
+@pytest.mark.parametrize("relative", runner.EVALUATOR_OWNED_PATHS)
+def test_project_evaluator_owned_files_are_rejected(tmp_path: Path, relative: str):
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "contaminated-project")
+    owned_file = project / Path(relative)
+    owned_file.parent.mkdir(parents=True, exist_ok=True)
+    owned_file.write_text("G11-05 DOC01 evaluator metadata\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="evaluator-owned file"):
+        runner.validate_project_evaluator_isolation(
+            evaluator_git_root=REPO_ROOT,
+            project_git_root=project,
+        )
+
+
+def test_project_source_validation_uses_project_checkout(tmp_path: Path):
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "source-project")
+    (project / "core/tool_agent/runtime_models.py").unlink()
+    with pytest.raises(ValueError, match="missing from project checkout"):
+        runner.validate_project_source_paths(project_git_root=project)
+
+
+def test_incidental_doc_case_marker_does_not_trigger_path_guard(tmp_path: Path):
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "incidental-marker")
+    readme = project / "README.md"
+    readme.write_text(readme.read_text(encoding="utf-8") + "DOC01 is ordinary text\n", encoding="utf-8")
+    assert runner.validate_project_evaluator_isolation(
+        evaluator_git_root=REPO_ROOT,
+        project_git_root=project,
+    ) == (REPO_ROOT.resolve(), project.resolve())
 
 
 def _copied_cases() -> list[dict]:
@@ -372,6 +492,7 @@ def test_doc_claim_and_code_behavior_visibility_are_structural_only():
 def test_normalized_artifact_omits_raw_provider_output_paths_and_keys(tmp_path: Path):
     output = tmp_path / "artifact"
     output.mkdir()
+    project_root = tmp_path / "project-root"
     response = {
         "status": "completed",
         "answer": f"repo={REPO_ROOT} key=sk-test-secret-12345",
@@ -385,24 +506,27 @@ def test_normalized_artifact_omits_raw_provider_output_paths_and_keys(tmp_path: 
         ],
         "provider_raw_output": "must not be copied",
     }
-    normalized = runner._normalize_case(runner.CASES[0], response, 1.0, REPO_ROOT)
+    normalized = runner._normalize_case(
+        runner.CASES[0], response, 1.0, REPO_ROOT, project_root
+    )
     encoded = json.dumps(normalized, ensure_ascii=False)
     assert "provider_raw_output" not in encoded
     assert "sk-test-secret-12345" not in encoded
     assert str(REPO_ROOT) not in encoded
     (output / "case.json").write_text(encoded, encoding="utf-8")
-    runner.validate_artifact_safety(output, REPO_ROOT)
+    runner.validate_artifact_safety(output, REPO_ROOT, project_root)
 
 
 def test_real_report_manifest_and_markdown_json_fences_pass_safety(tmp_path: Path):
     output = tmp_path / "artifact"
     output.mkdir()
     manifest = {
-        "schema_version": "g11_05_docs_code_consistency_manifest_v1",
+        "schema_version": "g11_05_docs_code_consistency_manifest_v2",
         "workflow": runner.WORKFLOW_ID,
         "run_id": "g11-05-safety-test",
         "endpoint": "http://127.0.0.1:8765/engineering/query",
-        "source_commit": "a" * 40,
+        "evaluator_commit": "a" * 40,
+        "project_source_commit": runner.PROJECT_SOURCE_COMMIT,
         "prompt_version": runner.PRODUCTION_PROMPT_VERSION,
         "prompt_sha256": runner.PRODUCTION_PROMPT_SHA256,
         "repair_prompt_version": runner.REPAIR_PROMPT_VERSION,
@@ -459,34 +583,85 @@ def test_real_report_manifest_and_markdown_json_fences_pass_safety(tmp_path: Pat
         json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     runner._write_report(output / "run_report.md", manifest, cases, metrics)
-    runner.validate_artifact_safety(output, REPO_ROOT)
+    runner.validate_artifact_safety(output, REPO_ROOT, tmp_path / "project-root")
 
 
-def test_source_commit_mismatch_and_tracked_dirty_checkout_are_rejected(tmp_path: Path):
-    repo, head = _new_git_repo(tmp_path)
-    assert runner.validate_source_commit(head, git_root=repo) == head
+@pytest.mark.parametrize("root_name", ["evaluator", "project"])
+def test_artifact_safety_rejects_each_checkout_absolute_root(
+    tmp_path: Path, root_name: str
+):
+    output = tmp_path / "unsafe-artifact"
+    output.mkdir()
+    evaluator_root = tmp_path / "evaluator"
+    project_root = tmp_path / "project"
+    unsafe_root = evaluator_root if root_name == "evaluator" else project_root
+    (output / "unsafe.json").write_text(
+        json.dumps({"local_root": str(unsafe_root)}), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="unsafe local path"):
+        runner.validate_artifact_safety(output, evaluator_root, project_root)
 
-    with pytest.raises(ValueError, match="does not match"):
-        runner.validate_source_commit("0" * 40, git_root=repo)
 
-    (repo / "tracked.txt").write_text("dirty\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="tracked modifications"):
-        runner.validate_source_commit(head, git_root=repo)
+def test_manifest_records_dual_checkout_provenance_and_case_contract(
+    monkeypatch, tmp_path: Path
+):
+    evaluator = _clone_at(tmp_path, _head(REPO_ROOT), "evaluator")
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "manifest-project")
+    monkeypatch.setattr(
+        runner,
+        "validate_formal_environment",
+        lambda query_url, *, knowledge_url=None, project_url=None: (
+            VALID_KNOWLEDGE_STATUS,
+            VALID_PROJECT_STATUS,
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_post_json",
+        lambda url, payload: {
+            "status": "completed",
+            "answer": "bounded test response",
+            "trace": [],
+            "evidence": [],
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+        },
+    )
+
+    output = runner.execute_formal_run(
+        query_url="http://127.0.0.1:8765/engineering/query",
+        output_root=tmp_path / "runs",
+        run_id="g11-05-dual-provenance",
+        evaluator_commit=_head(REPO_ROOT),
+        evaluator_git_root=evaluator,
+        project_source_commit=runner.PROJECT_SOURCE_COMMIT,
+        project_git_root=project,
+        prompt_version=runner.PRODUCTION_PROMPT_VERSION,
+        prompt_sha256=runner.PRODUCTION_PROMPT_SHA256,
+    )
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    artifact_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in output.iterdir()
+        if path.is_file()
+    )
+
+    assert manifest["evaluator_commit"] == _head(REPO_ROOT)
+    assert manifest["project_source_commit"] == runner.PROJECT_SOURCE_COMMIT
+    assert manifest["project_target_isolated"] is True
+    assert manifest["project_evaluator_same_root"] is False
+    assert manifest["project_evaluator_gold_files_present"] is False
+    assert manifest["case_contract_sha256"] == runner.EXPECTED_CASE_CONTRACT_SHA256
+    assert str(evaluator.resolve()) not in artifact_text
+    assert str(project.resolve()) not in artifact_text
 
 
 def test_http_infrastructure_failure_does_not_create_agent_artifact(
     monkeypatch, tmp_path: Path
 ):
-    monkeypatch.setattr(
-        runner,
-        "validate_source_commit",
-        lambda value, *, git_root: "a" * 40,
-    )
-    monkeypatch.setattr(
-        runner,
-        "validate_case_identities",
-        lambda cases=runner.CASES, *, git_root=None: cases,
-    )
+    evaluator = _clone_at(tmp_path, _head(REPO_ROOT), "evaluator")
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "infra-project")
     monkeypatch.setattr(
         runner,
         "validate_formal_environment",
@@ -507,8 +682,10 @@ def test_http_infrastructure_failure_does_not_create_agent_artifact(
             query_url="http://127.0.0.1:8765/engineering/query",
             output_root=output_root,
             run_id="g11-05-infra-failure",
-            source_commit="a" * 40,
-            git_root=REPO_ROOT,
+            evaluator_commit=_head(REPO_ROOT),
+            evaluator_git_root=evaluator,
+            project_source_commit=runner.PROJECT_SOURCE_COMMIT,
+            project_git_root=project,
             prompt_version=runner.PRODUCTION_PROMPT_VERSION,
             prompt_sha256=runner.PRODUCTION_PROMPT_SHA256,
         )
@@ -521,16 +698,8 @@ def test_existing_output_run_is_never_overwritten(monkeypatch, tmp_path: Path):
     existing = output_root / "g11-05-existing"
     existing.mkdir(parents=True)
     (existing / "sentinel.txt").write_text("keep\n", encoding="utf-8")
-    monkeypatch.setattr(
-        runner,
-        "validate_source_commit",
-        lambda value, *, git_root: "a" * 40,
-    )
-    monkeypatch.setattr(
-        runner,
-        "validate_case_identities",
-        lambda cases=runner.CASES, *, git_root=None: cases,
-    )
+    evaluator = _clone_at(tmp_path, _head(REPO_ROOT), "evaluator")
+    project = _clone_at(tmp_path, runner.PROJECT_SOURCE_COMMIT, "existing-project")
     monkeypatch.setattr(
         runner,
         "validate_formal_environment",
@@ -545,8 +714,10 @@ def test_existing_output_run_is_never_overwritten(monkeypatch, tmp_path: Path):
             query_url="http://127.0.0.1:8765/engineering/query",
             output_root=output_root,
             run_id="g11-05-existing",
-            source_commit="a" * 40,
-            git_root=REPO_ROOT,
+            evaluator_commit=_head(REPO_ROOT),
+            evaluator_git_root=evaluator,
+            project_source_commit=runner.PROJECT_SOURCE_COMMIT,
+            project_git_root=project,
             prompt_version=runner.PRODUCTION_PROMPT_VERSION,
             prompt_sha256=runner.PRODUCTION_PROMPT_SHA256,
         )

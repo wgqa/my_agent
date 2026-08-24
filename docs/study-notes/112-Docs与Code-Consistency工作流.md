@@ -92,3 +92,13 @@ Benchmark 的 Gold source 属于 evaluator metadata，不属于用户 query。Ev
 因此 DOC01-DOC04 保留 Gold label、source paths、anchors 和 obligations，但 query 改为不带结论、不带实际数量、不带 exact Gold implementation path 的自然用户问题。Agent 必须从 README 的真实文字和当前代码证据自行形成 consistency judgment；Gold label 只用于人工评审，不自动评分。
 
 完整 case contract 必须把 `question` 与 `obligations` 和 label、source paths、anchors、required/forbidden tools 一起 canonicalize 并冻结 SHA-256。只冻结 case id 或 source path 不足以防止 benchmark 漂移：任何题干、Gold obligation、结论、证据边界或 Tool contract 的改变都必须导致 deterministic validation 失败。这个 identity freeze 保护的是评测有效性，不是产品运行时行为。
+
+## 10. Evaluator Must Not Live Inside the Evaluated Search Space
+
+Prompt leakage 和 repository leakage 是两个不同层次的问题。Prompt leakage 是题干直接告诉 Agent Gold 结论、实际数量或 exact implementation path；repository leakage 则是 evaluator 的 case、obligation、Gold label 和 runner 文件被放进 Agent 可以搜索的 project checkout。前者污染输入，后者污染 evidence plane；只在 Prompt 中要求“不要搜索 evaluator 文件”不能修复后者，因为 `code_search` 仍会把这些文件作为真实项目证据返回。
+
+本次 G11-05 Formal attempt `g11-05-docs-code-consistency-formal-20260824-221006` 已经提供了实证 contamination：4/4 requests completed，但 DOC03 final answer 明确引用 `docs/study-notes/112` 作为 5/4/2 consistency 依据。该文件包含 Gold/evaluator 语义，因此这次 run 是 `INVALID / EVALUATION CONTAMINATION`，不能用于 Agent capability、manual Gold score 或 G11-05 PASS/MIXED/NEGATIVE 结论。
+
+正确的边界是 `Evaluator Checkout != Project Target Checkout`。Evaluator checkout 保存 runner、tests、Study Note 和 case contract；Project Target Checkout 固定为不含 G11-05 evaluator 文件的 `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`。Formal 前必须分别校验 evaluator/project 的 HEAD、tracked-clean 状态和不同的 resolved directory，并对 project checkout 拒绝 evaluator-owned 文件。不要粗暴禁止正常 project code 中偶然出现 `DOC01` 等字符串；guard 应针对明确的 evaluator-owned paths 和身份。
+
+Runner manifest 必须同时记录 `evaluator_commit` 与 `project_source_commit`，并标记 `project_target_isolated=true`、`project_evaluator_same_root=false`。所有 document/code source paths 都相对于 project checkout 验证；API 服务也必须从 frozen project worktree 启动，让 `api.app` 的 repository binding 指向被评测项目，而不是 evaluator checkout。Artifact safety 同时检查 evaluator 和 project 两个 local root，继续保留 JSON、JSONL 和 Markdown JSON-fence 的 semantic validation。
