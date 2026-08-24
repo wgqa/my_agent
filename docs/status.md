@@ -15,9 +15,9 @@
 - **G8 = CLOSED / Context v1 mixed**
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
-- **G11-03 Change Impact & Test Recommendation Workflow = IN PROGRESS / VALID NEGATIVE / REPAIR**
+- **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G11-03 Formal v2 Validation**
+- **NEXT = G11-04 Diagnosis & Config Analysis**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -46,7 +46,7 @@ G11-03 Formal R3 在第二 task family 得到 valid negative，3/4 initial parse
 
 ## G11-03 Change Impact & Test Recommendation Workflow
 
-- **状态：** IN PROGRESS / VALID NEGATIVE / REPAIR。
+- **状态：** CLOSED / MIXED。
 - **任务性质：** transfer validation；复用 Engineering Prompt v2、现有 7 Tools、Repair v1 与 5/4/2 budget，不新增 Change Impact 专用 Prompt，不启用 v3。
 - **Workflow v2：** `g11-03-change-impact-test-recommendation-v2`。每个 case 必须覆盖 `changed_files`、`git_diff`、`read_project_context(test)`；`find_tests` 是 optional candidate tool。
 - **Candidate source contract：** accepted test 已在 target commit 的 `changed_files` 中时，candidate source=`changed_files`；否则必须由 `find_tests` 发现，candidate source=`find_tests`。当前 CI01-CI04 四个 accepted tests 均已由真实 Git proof 证实在各自 change set 中，不把它们描述为 unseen test discovery。
@@ -57,9 +57,14 @@ G11-03 Formal R3 在第二 task family 得到 valid negative，3/4 initial parse
 - **Engineering output cap：** Legacy=600；Engineering v2=1200；Engineering v3=1200。initial/repair 使用同一 profile-scoped cap；Prompt/Repair identity、5/4/2、registry=7、network retry=0 保持冻结。
 - **评测边界：** runner 自动统计 completion、required Tool coverage、forbidden/non-target calls、`project_change`、`project_test`、change-test pair、candidate source 和 assertion-visible signal；Impact correctness、推荐理由和 claim-level grounding 仍需人工 Gold review，不自动判分。
 - **Formal R3：** `g11-03-change-impact-formal-r3-20260824-010335`，source commit=`bebbc168ccf84afe4619f9c1a4bf97f5f2462e6c`；4 cases，completed=1/4，`project_change`=4/4，`project_test`=3/4，change-test pair=3/4，forbidden=0，non-target=0，parse failures=3，initial category=`OUTPUT_TRUNCATED`×3，repair=0/3，manual Gold fully accepted=0/4。判定：VALID NEGATIVE RESULT；G11-03=FAIL / DIAGNOSIS REQUIRED。
-- **Formal 历史记录：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 因 runner artifact safety serialization false positive 判为 INVALID / INFRASTRUCTURE FAILURE；第二次 run g11-03-change-impact-formal-rerun-20260824-003342 因 URL scheme substring misclassified as Windows drive path 同样判为 INVALID / INFRASTRUCTURE FAILURE；两次均不作 Agent 结论。Formal v2 尚未运行，G11-04 未开始。
+- **Formal v2：** `g11-03-change-impact-formal-v2-20260824-111830`，source commit=`727c452709d239a512d8cf219572c6ab3eed8cc2`，workflow=`g11-03-change-impact-test-recommendation-v2`。Production prompt=`engineering_agent_decision_prompt_v2`，SHA-256=`14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107`；Repair=`engineering_action_repair_prompt_v1`，SHA-256=`958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636`；max output=1200，budget=5/4/2，registry=7。
+- **Formal v2 指标：** case_count=4，completed=4/4；required coverage=`changed_files` 4/4、`git_diff` 4/4、`read_project_context` 3/4，required_tool_coverage_rate=0.9166666667；`project_change`=4/4，`project_test`=3/4，change-test pair=3/4；candidate source=`changed_files` 4/4、`find_tests` 0/4，accepted test in change set=4/4，`test_evidence_assertion_visible`=0/4；forbidden=0，non-target=0，parse failure=0，initial parse failure=0，repair attempted=0。
+- **Manual Gold：** fully accepted=0/4，但不是 Agent 全失败。CI01 change/impact/candidate 基本正确，误把 test 当作 `git_diff`，没有 `read_project_context(test)`，无 `project_test`，T3 fail；CI02 change/impact 与 Gold test 基本正确，但仅读取 lines 1-45 的 imports/helper，最终扩张为具体 manifest failure coverage，claim > evidence；CI03 implementation/budget distinction 基本正确，但仅读取 lines 1-31 imports，最终声称已验证 SHA/render/runtime budget behavior，claim > evidence；CI04 change/truncation reasoning 与 candidate 基本正确，仅读取 lines 5-65 imports/helpers，回答相对克制但未识别真实 test-body assertion，T3 未满足。
+- **最终结论：** Positive 为 Change evidence plane stable、4/4 completion after capacity fix、Git diff reasoning generally useful、candidate source contract works、0 forbidden/non-target、parse reliability restored。G11-03 不标记为 PASS，而是 CLOSED / MIXED。
+- **Known debt：** test evidence sufficiency、anchor/window quality、claim-level grounding、current-test evidence 与 change-diff evidence 的区分；unseen test discovery 尚未由这四个 Gold-leakage cases 验证。`test_evidence_assertion_visible=0/4` 再次说明 correct file != sufficient evidence；Evidence Sufficiency / Claim-Evidence Coverage 继续冻结为 G12 Engineering Evaluation 2.0 的系统性问题，不在 G11-03 扩大 read window 或调 Prompt。
+- **Formal 历史记录：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 与第二次 g11-03-change-impact-formal-rerun-20260824-003342 均因 runner artifact safety infrastructure failure 判为 INVALID，两次均不作 Agent 结论；R3 与 v2 的有效结果按上文保留。G11-04 尚未开始。
 
-Evidence Sufficiency debt 最终统一带入 G12 Engineering Evaluation 2.0，进行跨 task-family 验证；这不是当前 NEXT，也不改变 G11-03 Formal Validation 的顺序。
+Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engineering Evaluation 2.0，进行跨 task-family 验证；G11-03 已关闭，不继续扩大 read window 或调 Prompt。
 
 ## 项目定位
 

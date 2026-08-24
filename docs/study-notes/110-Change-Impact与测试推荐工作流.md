@@ -170,3 +170,50 @@ R3 审计发现四个 accepted Gold test 全部已经属于对应 target commit 
 CI03 是典型反例：它是唯一 completed case，直接读取了 Gold test，change/test pair 也成立，但 evidence 只到 imports，最终回答却声称已经看到 `FrozenInstanceError` assertion。这是 claim > evidence，说明 completed != grounded。CI01 没有形成 project_test，CI02 与 CI04 的读取窗口停在 imports/helper，均不能把测试文件名当成覆盖证明。
 
 R3 因而把 G11-02 的 grounding debt 复现到了第二个 task family：evidence sufficiency、evidence relevance、claim-level grounding、source-vs-doc/test selection 仍是跨 workflow debt。不能针对这四个 benchmark case 继续刷 Prompt；应保留负结果，把债务带入 G12 Engineering Evaluation 2.0 做跨 task-family 验证后再设计系统机制。
+
+## 19. Formal v2 Results / Lessons
+
+正式 v2 run 是 `g11-03-change-impact-formal-v2-20260824-111830`，source commit 为 `727c452709d239a512d8cf219572c6ab3eed8cc2`，workflow 为 `g11-03-change-impact-test-recommendation-v2`。Production Prompt 仍是 `engineering_agent_decision_prompt_v2`，SHA 为 `14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107`；Repair 仍是 `engineering_action_repair_prompt_v1`，SHA 为 `958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636`。max output=1200，budget=5/4/2，registry=7。
+
+### 19.1 R3 与 v2 对照
+
+| 指标 | Formal R3 | Formal v2 |
+|---|---:|---:|
+| completed | 1/4 | 4/4 |
+| initial `OUTPUT_TRUNCATED` | 3 | 0 |
+| parse failure | 3 | 0 |
+| repair attempted | 3，成功 0 | 0 |
+| `project_change` | 4/4 | 4/4 |
+| `project_test` | 3/4 | 3/4 |
+| change-test pair | 3/4 | 3/4 |
+| forbidden / non-target | 0 / 0 | 0 / 0 |
+| `test_evidence_assertion_visible` | 未登记 | 0/4 |
+
+R3 的 1/4 completion、3 次 `OUTPUT_TRUNCATED` 和 0/3 repair 暴露了 Engineering structured finalization 的 transport capacity blocker。v2 将 Engineering v2/v3 cap 从 600 提升到 1200 后，4/4 case 完成、0 parse failure、0 repair，说明 blocker 得到解决。这个结论是 capacity fix，不是 Prompt improvement：v2/v3 Prompt text、Prompt SHA、Repair Prompt identity 都没有改变。
+
+这也说明 output capacity 与 parse repair 是两件事。Parse repair 只能在 provider 响应到达后，对失败的结构化 Action 进行一次重新生成；它不能让同一 profile 的 600 上限容纳更长的最终决策。v2 的提升发生在 profile-scoped transport cap，Legacy Tool Agent 仍保持 600。
+
+### 19.2 自动指标与证据边界
+
+v2 的 required coverage 为 `changed_files=4/4`、`git_diff=4/4`、`read_project_context=3/4`，required_tool_coverage_rate=`0.9166666667`。`project_change=4/4` 说明 Change evidence plane 稳定；`project_test=3/4` 和 pair=3/4 说明部分 test evidence 存在，但并不等于 test evidence 足够。candidate source 为 `changed_files=4/4`、`find_tests=0/4`，accepted test in change set=4/4；forbidden=0、non-target=0。
+
+最重要的负指标是 `test_evidence_assertion_visible=0/4`。它是保守 structural signal，不自动判断 Gold correctness，但它清楚暴露了“读取了正确文件”与“读取了足以支持 claim 的测试证据”之间的差异：correct file != sufficient evidence。
+
+### 19.3 Manual Gold：0/4 的分因
+
+Manual fully accepted 为 0/4，但不能简单写成 Agent 全失败：
+
+- CI01 的 Change、Impact 和 candidate 基本正确；Agent 使用 test `git_diff`，没有 `read_project_context(test)`，因此没有 `project_test` evidence，T3 fail。
+- CI02 的 Change、Impact 和 Gold test 基本正确；`project_test` 只有 lines 1-45 的 imports 与 helper，final 却扩张为具体 manifest failure coverage，属于 claim > evidence。
+- CI03 的 implementation/budget distinction 基本正确；`project_test` 只有 lines 1-31 的 imports，final 却声称已经验证 SHA、render 和 runtime budget behavior，属于 claim > evidence。
+- CI04 的 Change/truncation reasoning 和 candidate 基本正确；`project_test` 只有 lines 5-65 的 imports/helpers，final 相对克制，但没有识别真实 test body assertion，T3 未满足。
+
+因此 completion != grounding，project_test != sufficient test evidence；测试推荐仍必须以实际读取到的测试 body 和 assertion 为依据。
+
+### 19.4 Gold leakage 与停止规则
+
+四个 accepted tests 全部已经存在于各自 target commit 的 change set，因此 v2 中 `candidate source=changed_files` 是合理路径，`find_tests=0/4` 并不表示 discovery Tool 失效。这四个 case 不能证明 unseen test discovery；后续若验证 discovery，必须使用 Gold test 不在 change set 的 case。
+
+v2 完成度提高但 test evidence sufficiency 仍为 FAIL，正是停止 benchmark tuning 的理由。继续针对这四个 Gold-leakage case 扩大 read window 或调整 Prompt，会把 benchmark-specific 修补误当成通用能力，并增加 overfitting 风险。应冻结 G11-03 的 mixed result，把 test evidence sufficiency、anchor/window quality、claim-level grounding、current-test evidence 与 change-diff evidence distinction 带入 G12 Engineering Evaluation 2.0 做跨 task-family 验证。
+
+G11-03 最终状态为 `CLOSED / MIXED`，不是 PASS。NEXT 为 `G11-04 Diagnosis & Config Analysis`；本次 closure 不开始实现 G11-04。
