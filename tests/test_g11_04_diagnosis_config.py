@@ -142,6 +142,251 @@ def test_source_commit_mismatch_and_tracked_dirty_checkout_are_rejected(tmp_path
         runner.validate_source_commit(head, git_root=repo)
 
 
+VALID_KNOWLEDGE_STATUS = {
+    "schema_version": "engineering_knowledge_status_v1",
+    "ready": True,
+    "verified": True,
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "chunk_count": 215,
+    "retrieval_strategy": "bm25",
+    "manifest_experiment_id": "dbc497c796d5",
+}
+VALID_PROJECT_STATUS = {"project_name": "my_agent", "source": "default_repo"}
+
+
+def test_valid_engineering_knowledge_identity_passes():
+    assert runner.validate_engineering_knowledge_status(VALID_KNOWLEDGE_STATUS) == (
+        VALID_KNOWLEDGE_STATUS
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("ready", False),
+        ("verified", False),
+        ("corpus_id", "wrong-corpus"),
+    ],
+)
+def test_invalid_engineering_knowledge_identity_fails(field: str, value):
+    status = dict(VALID_KNOWLEDGE_STATUS)
+    status[field] = value
+    with pytest.raises(ValueError, match="Engineering Knowledge status mismatch"):
+        runner.validate_engineering_knowledge_status(status)
+
+
+def test_valid_engineering_project_identity_passes():
+    assert runner.validate_engineering_project(VALID_PROJECT_STATUS) == {
+        "project_name": "my_agent",
+        "source": "default_repo",
+    }
+
+
+@pytest.mark.parametrize(
+    "project",
+    [
+        {"project_name": "wrong_project", "source": "default_repo"},
+        {"project_name": "my_agent", "source": "configured"},
+    ],
+)
+def test_invalid_engineering_project_identity_fails(project: dict[str, str]):
+    with pytest.raises(ValueError, match="Engineering Project identity mismatch"):
+        runner.validate_engineering_project(project)
+
+
+def _successful_case_response(*, status: str = "completed") -> dict:
+    return {
+        "schema_version": "engineering_query_response_v1",
+        "status": status,
+        "answer": "bounded result",
+        "reason_code": None,
+        "failure_code": None,
+        "iterations_used": 1,
+        "tool_calls_used": 0,
+        "tool_errors_used": 0,
+        "trace": [],
+        "evidence": [],
+    }
+
+
+def _run_formal_with_fakes(monkeypatch, tmp_path: Path, *, response: dict | None = None):
+    calls: list[tuple[str, str]] = []
+
+    monkeypatch.setattr(
+        runner,
+        "validate_source_commit",
+        lambda value, *, git_root: "a" * 40,
+    )
+    monkeypatch.setattr(
+        runner,
+        "validate_case_identities",
+        lambda *args, **kwargs: runner.CASES,
+    )
+
+    def fake_get_json(url: str) -> dict:
+        calls.append(("GET", url))
+        if url.endswith("/engineering/knowledge"):
+            return dict(VALID_KNOWLEDGE_STATUS)
+        if url.endswith("/project"):
+            return dict(VALID_PROJECT_STATUS)
+        raise AssertionError(url)
+
+    def fake_post_json(url: str, payload: dict) -> dict:
+        calls.append(("POST", url))
+        return dict(response or _successful_case_response())
+
+    monkeypatch.setattr(runner, "_get_json", fake_get_json)
+    monkeypatch.setattr(runner, "_post_json", fake_post_json)
+    output = runner.execute_formal_run(
+        query_url="http://127.0.0.1:8765/engineering/query",
+        output_root=tmp_path,
+        run_id="g11-04-r1-test",
+        source_commit="a" * 40,
+        git_root=REPO_ROOT,
+        prompt_version=runner.PRODUCTION_PROMPT_VERSION,
+        prompt_sha256=runner.PRODUCTION_PROMPT_SHA256,
+    )
+    return output, calls
+
+
+def test_formal_environment_preflight_runs_before_any_case_post(monkeypatch):
+    calls: list[tuple[str, str]] = []
+
+    def fake_get_json(url: str) -> dict:
+        calls.append(("GET", url))
+        if url.endswith("/engineering/knowledge"):
+            return dict(VALID_KNOWLEDGE_STATUS)
+        return dict(VALID_PROJECT_STATUS)
+
+    def fake_post_json(url: str, payload: dict) -> dict:
+        calls.append(("POST", url))
+        return _successful_case_response()
+
+    monkeypatch.setattr(runner, "_get_json", fake_get_json)
+    monkeypatch.setattr(runner, "_post_json", fake_post_json)
+    knowledge, project = runner.validate_formal_environment(
+        "http://127.0.0.1:8765/engineering/query"
+    )
+
+    assert knowledge == VALID_KNOWLEDGE_STATUS
+    assert project == VALID_PROJECT_STATUS
+    assert calls == [
+        ("GET", "http://127.0.0.1:8765/engineering/knowledge"),
+        ("GET", "http://127.0.0.1:8765/project"),
+    ]
+
+
+def test_http_200_agent_failure_is_recorded_as_real_case_result(
+    monkeypatch, tmp_path: Path
+):
+    output, calls = _run_formal_with_fakes(
+        monkeypatch,
+        tmp_path,
+        response={**_successful_case_response(status="failed"), "failure_code": "RUNTIME_STOP"},
+    )
+    assert [method for method, _ in calls] == ["GET", "GET", "POST", "POST", "POST", "POST"]
+    case_lines = (output / "case_results.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(case_lines) == 4
+    assert all(json.loads(line)["status"] == "failed" for line in case_lines)
+    assert json.loads((output / "summary.json").read_text(encoding="utf-8"))["failed_cases"] == 4
+
+
+def test_http_infrastructure_failure_raises_and_writes_no_formal_artifact(
+    monkeypatch, tmp_path: Path
+):
+    calls: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "validate_source_commit",
+        lambda value, *, git_root: "a" * 40,
+    )
+    monkeypatch.setattr(
+        runner,
+        "validate_case_identities",
+        lambda *args, **kwargs: runner.CASES,
+    )
+
+    def fake_get_json(url: str) -> dict:
+        return dict(VALID_KNOWLEDGE_STATUS if url.endswith("knowledge") else VALID_PROJECT_STATUS)
+
+    def fake_post_json(url: str, payload: dict) -> dict:
+        calls.append(url)
+        raise ConnectionError("connection refused")
+
+    monkeypatch.setattr(runner, "_get_json", fake_get_json)
+    monkeypatch.setattr(runner, "_post_json", fake_post_json)
+    with pytest.raises(ConnectionError, match="connection refused"):
+        runner.execute_formal_run(
+            query_url="http://127.0.0.1:8765/engineering/query",
+            output_root=tmp_path,
+            run_id="g11-04-r1-infra-failure",
+            source_commit="a" * 40,
+            git_root=REPO_ROOT,
+            prompt_version=runner.PRODUCTION_PROMPT_VERSION,
+            prompt_sha256=runner.PRODUCTION_PROMPT_SHA256,
+        )
+    assert calls
+    assert not (tmp_path / "g11-04-r1-infra-failure").exists()
+
+
+def test_preflight_failure_raises_before_case_post_and_artifact_creation(
+    monkeypatch, tmp_path: Path
+):
+    post_calls: list[str] = []
+    monkeypatch.setattr(
+        runner,
+        "validate_source_commit",
+        lambda value, *, git_root: "a" * 40,
+    )
+    monkeypatch.setattr(
+        runner,
+        "validate_case_identities",
+        lambda *args, **kwargs: runner.CASES,
+    )
+
+    def fake_get_json(url: str) -> dict:
+        if url.endswith("/engineering/knowledge"):
+            invalid = dict(VALID_KNOWLEDGE_STATUS)
+            invalid["verified"] = False
+            return invalid
+        return dict(VALID_PROJECT_STATUS)
+
+    def fake_post_json(url: str, payload: dict) -> dict:
+        post_calls.append(url)
+        raise AssertionError("case POST must not run after preflight failure")
+
+    monkeypatch.setattr(runner, "_get_json", fake_get_json)
+    monkeypatch.setattr(runner, "_post_json", fake_post_json)
+    with pytest.raises(ValueError, match="Engineering Knowledge status mismatch"):
+        runner.execute_formal_run(
+            query_url="http://127.0.0.1:8765/engineering/query",
+            output_root=tmp_path,
+            run_id="g11-04-r1-preflight-failure",
+            source_commit="a" * 40,
+            git_root=REPO_ROOT,
+            prompt_version=runner.PRODUCTION_PROMPT_VERSION,
+            prompt_sha256=runner.PRODUCTION_PROMPT_SHA256,
+        )
+    assert post_calls == []
+    assert not (tmp_path / "g11-04-r1-preflight-failure").exists()
+
+
+def test_manifest_records_safe_knowledge_and_project_provenance(
+    monkeypatch, tmp_path: Path
+):
+    output, _ = _run_formal_with_fakes(monkeypatch, tmp_path)
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["engineering_knowledge_backend"] == VALID_KNOWLEDGE_STATUS
+    assert manifest["engineering_project"] == VALID_PROJECT_STATUS
+    encoded = json.dumps(manifest)
+    assert "D:\\" not in encoded
+    assert "corpus_root" not in encoded
+    assert ".env" not in encoded
+    assert "sk-" not in encoded
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
 def _metric_case(
     sequence: list[str],
     evidence: list[dict],

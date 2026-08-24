@@ -156,3 +156,14 @@ Runner 可以统计 completion、required coverage、forbidden/non-target calls�
 > Diagnosis Agent 不是看到 `Pipeline initialization failed` 就凭经验猜 provider，也不是看到 `config.py` 就声称已经读懂实现。它先用 bounded `code_search` 定位，再用 `read_project_context` 读取真实校验和 startup 分支，区分 root cause、consequence 与 remediation。对于同名但不同层的配置，它把 Pipeline generator budget 和 Engineering Decision cap 分开；对于 system-owned project root 和 verified corpus，它不会建议静默 fallback。最终建议基于 Git-like repository evidence 和 bounded source evidence，但正确性仍需要人工 Gold review。
 
 G11-04-01 只冻结 evaluation contract、runner、deterministic tests、Study Note 和 status。此阶段不运行 real-provider Formal；审计通过后再由用户在同一 provider 环境执行正式验证。G12 尚未开始。
+
+## Formal Environment Is Part of Evaluation Provenance
+
+Formal 评测的环境身份也是评测 provenance 的一部分。`--git-root` 只证明 runner 本地 checkout 的 commit；它不能证明 HTTP API 内部绑定的是同一个 Engineering Project。因此，四个 case POST 之前必须通过两个公开 preflight：
+
+- `/engineering/knowledge` 必须报告 `engineering_knowledge_status_v1`、`ready=true`、`verified=true`，并匹配冻结的 `corpus_id`、文件数、chunk 数、BM25 strategy 和 manifest identity；
+- `/project` 必须报告 `project_name=my_agent`、`source=default_repo`。configured project、错误 project name 或不可用 binding 都不能进入 Formal。
+
+这里有一个重要边界：`knowledge_search` 是 case 的 forbidden tool，不代表 Engineering Knowledge backend 可以缺席。前者是 case evidence dependency，后者是 runtime environment dependency。没有 verified backend，Agent 运行环境就不是被测产品环境。
+
+Formal runner 还必须区分两种失败：HTTP error、connection refused、503、无效 JSON 是 evaluation infrastructure/request failure，应直接退出并且不留下 finalized artifact；HTTP 200 返回的结构化 `status=failed` 或 `status=refused` 仍是真实 Agent result，应记录到 case artifact。只有在两个 preflight 和四次 case request 都成功后，runner 才创建 output directory、写 manifest、summary 和 report。manifest 只记录公开的 backend identity 与 project binding，不记录 corpus root、绝对路径、`.env` 或 API key。

@@ -20,11 +20,14 @@ from typing import Any
 from scripts.run_g11_03_change_impact import (
     MAX_PARSE_REPAIRS,
     TOOLSET_SHA256,
+    _get_json,
+    _knowledge_url,
     _post_json,
     _safe_trace,
     _sanitize_for_artifact,
     _tool_sequence,
     validate_artifact_safety,
+    validate_knowledge_backend as _validate_knowledge_backend,
     validate_source_commit as _validate_source_commit,
 )
 
@@ -50,6 +53,8 @@ BUDGET = {
 REGISTRY_SIZE = 7
 MAX_OUTPUT_TOKENS = 1200
 PROVIDER_NETWORK_RETRIES = 0
+EXPECTED_PROJECT_NAME = "my_agent"
+EXPECTED_PROJECT_SOURCE = "default_repo"
 
 REQUIRED_TOOLS = ("code_search", "read_project_context")
 FORBIDDEN_TOOLS = (
@@ -381,6 +386,78 @@ def validate_repair_prompt_identity(version: object, sha256: object) -> tuple[st
     return version, normalized
 
 
+def _project_url(query_url: str) -> str:
+    """Derive the public project identity endpoint from /engineering/query."""
+
+    from urllib.parse import urlsplit, urlunsplit
+
+    parsed = urlsplit(query_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("engineering query URL must be an absolute HTTP URL")
+    path = parsed.path.rstrip("/")
+    suffix = "/engineering/query"
+    if not path.endswith(suffix):
+        raise ValueError("engineering query URL must end with /engineering/query")
+    return urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            path[: -len(suffix)] + "/project",
+            "",
+            "",
+        )
+    )
+
+
+def validate_engineering_knowledge_status(status: object) -> dict[str, Any]:
+    """Reuse the validated G11-03 backend identity contract."""
+
+    return _validate_knowledge_backend(status)
+
+
+def validate_engineering_project(project: object) -> dict[str, str]:
+    """Accept only the Formal benchmark's system-owned project binding."""
+
+    if not isinstance(project, dict):
+        raise ValueError("Engineering Project status is not an object")
+    if project.get("project_name") != EXPECTED_PROJECT_NAME:
+        raise ValueError(
+            "Engineering Project identity mismatch: "
+            f"project_name={project.get('project_name')!r}"
+        )
+    if project.get("source") != EXPECTED_PROJECT_SOURCE:
+        raise ValueError(
+            "Engineering Project identity mismatch: "
+            f"source={project.get('source')!r}"
+        )
+    return {
+        "project_name": EXPECTED_PROJECT_NAME,
+        "source": EXPECTED_PROJECT_SOURCE,
+    }
+
+
+def validate_formal_environment(
+    query_url: str,
+    *,
+    knowledge_url: str | None = None,
+    project_url: str | None = None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Verify the HTTP runtime identity before any benchmark case is posted.
+
+    The local Git checkout is not evidence that the HTTP runtime uses the same
+    project or verified corpus.  Network/HTTP/JSON failures intentionally
+    propagate as infrastructure failures.
+    """
+
+    knowledge_status = validate_engineering_knowledge_status(
+        _get_json(knowledge_url or _knowledge_url(query_url))
+    )
+    project_binding = validate_engineering_project(
+        _get_json(project_url or _project_url(query_url))
+    )
+    return knowledge_status, project_binding
+
+
 def _validate_run_id(value: object) -> str:
     if type(value) is not str or not _RUN_ID_RE.fullmatch(value):
         raise ValueError("run_id must be a bounded path-safe identifier")
@@ -690,57 +767,79 @@ def _write_report(
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _failed_response(failure_code: str) -> dict[str, Any]:
-    return {
-        "status": "failed",
-        "answer": None,
-        "reason_code": None,
-        "failure_code": failure_code,
-        "iterations_used": 0,
-        "tool_calls_used": 0,
-        "tool_errors_used": 0,
-        "trace": [],
-        "evidence": [],
-    }
+def execute_formal_run(
+    *,
+    query_url: str,
+    output_root: str | Path,
+    run_id: str,
+    source_commit: str,
+    git_root: str | Path,
+    prompt_version: str,
+    prompt_sha256: str,
+    repair_prompt_version: str = REPAIR_PROMPT_VERSION,
+    repair_prompt_sha256: str = REPAIR_PROMPT_SHA256,
+    label: str = "diagnosis-config-transfer-validation",
+    knowledge_url: str | None = None,
+    project_url: str | None = None,
+) -> Path:
+    """Run Formal only after all environment and request infrastructure passes.
 
+    No output directory is created until both preflight requests and all four
+    case requests have returned valid HTTP JSON objects.  A structured HTTP
+    200 Agent result, including status=failed/refused, remains a valid case.
+    """
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--url", default="http://127.0.0.1:8765/engineering/query")
-    parser.add_argument("--output-root", required=True)
-    parser.add_argument("--run-id", required=True)
-    parser.add_argument("--label", default="diagnosis-config-transfer-validation")
-    parser.add_argument("--source-commit", required=True)
-    parser.add_argument("--git-root", required=True)
-    parser.add_argument("--prompt-version", required=True)
-    parser.add_argument("--prompt-sha256", required=True)
-    parser.add_argument("--repair-prompt-version", default=REPAIR_PROMPT_VERSION)
-    parser.add_argument("--repair-prompt-sha256", default=REPAIR_PROMPT_SHA256)
-    args = parser.parse_args()
-
-    run_id = _validate_run_id(args.run_id)
-    source_commit = validate_source_commit(args.source_commit, git_root=args.git_root)
-    validate_case_identities(git_root=args.git_root)
+    run_id = _validate_run_id(run_id)
+    source_commit = validate_source_commit(source_commit, git_root=git_root)
+    validate_case_identities(git_root=git_root)
     validate_required_and_forbidden_tools()
     prompt_version, prompt_sha256 = validate_prompt_identity(
-        args.prompt_version, args.prompt_sha256
+        prompt_version, prompt_sha256
     )
     repair_prompt_version, repair_prompt_sha256 = validate_repair_prompt_identity(
-        args.repair_prompt_version, args.repair_prompt_sha256
+        repair_prompt_version, repair_prompt_sha256
+    )
+    knowledge_status, project_binding = validate_formal_environment(
+        query_url,
+        knowledge_url=knowledge_url,
+        project_url=project_url,
     )
 
-    output = Path(args.output_root).resolve() / run_id
+    output = Path(output_root).resolve() / run_id
+    if output.exists():
+        raise FileExistsError(f"Formal output run already exists: {run_id}")
+
+    normalized_cases: list[dict[str, Any]] = []
+    for case in CASES:
+        started = time.perf_counter()
+        # _post_json raises for connection errors, HTTP errors, invalid JSON,
+        # and non-object responses. Those are infrastructure failures and must
+        # not be normalized into a synthetic Agent case.
+        response = _post_json(query_url, {"question": case["question"]})
+        normalized_cases.append(
+            _normalize_case(
+                case,
+                response,
+                (time.perf_counter() - started) * 1000,
+                git_root,
+            )
+        )
+
     output.mkdir(parents=True, exist_ok=False)
     manifest = {
         "schema_version": "g11_04_diagnosis_config_manifest_v1",
         "workflow": WORKFLOW_ID,
         "run_id": run_id,
-        "label": _sanitize_for_artifact(args.label, args.git_root),
+        "label": _sanitize_for_artifact(label, git_root),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "endpoint": _sanitize_for_artifact(args.url, args.git_root),
+        "endpoint": _sanitize_for_artifact(query_url, git_root),
         "source_commit": source_commit,
         "source_commit_attestation": "operator_declared_and_locally_verified_checkout",
         "project_identity": PROJECT_IDENTITY,
+        "engineering_knowledge_backend": _sanitize_for_artifact(
+            knowledge_status, git_root
+        ),
+        "engineering_project": _sanitize_for_artifact(project_binding, git_root),
         "provider": "deepseek",
         "model": "deepseek-chat",
         "prompt_version": prompt_version,
@@ -765,37 +864,53 @@ def main() -> int:
         "cot_recorded": False,
         "gold_correctness_auto_scored": False,
     }
-
-    cases: list[dict[str, Any]] = []
-    for case in CASES:
-        started = time.perf_counter()
-        try:
-            response = _post_json(args.url, {"question": case["question"]})
-        except Exception:
-            # Do not persist provider error bodies, tracebacks, or raw output.
-            response = _failed_response("PROVIDER_REQUEST_FAILED")
-        cases.append(
-            _normalize_case(
-                case,
-                response,
-                (time.perf_counter() - started) * 1000,
-                args.git_root,
-            )
-        )
-
-    metrics = _metrics(cases)
+    metrics = _metrics(normalized_cases)
     (output / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     with (output / "case_results.jsonl").open("w", encoding="utf-8") as handle:
-        for item in cases:
+        for item in normalized_cases:
             handle.write(json.dumps(item, ensure_ascii=False) + "\n")
     (output / "summary.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    validate_artifact_safety(output, args.git_root)
-    _write_report(output / "run_report.md", manifest, cases, metrics)
-    validate_artifact_safety(output, args.git_root)
+    validate_artifact_safety(output, git_root)
+    _write_report(output / "run_report.md", manifest, normalized_cases, metrics)
+    validate_artifact_safety(output, git_root)
+    return output
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", default="http://127.0.0.1:8765/engineering/query")
+    parser.add_argument("--knowledge-url", default=None)
+    parser.add_argument("--project-url", default=None)
+    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--label", default="diagnosis-config-transfer-validation")
+    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--git-root", required=True)
+    parser.add_argument("--prompt-version", required=True)
+    parser.add_argument("--prompt-sha256", required=True)
+    parser.add_argument("--repair-prompt-version", default=REPAIR_PROMPT_VERSION)
+    parser.add_argument("--repair-prompt-sha256", default=REPAIR_PROMPT_SHA256)
+    args = parser.parse_args()
+
+    output = execute_formal_run(
+        query_url=args.url,
+        output_root=args.output_root,
+        run_id=args.run_id,
+        source_commit=args.source_commit,
+        git_root=args.git_root,
+        prompt_version=args.prompt_version,
+        prompt_sha256=args.prompt_sha256,
+        repair_prompt_version=args.repair_prompt_version,
+        repair_prompt_sha256=args.repair_prompt_sha256,
+        label=args.label,
+        knowledge_url=args.knowledge_url,
+        project_url=args.project_url,
+    )
+    metrics = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     print(
         json.dumps(
             {"output": str(output), "metrics": metrics},

@@ -16,7 +16,7 @@
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
-- **G11-04 Diagnosis & Config Analysis = IN PROGRESS / DESIGN READY**
+- **G11-04 Diagnosis & Config Analysis = IN PROGRESS / FORMAL PENDING**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
 - **NEXT = G11-04 Formal Validation**
 
@@ -76,7 +76,8 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **Forbidden tools：** `changed_files`、`git_diff`、`find_tests`、`knowledge_search`、`calculator`；不冻结唯一 Tool sequence。
 - **自动评测边界：** 只统计 completion、required/forbidden coverage、project-code/multi-file/behavior-body-visible evidence shape、parse/repair 与安全 artifact；diagnosis、root cause、remediation 和 claim-level grounding 由人工 Gold review。
 - **Production freeze：** Engineering v2 Prompt identity、Repair v1、Engineering cap=1200、budget=5/4/2、registry=7、network retry=0 保持不变；CURRENT PRODUCT BASELINE 仍为 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`。
-- **Formal：** G11-04 real-provider Formal NOT RUN；本任务只完成 runner、deterministic tests、Study Note 111 和 status，G12 NOT STARTED。
+- **R1 Formal preflight：** runner 在四个 case POST 前验证 `/engineering/knowledge` 的 frozen verified identity 与 `/project` 的 `my_agent/default_repo` binding；HTTP infrastructure/request failure 直接退出且不生成 finalized artifact，HTTP 200 的 structured Agent `failed/refused` 仍记录为真实 case result。manifest 只保留公开 backend/project provenance。
+- **Formal：** G11-04 real-provider Formal NOT RUN；R1 仍只修改 evaluation infrastructure、deterministic tests、Study Note 111 和 status，G12 NOT STARTED。
 
 ## 项目定位
 
