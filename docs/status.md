@@ -16,7 +16,7 @@
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = IN PROGRESS / VALID NEGATIVE / REPAIR**
-- **CURRENT PRODUCT BASELINE = 0ce4dd4317fc47f84bd5d06ae605a8484aab6742**
+- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
 - **NEXT = G11-03 Formal v2 Validation**
 
 ## G11-02 Theory ↔ Code Closure
@@ -40,7 +40,9 @@ evidence relevance、evidence sufficiency、claim-level grounding、knowledge re
 
 ### Freeze
 
-不得再修改 v2 Prompt、v3 Prompt、Repair Prompt、Strict Parser、Tool implementations、Knowledge backend、budget 5/4/2、registry 7、600 max output、runner 四个 case 和 Gold obligations；不得开 R8。R7 artifact 保留在外部 `benchmark_work/gate11/theory_code_runs/g11-02-r7-evidence-grounded-20260823-204821`。
+G11-02 的 v2/v3 Prompt text、Prompt SHA、Repair Prompt、Strict Parser、Tool implementations、Knowledge backend、budget 5/4/2、registry=7、runner 四个 case 和 Gold obligations 继续冻结；不得开 R8。G11-02 历史 Formal runs/artifacts 使用的 transport max output=600，历史 provenance 不修改。
+
+G11-03 Formal R3 在第二 task family 得到 valid negative，3/4 initial parse 为 `OUTPUT_TRUNCATED`；因此后续 production Engineering v2/v3 transport cap 演进为 1200，Legacy Tool Agent 仍保持 600。该变化不是重新 tuning G11-02 TC01-TC04，也没有修改 v2/v3 Prompt identity。R7 artifact 保留在外部 `benchmark_work/gate11/theory_code_runs/g11-02-r7-evidence-grounded-20260823-204821`。
 
 ## G11-03 Change Impact & Test Recommendation Workflow
 
