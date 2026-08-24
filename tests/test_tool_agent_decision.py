@@ -31,11 +31,19 @@ from core.tool_agent import (
 from core.tool_agent.action_parser import parse_agent_action_text, strict_json_loads_no_duplicates
 from core.tool_agent.actions import ActionValidationError
 from core.tool_agent.decision_prompt import (
+    DECISION_MAX_OUTPUT_TOKENS,
+    DECISION_MAX_RETRIES,
     DECISION_PROMPT_SHA256,
     DECISION_PROMPT_TEMPLATE,
     DECISION_PROMPT_VERSION,
+    ENGINEERING_DECISION_PROMPT_V2_PROFILE,
+    ENGINEERING_DECISION_PROMPT_V2_SHA256,
+    ENGINEERING_DECISION_PROMPT_V3_PROFILE,
+    ENGINEERING_DECISION_PROMPT_V3_SHA256,
+    ENGINEERING_MAX_OUTPUT_TOKENS,
     build_decision_messages,
     compute_toolset_sha256,
+    max_output_tokens_for_profile,
 )
 from core.tool_agent.openai_compatible import (
     AgentDecisionProviderError,
@@ -66,6 +74,7 @@ class FakeDecisionClient:
         self._response = response
         self.calls = 0
         self.last_kwargs = None
+        self.kwargs_history = []
 
     @property
     def chat(self):
@@ -78,6 +87,7 @@ class FakeDecisionClient:
     def create(self, **kwargs):
         self.calls += 1
         self.last_kwargs = kwargs
+        self.kwargs_history.append(kwargs)
         if self._error is not None:
             raise self._error
         if self._response is not None:
@@ -361,6 +371,67 @@ class TestProvider:
         )
         outcome = build_provider(client).decide(reg, "x")
         assert outcome.failure_code == ACTION_PROVIDER_ERROR
+
+    def test_profile_output_caps_are_frozen(self):
+        assert max_output_tokens_for_profile(None) == DECISION_MAX_OUTPUT_TOKENS == 600
+        assert (
+            max_output_tokens_for_profile(ENGINEERING_DECISION_PROMPT_V2_PROFILE)
+            == ENGINEERING_MAX_OUTPUT_TOKENS
+            == 1200
+        )
+        assert (
+            max_output_tokens_for_profile(ENGINEERING_DECISION_PROMPT_V3_PROFILE)
+            == ENGINEERING_MAX_OUTPUT_TOKENS
+            == 1200
+        )
+        assert DECISION_MAX_RETRIES == 0
+
+    def test_initial_call_uses_engineering_v2_cap_without_prompt_identity_change(self):
+        reg, _ = build_registry()
+        client = FakeDecisionClient(
+            content='{"action": "final_answer", "answer": "ok"}'
+        )
+        provider = build_provider(
+            client, prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE
+        )
+        outcome = provider.decide(reg, "x")
+
+        assert outcome.action is not None
+        assert [call["max_tokens"] for call in client.kwargs_history] == [1200]
+        assert outcome.call_metadata.prompt_version == (
+            ENGINEERING_DECISION_PROMPT_V2_PROFILE.version
+        )
+        assert outcome.call_metadata.prompt_sha256 == ENGINEERING_DECISION_PROMPT_V2_SHA256
+        assert ENGINEERING_DECISION_PROMPT_V2_SHA256 == (
+            "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107"
+        )
+
+    def test_repair_call_reuses_same_engineering_v3_cap(self):
+        reg, _ = build_registry()
+        client = FakeDecisionClient(content="not json")
+        provider = build_provider(
+            client, prompt_profile=ENGINEERING_DECISION_PROMPT_V3_PROFILE
+        )
+        outcome = provider.decide(reg, "x")
+
+        assert outcome.action is None
+        assert client.calls == 2
+        assert [call["max_tokens"] for call in client.kwargs_history] == [1200, 1200]
+        assert outcome.call_metadata.repair_attempted is True
+        assert outcome.call_metadata.prompt_sha256 == ENGINEERING_DECISION_PROMPT_V3_SHA256
+        assert ENGINEERING_DECISION_PROMPT_V3_SHA256 == (
+            "0e9554cffcd7240ad394afb24cc60239d583f1f0a7218b2fad0aab09507ff917"
+        )
+
+    def test_legacy_initial_call_keeps_600_cap(self):
+        reg, _ = build_registry()
+        client = FakeDecisionClient(
+            content='{"action": "final_answer", "answer": "ok"}'
+        )
+        outcome = build_provider(client).decide(reg, "x")
+
+        assert outcome.action is not None
+        assert [call["max_tokens"] for call in client.kwargs_history] == [600]
 
 
 # ---- Safety / identity ----

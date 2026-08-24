@@ -23,7 +23,7 @@ from typing import Any
 
 
 PROJECT_IDENTITY = "my_agent_repository"
-WORKFLOW_ID = "g11-03-change-impact-test-recommendation-v1"
+WORKFLOW_ID = "g11-03-change-impact-test-recommendation-v2"
 KNOWLEDGE_CORPUS_ID = "870e5864df67"
 TOOLSET_SHA256 = "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
 PRODUCTION_PROMPT_VERSION = "engineering_agent_decision_prompt_v2"
@@ -44,14 +44,26 @@ BUDGET = {
     "max_tool_errors": 2,
 }
 REGISTRY_SIZE = 7
-MAX_OUTPUT_TOKENS = 600
+MAX_OUTPUT_TOKENS = 1200
 PROVIDER_NETWORK_RETRIES = 0
 
 REQUIRED_TOOLS = (
     "changed_files",
     "git_diff",
+    "read_project_context",
+)
+OPTIONAL_CANDIDATE_TOOLS = ("find_tests",)
+DIAGNOSTIC_TARGET_SEQUENCE = (
+    "changed_files",
+    "git_diff",
     "find_tests",
     "read_project_context",
+)
+FIXED_TARGET_COMMITS = (
+    "465dd65e950e9c4a119820a5a27f558e74ad5892",
+    "766a836a6728dc7fd4f4f22e9ec8a2387758c5a9",
+    "129175ec422b88677b48c0c5d5997a1a8f229b92",
+    "23073a5aa6471b2e671385907108008253788dba",
 )
 FORBIDDEN_TOOLS = ("knowledge_search", "calculator")
 SAFE_TRACE_KEYS = frozenset(
@@ -103,6 +115,7 @@ def _case(
         "accepted_test_paths": accepted_test_paths,
         "question": question,
         "required": REQUIRED_TOOLS,
+        "optional_candidate_tools": OPTIONAL_CANDIDATE_TOOLS,
         "forbidden": FORBIDDEN_TOOLS,
         "obligations": obligations,
     }
@@ -119,10 +132,11 @@ CASES = (
             "base_ref=465dd65e950e9c4a119820a5a27f558e74ad5892^ "
             "head_ref=465dd65e950e9c4a119820a5a27f558e74ad5892。"
             "重点分析 api/app.py 中 fix: preserve legacy tool-agent evidence numbering "
-            "的实际变更。请区分 Git 改动、合理行为影响、find_tests 返回的 candidate、"
-            "测试推荐理由和测试源码中真正覆盖的断言；完成 legacy /tool-agent/query 兼容性"
-            "的 change impact 与 test recommendation。按 changed_files -> git_diff -> "
-            "find_tests -> read_project_context 推进，不调用 knowledge_search 或 calculator。"
+            "的实际变更。请区分 Git 改动、合理行为影响、candidate、测试推荐理由和测试源码"
+            "中真正覆盖的断言；完成 legacy /tool-agent/query 兼容性的 change impact 与 test "
+            "recommendation。先读取 changed_files 与 git_diff，再读取相关 test；若 accepted "
+            "test 未出现在 changed_files，才使用 find_tests 获取 candidate。不调用 "
+            "knowledge_search 或 calculator。"
         ),
         [
             _obligation("D1", "changed_files 确认 api/app.py 属于本 commit change set。"),
@@ -143,7 +157,11 @@ CASES = (
                 "说明修复目标是保持 legacy public evidence 连续从 E1 开始，而不是修改 "
                 "Engineering unified evidence contract。",
             ),
-            _obligation("T1", "使用 find_tests(api/app.py) 发现 candidate test。"),
+            _obligation(
+                "T1",
+                "candidate 可来自 changed_files；若 accepted test 不在 change set，必须使用 "
+                "find_tests(api/app.py) 发现 candidate test。",
+            ),
             _obligation(
                 "T2",
                 "最终推荐优先 tests/test_engineering_agent_api.py。",
@@ -197,7 +215,9 @@ CASES = (
                 "不得把该 backend 描述成复用 legacy 默认 vector store。",
             ),
             _obligation(
-                "T1", "使用 find_tests(core/engineering_knowledge.py) 发现 candidate test。"
+                "T1",
+                "candidate 可来自 changed_files；若 accepted test 不在 change set，必须使用 "
+                "find_tests(core/engineering_knowledge.py) 发现 candidate test。",
             ),
             _obligation(
                 "T2", "最终推荐优先 tests/test_g11_02_r4_knowledge.py。"
@@ -257,7 +277,8 @@ CASES = (
             ),
             _obligation(
                 "T1",
-                "使用 find_tests(core/tool_agent/decision_prompt.py) 发现 candidate test。",
+                "candidate 可来自 changed_files；若 accepted test 不在 change set，必须使用 "
+                "find_tests(core/tool_agent/decision_prompt.py) 发现 candidate test。",
             ),
             _obligation(
                 "T2", "最终推荐优先 tests/test_g11_02_r5_budget_control.py。"
@@ -310,7 +331,9 @@ CASES = (
                 "I4", "识别 git_diff 仍必须受 chars/lines bounded contract 限制。"
             ),
             _obligation(
-                "T1", "使用 find_tests(git_change.py) 发现 candidate test。"
+                "T1",
+                "candidate 可来自 changed_files；若 accepted test 不在 change set，必须使用 "
+                "find_tests(git_change.py) 发现 candidate test。",
             ),
             _obligation(
                 "T2", "最终推荐优先 tests/test_git_change_tools.py。"
@@ -333,6 +356,65 @@ def _run_git(git_root: str | Path, *args: str) -> subprocess.CompletedProcess[st
         capture_output=True,
         text=True,
         check=False,
+    )
+
+
+def changed_paths_for_case(
+    case: dict[str, Any], *, git_root: str | Path
+) -> tuple[str, ...]:
+    """Return the real repo-relative paths changed by one fixed commit range."""
+    result = _run_git(
+        git_root,
+        "diff",
+        "--name-only",
+        case["base_ref"],
+        case["head_ref"],
+        "--",
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip()[:200]
+        raise ValueError(f"could not read changed paths for {case['case_id']}: {detail}")
+    return tuple(
+        path.strip().replace("\\", "/")
+        for path in result.stdout.splitlines()
+        if path.strip()
+    )
+
+
+def validate_accepted_tests_in_change_set(
+    cases: tuple[dict[str, Any], ...] = CASES,
+    *,
+    git_root: str | Path,
+) -> dict[str, bool]:
+    """Prove candidate visibility from the real target commit change sets."""
+    proof: dict[str, bool] = {}
+    for case in cases:
+        changed_paths = set(changed_paths_for_case(case, git_root=git_root))
+        accepted_paths = {
+            path.replace("\\", "/") for path in case["accepted_test_paths"]
+        }
+        proof[case["case_id"]] = bool(changed_paths & accepted_paths)
+    return proof
+
+
+def resolve_test_candidate_source(
+    case: dict[str, Any],
+    changed_paths: tuple[str, ...] | list[str] | set[str],
+    tool_sequence: list[str] | tuple[str, ...],
+) -> str:
+    """Resolve the permitted source of the accepted test candidate.
+
+    A changed test is already visible in the Git evidence plane. Only an
+    accepted test outside that set requires the optional discovery Tool.
+    """
+    changed = {path.replace("\\", "/") for path in changed_paths}
+    accepted = {path.replace("\\", "/") for path in case["accepted_test_paths"]}
+    if changed & accepted:
+        return "changed_files"
+    if "find_tests" in tool_sequence:
+        return "find_tests"
+    raise ValueError(
+        f"{case['case_id']} accepted test is unseen in changed_files and find_tests was not used"
     )
 
 
@@ -373,6 +455,8 @@ def validate_case_identities(
     expected_ids = ("CI01", "CI02", "CI03", "CI04")
     if tuple(case.get("case_id") for case in cases) != expected_ids:
         raise ValueError("G11-03 case identity drifted")
+    if tuple(case.get("target_commit") for case in cases) != FIXED_TARGET_COMMITS:
+        raise ValueError("G11-03 target commit identity drifted")
     for case in cases:
         target = case.get("target_commit")
         if type(target) is not str or not _COMMIT_RE.fullmatch(target):
@@ -517,6 +601,17 @@ def _evidence_kinds(response: dict[str, Any]) -> list[str]:
     ]
 
 
+def _test_evidence_assertion_visible(evidence: list[Any]) -> bool:
+    """Report only whether a project-test snippet reaches test syntax."""
+    return any(
+        isinstance(item, dict)
+        and item.get("kind") == "project_test"
+        and isinstance(item.get("snippet"), str)
+        and ("def test_" in item["snippet"] or "assert" in item["snippet"])
+        for item in evidence
+    )
+
+
 def _sanitize_for_artifact(value: Any, git_root: str | Path) -> Any:
     if isinstance(value, dict):
         return {key: _sanitize_for_artifact(item, git_root) for key, item in value.items()}
@@ -532,7 +627,12 @@ def _sanitize_for_artifact(value: Any, git_root: str | Path) -> Any:
 
 
 def _normalize_case(
-    case: dict[str, Any], response: dict[str, Any], elapsed_ms: float, git_root: str | Path
+    case: dict[str, Any],
+    response: dict[str, Any],
+    elapsed_ms: float,
+    git_root: str | Path,
+    *,
+    changed_paths: tuple[str, ...] | list[str] | None = None,
 ) -> dict[str, Any]:
     trace = _sanitize_for_artifact(_safe_trace(response.get("trace")), git_root)
     sequence = _tool_sequence(trace)
@@ -553,6 +653,28 @@ def _normalize_case(
     iterations = response.get("iterations_used")
     tool_calls = response.get("tool_calls_used")
     tool_errors = response.get("tool_errors_used")
+    normalized_changed_paths = [
+        path.replace("\\", "/") for path in (changed_paths or ())
+    ]
+    accepted_test_in_change_set = (
+        None
+        if changed_paths is None
+        else bool(
+            {
+                path.replace("\\", "/") for path in case["accepted_test_paths"]
+            }
+            & set(normalized_changed_paths)
+        )
+    )
+    candidate_source = None
+    candidate_source_error = None
+    if changed_paths is not None:
+        try:
+            candidate_source = resolve_test_candidate_source(
+                case, normalized_changed_paths, sequence
+            )
+        except ValueError as exc:
+            candidate_source_error = str(exc)
     return {
         "case_id": case["case_id"],
         "question": case["question"],
@@ -561,6 +683,10 @@ def _normalize_case(
         "head_ref": case["head_ref"],
         "focus_path": case["focus_path"],
         "accepted_test_paths": case["accepted_test_paths"],
+        "changed_paths": normalized_changed_paths,
+        "accepted_test_in_change_set": accepted_test_in_change_set,
+        "test_candidate_source": candidate_source,
+        "candidate_source_error": candidate_source_error,
         "status": response.get("status"),
         "answer": _sanitize_for_artifact(response.get("answer"), git_root),
         "reason_code": response.get("reason_code"),
@@ -580,7 +706,9 @@ def _normalize_case(
         "tool_sequence": sequence,
         "evidence": _sanitize_for_artifact(evidence, git_root),
         "evidence_kinds": _evidence_kinds(response),
+        "test_evidence_assertion_visible": _test_evidence_assertion_visible(evidence),
         "required_tools": list(case["required"]),
+        "optional_candidate_tools": list(case["optional_candidate_tools"]),
         "forbidden_tools": list(case["forbidden"]),
         "gold_obligations": case["obligations"],
     }
@@ -598,17 +726,33 @@ def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
         for item in cases
     )
     non_target_calls = sum(
-        sum(tool not in REQUIRED_TOOLS for tool in (item.get("tool_sequence") or []))
+        sum(
+            tool not in REQUIRED_TOOLS and tool not in OPTIONAL_CANDIDATE_TOOLS
+            for tool in (item.get("tool_sequence") or [])
+        )
         for item in cases
     )
     exact_sequence_cases = sum(
-        (item.get("tool_sequence") or []) == list(REQUIRED_TOOLS) for item in cases
+        (item.get("tool_sequence") or []) == list(DIAGNOSTIC_TARGET_SEQUENCE)
+        for item in cases
     )
     change_cases = sum("project_change" in (item.get("evidence_kinds") or []) for item in cases)
     test_cases = sum("project_test" in (item.get("evidence_kinds") or []) for item in cases)
     pair_cases = sum(
         {"project_change", "project_test"}.issubset(set(item.get("evidence_kinds") or []))
         for item in cases
+    )
+    candidate_from_changed_files = sum(
+        item.get("test_candidate_source") == "changed_files" for item in cases
+    )
+    candidate_from_find_tests = sum(
+        item.get("test_candidate_source") == "find_tests" for item in cases
+    )
+    accepted_test_in_change_set = sum(
+        item.get("accepted_test_in_change_set") is True for item in cases
+    )
+    assertion_visible = sum(
+        item.get("test_evidence_assertion_visible") is True for item in cases
     )
     case_count = len(cases)
     return {
@@ -623,6 +767,7 @@ def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "exact_target_sequence_cases": exact_sequence_cases,
         "exact_target_sequence_rate": exact_sequence_cases / case_count if case_count else 0,
+        "exact_target_sequence_diagnostic_only": True,
         "forbidden_tool_calls": forbidden_calls,
         "forbidden_tool_call_rate": (
             forbidden_calls / total_tool_calls if total_tool_calls else 0
@@ -633,6 +778,10 @@ def _metrics(cases: list[dict[str, Any]]) -> dict[str, Any]:
         "test_evidence_cases": test_cases,
         "change_test_pair_cases": pair_cases,
         "change_test_pair_rate": pair_cases / case_count if case_count else 0,
+        "test_candidate_from_changed_files_cases": candidate_from_changed_files,
+        "test_candidate_from_find_tests_cases": candidate_from_find_tests,
+        "accepted_test_in_change_set_cases": accepted_test_in_change_set,
+        "test_evidence_assertion_visible_cases": assertion_visible,
         "avg_tool_calls": (
             sum(item.get("tool_calls") or 0 for item in cases) / case_count
             if case_count
@@ -675,7 +824,11 @@ def _write_report(path: Path, manifest: dict[str, Any], cases: list[dict[str, An
         f"- repair_prompt_version: `{manifest['repair_prompt_version']}`",
         f"- repair_prompt_sha256: `{manifest['repair_prompt_sha256']}`",
         f"- max_parse_repairs: `{manifest['max_parse_repairs']}`",
+        f"- max_output_tokens: `{manifest['max_output_tokens']}`",
         f"- workflow: `{manifest['workflow']}`",
+        f"- required_tools: `{', '.join(manifest['required_tools'])}`",
+        f"- optional_candidate_tools: `{', '.join(manifest['optional_candidate_tools'])}`",
+        f"- diagnostic_target_sequence: `{' -> '.join(manifest['diagnostic_target_sequence'])}`",
         "- correctness: not automatically scored; Gold obligations require manual audit.",
         "- formal run: this artifact is produced only when the operator explicitly runs the runner.",
         "",
@@ -695,6 +848,9 @@ def _write_report(path: Path, manifest: dict[str, Any], cases: list[dict[str, An
                 "",
                 f"- target/base/head: `{item['target_commit']}` / `{item['base_ref']}` / `{item['head_ref']}`",
                 f"- focus path: `{item['focus_path']}`",
+                f"- accepted test candidate source: `{item['test_candidate_source'] or '(unresolved)'}`",
+                f"- accepted test in changed files: `{item['accepted_test_in_change_set']}`",
+                f"- test evidence assertion visible: `{item['test_evidence_assertion_visible']}`",
                 f"- status: `{item['status']}`",
                 f"- reason_code: `{item['reason_code']}`",
                 f"- failure_code: `{item['failure_code']}`",
@@ -805,6 +961,17 @@ def main() -> int:
     run_id = _validate_run_id(args.run_id)
     source_commit = validate_source_commit(args.source_commit, git_root=args.git_root)
     validate_case_identities(git_root=args.git_root)
+    changed_paths_by_case = {
+        case["case_id"]: changed_paths_for_case(case, git_root=args.git_root)
+        for case in CASES
+    }
+    accepted_test_proof = validate_accepted_tests_in_change_set(
+        git_root=args.git_root
+    )
+    if not all(accepted_test_proof.values()):
+        raise ValueError(
+            "fixed accepted tests must be visible in their target commit change sets"
+        )
     prompt_version, prompt_sha256 = validate_prompt_identity(
         args.prompt_version, args.prompt_sha256
     )
@@ -818,7 +985,7 @@ def main() -> int:
     output = Path(args.output_root).resolve() / run_id
     output.mkdir(parents=True, exist_ok=False)
     manifest = {
-        "schema_version": "g11_03_change_impact_manifest_v1",
+        "schema_version": "g11_03_change_impact_manifest_v2",
         "workflow": WORKFLOW_ID,
         "run_id": run_id,
         "label": args.label,
@@ -842,6 +1009,10 @@ def main() -> int:
         "provider_network_retries": PROVIDER_NETWORK_RETRIES,
         "budget": BUDGET,
         "required_tools": list(REQUIRED_TOOLS),
+        "optional_candidate_tools": list(OPTIONAL_CANDIDATE_TOOLS),
+        "diagnostic_target_sequence": list(DIAGNOSTIC_TARGET_SEQUENCE),
+        "candidate_source_contract": "changed_files_or_find_tests",
+        "accepted_test_in_change_set": accepted_test_proof,
         "forbidden_tools": list(FORBIDDEN_TOOLS),
         "case_ids": [case["case_id"] for case in CASES],
         "target_commits": [case["target_commit"] for case in CASES],
@@ -855,7 +1026,11 @@ def main() -> int:
         response = _post_json(args.url, {"question": case["question"]})
         cases.append(
             _normalize_case(
-                case, response, (time.perf_counter() - started) * 1000, args.git_root
+                case,
+                response,
+                (time.perf_counter() - started) * 1000,
+                args.git_root,
+                changed_paths=changed_paths_by_case[case["case_id"]],
             )
         )
 

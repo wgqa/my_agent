@@ -20,6 +20,7 @@ from core.tool_agent.runtime_models import DecisionControlState
 DECISION_PROMPT_VERSION = "tool_agent_decision_prompt_v3"
 DECISION_TEMPERATURE = 0
 DECISION_MAX_OUTPUT_TOKENS = 600
+ENGINEERING_MAX_OUTPUT_TOKENS = 1200
 DECISION_TIMEOUT_SECONDS = 20.0
 DECISION_MAX_RETRIES = 0
 
@@ -358,6 +359,24 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
 )
+
+ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
+    {
+        ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
+    }
+)
+
+
+def max_output_tokens_for_profile(profile: DecisionPromptProfile | None) -> int:
+    """Return the immutable transport cap for one prompt profile."""
+    if profile is None:
+        return DECISION_MAX_OUTPUT_TOKENS
+    if not isinstance(profile, DecisionPromptProfile):
+        raise TypeError("profile 必须是 DecisionPromptProfile 或 None")
+    if profile.version in ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS:
+        return ENGINEERING_MAX_OUTPUT_TOKENS
+    return DECISION_MAX_OUTPUT_TOKENS
 
 
 def max_parse_repairs_for_profile(profile: DecisionPromptProfile | None) -> int:

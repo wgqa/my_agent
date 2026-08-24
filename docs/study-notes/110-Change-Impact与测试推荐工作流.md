@@ -8,25 +8,26 @@ Change Impact Analysis 不是“改了哪个文件”的文件名摘要，而是
 
 ## 2. 当前工作流
 
-固定链路是：
+v2 的主链路是：
 
 ```text
 Change
   -> changed_files
   -> git_diff
   -> Impact
-  -> find_tests
   -> Test Candidate
+       | accepted test already in changed_files
+       | otherwise find_tests
   -> read_project_context
   -> Test Evidence
   -> Test recommendation
 ```
 
-四个 Tool 的职责不同：
+三个 required Tool 与一个 optional candidate Tool 的职责不同：
 
 - `changed_files` 先确认 commit range 中实际变化的 repo-relative path 和 change status。
 - `git_diff` 读取一个已经定位的文件的 bounded unified diff，提供变更事实。
-- `find_tests` 从 source path 发现候选测试 path、anchor line 和稳定 reason；它只定位，不判断覆盖。
+- `find_tests` 在 accepted test 未出现在 change set 时，从 source path 发现候选测试 path、anchor line 和稳定 reason；它只定位，不判断覆盖。
 - `read_project_context` 读取候选测试源码窗口，才把测试内容变成可审计的 `project_test` evidence。
 
 因此回答必须分层：A 是 Git 实际改了什么；B 是基于 diff 可以合理判断的行为影响；C 是工具发现的 candidate；D 是为什么推荐某个测试；E 是测试源码中的哪个断言或场景真正支撑该推荐。
@@ -35,7 +36,7 @@ Change
 
 文件名只能提供路径和命名信号，不能证明调用关系、参数流、分支行为或测试断言。一个 `runtime.py` 可能对应多个测试，一个测试也可能通过 fixture、API 或共享 helper 间接覆盖多个模块。反过来，名称相似的测试也可能只验证初始化、错误路径或无关行为。
 
-所以 `find_tests` 的结果必须称为 candidate。只有后续 `read_project_context(test_path, anchor_line)` 读到真实测试源码，才能说明测试实际构造了什么输入、断言了什么结果，以及它和变更风险之间有什么证据联系。
+所以 `changed_files` 暴露的路径和 `find_tests` 的结果都只能称为 candidate。只有后续 `read_project_context(test_path, anchor_line)` 读到真实测试源码，才能说明测试实际构造了什么输入、断言了什么结果，以及它和变更风险之间有什么证据联系。
 
 ## 4. Git diff 是事实，Impact 是工程判断
 
@@ -100,9 +101,9 @@ CI01 检查 legacy evidence 编号兼容性；CI02 检查 verified Knowledge bac
 
 ### Benchmark 可执行性也是评测契约
 
-Gold obligation 必须在当前 Tool 能力范围内可达。固定 case 在进入 Formal 前，由 `tests/test_g11_03_change_impact.py` 使用真实 repo 的 `FindTestsHandler` 执行 `find_tests`，确认 `accepted_test_paths` 至少有一个实际出现在返回的 candidate paths 中。这不是 mock，也不把 Gold test 人为塞进 Tool 输出；它只是验证 evaluation case 与当前 `find_tests_v1` contract 对齐。
+Gold obligation 必须在当前 Tool 能力范围内可达。v2 在进入 Formal 前，由 `tests/test_g11_03_change_impact.py` 用真实 Git 执行每个 target commit 的 `<head>^..<head>` name-only diff，确认 accepted test path 确实在 change set 中；测试 candidate 也可以在 unseen 情况下由真实 `find_tests` 提供。这不是 mock，也不把 Gold test 人为塞进 Tool 输出。
 
-如果 Tool 正确返回 no candidate，说明 benchmark 的 focus path 与 discoverability contract 不可执行，属于 evaluation design error，不能误判成 Agent reasoning failure。CI03 因此使用该 commit 中真实 changed 的 `core/tool_agent/decision_prompt.py`，其目标测试通过 public import 直接引用 `decision_prompt`，可以被现有 `content_reference` 规则发现。
+如果 accepted test 不在 change set，benchmark 必须要求 Agent 调用 `find_tests`；如果 accepted test 已经由 `changed_files` 显式暴露，强迫 `find_tests` 就是人为步骤。Tool 正确返回 no candidate 不能被误判成 Agent reasoning failure；这属于 evaluation design error。CI03 的 focus 是 target commit 中真实 changed 的 `core/tool_agent/decision_prompt.py`，四个当前 historical case 则都由 changed-files proof 满足 candidate-source contract。
 
 ## 11. 为什么推荐测试不等于执行测试
 
@@ -112,7 +113,7 @@ Gold obligation 必须在当前 Tool 能力范围内可达。固定 case 在进�
 
 ## 12. 5/4/2 budget 下的紧凑链路
 
-Runtime 仍冻结为 5 iterations / 4 Tool calls / 2 Tool errors。四个 required Tool 恰好可以在五轮内完成：前四轮依次读取 change、diff、candidate 和 test source，第五轮输出 final answer。
+Runtime 仍冻结为 5 iterations / 4 Tool calls / 2 Tool errors。三个 required Tool 在 changed-files candidate 路径下可以在五轮内完成；若 test 未出现在 change set，第四个 optional `find_tests` 才进入链路，然后读取 test source，最后输出 final answer。`find_tests` 是否出现不是唯一正确 sequence。
 
 该预算控制的是执行边界，不是答案正确性证明。模型不能通过输出修改 `DecisionControlState`，也不能扩大 Tool calls；v2 的 trusted control state 只是让模型知道剩余能力，Runtime hard enforcement 仍是最终边界。
 
@@ -126,11 +127,11 @@ G11-02 连接 Knowledge Evidence 与 Repository Evidence，回答理论、当前
 
 可以这样说明：
 
-> Agent 不是凭测试文件名或经验猜影响。它先用 `changed_files` 和 bounded `git_diff` 固定 Git 事实，再用 `find_tests` 找候选，最后用 `read_project_context` 读取测试源码。最终回答把 diff、合理影响、candidate、测试断言和推荐理由分开；推荐测试不等于测试已经执行。
+> Agent 不是凭测试文件名或经验猜影响。它先用 `changed_files` 和 bounded `git_diff` 固定 Git 事实；如果测试路径已在 change set 中就直接读取，否则用 `find_tests` 找候选，最后用 `read_project_context` 读取测试源码。最终回答把 diff、合理影响、candidate、测试断言和推荐理由分开；推荐测试不等于测试已经执行。
 
 ## 15. Transfer validation 边界
 
-G11-03-01 只新增 runner、deterministic contract tests、Study Note 110 和状态记录。它不修改 API/runtime、任何 Prompt、Tool implementation/schema、Knowledge backend、Evidence schema、budget、registry 或 `find_tests` 算法。
+G11-03-02 在保留 G11-03-01 runner safety 的基础上，新增 profile-scoped output capacity 与 evaluation contract v2；不修改 Prompt text/SHA、Tool implementation/schema、Knowledge backend、Evidence schema、budget、registry 或 `find_tests` 算法。
 
 Runner 会记录 prompt/repair identity、source checkout、target commit/ref、toolset、budget、safe trace、per-case evidence 和 summary metrics，但不会记录 raw provider output、API key、CoT 或本机绝对路径。Formal DeepSeek 四 case 由用户在同一 real-provider 环境中显式运行；本任务不自动运行 Formal，也不提前判断 Gold correctness。
 
@@ -145,3 +146,27 @@ semantic payload != serialized representation。JSON/JSONL 的安全校验必须
 URL scheme 和 Windows drive path 共享部分表面语法：http:// 中的 p:/、https:// 中的 s:/ 看起来像 drive prefix。若 regex 在字符串任意位置 search，合法 endpoint 就会和 C:/ 本地路径发生 lexical collision。正确做法是给 local-path token 加左边界，例如 drive prefix 前不得紧邻 ASCII 字母或数字；这样字符串开头、空白、标点或等号后的 C:/ 仍会被拒绝。
 
 这不是把整个 URL whitelist 为安全值。URL query 或 fragment 中若出现 path=C:\\secret.txt，真正的本地路径 token 仍必须被拒绝；修复的是 path token boundary，而不是 endpoint 类型的绕过。第二次 Formal run g11-03-change-impact-formal-rerun-20260824-003342 因 URL scheme substring misclassified as Windows drive path 判为 INVALID / INFRASTRUCTURE FAILURE，同样不作 Agent 结论。
+
+## 18. Formal R3：Valid Negative Result 与 Evaluation v2
+
+正式 R3 run 是 `g11-03-change-impact-formal-r3-20260824-010335`，source commit 为 `bebbc168ccf84afe4619f9c1a4bf97f5f2462e6c`。结果是 4 个 case 中只有 1 个 completed，completion=1/4，因此 G11-03 不能接受为 transfer positive，而应记录为 `VALID NEGATIVE RESULT`，状态进入 `FAIL / DIAGNOSIS REQUIRED`。同时 `project_change=4/4`，说明 Git evidence plane 正常；`project_test=3/4`、change-test pair=3/4 说明失败集中在完成能力和测试证据充分性，而不是 target commit 或 Git Tool 全面失效。forbidden=0、non-target=0，说明工具安全边界没有被破坏。
+
+R3 中 3 个 case 的 initial parse category 都是 `OUTPUT_TRUNCATED`，不是普通 malformed JSON。模型响应确实到达了 provider，但在结构化 Action 尚未完整闭合前触及 transport output limit；因此 repair 也没有改变根因。Repair 仍是一次同 profile 的结构化重写机会，不能把 600 的单次输出容量变成更大的容量。R3 的 3 次 repair 均尝试但 0 次成功，记录为 `repair=0/3`、manual Gold fully accepted=0/4。
+
+### 18.1 Output capacity 是 profile policy
+
+600 是旧 structured-decision 场景留下的 Legacy transport cap。当前 generic Provider 仍保持 Legacy=600，以避免改变既有 Tool Agent 行为；Engineering v2 与实验 Engineering v3 使用 profile-scoped cap=1200。两次 provider call（initial 与 repair）必须使用同一个 profile-derived cap。这个变化是 transport policy，不是新 Prompt，不修改 v2/v3 Prompt text、Prompt SHA、Repair Prompt 或 5/4/2 budget。
+
+### 18.2 Benchmark Gold Leakage 与 candidate source
+
+R3 审计发现四个 accepted Gold test 全部已经属于对应 target commit 的 changed files：CI01 是 `tests/test_engineering_agent_api.py`，CI02 是 `tests/test_g11_02_r4_knowledge.py`，CI03 是 `tests/test_g11_02_r5_budget_control.py`，CI04 是 `tests/test_git_change_tools.py`。这叫 Benchmark Gold Leakage：Git change evidence 已经显式暴露了 Gold test path。若仍把 `find_tests` 定义成四个 case 的硬 required step，就会人为强迫 Agent 重复做一次 discovery，不能再把这四个 case 描述成 unseen test discovery validation。
+
+因此 workflow identity 升级为 `g11-03-change-impact-test-recommendation-v2`。candidate source 允许两条合法路径：accepted test 已在 `changed_files` 中时，source=`changed_files`；accepted test 不在 change set 中时，必须使用 `find_tests`，source=`find_tests`。四个当前 historical case 的自动 Git proof 都应为 true。v2 required tools 是 `changed_files`、`git_diff`、`read_project_context`，`find_tests` 是 optional candidate tool。`exact_target_sequence` 仍可记录 `changed_files -> git_diff -> find_tests -> read_project_context`，但只是 diagnostic-only，不能作为唯一正确序列或 completion acceptance。
+
+### 18.3 Completed 不等于 grounded
+
+`project_test` 只说明 Agent 读取到了一个 project test evidence；它不自动证明回答正确，也不证明 evidence 覆盖了声称的断言。v2 新增 `test_evidence_assertion_visible_cases`，只保守检查 project-test snippet 是否至少出现 `def test_` 或 `assert`，不自动判 Gold correctness。
+
+CI03 是典型反例：它是唯一 completed case，直接读取了 Gold test，change/test pair 也成立，但 evidence 只到 imports，最终回答却声称已经看到 `FrozenInstanceError` assertion。这是 claim > evidence，说明 completed != grounded。CI01 没有形成 project_test，CI02 与 CI04 的读取窗口停在 imports/helper，均不能把测试文件名当成覆盖证明。
+
+R3 因而把 G11-02 的 grounding debt 复现到了第二个 task family：evidence sufficiency、evidence relevance、claim-level grounding、source-vs-doc/test selection 仍是跨 workflow debt。不能针对这四个 benchmark case 继续刷 Prompt；应保留负结果，把债务带入 G12 Engineering Evaluation 2.0 做跨 task-family 验证后再设计系统机制。

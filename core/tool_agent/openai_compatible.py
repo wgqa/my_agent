@@ -1,6 +1,7 @@
 """G4-AGENT-04：OpenAI-compatible Tool 决策 Provider。
 
-单次模型调用：temperature=0 / max_tokens=600 / timeout=20s / max_retries=0。
+单次模型调用：temperature=0 / profile-scoped max_tokens / timeout=20s /
+max_retries=0。Legacy cap=600；Engineering v2/v3 cap=1200。
 api_key 只用于构造 SDK client，不保存在实例；Fake Client 通过 client 注入。
 已知 Provider/超时异常映射为 ACTION_PROVIDER_ERROR / ACTION_TIMEOUT，未知
 编程异常向上传播。本 Provider 只做单步 Decision，不执行 Tool、不把
@@ -33,13 +34,13 @@ from core.tool_agent.actions import (
 )
 from core.tool_agent.decision_prompt import (
     build_action_repair_instruction,
-    DECISION_MAX_OUTPUT_TOKENS,
     DECISION_MAX_RETRIES,
     DECISION_TEMPERATURE,
     DECISION_TIMEOUT_SECONDS,
     DecisionPromptProfile,
     LEGACY_DECISION_PROMPT_PROFILE,
     compute_toolset_sha256,
+    max_output_tokens_for_profile,
     max_parse_repairs_for_profile,
 )
 from core.tool_agent.models import ACTION_PARSE_FAILED
@@ -197,6 +198,7 @@ class OpenAICompatibleAgentDecisionProvider:
         ):
             raise TypeError("prompt_profile 必须是 DecisionPromptProfile 或 None")
         self._prompt_profile = prompt_profile or LEGACY_DECISION_PROMPT_PROFILE
+        self._max_output_tokens = max_output_tokens_for_profile(self._prompt_profile)
         if max_parse_repairs is None:
             max_parse_repairs = max_parse_repairs_for_profile(self._prompt_profile)
         if type(max_parse_repairs) is not int or isinstance(max_parse_repairs, bool):
@@ -255,7 +257,7 @@ class OpenAICompatibleAgentDecisionProvider:
                 model=self._model,
                 messages=messages,
                 temperature=DECISION_TEMPERATURE,
-                max_tokens=DECISION_MAX_OUTPUT_TOKENS,
+                max_tokens=self._max_output_tokens,
                 response_format={"type": "json_object"},
             )
         except _KNOWN_PROVIDER_EXCEPTIONS as exc:
@@ -326,7 +328,7 @@ class OpenAICompatibleAgentDecisionProvider:
                 model=self._model,
                 messages=repair_messages,
                 temperature=DECISION_TEMPERATURE,
-                max_tokens=DECISION_MAX_OUTPUT_TOKENS,
+                max_tokens=self._max_output_tokens,
                 response_format={"type": "json_object"},
             )
         except _KNOWN_PROVIDER_EXCEPTIONS as exc:

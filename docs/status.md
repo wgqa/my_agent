@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-23
+**更新日期：** 2026-08-24
 
 ## 当前状态
 
@@ -15,9 +15,9 @@
 - **G8 = CLOSED / Context v1 mixed**
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
-- **G11-03 Change Impact & Test Recommendation Workflow = IN PROGRESS / FORMAL PENDING**
+- **G11-03 Change Impact & Test Recommendation Workflow = IN PROGRESS / VALID NEGATIVE / REPAIR**
 - **CURRENT PRODUCT BASELINE = 0ce4dd4317fc47f84bd5d06ae605a8484aab6742**
-- **NEXT = G11-03 Formal Validation**
+- **NEXT = G11-03 Formal v2 Validation**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -44,15 +44,18 @@ evidence relevance、evidence sufficiency、claim-level grounding、knowledge re
 
 ## G11-03 Change Impact & Test Recommendation Workflow
 
-- **状态：** IN PROGRESS / FORMAL PENDING。
+- **状态：** IN PROGRESS / VALID NEGATIVE / REPAIR。
 - **任务性质：** transfer validation；复用 Engineering Prompt v2、现有 7 Tools、Repair v1 与 5/4/2 budget，不新增 Change Impact 专用 Prompt，不启用 v3。
-- **固定链路：** `changed_files → git_diff → find_tests → read_project_context → final_answer`。
+- **Workflow v2：** `g11-03-change-impact-test-recommendation-v2`。每个 case 必须覆盖 `changed_files`、`git_diff`、`read_project_context(test)`；`find_tests` 是 optional candidate tool。
+- **Candidate source contract：** accepted test 已在 target commit 的 `changed_files` 中时，candidate source=`changed_files`；否则必须由 `find_tests` 发现，candidate source=`find_tests`。当前 CI01-CI04 四个 accepted tests 均已由真实 Git proof 证实在各自 change set 中，不把它们描述为 unseen test discovery。
 - **固定 cases：** CI01、CI02、CI03、CI04；各 case 使用真实历史验收 commit，`base_ref = <target_commit>^`，`head_ref = <target_commit>`。
-- **Required tools：** `changed_files`、`git_diff`、`find_tests`、`read_project_context`。
+- **Required tools：** `changed_files`、`git_diff`、`read_project_context`；`find_tests` 为 optional candidate tool。
 - **Forbidden tools：** `knowledge_search`、`calculator`；`code_search` 不属于 Gold-required，不为凑调用主动使用。
-- **Runner：** `scripts/run_g11_03_change_impact.py`；deterministic contract tests：`tests/test_g11_03_change_impact.py`。
-- **评测边界：** runner 自动统计 completion、Tool coverage、exact sequence、forbidden/non-target calls、`project_change`、`project_test` 与 change-test pair；Impact correctness、推荐理由和 claim-level grounding 仍需人工 Gold review，不自动判分。
-- **Formal：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 因 runner artifact safety serialization false positive 判为 INVALID / INFRASTRUCTURE FAILURE；第二次 run g11-03-change-impact-formal-rerun-20260824-003342 因 URL scheme substring misclassified as Windows drive path 同样判为 INVALID / INFRASTRUCTURE FAILURE；两次均不作 Agent 结论。R3 后 Formal rerun 尚未运行，G11-04 未开始。
+- **Runner：** `scripts/run_g11_03_change_impact.py`；deterministic contract tests：`tests/test_g11_03_change_impact.py`。`exact_target_sequence` 仅 diagnostic-only；新增 candidate source、accepted-test-in-change-set 和 assertion-visible structural metrics。
+- **Engineering output cap：** Legacy=600；Engineering v2=1200；Engineering v3=1200。initial/repair 使用同一 profile-scoped cap；Prompt/Repair identity、5/4/2、registry=7、network retry=0 保持冻结。
+- **评测边界：** runner 自动统计 completion、required Tool coverage、forbidden/non-target calls、`project_change`、`project_test`、change-test pair、candidate source 和 assertion-visible signal；Impact correctness、推荐理由和 claim-level grounding 仍需人工 Gold review，不自动判分。
+- **Formal R3：** `g11-03-change-impact-formal-r3-20260824-010335`，source commit=`bebbc168ccf84afe4619f9c1a4bf97f5f2462e6c`；4 cases，completed=1/4，`project_change`=4/4，`project_test`=3/4，change-test pair=3/4，forbidden=0，non-target=0，parse failures=3，initial category=`OUTPUT_TRUNCATED`×3，repair=0/3，manual Gold fully accepted=0/4。判定：VALID NEGATIVE RESULT；G11-03=FAIL / DIAGNOSIS REQUIRED。
+- **Formal 历史记录：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 因 runner artifact safety serialization false positive 判为 INVALID / INFRASTRUCTURE FAILURE；第二次 run g11-03-change-impact-formal-rerun-20260824-003342 因 URL scheme substring misclassified as Windows drive path 同样判为 INVALID / INFRASTRUCTURE FAILURE；两次均不作 Agent 结论。Formal v2 尚未运行，G11-04 未开始。
 
 Evidence Sufficiency debt 最终统一带入 G12 Engineering Evaluation 2.0，进行跨 task-family 验证；这不是当前 NEXT，也不改变 G11-03 Formal Validation 的顺序。
 
