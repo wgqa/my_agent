@@ -17,8 +17,9 @@
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
+- **G11-05 Docs ↔ Code Consistency = IN PROGRESS / DESIGN READY**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G11-05 Docs ↔ Code Consistency**
+- **NEXT = G11-05 Formal Validation**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -81,7 +82,19 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **Prompt interpretation：** Production v2 已明确 `code_search → read_project_context`、locator 不等于 evidence、implementation claim 需要 context、不得重复 Tool call、证据不足不得声称已验证。因此不再开启 G11-04 Prompt tuning；结果表明 Prompt-only evidence discipline 不足。
 - **G12 debt：** evidence sufficiency、claim-evidence coverage、implementation-claim verifier、premature finalization、cross-file evidence requirements；另行记录 structured action reliability 与 duplicate-call recovery/handling。此处不实现这些机制。
 - **Invalid 历史 run：** `g11-04-diagnosis-config-formal-20260824-203224` 仍为 `INVALID / INFRASTRUCTURE FAILURE`，不与本次 valid negative 混淆，也不用于 Agent 能力结论。
-- **Closure：** docs-only；G11-05 尚未开始，G12=`NOT STARTED`。
+- **Closure：** docs-only；G11-05=`IN PROGRESS / DESIGN READY`，G12=`NOT STARTED`。
+
+## G11-05 Docs ↔ Code Consistency
+
+- **状态：** IN PROGRESS / DESIGN READY。
+- **Workflow：** `g11-05-docs-code-consistency-v1`；语义链路为 document claim → `code_search` → `read_project_context(document)` → locate implementation → `read_project_context(code)` → consistency judgment → bounded correction/no-change recommendation。
+- **固定 cases：** DOC01 Tool Registry Documentation Drift、DOC02 Public API / Product Mode Drift、DOC03 Runtime Budget Claim、DOC04 Safe Trace Documentation；Gold 分布为 2 个 `OUTDATED / INCOMPLETE` 或 `OUTDATED / INCONSISTENT`、2 个 `CONSISTENT`。
+- **Required tools：** `code_search`、`read_project_context`。**Forbidden：** `knowledge_search`、`calculator`、`changed_files`、`git_diff`、`find_tests`；不冻结唯一 Tool sequence。
+- **Source contract：** 每个 case 同时冻结 `document_source_paths`、`code_source_paths` 和 document claim anchors；path hit、`project_doc`/`project_code` evidence、doc-code pair、claim/behavior visibility 和 source pair 仅为 diagnostic，不自动判 consistency label、文档修复建议或 claim grounding。
+- **Runner：** `scripts/run_g11_05_docs_code_consistency.py`；固定 source commit 绑定本地 HEAD、tracked-clean、safe run_id、no-overwrite；manifest 记录 public Knowledge/Project provenance、Prompt/Repair identity、cap/budget/registry/retry、case identity、Gold labels 和 source paths，不记录 raw provider output、CoT、API key 或绝对路径。
+- **Environment：** 复用已验收的 G11-04 preflight；Knowledge=`870e5864df67 / 37 files / 215 chunks / bm25 / dbc497c796d5`，Project=`my_agent / default_repo`。`knowledge_search` 虽为 case forbidden，但 verified Knowledge backend 仍是 runtime environment dependency。
+- **Production freeze：** Engineering v2 Prompt identity/SHA、Repair v1 identity/SHA、Engineering cap=`1200`、budget=`5/4/2`、registry=`7`、network retry=`0` 保持不变；不修改 README，DOC01/DOC02 的当前文档漂移作为 benchmark evidence。
+- **Formal：** NOT RUN；审计通过后由用户在同一 real-provider 环境执行。G12=`NOT STARTED`。
 
 ## 项目定位
 
