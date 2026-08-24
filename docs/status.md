@@ -16,9 +16,9 @@
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
-- **G11-04 Diagnosis & Config Analysis = IN PROGRESS / FORMAL PENDING**
+- **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G11-04 Formal Validation**
+- **NEXT = G11-05 Docs ↔ Code Consistency**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -69,16 +69,19 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 
 ## G11-04 Diagnosis & Config Analysis
 
-- **状态：** IN PROGRESS / FORMAL PENDING。
+- **状态：** CLOSED / NEGATIVE。
 - **Workflow：** `g11-04-diagnosis-config-v1`；语义链路为 symptom/config clue → `code_search` → `read_project_context` → 必要时读取第二个实现点 → diagnosis → remediation/verification。
-- **固定 cases：** DC01 Invalid Engineering Project Root、DC02 Engineering Knowledge Root Missing、DC03 Invalid Chunk Overlap、DC04 Generator Token Budget vs Engineering Decision Cap。
-- **Required tools：** `code_search`、`read_project_context`。
-- **Forbidden tools：** `changed_files`、`git_diff`、`find_tests`、`knowledge_search`、`calculator`；不冻结唯一 Tool sequence。
-- **自动评测边界：** 只统计 completion、required/forbidden coverage、project-code/multi-file/behavior-body-visible evidence shape、parse/repair 与安全 artifact；diagnosis、root cause、remediation 和 claim-level grounding 由人工 Gold review。
-- **Production freeze：** Engineering v2 Prompt identity、Repair v1、Engineering cap=1200、budget=5/4/2、registry=7、network retry=0 保持不变；CURRENT PRODUCT BASELINE 仍为 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`。
-- **R1 Formal preflight：** runner 在四个 case POST 前验证 `/engineering/knowledge` 的 frozen verified identity 与 `/project` 的 `my_agent/default_repo` binding；HTTP infrastructure/request failure 直接退出且不生成 finalized artifact，HTTP 200 的 structured Agent `failed/refused` 仍记录为真实 case result。manifest 只保留公开 backend/project provenance。
-- **Invalid Formal attempt：** `g11-04-diagnosis-config-formal-20260824-203224`；4 个 case HTTP request 已实际完成，但第二次 artifact safety validation 在写入 `run_report.md` 后失败，判定为 `INVALID / INFRASTRUCTURE FAILURE`。该 run 不用于任何 Agent 能力结论。
-- **Formal：** G11-04 real-provider Formal 仍为 NOT RUN（该 invalid infrastructure attempt 不计为 Formal result）；修复后须由用户使用 NEW RUN ID 重新执行，G12 NOT STARTED。
+- **有效 Formal：** `g11-04-diagnosis-config-formal-20260824-205918`，`source_commit = 15cff3a656c9caab98c83a229f686d76baf71291`，Knowledge=`870e5864df67 / 37 files / 215 chunks / bm25 / dbc497c796d5`，Project=`my_agent / default_repo`。
+- **Prompt/运行冻结：** Production=`engineering_agent_decision_prompt_v2`，SHA-256=`14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107`；Repair=`engineering_action_repair_prompt_v1`，SHA-256=`958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636`；`max_parse_repairs=1`，`max_output_tokens=1200`，budget=`5/4/2`，registry=`7`，network retry=`0`。
+- **自动结果：** case_count=`4`，completed=`2/4`，completion_rate=`0.5`；`code_search=4/4`，`read_project_context=1/4`，required coverage=`0.625`；project_code=`1/4`，multi-file=`0/4`，behavior-body-visible=`1/4`；forbidden=`0`，non-target=`0`；failed=`1`，refused=`1`；provider calls=`11`；parse failure=`1`，initial parse failure=`1`，initial category=`ARGUMENTS_SCHEMA_INVALID`；repair attempted/succeeded=`1/0`。
+- **Manual Gold：** fully accepted=`0/4`。DC01 仅 `code_search`，arguments schema invalid，repair 失败，无 final/evidence；DC02 仅 `code_search`，重复 canonical Tool call 后被 Runtime hard stop，无 context/evidence；DC03 得到 `core/config.py` 并正确判断 chunk invariants、`512/512` 和 remediation，但错误声称 `api.app` 不捕获 `ConfigError`，未读取 `api/app.py`；DC04 正确区分 Pipeline generator budget 与 Engineering 1200 cap，但仅 `code_search` 后过早 final，声称有 evidence，且把实际 `max_output_tokens=800` 说成 4096。
+- **最终判定：** 不标记 PASS 或 MIXED。该 workflow 未可靠完成 symptom → locate → implementation evidence → cross-file diagnosis → grounded remediation。
+- **Positive findings：** `code_search` routing=`4/4`；forbidden/non-target=`0`；runtime/environment provenance 有效；R2 后 artifact pipeline 有效；DC03 的局部 Config validation reasoning 有用；DC04 的配置层次区分方向正确。
+- **Systemic debt：** Structured Action Reliability；Tool-loop adherence / duplicate-call handling；Evidence Acquisition；Evidence Sufficiency；Cross-file Propagation Grounding；Premature Finalization；Claim-Evidence Coverage；Factual Drift。
+- **Prompt interpretation：** Production v2 已明确 `code_search → read_project_context`、locator 不等于 evidence、implementation claim 需要 context、不得重复 Tool call、证据不足不得声称已验证。因此不再开启 G11-04 Prompt tuning；结果表明 Prompt-only evidence discipline 不足。
+- **G12 debt：** evidence sufficiency、claim-evidence coverage、implementation-claim verifier、premature finalization、cross-file evidence requirements；另行记录 structured action reliability 与 duplicate-call recovery/handling。此处不实现这些机制。
+- **Invalid 历史 run：** `g11-04-diagnosis-config-formal-20260824-203224` 仍为 `INVALID / INFRASTRUCTURE FAILURE`，不与本次 valid negative 混淆，也不用于 Agent 能力结论。
+- **Closure：** docs-only；G11-05 尚未开始，G12=`NOT STARTED`。
 
 ## 项目定位
 

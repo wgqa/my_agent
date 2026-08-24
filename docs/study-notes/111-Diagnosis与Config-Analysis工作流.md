@@ -175,3 +175,22 @@ Artifact safety 不能只按文件扩展名决定扫描方式。JSON 和 JSONL �
 Markdown 中的 JSON fence 必须按容器边界处理：提取 ` ```json ` 与结束 fence 之间的 body，解析 JSON，并复用同一个 semantic validator。解析后的真实 Windows path、UNC path 或 secret 仍然失败；普通 backslash、HTTP/HTTPS URL 和脱敏 placeholder 则按其真实语义判断。JSON body 从后续 raw Markdown scan 中排除，避免把 serialization representation 的额外 backslash escaping 误报为本地路径。JSON fence 外的 prose，以及普通非 JSON code fence，继续使用原有 text-layer policy；malformed 或未闭合 JSON fence 直接失败。
 
 这不是把 Markdown whitelist 成安全格式。Markdown 仍然要扫描真实 prose，嵌入的 JSON 仍然要执行完整 semantic validation，且两个层次的规则都保留。第一次 G11-04 real-provider attempt 中，四次 case request 已完成，但 `_write_report()` 之后的第二次 safety validation 把 `run_report.md` 中安全 JSON serialization representation 误判为 unsafe local path or secret，因此正式判定为 `INVALID / INFRASTRUCTURE FAILURE`，不得据此推出任何 Agent 能力结论。
+
+## G11-04 Final Formal: Valid Negative Result
+
+修复 artifact safety 后，新的 real-provider run `g11-04-diagnosis-config-formal-20260824-205918` 在 `source_commit=15cff3a656c9caab98c83a229f686d76baf71291` 上有效完成。它使用冻结的 `g11-04-diagnosis-config-v1`、Engineering v2、Repair v1、1200 output cap、5/4/2 budget、registry 7 和 retry 0；Knowledge identity 为 `870e5864df67`（37 files、215 chunks、BM25、manifest `dbc497c796d5`），Project binding 为 `my_agent/default_repo`。
+
+自动结果是：4 个 case 中 completed 2 个（0.5）；`code_search` 4/4，但 `read_project_context` 只有 1/4，required coverage 为 0.625；project-code evidence 1/4、multi-file evidence 0/4、behavior-body-visible 1/4；forbidden 和 non-target 均为 0；failed 1、refused 1、provider calls 11；parse failure 1，initial category 为 `ARGUMENTS_SCHEMA_INVALID`；repair attempted/succeeded 为 1/0。自动指标说明路由和环境有效，但不能把 completion、tool coverage 或安全 artifact 自动解释为诊断正确。
+
+人工 Gold 为 0/4：
+
+- DC01 只完成 locator，`ARGUMENTS_SCHEMA_INVALID` 后 repair 失败，没有 final 或 evidence。
+- DC02 重复 canonical Tool call，被 Runtime 以 `AGENT_DUPLICATE_TOOL_CALL` hard stop，没有读取实现上下文。
+- DC03 正确读取 `core/config.py` 并判断 `chunk_size > 0`、`overlap >= 0`、`overlap < size`、`512/512` 应触发 `ConfigError` 以及 remediation；但没有读取 `api/app.py`，错误声称 startup 不捕获该异常。
+- DC04 正确区分 Pipeline generator budget 与 Engineering structured decision cap，也正确判断 `4096 == 4096` 非法；但只做了 `code_search` 就 premature final，声称存在 evidence，且把实际默认 `max_output_tokens=800` 说成 4096。
+
+这次结果再次验证几个工程边界：`locator != evidence`，找到正确文件不等于读取了实现；`completion != correctness`，完成响应不能证明根因和 remediation 正确；同文件内的局部判断不能替代跨文件 propagation evidence；`code_search` 后立即 final 是 premature finalization；声称“evidence from ...”时，公开 evidence 为空则属于 claim-evidence coverage failure。DC03 说明同文件 Config invariant reasoning 可以有效，但跨到 `api.app` 的传播结论必须有第二个文件的 source evidence。
+
+第一次 run `g11-04-diagnosis-config-formal-20260824-203224` 则属于另一类结果：四次 request 后，`run_report.md` 的 Markdown JSON serialization 被旧 artifact safety scanner 误判，正式判定为 `INVALID / INFRASTRUCTURE FAILURE`，完全不作 Agent 结论。本次 run 的 artifact pipeline 和环境 provenance 有效，所以才可以作为 `VALID NEGATIVE RESULT`；两者不能混淆。
+
+Production v2 已经明确要求 repo implementation/config 问题使用 `code_search → read_project_context`，并规定 code search 只是 locator、implementation claims 需要 project context、不得重复相同 Tool call、证据不足不能声称已验证。Formal 仍然暴露结构化 action reliability、duplicate-call handling、evidence acquisition、claim-level grounding、cross-file evidence 和 premature finalization 问题。因此这里停止 Prompt tuning，避免把固定 benchmark 的失败刷成 Prompt 特例；证据充分性与 claim enforcement 应在 G12 Engineering Evaluation 2.0 跨 task family 设计和验证。
