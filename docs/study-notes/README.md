@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（62 份）
+## CURRENT（64 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -89,6 +89,7 @@
 | 108 | [108-统一Engineering-Agent与异构Evidence架构.md](108-统一Engineering-Agent与异构Evidence架构.md) | G11-01：统一 Engineering Agent 产品入口、Tool Agent 控制平面与 Knowledge/Repository/Change/Test Evidence Contract |
 | 109 | [109-Theory-Code跨源工程分析工作流.md](109-Theory-Code跨源工程分析工作流.md) | G11-02：Theory ↔ Code 跨源工程分析、Knowledge/Repository Evidence、Engineering Prompt Profile 与 baseline→intervention→rerun 实验方法 |
 | 110 | [110-Change-Impact与测试推荐工作流.md](110-Change-Impact与测试推荐工作流.md) | G11-03：Change Impact、Git Change/Test Evidence 链路、candidate 与 test evidence 边界、transfer validation |
+| 111 | [111-Diagnosis与Config-Analysis工作流.md](111-Diagnosis与Config-Analysis工作流.md) | G11-04：症状/配置线索 → code_search → bounded project context → diagnosis → remediation；配置边界、证据形状与人工 Gold review |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -156,6 +157,6 @@
 
 ## 完整性声明
 
-- 编号覆盖 00–109 共 **109 份**，每份只出现一次：CURRENT 62 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 109。
+- 当前索引列出 **111 份**，每份只出现一次：CURRENT 64 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 111。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-22。

@@ -16,8 +16,9 @@
 - **G9-RELIABILITY-01 = CLOSED**
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
+- **G11-04 Diagnosis & Config Analysis = IN PROGRESS / DESIGN READY**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G11-04 Diagnosis & Config Analysis**
+- **NEXT = G11-04 Formal Validation**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -62,9 +63,20 @@ G11-03 Formal R3 在第二 task family 得到 valid negative，3/4 initial parse
 - **Manual Gold：** fully accepted=0/4，但不是 Agent 全失败。CI01 change/impact/candidate 基本正确，误把 test 当作 `git_diff`，没有 `read_project_context(test)`，无 `project_test`，T3 fail；CI02 change/impact 与 Gold test 基本正确，但仅读取 lines 1-45 的 imports/helper，最终扩张为具体 manifest failure coverage，claim > evidence；CI03 implementation/budget distinction 基本正确，但仅读取 lines 1-31 imports，最终声称已验证 SHA/render/runtime budget behavior，claim > evidence；CI04 change/truncation reasoning 与 candidate 基本正确，仅读取 lines 5-65 imports/helpers，回答相对克制但未识别真实 test-body assertion，T3 未满足。
 - **最终结论：** Positive 为 Change evidence plane stable、4/4 completion after capacity fix、Git diff reasoning generally useful、candidate source contract works、0 forbidden/non-target、parse reliability restored。G11-03 不标记为 PASS，而是 CLOSED / MIXED。
 - **Known debt：** test evidence sufficiency、anchor/window quality、claim-level grounding、current-test evidence 与 change-diff evidence 的区分；unseen test discovery 尚未由这四个 Gold-leakage cases 验证。`test_evidence_assertion_visible=0/4` 再次说明 correct file != sufficient evidence；Evidence Sufficiency / Claim-Evidence Coverage 继续冻结为 G12 Engineering Evaluation 2.0 的系统性问题，不在 G11-03 扩大 read window 或调 Prompt。
-- **Formal 历史记录：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 与第二次 g11-03-change-impact-formal-rerun-20260824-003342 均因 runner artifact safety infrastructure failure 判为 INVALID，两次均不作 Agent 结论；R3 与 v2 的有效结果按上文保留。G11-04 尚未开始。
+- **Formal 历史记录：** 首次 real-provider run g11-03-change-impact-formal-20260823-235907 与第二次 g11-03-change-impact-formal-rerun-20260824-003342 均因 runner artifact safety infrastructure failure 判为 INVALID，两次均不作 Agent 结论；R3 与 v2 的有效结果按上文保留。
 
 Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engineering Evaluation 2.0，进行跨 task-family 验证；G11-03 已关闭，不继续扩大 read window 或调 Prompt。
+
+## G11-04 Diagnosis & Config Analysis
+
+- **状态：** IN PROGRESS / DESIGN READY。
+- **Workflow：** `g11-04-diagnosis-config-v1`；语义链路为 symptom/config clue → `code_search` → `read_project_context` → 必要时读取第二个实现点 → diagnosis → remediation/verification。
+- **固定 cases：** DC01 Invalid Engineering Project Root、DC02 Engineering Knowledge Root Missing、DC03 Invalid Chunk Overlap、DC04 Generator Token Budget vs Engineering Decision Cap。
+- **Required tools：** `code_search`、`read_project_context`。
+- **Forbidden tools：** `changed_files`、`git_diff`、`find_tests`、`knowledge_search`、`calculator`；不冻结唯一 Tool sequence。
+- **自动评测边界：** 只统计 completion、required/forbidden coverage、project-code/multi-file/behavior-body-visible evidence shape、parse/repair 与安全 artifact；diagnosis、root cause、remediation 和 claim-level grounding 由人工 Gold review。
+- **Production freeze：** Engineering v2 Prompt identity、Repair v1、Engineering cap=1200、budget=5/4/2、registry=7、network retry=0 保持不变；CURRENT PRODUCT BASELINE 仍为 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`。
+- **Formal：** G11-04 real-provider Formal NOT RUN；本任务只完成 runner、deterministic tests、Study Note 111 和 status，G12 NOT STARTED。
 
 ## 项目定位
 
