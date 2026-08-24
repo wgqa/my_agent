@@ -396,6 +396,108 @@ def test_artifact_safety_accepts_sanitized_jsonl_and_markdown(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
+    "value",
+    [
+        r"ordinary\literal\backslash",
+        "https://example.com/api/v1",
+        "http://127.0.0.1:8765/engineering/query",
+        "<absolute-path>",
+        "<repo>",
+        "<redacted-secret>",
+    ],
+)
+def test_markdown_json_fence_validates_decoded_semantic_values(
+    tmp_path: Path, value: str
+):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    body = json.dumps({"value": value}, ensure_ascii=False, indent=2)
+    (output / "run_report.md").write_text(
+        "prose before\n```json\n"
+        + body
+        + "\n```\nprose after\n",
+        encoding="utf-8",
+    )
+
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        r"C:\Users\example\secret.txt",
+        r"\\server\share\file.txt",
+        "sk-test-secret",
+    ],
+)
+def test_markdown_json_fence_rejects_unsafe_decoded_semantic_values(
+    tmp_path: Path, value: str
+):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    body = json.dumps({"value": value}, ensure_ascii=False, indent=2)
+    (output / "run_report.md").write_text(
+        "```json\n" + body + "\n```\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        r"C:\Users\example\secret.txt",
+        r"\\server\share\file.txt",
+        str(REPO_ROOT.resolve()),
+        "sk-test-secret",
+    ],
+)
+def test_markdown_prose_still_rejects_unsafe_text_values(
+    tmp_path: Path, value: str
+):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "run_report.md").write_text(value + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+def test_markdown_json_fence_rejects_malformed_json(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "run_report.md").write_text(
+        "```json\n{bad json\n```\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+def test_markdown_json_fence_rejects_unclosed_fence(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "run_report.md").write_text(
+        '```json\n{"value": "safe"}\n', encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+def test_non_json_fenced_block_remains_text_layer_validation(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "run_report.md").write_text(
+        "```text\nC:\\Users\\example\\secret.txt\n```\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="unsafe local path or secret"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
     "unsafe_value",
     [r"C:\Users\example\secret.txt", r"\\server\share\file.txt"],
 )

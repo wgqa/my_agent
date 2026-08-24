@@ -523,6 +523,101 @@ def test_normalized_artifact_omits_raw_output_paths_and_secrets(tmp_path: Path):
     runner.validate_artifact_safety(output, repo)
 
 
+def _build_real_report_artifact(tmp_path: Path):
+    output = tmp_path / "artifact"
+    output.mkdir()
+    manifest = {
+        "schema_version": "g11_04_diagnosis_config_manifest_v1",
+        "workflow": runner.WORKFLOW_ID,
+        "run_id": "g11-04-report-shape-regression",
+        "endpoint": "http://127.0.0.1:8765/engineering/query",
+        "source_commit": "a" * 40,
+        "prompt_version": runner.PRODUCTION_PROMPT_VERSION,
+        "prompt_sha256": runner.PRODUCTION_PROMPT_SHA256,
+        "repair_prompt_version": runner.REPAIR_PROMPT_VERSION,
+        "repair_prompt_sha256": runner.REPAIR_PROMPT_SHA256,
+        "max_output_tokens": runner.MAX_OUTPUT_TOKENS,
+        "required_tools": list(runner.REQUIRED_TOOLS),
+        "forbidden_tools": list(runner.FORBIDDEN_TOOLS),
+        "registry_size": runner.REGISTRY_SIZE,
+    }
+    metrics = {
+        "case_count": 1,
+        "completed_cases": 1,
+        "required_tool_coverage_rate": 1.0,
+    }
+    cases = [
+        {
+            "case_id": "DC01",
+            "focus_path": "api/project_workspace.py",
+            "gold_source_paths": ["api/project_workspace.py", "api/app.py"],
+            "status": "completed",
+            "reason_code": None,
+            "failure_code": None,
+            "provider_calls_total": 1,
+            "repair_attempted": False,
+            "repair_succeeded": False,
+            "tool_sequence": ["code_search", "read_project_context"],
+            "evidence_kinds": ["project_code"],
+            "multi_file_evidence": True,
+            "behavior_body_visible": True,
+            "iterations": 2,
+            "tool_calls": 2,
+            "tool_errors": 0,
+            "gold_obligations": runner.CASES[0]["obligations"],
+            "answer": "bounded diagnosis",
+            "evidence": [
+                {
+                    "kind": "project_code",
+                    "path": "core/config.py",
+                    "snippet": r"ordinary\literal\backslash",
+                }
+            ],
+        }
+    ]
+    (output / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (output / "case_results.jsonl").write_text(
+        json.dumps(cases[0], ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    (output / "summary.json").write_text(
+        json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    runner._write_report(output / "run_report.md", manifest, cases, metrics)
+    return output, manifest, cases, metrics
+
+
+def test_real_report_shape_with_serialized_safe_backslashes_passes(tmp_path: Path):
+    output, _, _, _ = _build_real_report_artifact(tmp_path)
+
+    runner.validate_artifact_safety(output, REPO_ROOT)
+
+
+@pytest.mark.parametrize(
+    "unsafe_snippet",
+    [r"C:\Users\example\secret.txt", "sk-test-secret"],
+)
+def test_real_report_shape_rejects_unsafe_semantic_values(
+    tmp_path: Path, unsafe_snippet: str
+):
+    output, manifest, cases, metrics = _build_real_report_artifact(tmp_path)
+    unsafe_cases = [dict(cases[0])]
+    unsafe_cases[0]["evidence"] = [
+        {
+            "kind": "project_code",
+            "path": "core/config.py",
+            "snippet": unsafe_snippet,
+        }
+    ]
+    # Use the real report renderer so the unsafe value is tested after JSON
+    # serialization inside a Markdown JSON fence.
+    runner._write_report(output / "run_report.md", manifest, unsafe_cases, metrics)
+
+    with pytest.raises(ValueError, match="unsafe local path or secret: run_report.md"):
+        runner.validate_artifact_safety(output, REPO_ROOT)
+
+
 def test_artifact_safety_uses_decoded_semantic_json_and_jsonl_values(tmp_path: Path):
     output = tmp_path / "artifact"
     output.mkdir()

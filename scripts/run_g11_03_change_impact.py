@@ -92,6 +92,7 @@ _ABSOLUTE_PATH_RE = re.compile(
     r"(?i)(?:(?<![a-z0-9])[a-z]:[\\/][^\s\"'<>]+|\\\\[^\\/\s\"'<>]+[\\/][^\\/\s\"'<>]+(?:[\\/][^\s\"'<>]+)?)"
 )
 _SECRET_RE = re.compile(r"(?i)\bsk-[A-Za-z0-9_-]{4,}\b")
+_FENCE_OPEN_RE = re.compile(r"^[ \t]*(?P<fence>`{3,})(?P<info>[^`]*)$")
 
 
 def _obligation(identifier: str, description: str) -> dict[str, str]:
@@ -909,8 +910,58 @@ def _validate_value_safety(value: Any, git_root: str | Path) -> bool:
 
 
 def _artifact_is_safe(text: str, git_root: str | Path) -> bool:
-    """Apply the text policy used for Markdown and unknown artifact files."""
-    return _string_is_safe(text, git_root)
+    """Validate Markdown while respecting embedded JSON container semantics."""
+
+    lines = text.splitlines(keepends=True)
+    remaining: list[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        raw_line = line.rstrip("\r\n")
+        opening = _FENCE_OPEN_RE.fullmatch(raw_line)
+        if opening is None:
+            remaining.append(line)
+            index += 1
+            continue
+
+        fence = opening.group("fence")
+        info = opening.group("info").strip()
+        closing_index = None
+        cursor = index + 1
+        while cursor < len(lines):
+            candidate = lines[cursor].rstrip("\r\n")
+            if re.fullmatch(rf"[ \t]*`{{{len(fence)},}}[ \t]*", candidate):
+                closing_index = cursor
+                break
+            cursor += 1
+
+        # A non-JSON fence remains ordinary text, including when it is
+        # incomplete. Only a JSON fence has a structured parse contract here.
+        if info.casefold() != "json":
+            if closing_index is None:
+                remaining.extend(lines[index:])
+                break
+            remaining.extend(lines[index : closing_index + 1])
+            index = closing_index + 1
+            continue
+
+        if closing_index is None:
+            return False
+        body = "".join(lines[index + 1 : closing_index])
+        try:
+            payload = json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return False
+        if not _validate_value_safety(payload, git_root):
+            return False
+
+        # Keep only the fence markers in the text layer. The JSON body has
+        # already been validated at its decoded semantic layer.
+        remaining.append(lines[index])
+        remaining.append(lines[closing_index])
+        index = closing_index + 1
+
+    return _string_is_safe("".join(remaining), git_root)
 
 
 def validate_artifact_safety(output: Path, git_root: str | Path) -> None:

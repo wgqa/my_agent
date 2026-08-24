@@ -69,7 +69,7 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 
 ## G11-04 Diagnosis & Config Analysis
 
-- **状态：** IN PROGRESS / DESIGN READY。
+- **状态：** IN PROGRESS / FORMAL PENDING。
 - **Workflow：** `g11-04-diagnosis-config-v1`；语义链路为 symptom/config clue → `code_search` → `read_project_context` → 必要时读取第二个实现点 → diagnosis → remediation/verification。
 - **固定 cases：** DC01 Invalid Engineering Project Root、DC02 Engineering Knowledge Root Missing、DC03 Invalid Chunk Overlap、DC04 Generator Token Budget vs Engineering Decision Cap。
 - **Required tools：** `code_search`、`read_project_context`。
@@ -77,7 +77,8 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **自动评测边界：** 只统计 completion、required/forbidden coverage、project-code/multi-file/behavior-body-visible evidence shape、parse/repair 与安全 artifact；diagnosis、root cause、remediation 和 claim-level grounding 由人工 Gold review。
 - **Production freeze：** Engineering v2 Prompt identity、Repair v1、Engineering cap=1200、budget=5/4/2、registry=7、network retry=0 保持不变；CURRENT PRODUCT BASELINE 仍为 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`。
 - **R1 Formal preflight：** runner 在四个 case POST 前验证 `/engineering/knowledge` 的 frozen verified identity 与 `/project` 的 `my_agent/default_repo` binding；HTTP infrastructure/request failure 直接退出且不生成 finalized artifact，HTTP 200 的 structured Agent `failed/refused` 仍记录为真实 case result。manifest 只保留公开 backend/project provenance。
-- **Formal：** G11-04 real-provider Formal NOT RUN；R1 仍只修改 evaluation infrastructure、deterministic tests、Study Note 111 和 status，G12 NOT STARTED。
+- **Invalid Formal attempt：** `g11-04-diagnosis-config-formal-20260824-203224`；4 个 case HTTP request 已实际完成，但第二次 artifact safety validation 在写入 `run_report.md` 后失败，判定为 `INVALID / INFRASTRUCTURE FAILURE`。该 run 不用于任何 Agent 能力结论。
+- **Formal：** G11-04 real-provider Formal 仍为 NOT RUN（该 invalid infrastructure attempt 不计为 Formal result）；修复后须由用户使用 NEW RUN ID 重新执行，G12 NOT STARTED。
 
 ## 项目定位
 

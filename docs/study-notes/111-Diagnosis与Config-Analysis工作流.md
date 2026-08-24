@@ -167,3 +167,11 @@ Formal 评测的环境身份也是评测 provenance 的一部分。`--git-root` 
 这里有一个重要边界：`knowledge_search` 是 case 的 forbidden tool，不代表 Engineering Knowledge backend 可以缺席。前者是 case evidence dependency，后者是 runtime environment dependency。没有 verified backend，Agent 运行环境就不是被测产品环境。
 
 Formal runner 还必须区分两种失败：HTTP error、connection refused、503、无效 JSON 是 evaluation infrastructure/request failure，应直接退出并且不留下 finalized artifact；HTTP 200 返回的结构化 `status=failed` 或 `status=refused` 仍是真实 Agent result，应记录到 case artifact。只有在两个 preflight 和四次 case request 都成功后，runner 才创建 output directory、写 manifest、summary 和 report。manifest 只记录公开的 backend identity 与 project binding，不记录 corpus root、绝对路径、`.env` 或 API key。
+
+## Markdown Is a Container Format
+
+Artifact safety 不能只按文件扩展名决定扫描方式。JSON 和 JSONL 先经过 `json.loads`，再对解码后的 semantic value 递归检查路径、仓库根目录和 secret；这样 JSON 的转义表示不会被误读成真实值。`run_report.md` 看起来是 Markdown prose，但其中的 metrics、Gold obligations 和 evidence 是由 `json.dumps` 写入的 fenced JSON，因此它不是单纯的自然语言文本。
+
+Markdown 中的 JSON fence 必须按容器边界处理：提取 ` ```json ` 与结束 fence 之间的 body，解析 JSON，并复用同一个 semantic validator。解析后的真实 Windows path、UNC path 或 secret 仍然失败；普通 backslash、HTTP/HTTPS URL 和脱敏 placeholder 则按其真实语义判断。JSON body 从后续 raw Markdown scan 中排除，避免把 serialization representation 的额外 backslash escaping 误报为本地路径。JSON fence 外的 prose，以及普通非 JSON code fence，继续使用原有 text-layer policy；malformed 或未闭合 JSON fence 直接失败。
+
+这不是把 Markdown whitelist 成安全格式。Markdown 仍然要扫描真实 prose，嵌入的 JSON 仍然要执行完整 semantic validation，且两个层次的规则都保留。第一次 G11-04 real-provider attempt 中，四次 case request 已完成，但 `_write_report()` 之后的第二次 safety validation 把 `run_report.md` 中安全 JSON serialization representation 误判为 unsafe local path or secret，因此正式判定为 `INVALID / INFRASTRUCTURE FAILURE`，不得据此推出任何 Agent 能力结论。
