@@ -8,6 +8,7 @@ project evidence, but never auto-scores the consistency label or correction.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -119,6 +120,12 @@ EXPECTED_CASE_SHAPE = {
         "doc_claim_anchors": ("Safe Trace", "Chain-of-Thought"),
     },
 }
+EXPECTED_CASE_CONTRACT_SHA256 = {
+    "DOC01": "54362978ac19ddcd1fe002c87e457554a71d977df72e1e348ff033f8370483e3",
+    "DOC02": "839db968c156d03c2acd37363180395f4f215ff6cdae1c4b58e58c0d8ed26914",
+    "DOC03": "e3179b5a66c90279e1d1826a5e36a67f7c72903e40ba0160e0780164b9140bad",
+    "DOC04": "439c96ccc78d7e82bf54ca341eca8e2a8ea8984d2d96e94cda28ecdd39dba38b",
+}
 
 _PROMPT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -152,11 +159,9 @@ CASES = (
     _case(
         "DOC01",
         (
-            "README 当前把 Structured Tool Agent 的真实只读 Tool 限定为 "
-            "knowledge_search、code_search、calculator，并在 Safety 中重复该三项 registry。"
-            "请先读取 README 的实际 claim，再读取当前 default_tools registry 与 integration builder，"
-            "判断文档是否仍准确、列出当前七个 Tool、解释新增 Tool 的 bounded read-only 安全边界，"
-            "并给出不改历史 Gate 4 口径的文档维护建议。"
+            "请核对 README 中 Structured Tool Agent / Safety 关于当前只读 Tool registry 的描述，"
+            "判断它是否与当前代码实现一致。请说明：README 实际写了什么；当前实现实际注册了哪些 Tool；"
+            "两者是否一致；当前安全边界是什么；是否需要更新文档。请基于实际文档和当前代码证据回答。"
         ),
         [
             _obligation("D1", "README 确实把当前真实只读 Tool 描述为 knowledge_search、code_search、calculator。"),
@@ -171,10 +176,9 @@ CASES = (
     _case(
         "DOC02",
         (
-            "README 当前按 Basic RAG、Agentic RAG、Structured Tool Agent 三种模式描述产品，"
-            "且 Public API 表没有 Engineering Agent。请读取文档 claim 与当前 api.app，列出缺少的"
-            "Engineering 公开入口，并说明 README 已列出的 legacy/product endpoint 仍然存在。"
-            "不要把文档摘要当作 API implementation evidence。"
+            "请核对 README 中运行模式和 Public API 对当前产品入口的描述，判断是否完整反映当前实现。"
+            "请比较 README 当前列出的入口与代码当前公开的产品/API 入口，说明：哪些仍然存在；"
+            "是否存在 README 未覆盖的当前入口；如果有差异应如何维护文档。请基于实际文档和代码证据回答。"
         ),
         [
             _obligation("D1", "README 当前三种运行模式包含 /query、/agent/query、/tool-agent/query。"),
@@ -190,10 +194,10 @@ CASES = (
     _case(
         "DOC03",
         (
-            "README Safety 声明 Tool Agent 使用系统控制的 5 iterations、4 tool calls、2 tool errors。"
-            "请读取 README 与当前 runtime_models/integration 实现，核对默认预算、冻结上限、builder"
-            "是否允许调用方提高预算，以及 trusted remaining_* control metadata 是否能改变 hard budget。"
-            "若一致，应给出 bounded no-change recommendation。"
+            "请核对 README Safety 中 Tool Agent runtime budget 的描述是否与当前实现一致。"
+            "请从文档和代码分别确认：文档实际声明的预算；当前默认 hard budget；是否存在冻结上限；"
+            "builder 是否允许调用方扩大 budget；模型看到 remaining budget 是否意味着它能修改 hard budget。"
+            "最后判断文档是否需要修改。"
         ),
         [
             _obligation("D1", "README 声明 5/4/2 是 system-controlled budget。"),
@@ -210,10 +214,10 @@ CASES = (
     _case(
         "DOC04",
         (
-            "README 声明 Safe Trace 只记录受控执行事实，不暴露 private Chain-of-Thought、Prompt、"
-            "raw model output、credentials 或 local filesystem path。请读取 README 与当前 api.app/runtime_models"
-            "的 trace serialization，核对 Engineering trace 是否比 legacy trace 多字段，以及这些字段是否"
-            "仍属于安全结构化 diagnostics。不要把 public trace contract 扩大为整个进程永远不持有模型数据。"
+            "请核对 README 的 Safe Trace 安全声明与当前 Tool / Engineering public trace implementation 是否一致。"
+            "请比较：README 实际承诺了什么；legacy public trace 暴露什么；Engineering public trace 是否有额外字段；"
+            "这些字段是否改变 Safe Trace 的安全边界。结论必须限制在 public/runtime trace contract，"
+            "不要扩大成整个进程内部永远不持有模型数据。请基于实际文档和代码证据回答。"
         ),
         [
             _obligation("D1", "README 声明 Safe Trace 不暴露 CoT、Prompt、raw output、credentials、local path。"),
@@ -228,6 +232,52 @@ CASES = (
         ],
     ),
 )
+
+
+def canonical_case_contract(case: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact evaluator-owned fields covered by the case identity."""
+
+    return {
+        "case_id": case["case_id"],
+        "question": case["question"],
+        "gold_label": case["gold_label"],
+        "document_source_paths": list(case["document_source_paths"]),
+        "code_source_paths": list(case["code_source_paths"]),
+        "doc_claim_anchors": list(case["doc_claim_anchors"]),
+        "required": list(case["required"]),
+        "forbidden": list(case["forbidden"]),
+        "obligations": case["obligations"],
+    }
+
+
+def case_contract_sha256(case: dict[str, Any]) -> str:
+    payload = json.dumps(
+        canonical_case_contract(case),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def validate_case_contract(
+    cases: tuple[dict[str, Any], ...] = CASES,
+) -> dict[str, str]:
+    """Reject any drift in question, Gold, source, tool, or obligation identity."""
+
+    if tuple(case.get("case_id") for case in cases) != EXPECTED_CASE_IDS:
+        raise ValueError("G11-05 full case contract identity drifted")
+    actual_hashes: dict[str, str] = {}
+    for case in cases:
+        case_id = case.get("case_id")
+        expected_hash = EXPECTED_CASE_CONTRACT_SHA256.get(case_id)
+        if expected_hash is None:
+            raise ValueError("G11-05 full case contract identity drifted")
+        actual_hash = case_contract_sha256(case)
+        if actual_hash != expected_hash:
+            raise ValueError(f"{case_id} full case contract drifted")
+        actual_hashes[case_id] = actual_hash
+    return actual_hashes
 
 
 def validate_case_identities(
@@ -264,6 +314,7 @@ def validate_case_identities(
                 if any(not (root / Path(path.replace("/", "\\"))).is_file() for path in paths):
                     raise ValueError(f"{case_id} source path is missing from git_root")
     validate_gold_label_distribution(cases)
+    validate_case_contract(cases)
     return cases
 
 
@@ -480,6 +531,7 @@ def _normalize_case(
     parse_categories = _parse_categories(trace)
     return {
         "case_id": case["case_id"],
+        "case_contract_sha256": case_contract_sha256(case),
         "question": case["question"],
         "gold_label": case["gold_label"],
         "document_source_paths": list(case["document_source_paths"]),
@@ -774,6 +826,9 @@ def execute_formal_run(
         "required_tools": list(REQUIRED_TOOLS),
         "forbidden_tools": list(FORBIDDEN_TOOLS),
         "case_ids": [case["case_id"] for case in CASES],
+        "case_contract_sha256": {
+            case["case_id"]: case_contract_sha256(case) for case in CASES
+        },
         "gold_labels": {case["case_id"]: case["gold_label"] for case in CASES},
         "document_source_paths": {
             case["case_id"]: case["document_source_paths"] for case in CASES

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import subprocess
@@ -84,6 +85,91 @@ def test_fixed_case_identity_has_balanced_gold_and_real_source_paths():
         "core/tool_agent/integration.py",
     ]
     assert runner.CASES[1]["code_source_paths"] == ["api/app.py"]
+
+
+def _copied_cases() -> list[dict]:
+    return copy.deepcopy(list(runner.CASES))
+
+
+def _assert_full_case_contract_drift(cases: list[dict]) -> None:
+    with pytest.raises(ValueError, match="full case contract"):
+        runner.validate_case_contract(tuple(cases))
+
+
+def test_full_case_contract_sha256_is_frozen_for_all_cases():
+    assert runner.validate_case_contract() == runner.EXPECTED_CASE_CONTRACT_SHA256
+    assert set(runner.EXPECTED_CASE_CONTRACT_SHA256) == {
+        "DOC01",
+        "DOC02",
+        "DOC03",
+        "DOC04",
+    }
+    assert all(
+        len(contract_sha256) == 64
+        for contract_sha256 in runner.EXPECTED_CASE_CONTRACT_SHA256.values()
+    )
+
+
+def test_full_case_contract_rejects_question_drift():
+    cases = _copied_cases()
+    cases[0]["question"] += " "
+    _assert_full_case_contract_drift(cases)
+
+
+def test_full_case_contract_rejects_gold_obligation_drift():
+    cases = _copied_cases()
+    cases[1]["obligations"][0]["description"] += " "
+    _assert_full_case_contract_drift(cases)
+
+
+def test_full_case_contract_rejects_gold_label_drift():
+    cases = _copied_cases()
+    cases[2]["gold_label"] = "OUTDATED / INCOMPLETE"
+    _assert_full_case_contract_drift(cases)
+
+
+def test_full_case_contract_rejects_source_path_drift():
+    cases = _copied_cases()
+    cases[0]["code_source_paths"][0] = "core/tool_agent/integration.py"
+    _assert_full_case_contract_drift(cases)
+
+
+@pytest.mark.parametrize("field", ["required", "forbidden"])
+def test_full_case_contract_rejects_tool_contract_drift(field: str):
+    cases = _copied_cases()
+    cases[0][field] = list(cases[0][field])[:-1]
+    _assert_full_case_contract_drift(cases)
+
+
+def test_fixed_questions_do_not_leak_gold_or_implementation_identity():
+    questions = {case["case_id"]: case["question"] for case in runner.CASES}
+
+    assert "七个 Tool" not in questions["DOC01"]
+    assert "default_tools.py" not in questions["DOC01"]
+    assert "integration.py" not in questions["DOC01"]
+    assert "OUTDATED" not in questions["DOC01"]
+    assert "INCONSISTENT" not in questions["DOC01"]
+
+    assert "缺少的 Engineering 公开入口" not in questions["DOC02"]
+    for leaked_text in (
+        "/engineering/query",
+        "/engineering/knowledge",
+        "/project",
+        "api/app.py",
+    ):
+        assert leaked_text not in questions["DOC02"]
+
+    for leaked_text in (
+        "5 iterations",
+        "4 tool calls",
+        "2 tool errors",
+        "runtime_models.py",
+        "integration.py",
+    ):
+        assert leaked_text not in questions["DOC03"]
+
+    for leaked_text in ("api/app.py", "runtime_models.py", "增加四个"):
+        assert leaked_text not in questions["DOC04"]
 
 
 def test_required_and_forbidden_tool_contract_is_frozen():

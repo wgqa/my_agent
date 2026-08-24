@@ -82,3 +82,13 @@ DOC04 核对 Safe Trace：Engineering public trace 在 legacy allowlist 上增�
 Artifact 复用 shared `validate_artifact_safety`，包括 JSON semantic、JSONL semantic 和 Markdown JSON-fence semantic validation。runner 不记录 raw provider output、Prompt、CoT、API key 或绝对路径；所有自动指标都服务于后续人工 Gold review。
 
 G11-05-01 只建立 benchmark、runner、deterministic tests、Study Note 和 status。Formal 尚未运行，不提前修 README，不开始 G12，也不因为固定 case 的 drift 直接修改被测产品文档。只有在 Formal 和人工 review 完成后，才另行决定文档修复或 workflow closure。
+
+## 9. Benchmark Prompt Leakage
+
+Benchmark 的 Gold source 属于 evaluator metadata，不属于用户 query。Evaluator 知道正确 label、实现位置和应满足的 obligation，并不意味着 Agent 应在题干中直接看到这些答案。题干只能描述用户希望核对的文档 claim 和自然的比较任务。
+
+例如，题干直接写“当前七个 Tool”会泄漏 comparison result；直接写 `default_tools.py`、`integration.py`、`api/app.py` 或 `runtime_models.py` 会把 code_search 的 locate implementation 任务变成按提示读取文件。题干如果写“缺少的 Engineering 公开入口”，还会预设 README 的结论是 incomplete。这样的 case 即使 Agent 回答正确，也不能证明它完成了 Docs ↔ Code transfer。
+
+因此 DOC01-DOC04 保留 Gold label、source paths、anchors 和 obligations，但 query 改为不带结论、不带实际数量、不带 exact Gold implementation path 的自然用户问题。Agent 必须从 README 的真实文字和当前代码证据自行形成 consistency judgment；Gold label 只用于人工评审，不自动评分。
+
+完整 case contract 必须把 `question` 与 `obligations` 和 label、source paths、anchors、required/forbidden tools 一起 canonicalize 并冻结 SHA-256。只冻结 case id 或 source path 不足以防止 benchmark 漂移：任何题干、Gold obligation、结论、证据边界或 Tool contract 的改变都必须导致 deterministic validation 失败。这个 identity freeze 保护的是评测有效性，不是产品运行时行为。
