@@ -291,6 +291,16 @@ def _validate_change_candidate(candidate: Mapping[str, Any]) -> None:
         raise CandidateContractError("accepted_test_in_change_set does not match changed paths")
     if not set(CHANGE_REQUIRED_TOOLS).issubset(candidate["required_tools"]):
         raise CandidateContractError("change candidate omits required change/test Tools")
+    proofs = candidate["source_proofs"]
+    if not any(proof["kind"] == "project_change" for proof in proofs):
+        raise CandidateContractError("change candidate needs project_change proof")
+    if not any(proof["kind"] == "project_test" for proof in proofs):
+        raise CandidateContractError("change candidate needs project_test proof")
+    if any(
+        proof["kind"] == "project_test" and proof["relative_path"] not in normalized_tests
+        for proof in proofs
+    ):
+        raise CandidateContractError("project_test proof must use an accepted test path")
 
 
 def _validate_theory_candidate(candidate: Mapping[str, Any]) -> None:
@@ -400,28 +410,73 @@ def validate_candidate_sources(
     for candidate in candidates:
         root = roots[candidate["project_id"]].resolve()
         commit = candidate["project_source_commit"]
-        for path in candidate["gold_source_paths"]:
-            _read_git_file(root, commit, path)
-        for proof in candidate["source_proofs"]:
-            if proof["kind"] == "knowledge":
-                continue
-            content = _read_git_file(root, commit, proof["relative_path"])
-            if proof["anchor"] not in content:
-                raise CandidateContractError(
-                    f"source proof anchor not found for {candidate['candidate_id']}: {proof['relative_path']}"
-                )
-        if candidate["task_family"] == "Change Impact <-> Test":
+        is_change_candidate = candidate["task_family"] == "Change Impact <-> Test"
+        changed: set[str] = set()
+        head_ref = ""
+        actual_base = ""
+        accepted_tests: set[str] = set()
+
+        if is_change_candidate:
             head_ref = candidate["head_ref"]
-            actual_base = _git(root, "rev-parse", f"{head_ref}^")
+            try:
+                actual_base = _git(root, "rev-parse", f"{head_ref}^")
+            except subprocess.CalledProcessError as exc:
+                raise CandidateContractError(
+                    f"change base is invalid: {candidate['candidate_id']}"
+                ) from exc
             if candidate["base_ref"] != f"{head_ref}^" or not actual_base:
                 raise CandidateContractError(f"change base is invalid: {candidate['candidate_id']}")
             changed = set(_git(root, "diff", "--name-only", actual_base, head_ref).splitlines())
             declared = set(candidate["changed_paths"])
             if declared != changed:
-                raise CandidateContractError(f"declared changed_paths differ from real diff: {candidate['candidate_id']}")
-            actual = bool(changed & set(candidate["accepted_test_paths"]))
+                raise CandidateContractError(
+                    f"declared changed_paths differ from real diff: {candidate['candidate_id']}"
+                )
+            accepted_tests = set(candidate["accepted_test_paths"])
+            actual = bool(changed & accepted_tests)
             if actual != candidate["accepted_test_in_change_set"]:
-                raise CandidateContractError(f"real accepted-test change-set truth mismatch: {candidate['candidate_id']}")
+                raise CandidateContractError(
+                    f"real accepted-test change-set truth mismatch: {candidate['candidate_id']}"
+                )
+            for test_path in accepted_tests:
+                try:
+                    _read_git_file(root, head_ref, test_path)
+                except CandidateContractError as exc:
+                    raise CandidateContractError(
+                        f"accepted test is absent at change head: {candidate['candidate_id']}: {test_path}"
+                    ) from exc
+
+        for proof in candidate["source_proofs"]:
+            if proof["kind"] == "knowledge":
+                continue
+            path = proof["relative_path"]
+            if is_change_candidate and proof["kind"] == "project_change":
+                if path not in changed:
+                    raise CandidateContractError(
+                        f"change proof path is absent from real diff: {candidate['candidate_id']}: {path}"
+                    )
+                content = _git(root, "diff", actual_base, head_ref, "--", path)
+                if proof["anchor"] not in content:
+                    raise CandidateContractError(
+                        f"change proof anchor not found in real diff for {candidate['candidate_id']}: {path}"
+                    )
+                continue
+            if is_change_candidate and proof["kind"] == "project_test":
+                if path not in accepted_tests:
+                    raise CandidateContractError(
+                        f"project_test proof is not an accepted test: {candidate['candidate_id']}: {path}"
+                    )
+                content = _read_git_file(root, head_ref, path)
+                if proof["anchor"] not in content:
+                    raise CandidateContractError(
+                        f"project_test proof anchor not found at change head for {candidate['candidate_id']}: {path}"
+                    )
+                continue
+            content = _read_git_file(root, commit, path)
+            if proof["anchor"] not in content:
+                raise CandidateContractError(
+                    f"source proof anchor not found for {candidate['candidate_id']}: {proof['relative_path']}"
+                )
 
 
 def validate_manifest(

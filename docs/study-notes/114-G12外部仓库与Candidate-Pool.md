@@ -105,3 +105,13 @@ test behavior evidence
 24 条 draft 给每个 family/repository 组合留下 3 个备选项。最终每 family 预计选 4 条，并尽量在 internal fixture 与 external repo 之间保持平衡。候选池必须大于最终 benchmark，Reviewer 才能因为独立性不足、Gold 不充分、文档 label 不稳或 source window 不适合现有 Tool 而拒绝条目，而不是为了凑数量硬塞进 Formal。
 
 G12-02A 到此只完成 repository proof 和 candidate pool。Formal 仍是 `NOT RUN`，Finalization Guard 仍是 `NOT IMPLEMENTED`，G12-02B 也尚未开始。
+
+## 11. Reviewer Audit Lessons
+
+Reviewer 审计发现，`path` 和 `anchor` 可读取只是 Gold 的最低可复查性，不等于语义已经完整。若问题询问循环边界、失败传播、测试风险或文档一致性，Gold 必须冻结实际条件、状态转换、断言或双方的可比较行为，不能只证明某个类或文件存在。
+
+Change candidate 还必须区分两个历史快照：`project_change` 是 `base_ref..head_ref` 的真实 diff，`project_test` 是 `head_ref:test_path` 的测试正文。`project_source_commit` 只描述当前 fixture 的可用性，不能替代历史 Change Gold。否则一个后续新增的测试会被错误地当成旧提交的回归依据，这就是 temporal leakage。
+
+因此 unseen test 的定义是：测试在 `head_ref` 已存在，并且该路径不在同一 `base..head` change set。它不是“后来在某个 snapshot 出现过的测试”。validator 现在分别验证真实 changed paths、diff anchor、accepted test 的 head-time existence 和测试正文 anchor；future-only test 必须 fail。
+
+Docs <-> Code 也不能由“文档讨论主题 + 代码存在类”推出 `CONSISTENT`。每条候选必须分别冻结文档 claim（D）、当前代码 behavior（C）和双方关系判断（J）。J 可以由两侧 proof 共同支持；若文档只描述概念而真实 ownership 分散在多个实现点，应如实标记 `PARTIALLY CONSISTENT`、`OUTDATED` 或 `INCOMPLETE`，而不是为了分布配额制造 drift。

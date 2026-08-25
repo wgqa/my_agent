@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -14,6 +15,7 @@ from evaluation.gate12.candidate_contract import (
     load_json,
     load_jsonl,
     validate_candidate,
+    validate_candidate_sources,
     validate_manifest,
     validate_pool,
 )
@@ -133,7 +135,129 @@ def test_candidate_field_mutation_breaks_manifest_identity():
         validate_manifest(load_json(MANIFEST_PATH), mutated, REGISTRY_PATH, POOL_PATH)
 
 
-def test_diagnosis_cross_file_distribution_is_frozen():
+def test_diagnosis_cross_file_distribution_includes_reworked_provider_candidate():
     diagnosis = [candidate for candidate in _pool() if candidate["task_family"] == "Diagnosis / Config"]
 
-    assert sum(candidate["requires_cross_file"] for candidate in diagnosis) == 4
+    assert sum(candidate["requires_cross_file"] for candidate in diagnosis) == 5
+    assert _candidate("g12c015")["requires_cross_file"] is True
+
+
+def _git(root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    return completed.stdout.strip()
+
+
+def _commit(root: Path, message: str) -> str:
+    _git(root, "add", ".")
+    _git(root, "commit", "-m", message)
+    return _git(root, "rev-parse", "HEAD")
+
+
+def _historical_change_fixture(tmp_path: Path) -> tuple[Path, str, str, str]:
+    root = tmp_path / "history"
+    root.mkdir()
+    _git(root, "init")
+    _git(root, "config", "user.email", "g12@example.test")
+    _git(root, "config", "user.name", "G12 Test")
+    (root / "src").mkdir()
+    (root / "tests").mkdir()
+    (root / "src" / "change.py").write_text("STATE = 'before'\n", encoding="utf-8")
+    (root / "tests" / "test_unseen.py").write_text(
+        "def test_existing_behavior():\n    assert True\n", encoding="utf-8"
+    )
+    _commit(root, "base")
+    (root / "src" / "change.py").write_text(
+        "STATE = 'after'\nHISTORICAL_CHANGE_ANCHOR = True\n", encoding="utf-8"
+    )
+    (root / "tests" / "test_changed.py").write_text(
+        "def test_changed_behavior():\n    assert True\n", encoding="utf-8"
+    )
+    head = _commit(root, "change")
+    (root / "tests" / "test_future.py").write_text(
+        "def test_future_only():\n    assert True\n", encoding="utf-8"
+    )
+    future = _commit(root, "future")
+    return root, head, f"{head}^", future
+
+
+def _historical_candidate(head: str, base_ref: str) -> dict:
+    return {
+        "candidate_id": "g12c999",
+        "project_id": "my_agent",
+        "project_source_commit": head,
+        "task_family": "Change Impact <-> Test",
+        "base_ref": base_ref,
+        "head_ref": head,
+        "changed_paths": ["src/change.py", "tests/test_changed.py"],
+        "accepted_test_paths": ["tests/test_unseen.py"],
+        "accepted_test_in_change_set": False,
+        "gold_source_paths": ["src/change.py", "tests/test_unseen.py"],
+        "source_proofs": [
+            {
+                "kind": "project_change",
+                "relative_path": "src/change.py",
+                "anchor": "HISTORICAL_CHANGE_ANCHOR = True",
+                "obligation_ids": ["O1"],
+            },
+            {
+                "kind": "project_test",
+                "relative_path": "tests/test_unseen.py",
+                "anchor": "def test_existing_behavior",
+                "obligation_ids": ["O2"],
+            },
+        ],
+    }
+
+
+def test_change_source_validation_uses_historical_diff_and_head_test_snapshot(tmp_path):
+    root, head, base_ref, _ = _historical_change_fixture(tmp_path)
+    candidate = _historical_candidate(head, base_ref)
+
+    validate_candidate_sources([candidate], {"my_agent": root})
+
+
+def test_change_source_validation_rejects_anchor_absent_from_real_diff(tmp_path):
+    root, head, base_ref, _ = _historical_change_fixture(tmp_path)
+    candidate = _historical_candidate(head, base_ref)
+    candidate["source_proofs"][0]["anchor"] = "only-in-a-later-snapshot"
+
+    with pytest.raises(CandidateContractError, match="change proof anchor not found"):
+        validate_candidate_sources([candidate], {"my_agent": root})
+
+
+def test_change_source_validation_rejects_test_anchor_absent_at_head(tmp_path):
+    root, head, base_ref, _ = _historical_change_fixture(tmp_path)
+    candidate = _historical_candidate(head, base_ref)
+    candidate["source_proofs"][1]["anchor"] = "def test_missing_anchor"
+
+    with pytest.raises(CandidateContractError, match="project_test proof anchor not found"):
+        validate_candidate_sources([candidate], {"my_agent": root})
+
+
+def test_change_source_validation_rejects_future_only_test_regression(tmp_path):
+    root, head, base_ref, future = _historical_change_fixture(tmp_path)
+    candidate = _historical_candidate(head, base_ref)
+    candidate["accepted_test_paths"] = ["tests/test_future.py"]
+    candidate["gold_source_paths"] = ["src/change.py", "tests/test_future.py"]
+    candidate["source_proofs"][1]["relative_path"] = "tests/test_future.py"
+    candidate["source_proofs"][1]["anchor"] = "def test_future_only"
+
+    assert _git(root, "cat-file", "-e", f"{future}:tests/test_future.py") == ""
+    with pytest.raises(CandidateContractError, match="accepted test is absent at change head"):
+        validate_candidate_sources([candidate], {"my_agent": root})
+
+
+def test_change_source_validation_rejects_real_changed_path_mismatch(tmp_path):
+    root, head, base_ref, _ = _historical_change_fixture(tmp_path)
+    candidate = _historical_candidate(head, base_ref)
+    candidate["changed_paths"] = ["src/change.py"]
+
+    with pytest.raises(CandidateContractError, match="declared changed_paths differ"):
+        validate_candidate_sources([candidate], {"my_agent": root})
