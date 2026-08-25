@@ -1,0 +1,56 @@
+{
+  "schema_version": "g12_candidate_pool_manifest_v1",
+  "candidate_pool_status": "DRAFT / REVIEW REQUIRED",
+  "case_count": 24,
+  "candidate_sha256": {
+    "g12c001": "31326afaa52bfc8756128fa3fc534f0c140eafe1e7b55ffd1f4bcff7a5c4e428",
+    "g12c002": "d836ecac71dcfbf02d144956b01037a1d1c793ad393814b889c414af9f0f71a6",
+    "g12c003": "1fa6f1b6b43c88dbd63f4a4f0b68ddeae97dcc4e45b60991941c4d5026e7b969",
+    "g12c004": "06fdf2eb0137b85d5f1c70d8c9b2defb35439e6ee9c85078fea60188d7890abf",
+    "g12c005": "dcb3fee3f23be0b1c76fdf7c0a84ec37974e93e2449c6b00b30c48bfbf315e18",
+    "g12c006": "c67ad87c84509c38227b1adf1acb062e181e8fff28d4780a478ef64356fdee66",
+    "g12c007": "cca63d2f2f3d6d25ad57efc1b7f7ce96cfbc52f6508b6e5d2133583956cb7c54",
+    "g12c008": "a9cf0147e88b79308ce5f2317c373971d636a054a7bc968ddf355aecc4eff86d",
+    "g12c009": "43160b5c0bd82d4079e08c283b5523e92c374bf0d2928f789e1be890da61f1a9",
+    "g12c010": "bee402e1c83100e3dda2f3c5d351cfaf8b2283b68f9df567a0ca83160c6f2739",
+    "g12c011": "e99c244d6621ad87aa187b0c407634489cee51e831ca35bcda3f45795e19a3ac",
+    "g12c012": "23703dcbd26dd994ca3ebf7351d3844e82f475f22063c7b8fdcbafc20111baef",
+    "g12c013": "7881652f192a18fb51354a0f26e7a9fac82bb664f772f802693ab2f195d7366b",
+    "g12c014": "005008c050b848e0447c26e61be4be84d29cc6bd1f01c1217cc3b3aaa6e78b5e",
+    "g12c015": "0c6e39dd8f671eb36c4404cfc79cf7618694e96562423be09eeda491e5dd4ac2",
+    "g12c016": "4d1831b7817e09dfe2494a9a51c4bac3f0d477a5475266c0c8e902723073ccf5",
+    "g12c017": "9fca015f4d1a93f3c257be03df8461b16cb8030343b229ef7caa0de392a9c900",
+    "g12c018": "a3a21ae2adcc529c972a60a62ee75f172a1b00e1e530b7d8a357dfeb31c91aa0",
+    "g12c019": "7c2a33e88e90c313df2fbc3adf50c147d6cf49a9134ddf79788c5d5d2eb67838",
+    "g12c020": "33423fc0796370cbe6757f8d44d4da6bcd36821596a1cc320d6f1307dfd0dde9",
+    "g12c021": "51904cc35595a152faf03df7425d2aace149b968a28bc4a8a4da346b993b2187",
+    "g12c022": "5eff84b96465eecbb01846be3b5c12acc97ef5914cec53746500fbe02b18d6c6",
+    "g12c023": "0115f6ec090a93d28148638d827e2de55bb439c5823e2b6f812a416ce030020e",
+    "g12c024": "3bcd82632c82a0908c6037aef9076f46cc999779d84cdf77ae370ce59ba56c51"
+  },
+  "candidate_pool_sha256": "4715a35f439dbc9d198cd9b3c3a2dcf993bbb5e30c5d19d096afe3fbd87c56ed",
+  "repository_manifest_sha256": "392279dc0348723ddfebef4eefb1fa269f7b4d67a534c63a4de2344a5571ba43",
+  "family_distribution": {
+    "Theory <-> Code": 6,
+    "Change Impact <-> Test": 6,
+    "Diagnosis / Config": 6,
+    "Docs <-> Code": 6
+  },
+  "repository_distribution": {
+    "my_agent": 12,
+    "pydantic_ai": 12
+  },
+  "family_repository_distribution": {
+    "Theory <-> Code/my_agent": 3,
+    "Theory <-> Code/pydantic_ai": 3,
+    "Change Impact <-> Test/my_agent": 3,
+    "Change Impact <-> Test/pydantic_ai": 3,
+    "Diagnosis / Config/my_agent": 3,
+    "Diagnosis / Config/pydantic_ai": 3,
+    "Docs <-> Code/my_agent": 3,
+    "Docs <-> Code/pydantic_ai": 3
+  },
+  "unseen_change_test_candidates": 2,
+  "cross_file_diagnosis_candidates": 4,
+  "final_benchmark_selection": "NOT PERFORMED"
+}

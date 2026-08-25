@@ -133,4 +133,4 @@ G11-05 的首次 Formal 曾发生 repository leakage：evaluator Study Note、ru
 
 G12-01 只冻结 protocol 和 Evidence Sufficiency contract。它没有实现 verifier、guard、critic、multi-agent、GraphRAG、semantic code index 或新 Tool，没有调整 Prompt 或 5/4/2 budget，没有创建 G12 benchmark，没有选择/下载 external repository，也没有运行 real-provider Formal。
 
-G12-02 才会处理 dataset 与 repository freeze。G12 完成前，Core Agent System 仍是 NOT COMPLETE。
+G12-02A 才会处理 dataset 与 repository freeze。G12 完成前，Core Agent System 仍是 NOT COMPLETE。

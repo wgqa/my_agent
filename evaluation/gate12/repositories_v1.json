@@ -1,0 +1,53 @@
+{
+  "schema_version": "g12_repository_registry_v1",
+  "repositories": {
+    "my_agent": {
+      "project_id": "my_agent",
+      "repository_full_name": "wgqa/my_agent",
+      "origin_url": "https://github.com/wgqa/my_agent.git",
+      "project_source_commit": "465dd65e950e9c4a119820a5a27f558e74ad5892",
+      "role": "internal_clean_fixture",
+      "license_identity": "NOT DECLARED / internal fixture",
+      "full_history_required": true,
+      "is_shallow_proof": false,
+      "tracked_file_count": 444,
+      "python_source_file_count": 212,
+      "doc_file_count": 154,
+      "test_file_count": 75,
+      "required_tree": ["core/", "docs/", "tests/", "api/"],
+      "tool_viability": {
+        "code_search": "PASS",
+        "read_project_context": "PASS",
+        "changed_files": "PASS",
+        "git_diff_bounded": "PASS",
+        "find_tests": "PASS",
+        "engineering_project_binding": "PASS"
+      },
+      "candidate_usability_status": "PASS / ISOLATED DRAFT SOURCE"
+    },
+    "pydantic_ai": {
+      "project_id": "pydantic_ai",
+      "repository_full_name": "pydantic/pydantic-ai",
+      "origin_url": "https://github.com/pydantic/pydantic-ai.git",
+      "project_source_commit": "bfa8e9187b86aad7ec583665ab2743fadea458b1",
+      "role": "external_public_candidate",
+      "license_identity": "MIT / LICENSE",
+      "full_history_required": true,
+      "is_shallow_proof": false,
+      "tracked_file_count": 2555,
+      "python_source_file_count": 698,
+      "doc_file_count": 251,
+      "test_file_count": 1707,
+      "required_tree": ["pydantic_ai_slim/pydantic_ai/", "docs/", "tests/", "pyproject.toml", "README.md"],
+      "tool_viability": {
+        "code_search": "PASS",
+        "read_project_context": "PASS",
+        "changed_files": "PASS",
+        "git_diff_bounded": "PASS",
+        "find_tests": "PASS",
+        "engineering_project_binding": "PASS"
+      },
+      "candidate_usability_status": "PASS / ISOLATED DRAFT SOURCE"
+    }
+  }
+}
