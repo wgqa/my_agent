@@ -63,6 +63,11 @@ REPOSITORY_MANIFEST_SHA256 = "392279dc0348723ddfebef4eefb1fa269f7b4d67a534c63a4d
 PRODUCT_BASELINE_COMMIT = "0a1f42e8ee0320486dbd0ddc01400e1e19150501"
 MY_AGENT_COMMIT = "465dd65e950e9c4a119820a5a27f558e74ad5892"
 PYDANTIC_AI_COMMIT = "bfa8e9187b86aad7ec583665ab2743fadea458b1"
+BASELINE_A_FORMAL_RUN_ID = "g12-baseline-a-formal-20260825-195305"
+BASELINE_A_EVALUATOR_COMMIT = "f0852af1a339c72616b69c4ffdbdd6059c42bf5b"
+BASELINE_A_CASE_RESULTS_SHA256 = "3db5b4af578eaa48852f39ff89ea898bf2e5bd7629b70f936f387263ab5d7ce0"
+BASELINE_A_MANUAL_TEMPLATE_SHA256 = "3eab10fa8279cd3ba132dbe3dcd0bc2d3e5971cca20d8d2a675db46d7b83085f"
+BASELINE_A_FORMAL_MANIFEST_SHA256 = "663a33e428fcf88fcd8e2661d2cdb607b947c3ff25f12def67bc2c67a928f7c3"
 ENGINEERING_RESPONSE_SCHEMA = "engineering_query_response_v1"
 KNOWLEDGE_STATUS = {
     "schema_version": "engineering_knowledge_status_v1",
@@ -467,7 +472,7 @@ def _safe_trace(trace: object) -> list[dict[str, Any]]:
 
 def _trace_aggregation(trace: list[dict[str, Any]]) -> dict[str, Any]:
     decision_events = [event for event in trace if event.get("event_type") == "decision_completed"]
-    cumulative_counts = [
+    decision_call_counts = [
         event["provider_call_count"]
         for event in decision_events
         if type(event.get("provider_call_count")) is int
@@ -480,7 +485,10 @@ def _trace_aggregation(trace: list[dict[str, Any]]) -> dict[str, Any]:
         if type(event.get("parse_failure_category")) is str
     ]
     return {
-        "provider_call_count": max(cumulative_counts, default=0),
+        # Each decision_completed event carries one decision's local call
+        # metadata: 1 for a normal decision, 2 when that decision used repair.
+        # Summing events preserves the case-level provider-call count.
+        "provider_call_count": sum(decision_call_counts),
         "repair_attempted": any(event.get("repair_attempted") is True for event in decision_events),
         "repair_succeeded": any(event.get("repair_succeeded") is True for event in decision_events),
         "initial_parse_categories": parse_categories,
@@ -792,7 +800,9 @@ def validate_baseline_artifact_safety(output: Path, roots: Iterable[Path]) -> No
 
 
 __all__ = [
-    "BaselineContractError", "CANDIDATE_POOL_SHA256", "ENGINEERING_RESPONSE_SCHEMA",
+    "BASELINE_A_CASE_RESULTS_SHA256", "BASELINE_A_EVALUATOR_COMMIT",
+    "BASELINE_A_FORMAL_MANIFEST_SHA256", "BASELINE_A_FORMAL_RUN_ID",
+    "BASELINE_A_MANUAL_TEMPLATE_SHA256", "BaselineContractError", "CANDIDATE_POOL_SHA256", "ENGINEERING_RESPONSE_SCHEMA",
     "FINAL_BENCHMARK_SHA256", "GATE12_DATASET_FREEZE_ID", "InfrastructureFailure",
     "KNOWLEDGE_STATUS", "MY_AGENT_COMMIT", "PRODUCT_BASELINE_COMMIT", "PYDANTIC_AI_COMMIT",
     "REPOSITORY_MANIFEST_SHA256", "REVIEWER_SELECTION_SHA256", "add_case_contract_flags",

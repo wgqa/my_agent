@@ -1,0 +1,16 @@
+{"case_id":"g12q001","task_family":"Theory <-> Code","project_id":"my_agent","full_task_success":"PARTIAL","evidence_coverage":"NONE","claim_grounding":"PARTIAL","evidence_correctness":"PARTIAL"}
+{"case_id":"g12q002","task_family":"Theory <-> Code","project_id":"my_agent","full_task_success":"PASS","evidence_coverage":"FULL","claim_grounding":"PASS","evidence_correctness":"PASS"}
+{"case_id":"g12q003","task_family":"Theory <-> Code","project_id":"pydantic_ai","full_task_success":"PARTIAL","evidence_coverage":"NONE","claim_grounding":"FAIL","evidence_correctness":"FAIL"}
+{"case_id":"g12q004","task_family":"Theory <-> Code","project_id":"pydantic_ai","full_task_success":"PARTIAL","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PARTIAL"}
+{"case_id":"g12q005","task_family":"Change Impact <-> Test","project_id":"my_agent","full_task_success":"PARTIAL","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PASS"}
+{"case_id":"g12q006","task_family":"Change Impact <-> Test","project_id":"my_agent","full_task_success":"PASS","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PASS"}
+{"case_id":"g12q007","task_family":"Change Impact <-> Test","project_id":"pydantic_ai","full_task_success":"PARTIAL","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PASS"}
+{"case_id":"g12q008","task_family":"Change Impact <-> Test","project_id":"pydantic_ai","full_task_success":"FAIL","evidence_coverage":"NONE","claim_grounding":"FAIL","evidence_correctness":"NO_EVIDENCE"}
+{"case_id":"g12q009","task_family":"Diagnosis / Config","project_id":"my_agent","full_task_success":"FAIL","evidence_coverage":"NONE","claim_grounding":"FAIL","evidence_correctness":"FAIL"}
+{"case_id":"g12q010","task_family":"Diagnosis / Config","project_id":"my_agent","full_task_success":"FAIL","evidence_coverage":"NONE","claim_grounding":"FAIL","evidence_correctness":"FAIL"}
+{"case_id":"g12q011","task_family":"Diagnosis / Config","project_id":"pydantic_ai","full_task_success":"PARTIAL","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PARTIAL"}
+{"case_id":"g12q012","task_family":"Diagnosis / Config","project_id":"pydantic_ai","full_task_success":"FAIL","evidence_coverage":"NONE","claim_grounding":"FAIL","evidence_correctness":"NO_EVIDENCE"}
+{"case_id":"g12q013","task_family":"Docs <-> Code","project_id":"my_agent","full_task_success":"PARTIAL","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PASS"}
+{"case_id":"g12q014","task_family":"Docs <-> Code","project_id":"my_agent","full_task_success":"FAIL","evidence_coverage":"NONE","claim_grounding":"FAIL","evidence_correctness":"NO_EVIDENCE"}
+{"case_id":"g12q015","task_family":"Docs <-> Code","project_id":"pydantic_ai","full_task_success":"FAIL","evidence_coverage":"PARTIAL","claim_grounding":"FAIL","evidence_correctness":"PARTIAL"}
+{"case_id":"g12q016","task_family":"Docs <-> Code","project_id":"pydantic_ai","full_task_success":"PARTIAL","evidence_coverage":"PARTIAL","claim_grounding":"PARTIAL","evidence_correctness":"PARTIAL"}

@@ -1,0 +1,49 @@
+{
+  "schema_version": "g12_baseline_a_metric_correction_v1",
+  "correction_status": "VALID / COST METRIC CORRECTED OFFLINE",
+  "run_id": "g12-baseline-a-formal-20260825-195305",
+  "gate12_dataset_freeze_id": "gate12-v1-630fc8b527c2",
+  "evaluator_commit": "f0852af1a339c72616b69c4ffdbdd6059c42bf5b",
+  "product_baseline_commit": "0a1f42e8ee0320486dbd0ddc01400e1e19150501",
+  "case_results_sha256": "3db5b4af578eaa48852f39ff89ea898bf2e5bd7629b70f936f387263ab5d7ce0",
+  "formal_manifest_sha256": "663a33e428fcf88fcd8e2661d2cdb607b947c3ff25f12def67bc2c67a928f7c3",
+  "metric_scope": "provider_call_count and derived cost aggregates only",
+  "original_summary_values": {
+    "provider_calls_total": 17,
+    "avg_provider_calls": 1.0625
+  },
+  "corrected_summary_values": {
+    "provider_calls_total": 54,
+    "avg_provider_calls": 3.375
+  },
+  "case_provider_call_counts": {
+    "g12q001": 4,
+    "g12q002": 4,
+    "g12q003": 2,
+    "g12q004": 4,
+    "g12q005": 4,
+    "g12q006": 3,
+    "g12q007": 4,
+    "g12q008": 2,
+    "g12q009": 2,
+    "g12q010": 2,
+    "g12q011": 3,
+    "g12q012": 5,
+    "g12q013": 4,
+    "g12q014": 2,
+    "g12q015": 4,
+    "g12q016": 5
+  },
+  "family_provider_calls": {
+    "Theory <-> Code": 14,
+    "Change Impact <-> Test": 13,
+    "Diagnosis / Config": 12,
+    "Docs <-> Code": 15
+  },
+  "repository_provider_calls": {
+    "my_agent": 25,
+    "pydantic_ai": 29
+  },
+  "correction_reason": "Each decision_completed event contains one Decision's local AgentDecisionCallMetadata.call_count. Case-level provider calls are the sum across decision_completed events; max aggregation undercounted multi-decision cases.",
+  "supersession_boundary": "Original Formal artifact remains unchanged. Original summary provider-call values are superseded for cost metric only; all other automatic metrics and Manual Gold are unchanged."
+}

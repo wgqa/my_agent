@@ -158,6 +158,54 @@ def test_exact_16_frozen_identities_and_hashes_are_bound_before_requests():
     }
 
 
+def test_baseline_manual_gold_and_correction_artifacts_are_frozen():
+    manual_path = GATE12_DIR / "baseline_a_manual_review_v1.jsonl"
+    manual_manifest = json.loads(
+        (GATE12_DIR / "baseline_a_manual_review_manifest_v1.json").read_text(encoding="utf-8")
+    )
+    manual = [json.loads(line) for line in manual_path.read_text(encoding="utf-8").splitlines()]
+
+    assert manual_manifest["run_id"] == contract.BASELINE_A_FORMAL_RUN_ID
+    assert manual_manifest["evaluator_commit"] == contract.BASELINE_A_EVALUATOR_COMMIT
+    assert manual_manifest["formal_manifest_sha256"] == contract.BASELINE_A_FORMAL_MANIFEST_SHA256
+    assert manual_manifest["case_count"] == 16
+    assert manual_manifest["case_ids"] == [f"g12q{index:03d}" for index in range(1, 17)]
+    assert manual_manifest["manual_review_sha256"] == contract.file_sha256(manual_path)
+    assert manual_manifest["original_manual_review_template_sha256"] == contract.BASELINE_A_MANUAL_TEMPLATE_SHA256
+    assert {item["case_id"] for item in manual} == set(manual_manifest["case_ids"])
+    assert sum(item["full_task_success"] == "PASS" for item in manual) == 2
+    assert sum(item["full_task_success"] == "PARTIAL" for item in manual) == 8
+    assert sum(item["full_task_success"] == "FAIL" for item in manual) == 6
+    by_id = {item["case_id"]: item for item in manual}
+    assert manual_manifest["reviewer_verdicts"] == {
+        item["case_id"]: {
+            key: item[key]
+            for key in ("full_task_success", "evidence_coverage", "claim_grounding", "evidence_correctness")
+        }
+        for item in manual
+    }
+    assert by_id["g12q004"]["evidence_coverage"] == "PARTIAL"
+    assert by_id["g12q004"]["full_task_success"] == "PARTIAL"
+    assert by_id["g12q006"]["evidence_coverage"] == "PARTIAL"
+    assert by_id["g12q006"]["full_task_success"] == "PASS"
+
+    correction = json.loads(
+        (GATE12_DIR / "baseline_a_metric_correction_v1.json").read_text(encoding="utf-8")
+    )
+    assert correction["run_id"] == contract.BASELINE_A_FORMAL_RUN_ID
+    assert correction["formal_manifest_sha256"] == contract.BASELINE_A_FORMAL_MANIFEST_SHA256
+    assert correction["case_results_sha256"] == contract.BASELINE_A_CASE_RESULTS_SHA256
+    assert sum(correction["case_provider_call_counts"].values()) == 54
+    assert correction["original_summary_values"] == {
+        "provider_calls_total": 17,
+        "avg_provider_calls": 1.0625,
+    }
+    assert correction["corrected_summary_values"] == {
+        "provider_calls_total": 54,
+        "avg_provider_calls": 3.375,
+    }
+
+
 def test_dataset_hash_mismatch_fails_before_request():
     dataset = load_frozen_final_dataset(GATE12_DIR)
     manifest = deepcopy(dataset["final_manifest"])
@@ -333,7 +381,7 @@ def test_completed_insufficient_is_premature_but_refused_is_not():
     assert refused["premature_finalization"] is False
 
 
-def test_provider_calls_use_maximum_cumulative_value_and_parse_repair_are_case_level():
+def test_provider_calls_sum_decision_metadata_and_parse_repair_are_case_level():
     trace = [
         {"event_type": "decision_completed", "provider_call_count": 1, "repair_attempted": False},
         {
@@ -343,19 +391,32 @@ def test_provider_calls_use_maximum_cumulative_value_and_parse_repair_are_case_l
             "repair_succeeded": True,
             "parse_failure_category": "ARGUMENTS_SCHEMA_INVALID",
         },
+        {"event_type": "decision_completed", "provider_call_count": 1, "repair_attempted": False},
         {"event_type": "runtime_stopped", "error_code": "AGENT_DUPLICATE_TOOL_CALL"},
     ]
     result = normalize_case_result(
         _case("g12q001"), _response(trace=trace), latency_ms=1, roots=[REPO_ROOT]
     )
 
-    assert result["provider_call_count"] == 2
+    assert result["provider_call_count"] == 4
     assert result["repair_attempted"] is True
     assert result["repair_succeeded"] is True
     assert result["initial_parse_categories"] == ["ARGUMENTS_SCHEMA_INVALID"]
     assert result["duplicate_tool_stop"] is True
     assert "L1 Transport / Parsing" in result["structural_failure_layers"]
     assert "L2 Planning / Tool-loop" in result["structural_failure_layers"]
+
+
+def test_provider_call_count_sums_four_normal_decisions():
+    trace = [
+        {"event_type": "decision_completed", "provider_call_count": 1}
+        for _ in range(4)
+    ]
+    result = normalize_case_result(
+        _case("g12q001"), _response(trace=trace), latency_ms=1, roots=[REPO_ROOT]
+    )
+
+    assert result["provider_call_count"] == 4
 
 
 def test_automatic_metrics_are_structural_only_and_cover_family_repository_slices():
