@@ -19,11 +19,12 @@
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **G11-05 Post-Formal Documentation Maintenance = CLOSED**
-- **G12 Engineering Evaluation 2.0 = IN PROGRESS / DESIGN**
+- **G12 Engineering Evaluation 2.0 = IN PROGRESS / EVALUATION**
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G12-02A Reviewer Re-Audit**
-- **G12-02A = IN PROGRESS / REVIEW FIX / R1**
+- **NEXT = G12-03 Baseline A Evaluation Harness**
+- **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
+- **G12-02B = CLOSED / DATASET FROZEN**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -117,7 +118,7 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 
 ## G12 Engineering Evaluation 2.0
 
-- **状态：** IN PROGRESS / DESIGN；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A=`IN PROGRESS / REVIEW FIX / R1`；NEXT=`G12-02A Reviewer Re-Audit`；G12-02B=`NOT STARTED`。
+- **状态：** IN PROGRESS / EVALUATION；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A=`CLOSED / CANDIDATE POOL ACCEPTED`；G12-02B=`CLOSED / DATASET FROZEN`；NEXT=`G12-03 Baseline A Evaluation Harness`。
 - **动机：** G11-02 Theory <-> Code=`CLOSED / MIXED`、G11-03 Change Impact <-> Test=`CLOSED / MIXED`、G11-04 Diagnosis / Config=`CLOSED / NEGATIVE`（Manual Gold 0/4）、G11-05 Docs <-> Code=`CLOSED / NEGATIVE`（Manual Gold 0/4）共同显示：Tool routing、path hit、evidence presence 或 completed 都不等于 evidence sufficiency、claim grounding 或 task success。
 - **G12-01/R1 冻结：** [Engineering Evaluation 2.0 Protocol](design/g12-engineering-evaluation-2.0.md) 与 [Study Note 113](study-notes/113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md)。第一版 benchmark 设计目标为 16 cases、四类 task family；最终 12-20 case 规模、external repository checkout proof、candidate pool 与 dataset construction 归 G12-02A。
 - **Evidence Sufficiency：** `required_evidence_groups` 是 AND-of-OR groups 的 shape-only automatic contract。Theory <-> Code=`[[knowledge], [project_code, project_doc]]`；Change Impact <-> Test=`[[project_change], [project_test]]`；Diagnosis=`[[project_code]]`，并在 `requires_cross_file=true` 时要求至少 2 个 distinct `project_code` paths；Docs <-> Code=`[[project_doc], [project_code]]`。public evidence kinds 保持 `knowledge`、`project_code`、`project_doc`、`project_change`、`project_test`。
@@ -125,8 +126,9 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **评测边界：** formal 必须保持 evaluator checkout != evaluated project checkout，并分别冻结 `evaluator_commit` 与 `project_source_commit`。自动只统计 evidence kind/count/group/path shape、Tool/failure/cost metrics 与 premature finalization；relevance、coverage、correctness、claim grounding、remediation 和细微语义继续由 Manual Gold v1 判断。
 - **候选机制：** Finalization Guard、`EngineeringEvidenceRequirement` 和 `INSUFFICIENT_EVIDENCE_TO_FINALIZE` 都只是未来 implementation candidates，未进入产品；候选方向是 immutable hybrid typed requirement，Runtime 只消费 requirement。duplicate hard stop 与一次 bounded recovery 是后续 A/B 问题，当前行为不变。
 - **A/B：** Baseline A=current Engineering v2 + Runtime；Control B=未来如获授权的 Prompt-only control；System C=same Prompt + system-level guard。比较 Task Success、Evidence Sufficiency、Claim Grounding、Premature Finalization 与 refusal/cost/reliability trade-offs；具体阈值等 Baseline A 后、看 System C 前冻结。
-- **G12-02A proof / R1：** evaluator-only registry/candidate pool 已验证 `wgqa/my_agent @ 465dd65e950e9c4a119820a5a27f558e74ad5892` 与 `pydantic/pydantic-ai @ bfa8e9187b86aad7ec583665ab2743fadea458b1` 的 isolated, tracked-clean, full-history checkout、source/doc/test tree、existing Tool viability 与 verified knowledge probes。R1 将 Change proof 收紧为真实 `base..head` diff，并要求 accepted test 和 test proof anchor 都存在于 `head_ref`；future-only test 被拒绝。Theory、Diagnosis 与 Docs Gold 改为具体行为和双边语义 claim，而非 symbol/path presence。池中仍有 24 条 `DRAFT / REVIEW REQUIRED` candidates（四 family x 两 repository x 三），尚未选择 final 16 cases；G12-02B=`NOT STARTED`。
-- **产品边界：** G12-02A 不实现 verifier/guard，不改 Prompt、Runtime、Tool、5/4/2 budget、registry 或 product baseline，不运行 provider Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；G12 Formal=`NOT RUN`；Finalization Guard=`NOT IMPLEMENTED`；Core Agent System=`NOT COMPLETE`。
+- **G12-02A closure：** evaluator-only registry/candidate pool 已验证 `wgqa/my_agent @ 465dd65e950e9c4a119820a5a27f558e74ad5892` 与 `pydantic/pydantic-ai @ bfa8e9187b86aad7ec583665ab2743fadea458b1` 的 isolated, tracked-clean, full-history checkout、source/doc/test tree、existing Tool viability 与 verified knowledge probes。R1 将 Change proof 收紧为真实 `base..head` diff，并要求 accepted test 和 test proof anchor 都存在于 `head_ref`；future-only test 被拒绝。Theory、Diagnosis 与 Docs Gold 改为具体行为和双边语义 claim，而非 symbol/path presence。24 条 `DRAFT / REVIEW REQUIRED` candidates 作为 construction provenance 永久保留，G12-02A=`CLOSED / CANDIDATE POOL ACCEPTED`。
+- **G12-02B freeze：** Reviewer 从 pool 精确选择 16 case：四 family 各 4、两 repository 各 8、每个 family/repository 组合各 2。final identity 为 `g12q001..g12q016`，逐条绑定 source candidate SHA；`g12c009` 因与既有 G11 budget topic 重叠未选，`g12c024` 因 label ambiguity 未选（distributed ownership 是 evidence insufficiency，不是 docs inconsistency）。最终仅有 1 条 unseen Change test（`g12q007`）、3 条 cross-file Diagnosis、Docs label=`CONSISTENT` x4；这是真实分布，不人为补造 drift。final benchmark SHA=`630fc8b527c22d3e7afc4f4288788524f5dfb52f5ed6ade13ec050abc35f215f`，freeze id=`gate12-v1-630fc8b527c2`。详见 [Study Note 115](study-notes/115-G12-Engineering-Benchmark-Freeze.md)。
+- **产品边界：** G12-02A/02B 不实现 verifier/guard，不改 Prompt、Runtime、Tool、5/4/2 budget、registry 或 product baseline，不运行 provider Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；G12 Baseline Formal=`NOT RUN`；Finalization Guard=`NOT IMPLEMENTED`；Core Agent System=`NOT COMPLETE`。
 
 ## 项目定位
 
