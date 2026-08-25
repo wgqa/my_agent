@@ -81,7 +81,7 @@ DOC04 核对 Safe Trace：Engineering public trace 在 legacy allowlist 上增�
 
 Artifact 复用 shared `validate_artifact_safety`，包括 JSON semantic、JSONL semantic 和 Markdown JSON-fence semantic validation。runner 不记录 raw provider output、Prompt、CoT、API key 或绝对路径；所有自动指标都服务于后续人工 Gold review。
 
-G11-05-01 只建立 benchmark、runner、deterministic tests、Study Note 和 status。Formal 尚未运行，不提前修 README，不开始 G12，也不因为固定 case 的 drift 直接修改被测产品文档。只有在 Formal 和人工 review 完成后，才另行决定文档修复或 workflow closure。
+G11-05-01 只建立 benchmark、runner、deterministic tests、Study Note 和 status。建模阶段不提前修 README，不开始 G12，也不因为固定 case 的 drift 直接修改被测产品文档；只有在 Formal 和人工 review 完成后，才另行决定文档修复或 workflow closure。
 
 ## 9. Benchmark Prompt Leakage
 
@@ -102,3 +102,21 @@ Prompt leakage 和 repository leakage 是两个不同层次的问题。Prompt le
 正确的边界是 `Evaluator Checkout != Project Target Checkout`。Evaluator checkout 保存 runner、tests、Study Note 和 case contract；Project Target Checkout 固定为不含 G11-05 evaluator 文件的 `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`。Formal 前必须分别校验 evaluator/project 的 HEAD、tracked-clean 状态和不同的 resolved directory，并对 project checkout 拒绝 evaluator-owned 文件。不要粗暴禁止正常 project code 中偶然出现 `DOC01` 等字符串；guard 应针对明确的 evaluator-owned paths 和身份。
 
 Runner manifest 必须同时记录 `evaluator_commit` 与 `project_source_commit`，并标记 `project_target_isolated=true`、`project_evaluator_same_root=false`。所有 document/code source paths 都相对于 project checkout 验证；API 服务也必须从 frozen project worktree 启动，让 `api.app` 的 repository binding 指向被评测项目，而不是 evaluator checkout。Artifact safety 同时检查 evaluator 和 project 两个 local root，继续保留 JSON、JSONL 和 Markdown JSON-fence 的 semantic validation。
+
+## 11. Formal Closure: Valid Negative Result
+
+有效隔离 Formal 为 `g11-05-docs-code-consistency-isolated-formal-20260824-225815`。它使用 evaluator commit `a96189257a0da553212b789b24dba65eb4160ada` 和 frozen project source commit `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`，manifest schema 为 `g11_05_docs_code_consistency_manifest_v2`。其 `project_target_isolated=true`、`project_evaluator_same_root=false`、`project_evaluator_gold_files_present=false`；Runtime API 由 operator 从 project worktree 启动。因此这次 run 的 evaluation provenance 有效。
+
+这与历史 `g11-05-docs-code-consistency-formal-20260824-221006` 必须严格区分。后者虽完成 4/4 HTTP requests，但 evaluator-owned Study Note、runner 和 test metadata 位于被搜索的 repository，DOC03 还实际引用了 Study Note 112。它永久是 `INVALID / EVALUATION CONTAMINATION`，capability conclusion 为 `NONE`，不能用于 Manual Gold 或 G11-05 结论；它展示的是 evaluator integrity defect，而不是 Agent 的负结果。
+
+有效 run 的自动结果为：4 个 case 中 completed=2/4（completion rate=0.5）；`code_search`=4/4，`read_project_context`=2/4，required tool coverage rate=0.75；`project_doc`=1/4，`project_code`=1/4，`doc_code_pair`=0/4，multi-file evidence=0/4；doc claim visible=1/4，code behavior visible=1/4，document source hit=1/4，code source hit=0/4。forbidden 和 non-target calls 均为 0；failed=1、refused=1、provider calls=16、parse failure=1，initial category=`ARGUMENTS_SCHEMA_INVALID`，repair attempted/succeeded=1/0。completed 只说明 Runtime 完成了响应协议，不能替代正确性或充分证据。
+
+Manual Full Gold 为 0/4。DOC01 定位到当前七 Tool registry 并读到 project code，但没有读取 README 中只列 `knowledge_search`、`code_search`、`calculator` 的 claim，因而错误宣称 README 一致、无需更新。DOC02 读取了 README Public API table，却没有读取 `api/app.py`，遗漏 `/project`、`/engineering/query`、`/engineering/knowledge` 和 `engineering_agent` capability，并把问题错误改写成 Python `run()` API 文档问题。DOC03 只执行 `code_search`，重复 canonical Tool call 后被拒绝，没有 context、evidence 或 final。DOC04 连续 `code_search`，initial action 的 arguments schema invalid，repair 失败，同样没有 context、evidence 或 final。
+
+这四个 audit 的共同失败是单侧证据后的 premature finalization。Docs ↔ Code 判断最低需要 `project_doc + project_code`，还需要这些 source window 覆盖问题所问的 claim 与 behavior；正确 locator 不等于 sufficient evidence。没有两侧证据时，Agent 不应输出 `CONSISTENT`、`OUTDATED` 或“无需更新”这类 consistency judgment。G11-05 因此正式关闭为 `CLOSED / NEGATIVE`，而非 `PASS` 或 `MIXED`。
+
+结果仍有明确的正向信息：`code_search` routing 为 4/4，forbidden/non-target calls 为 0，DOC01 成功定位 current registry，DOC02 成功读取 README API table；更重要的是 dual-checkout isolation、provenance 与 artifact pipeline 现在可信。这个 evaluator infrastructure 成功不等同于 Agent capability 成功。
+
+不继续在 G11-05 中进行 Prompt tuning。Production v2 已明确 locator 不等于 evidence、要求读取 context 且禁止重复 Tool call；本次结果说明仅靠 Prompt 的 evidence discipline 不足。G12 应跨 task family 设计并验证 system-level evidence enforcement / verifier mechanisms，承接 Evidence Sufficiency、Bilateral Evidence Requirement、Premature Finalization、Consistency-Judgment Guard、Claim-Evidence Coverage、Tool-loop Adherence 与 Structured Action Reliability。对应地，G11-02 暴露 Theory ↔ Code grounding debt，G11-03 暴露 Change ↔ Test evidence sufficiency debt，G11-04 暴露 diagnosis cross-file grounding failure，G11-05 暴露 Docs ↔ Code bilateral evidence failure。
+
+README drift 已由有效 benchmark 正式证明，但 README 修复属于独立的 post-formal documentation maintenance，不在本 closure 中修改，也不改变冻结的 G11-05 evidence。产品 baseline 保持 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`；G12 仍未开始。

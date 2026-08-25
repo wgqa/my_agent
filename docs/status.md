@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-24
+**更新日期：** 2026-08-25
 
 ## 当前状态
 
@@ -17,9 +17,10 @@
 - **G11-02 Theory ↔ Code = CLOSED / MIXED**
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
-- **G11-05 Docs ↔ Code Consistency = IN PROGRESS / FORMAL BLOCKED**
+- **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G11-05 Formal Validation**
+- **NEXT = G11-05 Post-Formal Documentation Maintenance**
+- **G12 = NOT STARTED**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -82,11 +83,11 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **Prompt interpretation：** Production v2 已明确 `code_search → read_project_context`、locator 不等于 evidence、implementation claim 需要 context、不得重复 Tool call、证据不足不得声称已验证。因此不再开启 G11-04 Prompt tuning；结果表明 Prompt-only evidence discipline 不足。
 - **G12 debt：** evidence sufficiency、claim-evidence coverage、implementation-claim verifier、premature finalization、cross-file evidence requirements；另行记录 structured action reliability 与 duplicate-call recovery/handling。此处不实现这些机制。
 - **Invalid 历史 run：** `g11-04-diagnosis-config-formal-20260824-203224` 仍为 `INVALID / INFRASTRUCTURE FAILURE`，不与本次 valid negative 混淆，也不用于 Agent 能力结论。
-- **Closure：** docs-only；G11-05=`IN PROGRESS / FORMAL BLOCKED`，G12=`NOT STARTED`。
+- **Closure：** docs-only；在 G11-04 closure 时，G11-05=`IN PROGRESS / FORMAL BLOCKED`，G12=`NOT STARTED`。
 
 ## G11-05 Docs ↔ Code Consistency
 
-- **状态：** IN PROGRESS / FORMAL BLOCKED；R2 正在修复 evaluator/project checkout contamination。
+- **状态：** CLOSED / NEGATIVE。
 - **Workflow：** `g11-05-docs-code-consistency-v1`；语义链路为 document claim → `code_search` → `read_project_context(document)` → locate implementation → `read_project_context(code)` → consistency judgment → bounded correction/no-change recommendation。
 - **固定 cases：** DOC01 Tool Registry Documentation Drift、DOC02 Public API / Product Mode Drift、DOC03 Runtime Budget Claim、DOC04 Safe Trace Documentation；Gold 分布为 2 个 `OUTDATED / INCOMPLETE` 或 `OUTDATED / INCONSISTENT`、2 个 `CONSISTENT`。
 - **Required tools：** `code_search`、`read_project_context`。**Forbidden：** `knowledge_search`、`calculator`、`changed_files`、`git_diff`、`find_tests`；不冻结唯一 Tool sequence。
@@ -96,7 +97,13 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **Production freeze：** Engineering v2 Prompt identity/SHA、Repair v1 identity/SHA、Engineering cap=`1200`、budget=`5/4/2`、registry=`7`、network retry=`0` 保持不变；不修改 README，DOC01/DOC02 的当前文档漂移作为 benchmark evidence。
 - **Contaminated Formal：** `g11-05-docs-code-consistency-formal-20260824-221006` = `INVALID / EVALUATION CONTAMINATION`；4/4 requests completed，但 DOC03 final answer 引用 evaluator Study Note 112 作为 5/4/2 consistency 依据。`capability conclusion = NONE`；不用于 Agent capability、manual Gold score 或 G11-05 PASS/MIXED/NEGATIVE 结论。
 - **Isolation repair：** evaluator checkout 与 project target checkout 必须不同且 tracked-clean；project source 固定为 `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`，拒绝 G11-05 evaluator-owned files；manifest 分别记录 `evaluator_commit` / `project_source_commit`，source paths 相对于 project checkout，artifact safety 同时覆盖两侧 local root。
-- **Formal：** NEW RUN NOT RUN；审计通过后由用户从 isolated project worktree 启动 API 并执行。不得复用 contaminated run。G12=`NOT STARTED`。
+- **Valid isolated Formal：** `g11-05-docs-code-consistency-isolated-formal-20260824-225815`，manifest schema=`g11_05_docs_code_consistency_manifest_v2`，evaluator commit=`a96189257a0da553212b789b24dba65eb4160ada`，project source commit=`3e0d5cd54ff916ae1df650ca9a55ad21b363234a`。`project_target_isolated=true`、`project_evaluator_same_root=false`、`project_evaluator_gold_files_present=false`；operator 从 frozen project worktree 启动 Runtime API，因此该 run 的 provenance 有效。
+- **自动结果：** case_count=4，completed=2/4（0.5）；`code_search`=4/4，`read_project_context`=2/4，required tool coverage rate=0.75；`project_doc`=1/4，`project_code`=1/4，doc-code pair=0/4，multi-file evidence=0/4，doc claim visible=1/4，code behavior visible=1/4，document source hit=1/4，code source hit=0/4；forbidden/non-target=0/0；failed=1，refused=1，provider calls=16，parse failure=1（initial=`ARGUMENTS_SCHEMA_INVALID`），repair=0/1。
+- **Manual Gold：** fully accepted=0/4。DOC01 读到七 Tool registry 和 project code，却没有读 README 的三 Tool claim，错误判为一致且不建议更新；DOC02 读到 README API table，却没有读 `api/app.py`，遗漏当前 Engineering HTTP endpoints/capability；DOC03 因重复 `code_search` 被拒绝，没有 evidence/final；DOC04 因 `ARGUMENTS_SCHEMA_INVALID` repair 失败，没有 testable implementation evidence/final。
+- **最终判定：** intended workflow 未能可靠完成 document claim evidence + current implementation evidence → semantic comparison → correct consistency judgment；因此为 `CLOSED / NEGATIVE`，不标记 `PASS` 或 `MIXED`。
+- **正向发现：** `code_search` routing=4/4，forbidden/non-target=0，dual-checkout isolation、provenance 与 artifact infrastructure 有效；DOC01 定位到 current registry，DOC02 读到 README API table。
+- **Systemic debt → G12：** Evidence Sufficiency、Bilateral Evidence Requirement、Premature Finalization、Consistency-Judgment Guard、Claim-Evidence Coverage、Tool-loop Adherence、Structured Action Reliability。跨任务族结论为：G11-02 是 Theory ↔ Code grounding debt，G11-03 是 Change ↔ Test evidence sufficiency debt，G11-04 是 diagnosis cross-file grounding failure，G11-05 是 Docs ↔ Code bilateral evidence failure；Prompt-only evidence discipline 不足，应在 G12 评估系统级 evidence enforcement / verifier mechanisms。
+- **Closure boundary：** 不再对 G11-05 调 Prompt，不重跑 Formal，不修改 README。`CURRENT PRODUCT BASELINE` 保持 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`；NEXT=`G11-05 Post-Formal Documentation Maintenance`，用于单独修复已证实的 README drift，且不改变冻结的 G11-05 evidence。G12=`NOT STARTED`。
 
 ## 项目定位
 
