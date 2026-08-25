@@ -18,8 +18,9 @@
 - **G11-03 Change Impact & Test Recommendation Workflow = CLOSED / MIXED**
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
+- **G11-05 Post-Formal Documentation Maintenance = CLOSED**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G11-05 Post-Formal Documentation Maintenance**
+- **NEXT = G12 Engineering Evaluation 2.0**
 - **G12 = NOT STARTED**
 
 ## G11-02 Theory ↔ Code Closure
@@ -103,7 +104,14 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **最终判定：** intended workflow 未能可靠完成 document claim evidence + current implementation evidence → semantic comparison → correct consistency judgment；因此为 `CLOSED / NEGATIVE`，不标记 `PASS` 或 `MIXED`。
 - **正向发现：** `code_search` routing=4/4，forbidden/non-target=0，dual-checkout isolation、provenance 与 artifact infrastructure 有效；DOC01 定位到 current registry，DOC02 读到 README API table。
 - **Systemic debt → G12：** Evidence Sufficiency、Bilateral Evidence Requirement、Premature Finalization、Consistency-Judgment Guard、Claim-Evidence Coverage、Tool-loop Adherence、Structured Action Reliability。跨任务族结论为：G11-02 是 Theory ↔ Code grounding debt，G11-03 是 Change ↔ Test evidence sufficiency debt，G11-04 是 diagnosis cross-file grounding failure，G11-05 是 Docs ↔ Code bilateral evidence failure；Prompt-only evidence discipline 不足，应在 G12 评估系统级 evidence enforcement / verifier mechanisms。
-- **Closure boundary：** 不再对 G11-05 调 Prompt，不重跑 Formal，不修改 README。`CURRENT PRODUCT BASELINE` 保持 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`；NEXT=`G11-05 Post-Formal Documentation Maintenance`，用于单独修复已证实的 README drift，且不改变冻结的 G11-05 evidence。G12=`NOT STARTED`。
+- **Closure boundary：** 不再对 G11-05 调 Prompt 或重跑 Formal。README maintenance 被明确延后为独立任务，用于修复已证实的 README drift，且不改变冻结的 G11-05 evidence。`CURRENT PRODUCT BASELINE` 保持 `0a1f42e8ee0320486dbd0ddc01400e1e19150501`，G12=`NOT STARTED`。
+
+## G11-05 Post-Formal Documentation Maintenance
+
+- **状态：** CLOSED。
+- **范围：** valid G11-05 Formal 之后，README 按当前产品 surface 同步更新：Evidence-Grounded AI Engineering Agent 定位、7 个 bounded read-only Tool、Engineering API entry、三种 Streamlit Demo mode 与 Engineering API 的边界、G11 transfer-validation disclosure、G6-G11 主线和当前限制。
+- **历史边界：** README 维护不修改 valid isolated run `g11-05-docs-code-consistency-isolated-formal-20260824-225815`、invalid contaminated run `g11-05-docs-code-consistency-formal-20260824-221006`、G11-05=`CLOSED / NEGATIVE` 或 Manual Gold=`0/4`。Formal 的 frozen project source 仍为 `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`。
+- **产品边界：** docs-only；不修改 product behavior，`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变。NEXT=`G12 Engineering Evaluation 2.0`，但 G12=`NOT STARTED`。
 
 ## 项目定位
 

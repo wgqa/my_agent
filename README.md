@@ -1,8 +1,8 @@
-# RAG Agent：可评测的 Agentic Retrieval 与 Structured Tool Use 系统
+# Evidence-Grounded AI Engineering Agent
 
 [![CI](https://github.com/wgqa/my_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wgqa/my_agent/actions/workflows/ci.yml)
 
-面向技术文档与代码的可评测 RAG Agent。项目从基础 RAG 演进到 Query Decomposition、Adaptive Retrieval、Evidence Verification 与 Structured Tool Agent，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。
+面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent。项目以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。
 
 ## 项目亮点
 
@@ -10,8 +10,9 @@
 |---|---|
 | Basic RAG | Dense / BM25 / Hybrid 检索、Reranker、grounded citation |
 | Agentic RAG | Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier |
-| Tool Agent | `knowledge_search`、`code_search`、`calculator` |
-| Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace |
+| Structured Tool Agent | 7 个 bounded read-only Tool：`calculator`、`code_search`、`read_project_context`、`knowledge_search`、`changed_files`、`git_diff`、`find_tests` |
+| Engineering Agent | 统一 Engineering API、verified knowledge identity、system-bound project identity 与 repository/change/test evidence |
+| Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push |
 | Evaluation | Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据 |
 | Engineering | FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke |
 | Reproducibility | `requirements.lock`、公共语料 provenance、冻结 artifact 身份 |
@@ -22,8 +23,9 @@
 
 ```mermaid
 flowchart TD
-    U[User] --> UI[Streamlit Demo Console]
-    UI --> API[FastAPI]
+    U[User / API Client] --> API[FastAPI]
+    U --> UI[Streamlit Demo Console: 3 modes]
+    UI --> API
 
     API --> B[Basic RAG /query]
     B --> BR[Retriever]
@@ -45,11 +47,18 @@ flowchart TD
     TC --> O[Observation]
     O --> L[Bounded Iteration]
     L --> TF[Final Answer]
+
+    API --> EA[Engineering Agent<br/>POST /engineering/query]
+    EA --> DL[Decision / Tool Loop]
+    DL --> KE[Knowledge Evidence<br/>knowledge_search]
+    DL --> RE[Repository Evidence<br/>code_search<br/>read_project_context<br/>changed_files<br/>git_diff<br/>find_tests]
+    KE --> EF[Grounded Engineering Answer]
+    RE --> EF
 ```
 
-Basic、Agentic 和 Tool Agent 共用 HTTP 入口层，但使用相互独立的 runtime contract。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。
+Basic、Agentic、Structured Tool Agent 与 Engineering Agent 共用 HTTP 入口层，但使用相互独立的 runtime contract。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。Streamlit 目前仍只有 Basic RAG、Agentic RAG 与 Structured Tool Agent 三种 Demo mode；Engineering Agent 是 API/product entry，不是第四个 Streamlit mode selector。
 
-## 三种运行模式
+## 三种 Demo 运行模式与 Engineering API 入口
 
 ### Basic RAG
 
@@ -67,7 +76,13 @@ Planner 先产生结构化 QueryPlan，再根据 Query Type 和 evidence target 
 
 `POST /tool-agent/query`
 
-Decision → Tool Call → Observation → bounded iteration → Final Answer。当前真实只读工具是 `knowledge_search`、`code_search` 和 `calculator`。运行时控制最大 iteration、tool calls、tool errors，并对重复调用和未注册工具 fail closed。
+Decision → Tool Call → Observation → bounded iteration → Final Answer。当前 registry 有 7 个 bounded read-only Tool：Knowledge Evidence 的 `knowledge_search`，Repository Evidence 的 `code_search`、`read_project_context`，Change/Test Evidence 的 `changed_files`、`git_diff`、`find_tests`，以及 Utility `calculator`。运行时控制最大 iteration、tool calls、tool errors，并对重复调用和未注册工具 fail closed。
+
+### Engineering Agent API
+
+`POST /engineering/query` 是统一的 Engineering Agent query entry，面向当前系统绑定项目与 verified Engineering Knowledge 的 evidence-grounded 分析。`GET /engineering/knowledge` 公开 verified Knowledge backend 的状态和 identity；`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
+
+Engineering Agent 当前是 API/product entry，尚未作为第四种 Streamlit Demo mode 出现在 mode selector 中。
 
 ## 5 分钟体验
 
@@ -94,7 +109,7 @@ uvicorn api.app:app --host 127.0.0.1 --port 8000
 streamlit run ui/app.py
 ```
 
-打开 Streamlit 地址后，可以在 Agent Console 中切换 Basic RAG、Agentic RAG 和 Structured Tool Agent。侧栏会先读取 `/health` 与 `/capabilities`；runtime 未 ready 的模式会在提交前提示，不会等一次 503 才暴露问题。
+打开 Streamlit 地址后，可以在 Agent Console 中切换三种 Demo mode：Basic RAG、Agentic RAG 和 Structured Tool Agent。侧栏会先读取 `/health` 与 `/capabilities`；runtime 未 ready 的模式会在提交前提示，不会等一次 503 才暴露问题。Engineering Agent 通过 API entry 提供，不在当前 Streamlit mode selector 中。
 
 如果 API 不在默认地址，可设置 `RAG_API_URL=http://127.0.0.1:<port>` 后再启动 UI。
 
@@ -130,8 +145,11 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 | `POST /query` | Basic RAG |
 | `POST /agent/query` | Agentic RAG |
 | `POST /tool-agent/query` | Structured Tool Agent |
+| `POST /engineering/query` | 统一 Engineering Agent query entry |
+| `GET /engineering/knowledge` | Verified Engineering Knowledge backend 的公开状态与 identity |
+| `GET /project` | 当前 system-bound project 的公开 identity，不暴露本地绝对路径 |
 
-完整 request/response schema 以 FastAPI `/docs` 与 OpenAPI 为准；README 只保留产品层入口，不复制每个 Pydantic 字段。
+`GET /capabilities` 同时报告 `engineering_agent` 的 runtime capability 状态。完整 request/response schema 以 FastAPI `/docs` 与 OpenAPI 为准；README 只保留产品层入口，不复制每个 Pydantic 字段。
 
 ## Evaluation & Evidence
 
@@ -171,6 +189,17 @@ Dev 侧冻结系统 evidence（24 cases）记录：retrieval obligation `35/44 =
 
 证据：[docs/experiments/gate4_tool_use_dev_baseline.json](docs/experiments/gate4_tool_use_dev_baseline.json)、[docs/experiments/gate4_tool_use_dev_seal.json](docs/experiments/gate4_tool_use_dev_seal.json) 和 [docs/experiments/gate4_freeze.json](docs/experiments/gate4_freeze.json)。`Allowed sequence match` 与 required coverage 是已知限制，不通过修改展示层掩盖。
 
+### G11 — Engineering Task Transfer Validation
+
+| Task Family | Result |
+|---|---|
+| Theory ↔ Code | MIXED |
+| Change Impact & Test | MIXED |
+| Diagnosis & Config | NEGATIVE |
+| Docs ↔ Code | NEGATIVE |
+
+这是 Engineering task family 的 transfer-validation evidence，不是历史 Gate 4 Tool-use baseline 的替代或重算。各 workflow 共同确认了 Evidence Sufficiency、Claim-Evidence Coverage 以及 cross-file / bilateral grounding 的技术债；这些问题将进入 G12 Engineering Evaluation 2.0，而非由 README 隐藏或改写。
+
 ### 冻结评测语义
 
 Gate 2、Gate 3、Gate 4 的正式实验与证据已经冻结。Release 1.0 使用已有 evidence 作为审计依据，不通过重新调参、重复执行 sealed holdout 或挑选结果来制造更漂亮的数字。
@@ -192,7 +221,7 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 
 ## Safety Boundaries
 
-- Tool registry 只暴露 `calculator`、`code_search`、`knowledge_search`；不存在任意 shell tool。
+- Tool registry 暴露 7 个 bounded read-only Tool：`calculator`、`code_search`、`read_project_context`、`knowledge_search`、`changed_files`、`git_diff`、`find_tests`。不存在任意 shell Tool、写文件 Tool 或 Git commit/push Tool。
 - Tool Agent 使用系统控制的预算：最多 5 iterations、4 tool calls、2 tool errors。
 - duplicate tool call 会停止或拒绝继续执行，未注册工具 fail closed。
 - Tool Agent decision baseline 不自动重试模型调用；HTTP transport failure 与结构化 Agent failure 分开处理。
@@ -202,6 +231,9 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 
 ## Known Limitations
 
+- Engineering Agent 当前有 API entry，但尚未进入 Streamlit mode selector。
+- Evidence Sufficiency 与 Claim-Evidence Coverage 尚未由 system-level verifier 强制保证。
+- G11 多个 task family 已真实暴露 premature finalization、cross-file / bilateral evidence 缺失等问题。
 - Basic `/query` schema 支持 `history`；当前 Streamlit UI 不把会话历史发送给后端。
 - Agentic RAG 与 Tool Agent 当前是单轮 request contract；UI 也按模式隔离历史。
 - 当前没有 streaming 输出。
@@ -230,18 +262,29 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 | Gate 3 | Query Decomposition、Adaptive Retrieval、Evidence Verification |
 | Gate 4 | Structured Tool Agent、只读工具、安全执行与 formal Dev baseline |
 | Gate 5 | Release Engineering、UI、CI、API contract、Smoke 与 Demo |
+| G6 | Repository / Engineering Evidence |
+| G7 | Observable Demo / UI |
+| G8 | Conversation Context |
+| G9 | Reliability |
+| G10 | Core Evidence Expansion |
+| G11 | Unified AI Engineering Agent / Engineering Task Validation |
+| G12 | Engineering Evaluation 2.0（NOT STARTED） |
 
 ## Repository Map
 
 - `api/`：FastAPI routes、public response schemas 和 runtime lifecycle。
 - `core/`：Pipeline、retrieval、Agent runtime、Tool registry 与执行器。
+- `core/engineering_agent.py`、`core/engineering_knowledge.py`、`core/tool_agent/`：Engineering Agent facade、verified knowledge 与 bounded Tool runtime。
+- `api/app.py`：public API routes、runtime lifecycle 与 Engineering product entry。
 - `ui/`：Streamlit console、ApiClient 和结果 renderers。
 - `scripts/`：startup/full-app smoke、Demo harness、corpus verification 与评测入口。
 - `tests/`：unit、API contract、runtime boundary、UI logic 和 release smoke tests。
 - `docs/experiments/`：tracked freeze、seal 和 release readiness evidence。
-- `docs/study-notes/`：设计演进与面向学习的解释；当前状态以 `docs/status.md` 为准。
+- `docs/roadmap.md`：Release 2.0 主路线与后续阶段。
+- `docs/status.md`：唯一实时状态表。
+- `docs/study-notes/`：设计演进与面向学习的解释。
 
-推荐阅读顺序是：先看本 README 的架构和限制，再看 `ui/app.py` / `api/app.py` 的入口，最后沿对应 Gate 的 evidence path 核对数字。这样可以把产品路径、实现路径和评测证据保持在同一条可追溯链上。
+推荐阅读顺序是：先看本 README 的架构和限制，再看 `api/app.py`、`core/engineering_agent.py`、`core/engineering_knowledge.py` 与 `core/tool_agent/`，最后沿 `docs/roadmap.md`、`docs/status.md` 和对应 Gate 的 evidence path 核对数字。这样可以把产品路径、实现路径和评测证据保持在同一条可追溯链上。
 
 ## Docs
 
