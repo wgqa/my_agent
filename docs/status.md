@@ -19,9 +19,10 @@
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **G11-05 Post-Formal Documentation Maintenance = CLOSED**
+- **G12 Engineering Evaluation 2.0 = IN PROGRESS / DESIGN**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G12 Engineering Evaluation 2.0**
-- **G12 = NOT STARTED**
+- **NEXT = G12-02 Dataset & Repository Freeze**
+- **G12-02 = NOT STARTED**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -111,7 +112,18 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **状态：** CLOSED。
 - **范围：** valid G11-05 Formal 之后，README 按当前产品 surface 同步更新：Evidence-Grounded AI Engineering Agent 定位、7 个 bounded read-only Tool、Engineering API entry、三种 Streamlit Demo mode 与 Engineering API 的边界、G11 transfer-validation disclosure、G6-G11 主线和当前限制。
 - **历史边界：** README 维护不修改 valid isolated run `g11-05-docs-code-consistency-isolated-formal-20260824-225815`、invalid contaminated run `g11-05-docs-code-consistency-formal-20260824-221006`、G11-05=`CLOSED / NEGATIVE` 或 Manual Gold=`0/4`。Formal 的 frozen project source 仍为 `3e0d5cd54ff916ae1df650ca9a55ad21b363234a`。
-- **产品边界：** docs-only；不修改 product behavior，`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变。NEXT=`G12 Engineering Evaluation 2.0`，但 G12=`NOT STARTED`。
+- **产品边界：** docs-only；不修改 product behavior，`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变。当时的 NEXT 为后续 G12 Engineering Evaluation 2.0；G12-01 开始前 G12 尚未启动。
+
+## G12 Engineering Evaluation 2.0
+
+- **状态：** IN PROGRESS / DESIGN；G12-02 Dataset & Repository Freeze=`NOT STARTED`。
+- **动机：** G11-02 Theory <-> Code=`CLOSED / MIXED`、G11-03 Change Impact <-> Test=`CLOSED / MIXED`、G11-04 Diagnosis / Config=`CLOSED / NEGATIVE`（Manual Gold 0/4）、G11-05 Docs <-> Code=`CLOSED / NEGATIVE`（Manual Gold 0/4）共同显示：Tool routing、path hit、evidence presence 或 completed 都不等于 evidence sufficiency、claim grounding 或 task success。
+- **G12-01 冻结：** [Engineering Evaluation 2.0 Protocol](design/g12-engineering-evaluation-2.0.md) 与 [Study Note 113](study-notes/113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md)。第一版 benchmark 设计目标为 16 cases、四类 task family；最终 12-20 case 规模、external repository selection 与 dataset construction 归 G12-02。
+- **Evidence Sufficiency：** Theory <-> Code 需要 `knowledge` + implementation-relevant repository evidence；Change Impact <-> Test 需要 `project_change` + test-side support；cross-file Diagnosis claim 需要 cross-file implementation evidence；Docs <-> Code 需要 `project_doc + project_code`。public evidence kinds 保持 `knowledge`、`project_code`、`project_doc`、`project_change`、`project_test`。
+- **评测边界：** formal 必须保持 evaluator checkout != evaluated project checkout，并分别冻结 `evaluator_commit` 与 `project_source_commit`。自动统计 evidence shape、Tool/failure/cost metrics 与 premature finalization；semantic correctness、claim grounding、remediation 和细微语义继续由 Manual Gold 判断。
+- **候选机制：** Finalization Guard、`EngineeringEvidenceRequirement` 和 `INSUFFICIENT_EVIDENCE_TO_FINALIZE` 都只是未来 implementation candidates，未进入产品；候选方向是 immutable hybrid typed requirement，Runtime 只消费 requirement。duplicate hard stop 与一次 bounded recovery 是后续 A/B 问题，当前行为不变。
+- **A/B：** Baseline A=current Engineering v2 + Runtime；Control B=未来如获授权的 Prompt-only control；System C=same Prompt + system-level guard。比较 Task Success、Evidence Sufficiency、Claim Grounding、Premature Finalization 与 refusal/cost/reliability trade-offs；具体阈值等 Baseline A 后、看 System C 前冻结。
+- **产品边界：** G12-01 为 pure design/docs-only，不实现 verifier/guard，不改 Prompt、Runtime、Tool、5/4/2 budget、registry 或 product baseline，不构建 benchmark、不选/下载 external repo、不运行 Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；Core Agent System=`NOT COMPLETE`。
 
 ## 项目定位
 
