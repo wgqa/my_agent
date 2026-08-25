@@ -114,20 +114,40 @@ Evidence Sufficiency is a task-specific minimum contract. It is not `evidence_co
 
 | Family | Minimum evidence groups | Additional rule |
 |---|---|---|
-| Theory <-> Code | `knowledge >= 1` AND (`project_code >= 1` OR `project_doc >= 1`) | Repository evidence must be an implementation-relevant source window, not a `code_search` locator alone. |
-| Change Impact <-> Test | `project_change >= 1` AND test-side support `>= 1` | Test-side support is `project_test`, or explicitly contracted changed-files-derived test candidate evidence. A filename containing `test` is not automatically test-behavior evidence. |
-| Diagnosis / Config | `project_code >= 1` | A final cross-file propagation, startup, caller/callee, or runtime-consequence claim requires evidence from the corresponding multiple implementation sources. |
-| Docs <-> Code | `project_doc >= 1` AND `project_code >= 1` | Without this bilateral pair, the Agent may not emit a deterministic `CONSISTENT`, `OUTDATED`, `INCOMPLETE`, or `PARTIALLY CONSISTENT` conclusion. |
+| Theory <-> Code | `knowledge >= 1` AND (`project_code >= 1` OR `project_doc >= 1`) | `code_search` alone is a locator, not public repository evidence. Relevance and source correctness remain Manual Gold. |
+| Change Impact <-> Test | `project_change >= 1` AND `project_test >= 1` | `changed_files` can provide candidate provenance, but it is not public EngineeringEvidence and cannot satisfy `project_test`. |
+| Diagnosis / Config | `project_code >= 1`; when `requires_cross_file=true`, at least 2 distinct `project_code` source paths | Distinct paths are a structural minimum only; propagation, caller/callee, startup, and runtime-consequence correctness remain Manual Gold. |
+| Docs <-> Code | `project_doc >= 1` AND `project_code >= 1` | This bilateral shape permits deterministic consistency finalization; label correctness remains Manual Gold. |
 
-The contract governs permission to finalize, not truth. It establishes a minimum evidence shape; it does not prove that a source window covers every Gold obligation or that the final answer is correct.
+`required_evidence_groups` uses **AND-of-OR groups**: every outer-list group is required, while any evidence kind in an inner-list group can satisfy that group. The frozen v1 shapes are:
+
+```text
+Theory <-> Code:
+[["knowledge"], ["project_code", "project_doc"]]
+
+Change Impact <-> Test:
+[["project_change"], ["project_test"]]
+
+Diagnosis / Config:
+[["project_code"]]
+
+Docs <-> Code:
+[["project_doc"], ["project_code"]]
+```
+
+`changed_files` remains valuable for candidate discovery, candidate provenance, required/optional Tool metrics, and change-set-membership diagnostics, for example whether an accepted test already appears in a change set. `candidate provenance != test behavior evidence`. The current Runtime does not turn a `changed_files` observation into any public evidence kind, so G12 v1 cannot treat it as evidence sufficient for finalization.
+
+If a later product wants changed-files-derived candidates to become Guard-consumable evidence, it needs a separate product design for a controlled, public, typed evidence representation. An evaluator must not silently promote a Tool observation into a Runtime evidence kind. G12 v1 does not make this change.
+
+The contract governs permission to finalize, not truth. Automatic Evidence Sufficiency checks only public evidence kind, minimum count, AND-of-OR group structure, and, where required, distinct source/path count. It does not prove that a source window is relevant, covers every Gold obligation, comes from the correct implementation region, supports a concrete claim, or makes the final answer correct. Those are Manual Gold judgments.
 
 ### 6.1 Evidence Levels Must Stay Separate
 
 | Term | Question answered | Automatic in v1? |
 |---|---|---|
 | Evidence Presence | Does a public evidence kind exist? | Yes. |
-| Evidence Sufficiency | Does the case meet its task-family minimum contract? | Yes, from the frozen contract. |
-| Evidence Coverage | Is each Gold obligation covered by a relevant evidence item? | Partially structural signals may be automatic; final assessment is manual Gold. |
+| Evidence Sufficiency | Does public evidence meet the frozen kind/count/group/path shape? | Automatic structural metric. |
+| Evidence Coverage | Is each Gold obligation covered by evidence? | Manual Gold in v1. |
 | Evidence Correctness | Is the evidence from the correct source and implementation region? | Manual Gold in v1. |
 | Claim Grounding | Does each concrete final claim have supporting evidence? | Manual Gold in v1. |
 | Task Success | Is the engineering conclusion correct? | Manual Gold in v1. |
@@ -141,8 +161,8 @@ All rates use a frozen denominator stated in the run artifact. Missing, refused,
 | Metric | Definition | Scoring in v1 |
 |---|---|---|
 | Task Success Rate | Cases with a correct final engineering conclusion. | Manual Gold. |
-| Evidence Sufficiency Rate | Cases satisfying the family-specific minimum contract. | Automatic. |
-| Evidence Coverage | Fraction of Gold obligations with supporting evidence. | Manual Gold; structural diagnostics may assist. |
+| Evidence Sufficiency Rate | Cases satisfying the frozen public kind/count/group/path shape. | Automatic structural metric. |
+| Evidence Coverage | Fraction of Gold obligations with supporting evidence. | Manual Gold in v1. |
 | Evidence Correctness | Evidence items from correct source and relevant behavior/claim region. | Manual Gold. |
 | Claim Grounding Rate | Fraction of verifiable concrete final claims supported by evidence. | Manual Gold. |
 | Required Tool Coverage | Required Tool calls observed for the case contract. | Automatic. |
@@ -157,9 +177,9 @@ Operational and reliability metrics are also required: `provider_calls`, `tool_c
 
 The first version is deliberately conservative.
 
-Automatic scoring may determine evidence kinds, evidence pairs, source-path hits, required and forbidden Tools, premature finalization under the frozen minimum contract, and provider/Tool/latency/failure metrics.
+Automatic scoring may determine evidence kinds, minimum counts, AND-of-OR evidence-group satisfaction, required distinct source/path counts, evidence pairs, source-path hits, required and forbidden Tools, premature finalization under the frozen shape contract, and provider/Tool/latency/failure metrics.
 
-Automatic scoring must not initially decide answer semantic correctness, complete claim grounding, remediation correctness, propagation reasoning correctness, or subtle documentation semantics. These remain manual Gold until a separate deterministic scorer has been validated against audited cases.
+Automatic scoring must not initially decide snippet relevance, implementation-region correctness, Gold-obligation coverage, answer semantic correctness, complete claim grounding, remediation correctness, propagation reasoning correctness, or subtle documentation semantics. These remain Manual Gold in v1 until a separate deterministic scorer has been validated against audited cases.
 
 ## 9. Failure Taxonomy
 
@@ -200,6 +220,7 @@ The future Guard may use only the bounded task requirement and already acquired 
 
 - read a Gold label or case ID;
 - special-case DOC01, DC03, a question string, or a repository filename;
+- consume evaluator-only candidate provenance, including `changed_files` candidates, as evidence;
 - generate answer content or act as a second LLM Agent;
 - invent evidence or increase the Tool budget;
 - replace manual Gold assessment.
@@ -235,11 +256,14 @@ EngineeringEvidenceRequirement
     task_family
     required_evidence_groups
     requires_cross_file
+    min_distinct_project_code_paths
     allows_knowledge_only
     allows_repo_only
 ```
 
-For Theory <-> Code, `required_evidence_groups` would be `[[knowledge], [project_code, project_doc]]`. For Docs <-> Code, it would be `[[project_doc], [project_code]]`. The final field semantics, classifier/router boundary, and serialization schema remain implementation design work after benchmark baseline data exists.
+`required_evidence_groups` has the AND-of-OR semantics defined above. `min_distinct_project_code_paths` defaults to 1; when `requires_cross_file=true`, it must not be lower than 2. The candidate shapes are Theory <-> Code=`[[knowledge], [project_code, project_doc]]`, Change Impact <-> Test=`[[project_change], [project_test]]`, Diagnosis=`[[project_code]]`, and Docs <-> Code=`[[project_doc], [project_code]]`.
+
+These fields constrain only minimum structural shape. Two distinct code paths do not prove a correct propagation path, and a Theory or Docs evidence pair does not prove semantic relevance or correctness. The final field semantics, classifier/router boundary, and serialization schema remain implementation design work after benchmark baseline data exists.
 
 ## 12. Duplicate Tool Call and Structured Action Reliability
 
@@ -281,4 +305,4 @@ Current state: **Core Agent System is NOT COMPLETE.**
 
 ## 15. Next Design Boundary
 
-G12-02, not started by this task, owns external repository selection, pinned checkout verification, independent dataset construction, case-contract freezing, and audit of the 12-20 case target. It must preserve all requirements in this document before any provider Formal or Runtime implementation is authorized.
+G12-02A, not started by this task, owns external repository checkout proof, viability audit, candidate-pool construction, and later case-contract preparation. The audit-side lead `pydantic/pydantic-ai` at `bfa8e9187b86aad7ec583665ab2743fadea458b1` is not a selected or frozen G12 repository; it requires G12-02A verification before it can enter a benchmark. G12-02A must preserve all requirements in this document before any provider Formal or Runtime implementation is authorized.

@@ -28,12 +28,26 @@ G12 冻结的 public evidence kinds 不变：`knowledge`、`project_code`、`pro
 
 | Task family | Minimum evidence |
 |---|---|
-| Theory <-> Code | `knowledge` + implementation-relevant `project_code` 或 `project_doc` |
-| Change Impact <-> Test | `project_change` + test-side support；test filename 本身不等于 test behavior evidence |
-| Diagnosis / Config | `project_code`；如果结论说跨文件、启动、调用链或运行时后果，就需要对应多个 source evidence |
+| Theory <-> Code | `knowledge` + `project_code` 或 `project_doc`；语义 relevance 仍由 Manual Gold 判断 |
+| Change Impact <-> Test | `project_change` + `project_test`；test filename 本身不等于 test behavior evidence |
+| Diagnosis / Config | `project_code`；`requires_cross_file=true` 时至少要有 2 个 distinct `project_code` paths |
 | Docs <-> Code | `project_doc` + `project_code`；没有 pair 不得做确定性 consistency label |
 
-这个契约只是回答“是否已经具备最小 finalization 条件”。它不自动证明答案正确，也不能代替人工检查某个 source window 是否真的覆盖了 Gold obligation。
+这些 group 采用 AND-of-OR 语义：外层每一组都必须满足，内层任意 evidence kind 可以满足该组。例如 Theory <-> Code 是 `[[knowledge], [project_code, project_doc]]`，即必须有 `knowledge`，且必须有 `project_code` 或 `project_doc`；Docs <-> Code 是 `[[project_doc], [project_code]]`；Change Impact <-> Test 是 `[[project_change], [project_test]]`；Diagnosis 是 `[[project_code]]`。
+
+### changed_files candidate 为什么不是 public evidence
+
+`changed_files` 很有用，但当前只能说明 change-set membership 或提供 candidate discovery/provenance，例如“某个推荐测试是否已在 changed set 中”。它的 observation 不会进入当前 Runtime 的 public evidence taxonomy，因此不能假装成 `project_test`，也不能自动满足 Change Impact <-> Test 的 Evidence Sufficiency。
+
+这正是 G11-03 的 test evidence debt：candidate provenance != test behavior evidence。要知道测试真正验证什么，仍需要 `read_project_context(test)` 产生的 `project_test`。若未来希望把 changed-files-derived candidate 变成 Guard 可消费 evidence，必须先单独设计受控、公开、typed evidence representation；evaluator 不能私下把 Tool observation 升级成 Runtime 没有的 evidence kind。G12 v1 不做这个改变。
+
+### 为什么 automatic Sufficiency 只能测 shape
+
+自动 Sufficiency 只检查 public evidence kind、minimum count、AND-of-OR group structure，以及必要时的 distinct source/path count。它不判断 snippet 是否相关、implementation region 是否正确、Gold obligation 是否被覆盖、evidence 是否支持某条 final claim，或 final label 是否正确；这些分别是 Evidence Coverage、Evidence Correctness、Claim Grounding 和 Task Success，全部继续由 Manual Gold v1 评估。
+
+cross-file 的最小 shape 也因此是 distinct path count，而不是“调用了两次 Tool”：同一文件读两次不能证明两端 source 都已获取。`requires_cross_file=true` 时至少两个 distinct `project_code` paths 才满足结构下限，但两个文件仍不等于 propagation reasoning 正确。
+
+这个契约只回答“是否已经具备最小 finalization shape”。它不自动证明答案正确，也不能代替人工检查某个 source window 是否真的覆盖了 Gold obligation。
 
 ## 4. G12 要测的不是一个分数
 
@@ -72,7 +86,7 @@ FinalAnswerAction
 
 G12 比较了三个方向：LLM self-report、deterministic query classifier 和 hybrid typed requirement。推荐的是第三种：系统/router 产生一个有界 typed requirement，Runtime 只消费 immutable value。它保留了可审计的系统边界，同时不把所有自然语言任务都硬塞进脆弱的纯规则分类器。
 
-候选结构只是一份 architecture contract：`task_family`、`required_evidence_groups`、`requires_cross_file`、`allows_knowledge_only`、`allows_repo_only`。G12-01 不定义 production class。
+候选结构只是一份 architecture contract：`task_family`、`required_evidence_groups`、`requires_cross_file`、`min_distinct_project_code_paths`、`allows_knowledge_only`、`allows_repo_only`。`min_distinct_project_code_paths` 默认是 1，`requires_cross_file=true` 时不得低于 2。G12-01 不定义 production class。
 
 ## 7. Duplicate 与 Parse 不是同一种失败
 

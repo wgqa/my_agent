@@ -20,9 +20,10 @@
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **G11-05 Post-Formal Documentation Maintenance = CLOSED**
 - **G12 Engineering Evaluation 2.0 = IN PROGRESS / DESIGN**
+- **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
-- **NEXT = G12-02 Dataset & Repository Freeze**
-- **G12-02 = NOT STARTED**
+- **NEXT = G12-02A Repository Freeze & Candidate Pool**
+- **G12-02A = NOT STARTED**
 
 ## G11-02 Theory ↔ Code Closure
 
@@ -116,14 +117,15 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 
 ## G12 Engineering Evaluation 2.0
 
-- **状态：** IN PROGRESS / DESIGN；G12-02 Dataset & Repository Freeze=`NOT STARTED`。
+- **状态：** IN PROGRESS / DESIGN；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A Repository Freeze & Candidate Pool=`NOT STARTED`。
 - **动机：** G11-02 Theory <-> Code=`CLOSED / MIXED`、G11-03 Change Impact <-> Test=`CLOSED / MIXED`、G11-04 Diagnosis / Config=`CLOSED / NEGATIVE`（Manual Gold 0/4）、G11-05 Docs <-> Code=`CLOSED / NEGATIVE`（Manual Gold 0/4）共同显示：Tool routing、path hit、evidence presence 或 completed 都不等于 evidence sufficiency、claim grounding 或 task success。
-- **G12-01 冻结：** [Engineering Evaluation 2.0 Protocol](design/g12-engineering-evaluation-2.0.md) 与 [Study Note 113](study-notes/113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md)。第一版 benchmark 设计目标为 16 cases、四类 task family；最终 12-20 case 规模、external repository selection 与 dataset construction 归 G12-02。
-- **Evidence Sufficiency：** Theory <-> Code 需要 `knowledge` + implementation-relevant repository evidence；Change Impact <-> Test 需要 `project_change` + test-side support；cross-file Diagnosis claim 需要 cross-file implementation evidence；Docs <-> Code 需要 `project_doc + project_code`。public evidence kinds 保持 `knowledge`、`project_code`、`project_doc`、`project_change`、`project_test`。
-- **评测边界：** formal 必须保持 evaluator checkout != evaluated project checkout，并分别冻结 `evaluator_commit` 与 `project_source_commit`。自动统计 evidence shape、Tool/failure/cost metrics 与 premature finalization；semantic correctness、claim grounding、remediation 和细微语义继续由 Manual Gold 判断。
+- **G12-01/R1 冻结：** [Engineering Evaluation 2.0 Protocol](design/g12-engineering-evaluation-2.0.md) 与 [Study Note 113](study-notes/113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md)。第一版 benchmark 设计目标为 16 cases、四类 task family；最终 12-20 case 规模、external repository checkout proof、candidate pool 与 dataset construction 归 G12-02A。
+- **Evidence Sufficiency：** `required_evidence_groups` 是 AND-of-OR groups 的 shape-only automatic contract。Theory <-> Code=`[[knowledge], [project_code, project_doc]]`；Change Impact <-> Test=`[[project_change], [project_test]]`；Diagnosis=`[[project_code]]`，并在 `requires_cross_file=true` 时要求至少 2 个 distinct `project_code` paths；Docs <-> Code=`[[project_doc], [project_code]]`。public evidence kinds 保持 `knowledge`、`project_code`、`project_doc`、`project_change`、`project_test`。
+- **changed_files boundary：** `changed_files` 是 candidate discovery/provenance、Tool metric 与 change-set membership diagnostic，不是 public EngineeringEvidence，不能替代 `project_test` 或满足 Guard input。candidate provenance != test behavior evidence；要成为 Guard evidence，未来必须先另行设计受控 public typed representation，G12 v1 不做此事。
+- **评测边界：** formal 必须保持 evaluator checkout != evaluated project checkout，并分别冻结 `evaluator_commit` 与 `project_source_commit`。自动只统计 evidence kind/count/group/path shape、Tool/failure/cost metrics 与 premature finalization；relevance、coverage、correctness、claim grounding、remediation 和细微语义继续由 Manual Gold v1 判断。
 - **候选机制：** Finalization Guard、`EngineeringEvidenceRequirement` 和 `INSUFFICIENT_EVIDENCE_TO_FINALIZE` 都只是未来 implementation candidates，未进入产品；候选方向是 immutable hybrid typed requirement，Runtime 只消费 requirement。duplicate hard stop 与一次 bounded recovery 是后续 A/B 问题，当前行为不变。
 - **A/B：** Baseline A=current Engineering v2 + Runtime；Control B=未来如获授权的 Prompt-only control；System C=same Prompt + system-level guard。比较 Task Success、Evidence Sufficiency、Claim Grounding、Premature Finalization 与 refusal/cost/reliability trade-offs；具体阈值等 Baseline A 后、看 System C 前冻结。
-- **产品边界：** G12-01 为 pure design/docs-only，不实现 verifier/guard，不改 Prompt、Runtime、Tool、5/4/2 budget、registry 或 product baseline，不构建 benchmark、不选/下载 external repo、不运行 Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；Core Agent System=`NOT COMPLETE`。
+- **产品边界：** G12-01/R1 为 pure design/docs-only，不实现 verifier/guard，不改 Prompt、Runtime、Tool、5/4/2 budget、registry 或 product baseline，不构建 benchmark、不选/下载 external repo、不运行 Formal。audit-side `pydantic/pydantic-ai @ bfa8e9187b86aad7ec583665ab2743fadea458b1` 只是待 G12-02A 验证的 lead，不是已完成 selection/freeze。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；Core Agent System=`NOT COMPLETE`。
 
 ## 项目定位
 
