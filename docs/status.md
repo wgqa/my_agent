@@ -25,12 +25,13 @@
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
 - **G12 Baseline Formal = VALID / MANUAL GOLD COMPLETE**
 - **Baseline evidence-grounded result = NEGATIVE**
-- **Finalization Guard = IMPLEMENTED / REVIEW PENDING**
+- **Finalization Guard = IMPLEMENTED / FROZEN**
 - **G12-04A System C Acceptance Contract = CLOSED / ACCEPTANCE CONTRACT FROZEN**
 - **G12-04B System C Guard Design = CLOSED / GUARD DESIGN FROZEN**
-- **G12-04C System C Guard Implementation = IN PROGRESS / IMPLEMENTATION REVIEW PENDING**
+- **G12-04C System C Guard Implementation = CLOSED / IMPLEMENTATION FROZEN**
+- **G12-04D System C Evaluation Harness = IN PROGRESS / HARNESS REVIEW PENDING**
 - **System C Formal = NOT RUN**
-- **NEXT = G12-04C Implementation Reviewer Audit**
+- **NEXT = G12-04D Harness Reviewer Audit**
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
