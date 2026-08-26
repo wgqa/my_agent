@@ -6,6 +6,7 @@ This facade only gives the product API a stable boundary for future evolution.
 
 from __future__ import annotations
 
+from core.engineering_requirements import route_engineering_evidence_requirement
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentRunResult
 
@@ -19,9 +20,13 @@ class EngineeringAgentFacade:
         self._runtime = runtime
 
     def run(self, question: str) -> ToolAgentRunResult:
-        """Delegate to ToolAgentRuntime without implementing a second loop."""
+        """Route once, then delegate the single bounded Runtime loop."""
 
-        return self._runtime.run(question)
+        requirement = route_engineering_evidence_requirement(question)
+        return self._runtime.run(
+            question,
+            evidence_requirement=requirement,
+        )
 
 
 __all__ = ["EngineeringAgentFacade"]

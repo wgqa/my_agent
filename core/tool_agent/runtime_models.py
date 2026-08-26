@@ -32,10 +32,12 @@ _DECISION_FAILURE_CODES_SET = frozenset(AGENT_DECISION_FAILURE_CODES)
 # Agent-level termination codes（系统硬停止，非模型 RefuseAction、非 ToolObservation）。
 AGENT_DUPLICATE_TOOL_CALL = "AGENT_DUPLICATE_TOOL_CALL"
 AGENT_TOOL_ERROR_LIMIT = "AGENT_TOOL_ERROR_LIMIT"
+INSUFFICIENT_EVIDENCE_TO_FINALIZE = "INSUFFICIENT_EVIDENCE_TO_FINALIZE"
 AGENT_TERMINATION_CODES = (
     AGENT_BUDGET_EXCEEDED,
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
+    INSUFFICIENT_EVIDENCE_TO_FINALIZE,
 )
 
 _TERMINATION_CODES_SET = frozenset(AGENT_TERMINATION_CODES)
@@ -45,6 +47,7 @@ TRACE_EVENT_TYPES = (
     "decision_completed",
     "tool_call_created",
     "tool_observation",
+    "finalization_guard_blocked",
     "runtime_stopped",
 )
 
@@ -107,6 +110,10 @@ class DecisionControlState:
     remaining_tool_calls: int
     tool_call_allowed: bool
     must_terminate: bool
+    finalization_blocked: Optional[bool] = None
+    missing_evidence_groups: tuple[tuple[str, ...], ...] = ()
+    current_distinct_project_code_paths: Optional[int] = None
+    required_min_distinct_project_code_paths: Optional[int] = None
 
     def __post_init__(self) -> None:
         _require_non_negative_int(self.iteration, "iteration")
@@ -125,14 +132,67 @@ class DecisionControlState:
         if self.must_terminate and self.tool_call_allowed:
             raise ValueError("must_terminate=True 时禁止 Tool call")
 
-    def to_dict(self) -> dict[str, int | bool]:
-        return {
+        if self.finalization_blocked is not None and type(self.finalization_blocked) is not bool:
+            raise TypeError("finalization_blocked 必须是 bool 或 None")
+        if isinstance(self.missing_evidence_groups, (str, bytes)) or not isinstance(
+            self.missing_evidence_groups, Sequence
+        ):
+            raise TypeError("missing_evidence_groups 必须是 evidence group 序列")
+        groups: list[tuple[str, ...]] = []
+        for group in self.missing_evidence_groups:
+            if isinstance(group, (str, bytes)) or not isinstance(group, Sequence):
+                raise TypeError("missing_evidence_groups 的每一组必须是序列")
+            normalized = tuple(group)
+            if not normalized:
+                raise ValueError("missing_evidence_groups 不允许空 group")
+            if any(kind not in EVIDENCE_KINDS for kind in normalized):
+                raise ValueError("missing_evidence_groups 含未知 evidence kind")
+            if len(set(normalized)) != len(normalized):
+                raise ValueError("missing_evidence_groups 内 kind 不得重复")
+            if normalized in groups:
+                raise ValueError("missing_evidence_groups 不得重复")
+            groups.append(normalized)
+        if not self.finalization_blocked and (
+            groups
+            or self.current_distinct_project_code_paths is not None
+            or self.required_min_distinct_project_code_paths is not None
+        ):
+            raise ValueError("recovery fields 只能在 finalization_blocked=True 时存在")
+        for label, value in (
+            ("current_distinct_project_code_paths", self.current_distinct_project_code_paths),
+            (
+                "required_min_distinct_project_code_paths",
+                self.required_min_distinct_project_code_paths,
+            ),
+        ):
+            if value is not None:
+                _require_non_negative_int(value, label)
+        object.__setattr__(self, "missing_evidence_groups", tuple(groups))
+
+    def to_dict(self) -> dict:
+        result = {
             "iteration": self.iteration,
             "remaining_iterations": self.remaining_iterations,
             "remaining_tool_calls": self.remaining_tool_calls,
             "tool_call_allowed": self.tool_call_allowed,
             "must_terminate": self.must_terminate,
         }
+        if self.finalization_blocked is True:
+            result.update(
+                {
+                    "finalization_blocked": True,
+                    "missing_evidence_groups": [
+                        list(group) for group in self.missing_evidence_groups
+                    ],
+                    "current_distinct_project_code_paths": (
+                        self.current_distinct_project_code_paths
+                    ),
+                    "required_min_distinct_project_code_paths": (
+                        self.required_min_distinct_project_code_paths
+                    ),
+                }
+            )
+        return result
 
 
 @dataclass(frozen=True)
@@ -220,6 +280,10 @@ class RuntimeTraceEvent:
     repair_attempted: Optional[bool] = None
     repair_succeeded: Optional[bool] = None
     parse_failure_category: Optional[str] = None
+    guard_status: Optional[str] = None
+    missing_evidence_groups: tuple[tuple[str, ...], ...] = ()
+    distinct_project_code_paths: Optional[int] = None
+    required_min_distinct_project_code_paths: Optional[int] = None
 
     def __post_init__(self) -> None:
         if self.event_type not in TRACE_EVENT_TYPES:
@@ -249,6 +313,37 @@ class RuntimeTraceEvent:
             "ARGUMENTS_SCHEMA_INVALID",
         }:
             raise ValueError("parse_failure_category 不是安全 enum")
+        if self.event_type == "finalization_guard_blocked":
+            if self.guard_status != "blocked":
+                raise ValueError("Guard trace event 必须是 blocked 状态")
+            if isinstance(self.missing_evidence_groups, (str, bytes)) or not isinstance(
+                self.missing_evidence_groups, Sequence
+            ):
+                raise TypeError("missing_evidence_groups 必须是 evidence group 序列")
+            groups: list[tuple[str, ...]] = []
+            for group in self.missing_evidence_groups:
+                if isinstance(group, (str, bytes)) or not isinstance(group, Sequence):
+                    raise TypeError("missing_evidence_groups 的每一组必须是序列")
+                normalized = tuple(group)
+                if not normalized or any(kind not in EVIDENCE_KINDS for kind in normalized):
+                    raise ValueError("Guard trace 含无效 evidence group")
+                groups.append(normalized)
+            object.__setattr__(self, "missing_evidence_groups", tuple(groups))
+            for label, value in (
+                ("distinct_project_code_paths", self.distinct_project_code_paths),
+                (
+                    "required_min_distinct_project_code_paths",
+                    self.required_min_distinct_project_code_paths,
+                ),
+            ):
+                _require_non_negative_int(value, label)
+        elif (
+            self.guard_status is not None
+            or self.missing_evidence_groups
+            or self.distinct_project_code_paths is not None
+            or self.required_min_distinct_project_code_paths is not None
+        ):
+            raise ValueError("Guard fields 只能出现在 finalization_guard_blocked event")
 
     def to_dict(self) -> dict:
         result = {
@@ -271,6 +366,19 @@ class RuntimeTraceEvent:
             result["repair_succeeded"] = self.repair_succeeded
         if self.parse_failure_category is not None:
             result["parse_failure_category"] = self.parse_failure_category
+        if self.event_type == "finalization_guard_blocked":
+            result.update(
+                {
+                    "guard_status": self.guard_status,
+                    "missing_evidence_groups": [
+                        list(group) for group in self.missing_evidence_groups
+                    ],
+                    "distinct_project_code_paths": self.distinct_project_code_paths,
+                    "required_min_distinct_project_code_paths": (
+                        self.required_min_distinct_project_code_paths
+                    ),
+                }
+            )
         return result
 
 

@@ -256,6 +256,10 @@ ENGINEERING_TRACE_ALLOWED_KEYS = (
             "repair_attempted",
             "repair_succeeded",
             "parse_failure_category",
+            "guard_status",
+            "missing_evidence_groups",
+            "distinct_project_code_paths",
+            "required_min_distinct_project_code_paths",
         }
     )
 )

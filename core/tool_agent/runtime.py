@@ -15,6 +15,11 @@ import inspect
 from dataclasses import replace
 from pathlib import PurePosixPath
 
+from core.engineering_requirements import (
+    EngineeringEvidenceRequirement,
+    EvidenceRequirementState,
+    evaluate_evidence_requirement,
+)
 from core.tool_agent.actions import (
     AgentDecisionOutcome,
     FinalAnswerAction,
@@ -27,6 +32,7 @@ from core.tool_agent.registry import ToolRegistry
 from core.tool_agent.runtime_models import (
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
+    INSUFFICIENT_EVIDENCE_TO_FINALIZE,
     AgentDecisionProvider,
     DecisionControlState,
     DecisionContextItem,
@@ -64,6 +70,14 @@ _PROJECT_CODE_SUFFIXES = frozenset(
         ".tsx",
     }
 )
+
+_EVIDENCE_PRODUCER_TOOLS = {
+    "knowledge": ("knowledge_search",),
+    "project_change": ("git_diff",),
+    "project_code": ("read_project_context",),
+    "project_doc": ("read_project_context",),
+    "project_test": ("read_project_context",),
+}
 
 
 def _canonical_call(tool_name: str, arguments) -> tuple[str, str]:
@@ -187,6 +201,72 @@ def _evidence_from_knowledge_search(observation) -> tuple[KnowledgeEvidence, ...
     return tuple(evidence)
 
 
+def _evidence_fingerprint(
+    evidence: list[EngineeringEvidence | KnowledgeEvidence],
+) -> tuple[tuple]:
+    """Return an order-independent identity fingerprint without content."""
+
+    identities: list[tuple] = []
+    for item in evidence:
+        if isinstance(item, KnowledgeEvidence):
+            identities.append(
+                (
+                    "knowledge",
+                    item.source_name,
+                    item.chunk_id if item.chunk_id is not None else item.rank,
+                )
+            )
+        else:
+            identities.append(
+                (item.kind, item.path, item.start_line, item.end_line)
+            )
+    return tuple(sorted(identities, key=repr))
+
+
+def _missing_evidence_kinds(
+    requirement: EngineeringEvidenceRequirement,
+    state: EvidenceRequirementState,
+) -> frozenset[str]:
+    """Find producer kinds without pretending that a path shortfall is a group miss."""
+
+    kinds = {
+        kind
+        for group in state.missing_evidence_groups
+        for kind in group
+    }
+    if (
+        not kinds
+        and state.distinct_project_code_paths
+        < requirement.min_distinct_project_code_paths
+    ):
+        kinds.add("project_code")
+    return frozenset(kinds)
+
+
+def _recovery_is_feasible(
+    registry: ToolRegistry,
+    requirement: EngineeringEvidenceRequirement,
+    state: EvidenceRequirementState,
+    *,
+    iterations: int,
+    tool_calls: int,
+    tool_errors: int,
+    budget: ToolAgentBudget,
+) -> bool:
+    """Check whether the next Decision can still execute a producer Tool."""
+
+    # The last Decision cannot execute a Tool: the next iteration must be
+    # strictly before the hard iteration cap.
+    if iterations + 1 >= budget.max_agent_iterations:
+        return False
+    if tool_calls >= budget.max_tool_calls or tool_errors >= budget.max_tool_errors:
+        return False
+    for kind in _missing_evidence_kinds(requirement, state):
+        if any(tool_name in registry for tool_name in _EVIDENCE_PRODUCER_TOOLS[kind]):
+            return True
+    return False
+
+
 class ToolAgentRuntime:
     """Bounded Decision → Tool → Observation loop。预算唯一所有者是 Runtime。
 
@@ -218,9 +298,20 @@ class ToolAgentRuntime:
         self._executor = ToolExecutor(registry)
         self._budget = budget
 
-    def run(self, user_query: str) -> ToolAgentRunResult:
+    def run(
+        self,
+        user_query: str,
+        *,
+        evidence_requirement: EngineeringEvidenceRequirement | None = None,
+    ) -> ToolAgentRunResult:
         if type(user_query) is not str or not user_query.strip():
             raise ValueError("user_query 必须是非空字符串")
+        if evidence_requirement is not None and not isinstance(
+            evidence_requirement, EngineeringEvidenceRequirement
+        ):
+            raise TypeError(
+                "evidence_requirement 必须是 EngineeringEvidenceRequirement 或 None"
+            )
         context: list[DecisionContextItem] = []
         executed: set[tuple[str, str]] = set()
         iterations = 0
@@ -229,6 +320,8 @@ class ToolAgentRuntime:
         trace: list[RuntimeTraceEvent] = []
         evidence: list[EngineeringEvidence | KnowledgeEvidence] = []
         seen_evidence: set[tuple] = set()
+        last_blocked_fingerprint: tuple[tuple] | None = None
+        recovery_control_active = False
 
         while True:
             iterations += 1
@@ -242,6 +335,13 @@ class ToolAgentRuntime:
                     AGENT_BUDGET_EXCEEDED,
                 )
 
+            guard_state = (
+                evaluate_evidence_requirement(evidence_requirement, evidence)
+                if evidence_requirement is not None
+                else None
+            )
+            if guard_state is None or guard_state.satisfied:
+                recovery_control_active = False
             control_state = DecisionControlState(
                 iteration=iterations,
                 remaining_iterations=self._budget.max_agent_iterations - iterations,
@@ -253,6 +353,26 @@ class ToolAgentRuntime:
                 must_terminate=(
                     iterations >= self._budget.max_agent_iterations
                     or tool_calls >= self._budget.max_tool_calls
+                ),
+                finalization_blocked=(
+                    True
+                    if recovery_control_active and guard_state is not None
+                    else None
+                ),
+                missing_evidence_groups=(
+                    guard_state.missing_evidence_groups
+                    if recovery_control_active and guard_state is not None
+                    else ()
+                ),
+                current_distinct_project_code_paths=(
+                    guard_state.distinct_project_code_paths
+                    if recovery_control_active and guard_state is not None
+                    else None
+                ),
+                required_min_distinct_project_code_paths=(
+                    guard_state.required_min_distinct_project_code_paths
+                    if recovery_control_active and guard_state is not None
+                    else None
                 ),
             )
             outcome = self._decide(
@@ -310,6 +430,59 @@ class ToolAgentRuntime:
 
             action = outcome.action
             if isinstance(action, FinalAnswerAction):
+                if evidence_requirement is not None:
+                    state = evaluate_evidence_requirement(evidence_requirement, evidence)
+                    if not state.satisfied:
+                        fingerprint = _evidence_fingerprint(evidence)
+                        if (
+                            last_blocked_fingerprint is not None
+                            and fingerprint == last_blocked_fingerprint
+                        ):
+                            return self._hard_stop(
+                                trace,
+                                evidence,
+                                iterations,
+                                tool_calls,
+                                tool_errors,
+                                INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                            )
+                        if not _recovery_is_feasible(
+                            self._registry,
+                            evidence_requirement,
+                            state,
+                            iterations=iterations,
+                            tool_calls=tool_calls,
+                            tool_errors=tool_errors,
+                            budget=self._budget,
+                        ):
+                            return self._hard_stop(
+                                trace,
+                                evidence,
+                                iterations,
+                                tool_calls,
+                                tool_errors,
+                                INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                            )
+                        trace.append(
+                            RuntimeTraceEvent(
+                                iteration=iterations,
+                                event_type="finalization_guard_blocked",
+                                guard_status="blocked",
+                                missing_evidence_groups=state.missing_evidence_groups,
+                                distinct_project_code_paths=(
+                                    state.distinct_project_code_paths
+                                ),
+                                required_min_distinct_project_code_paths=(
+                                    state.required_min_distinct_project_code_paths
+                                ),
+                                iterations_used=iterations,
+                                tool_calls_used=tool_calls,
+                                tool_errors_used=tool_errors,
+                            )
+                        )
+                        last_blocked_fingerprint = fingerprint
+                        recovery_control_active = True
+                        continue
                 self._append_terminal(
                     trace, iterations, tool_calls, tool_errors, None
                 )
