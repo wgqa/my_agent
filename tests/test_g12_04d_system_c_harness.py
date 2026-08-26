@@ -117,6 +117,65 @@ def _manual_metrics() -> dict[str, int]:
     }
 
 
+def _offline_preflight() -> dict[str, Any]:
+    dataset = load_frozen_final_dataset(GATE12_DIR)
+    product_identity = contract.validate_product_identity()
+    product_identity["finalization_guard"] = "IMPLEMENTED / FROZEN"
+    api_preflight = {
+        project_id: {
+            "endpoints": {"query": f"http://{project_id}.test/engineering/query"},
+            "capabilities": {
+                "schema_version": "capabilities_response_v1",
+                "engineering_agent": True,
+            },
+            "knowledge": contract.KNOWLEDGE_STATUS,
+            "public_project_identity": {
+                "project_name": project_id,
+                "source": "configured",
+            },
+            "runtime_binding_attestation": "operator_started_api_with_configured_project_root",
+        }
+        for project_id in ("my_agent", "pydantic_ai")
+    }
+    return {
+        "roots": {
+            "evaluator": REPO_ROOT,
+            "my_agent": REPO_ROOT,
+            "pydantic_ai": REPO_ROOT,
+            "knowledge_corpus": REPO_ROOT,
+        },
+        "dataset": dataset,
+        "acceptance_contract": contract.load_system_c_acceptance_contract(),
+        "product": {
+            "evaluator_commit": "a" * 40,
+            "evaluator_commit_attestation": "locally_verified",
+            "system_c_product_commit": contract.SYSTEM_C_PRODUCT_COMMIT,
+            "system_c_product_commit_attestation": "locally_verified",
+            "product_source_paths": ["core/", "api/", "demo/", "config.yaml"],
+            "current_product_diff_clean": True,
+            "allowed_intervention_paths": [],
+            "observed_intervention_paths": [],
+            "intervention_diff_summary": {"product_source_paths_clean": True},
+            "product_identity": product_identity,
+        },
+        "project_validation": {
+            "projects": {
+                "my_agent": {
+                    "checkout": {
+                        "head": "465dd65e950e9c4a119820a5a27f558e74ad5892"
+                    }
+                },
+                "pydantic_ai": {
+                    "checkout": {
+                        "head": "bfa8e9187b86aad7ec583665ab2743fadea458b1"
+                    }
+                },
+            }
+        },
+        "api_preflight": api_preflight,
+    }
+
+
 def test_system_c_frozen_identities_and_acceptance_hash_are_exact():
     dataset = load_frozen_final_dataset(GATE12_DIR)
     acceptance = contract.load_system_c_acceptance_contract()
@@ -126,6 +185,32 @@ def test_system_c_frozen_identities_and_acceptance_hash_are_exact():
     assert contract.SYSTEM_C_PRODUCT_COMMIT == "65ee45eb52c45e95d2871aa9060416dabcd3d759"
     assert acceptance["acceptance_contract_sha256"] == contract.SYSTEM_C_ACCEPTANCE_CONTRACT_SHA256
     assert acceptance["baseline"]["run_id"] == "g12-baseline-a-formal-20260825-195305"
+
+
+def test_provider_plane_reclassification_record_is_immutable_and_explicit():
+    record = json.loads(
+        (GATE12_DIR / "system_c_invalid_run_v1.json").read_text(encoding="utf-8")
+    )
+    assert record["run_id"] == "g12-system-c-formal-20260826-173039"
+    assert record["original_harness_classification"] == "VALID / MANUAL GOLD PENDING"
+    assert record["reviewer_corrected_classification"] == "INVALID / PROVIDER-PLANE FAILURE"
+    assert record["reason"]["failure_observation"] == (
+        "16/16 cases returned ACTION_PROVIDER_ERROR on the first Decision"
+    )
+    assert record["reason"]["provider_calls"] == 16
+    assert record["reason"]["iterations"] == 16
+    assert record["reason"]["tool_calls"] == 0
+    assert record["reason"]["guard_blocks"] == 0
+    assert record["guard_intervention_reached"] is False
+    assert record["formal_ab_conclusion"] == "NOT MEASURED"
+    assert record["original_artifact_unchanged"] is True
+    assert all(
+        len(digest) == 64 and all(character in "0123456789abcdef" for character in digest)
+        for digest in record["original_artifact_sha256"].values()
+    )
+    assert record["original_artifact_sha256"]["run_report.md"] == (
+        "420f9c95b4ddac273078bc6a1a8bc51793f1bc2b82e34a294dd640e4d4a65d0e"
+    )
 
 
 def test_product_attestation_proves_exact_04c_intervention_paths(
@@ -269,6 +354,7 @@ def test_guard_specific_refusal_is_counted_separately():
     assert result["guard_final_refusal"] is True
     assert result["guard_specific_refusal_count"] == 1
     assert result["premature_finalization"] is False
+    assert contract.find_provider_plane_failures([result]) == []
 
 
 def test_guard_trace_error_alone_does_not_make_a_specific_refusal():
@@ -503,6 +589,144 @@ def test_acceptance_invalid_is_distinct_from_valid_fail():
     assert failed["final_classification"] == "FAIL"
 
 
+@pytest.mark.parametrize(
+    "failure_code",
+    [
+        "ACTION_PARSE_FAILED",
+        "AGENT_DUPLICATE_TOOL_CALL",
+        "AGENT_BUDGET_EXCEEDED",
+    ],
+)
+def test_non_provider_failures_remain_valid_agent_outcomes(failure_code: str):
+    result = _normalize(
+        "g12q001",
+        _response(status="failed", answer=None, failure_code=failure_code),
+    )
+    assert contract.is_provider_plane_failure(failure_code) is False
+    assert contract.find_provider_plane_failures([result]) == []
+
+
+@pytest.mark.parametrize("failure_code", ["ACTION_PROVIDER_ERROR", "ACTION_TIMEOUT"])
+def test_http_200_provider_failure_invalidates_run(
+    failure_code: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[tuple[str, str, Any]] = []
+
+    def fake_client(method: str, url: str, payload: Any) -> runner.HttpReply:
+        calls.append((method, url, payload))
+        response = _response(status="failed", answer=None, failure_code=failure_code)
+        response["iterations_used"] = 1
+        response["tool_calls_used"] = 0
+        response["trace"] = [
+            {"event_type": "decision_completed", "provider_call_count": 1}
+        ]
+        return runner.HttpReply(status_code=200, payload=response)
+
+    monkeypatch.setattr(runner, "run_preflight", lambda **kwargs: _offline_preflight())
+    monkeypatch.setattr(runner, "_validate_output_root", lambda output_root, evaluator_root: tmp_path)
+    output = runner.execute_system_c(
+        client=fake_client,
+        my_agent_url="http://my_agent.test/engineering/query",
+        pydantic_ai_url="http://pydantic_ai.test/engineering/query",
+        evaluator_git_root=REPO_ROOT,
+        evaluator_commit="a" * 40,
+        my_agent_root=REPO_ROOT,
+        pydantic_ai_root=REPO_ROOT,
+        corpus_root=REPO_ROOT,
+        output_root=tmp_path,
+        run_id=f"offline-provider-failure-{failure_code.lower()}",
+    )
+
+    assert len(calls) == 1
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    snapshot = json.loads((output / "acceptance_snapshot.json").read_text(encoding="utf-8"))
+    invalidity = json.loads(
+        (output / "provider_plane_failure.json").read_text(encoding="utf-8")
+    )
+    assert manifest["run_status"] == "INVALID / PROVIDER-PLANE FAILURE"
+    assert manifest["final_classification"] == "INVALID"
+    assert manifest["baseline_comparison"]["manual_task_success_comparison"] == "NOT MEASURED"
+    assert summary["final_classification"] == "INVALID"
+    assert summary["valid_for_system_c_acceptance"] is False
+    assert snapshot["workflow_status"] == "INVALID / PROVIDER-PLANE FAILURE"
+    assert snapshot["final_classification"] == "INVALID"
+    assert snapshot["invalid_reason"] == "PROVIDER-PLANE FAILURE"
+    assert invalidity["provider_plane_failure_codes"] == [failure_code]
+    assert invalidity["attempted_case_count"] == 1
+    assert invalidity["completed_case_count"] == 0
+    assert invalidity["system_c_effect"] == "NOT MEASURED"
+    assert invalidity["formal_ab_conclusion"] == "NOT MEASURED"
+    assert invalidity["manual_gold"] == "NOT STARTED"
+    assert "manual_review_template.jsonl" not in {path.name for path in output.iterdir()}
+
+
+def test_provider_failure_preserves_partial_diagnostics_without_valid_conclusion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    calls: list[tuple[str, str, Any]] = []
+    first = _response(
+        evidence=[_evidence("knowledge"), _evidence("project_code", evidence_id="E2")]
+    )
+    first["trace"] = [
+        {"event_type": "decision_completed", "provider_call_count": 2}
+    ]
+    first["tool_calls_used"] = 1
+    second = _response(status="failed", answer=None, failure_code="ACTION_PROVIDER_ERROR")
+    second["iterations_used"] = 1
+    second["tool_calls_used"] = 0
+    second["trace"] = [
+        {"event_type": "decision_completed", "provider_call_count": 1}
+    ]
+    responses = [first, second]
+
+    def fake_client(method: str, url: str, payload: Any) -> runner.HttpReply:
+        calls.append((method, url, payload))
+        return runner.HttpReply(status_code=200, payload=responses[len(calls) - 1])
+
+    monkeypatch.setattr(runner, "run_preflight", lambda **kwargs: _offline_preflight())
+    monkeypatch.setattr(runner, "_validate_output_root", lambda output_root, evaluator_root: tmp_path)
+    output = runner.execute_system_c(
+        client=fake_client,
+        my_agent_url="http://my_agent.test/engineering/query",
+        pydantic_ai_url="http://pydantic_ai.test/engineering/query",
+        evaluator_git_root=REPO_ROOT,
+        evaluator_commit="a" * 40,
+        my_agent_root=REPO_ROOT,
+        pydantic_ai_root=REPO_ROOT,
+        corpus_root=REPO_ROOT,
+        output_root=tmp_path,
+        run_id="offline-provider-partial-run",
+    )
+
+    assert len(calls) == 2
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    invalidity = manifest["invalidity"]
+    results = [
+        json.loads(line)
+        for line in (output / "case_results.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(results) == 2
+    assert results[0]["status"] == "completed"
+    assert results[1]["failure_code"] == "ACTION_PROVIDER_ERROR"
+    assert invalidity["attempted_case_count"] == 2
+    assert invalidity["completed_case_count"] == 1
+    assert invalidity["failed_case_ids"] == [results[1]["case_id"]]
+    assert invalidity["cost_before_failure"] == {
+        "provider_calls": 3,
+        "tool_calls": 1,
+        "iterations": 3,
+    }
+    assert summary["overall"]["provider_calls"] == 3
+    assert summary["overall"]["tool_calls"] == 1
+    assert summary["overall"]["iterations"] == 3
+    assert manifest["final_classification"] == "INVALID"
+
+
 def test_latency_major_regression_is_cost_diagnostic_not_invalid():
     automatic = _automatic_metrics()
     automatic["avg_latency_ms"] = 250.0
@@ -542,48 +766,7 @@ def test_artifact_safety_rejects_local_paths_raw_provider_and_cot(tmp_path: Path
 def test_offline_fake_two_api_run_writes_pending_artifacts_and_routes_all_cases(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    dataset = load_frozen_final_dataset(GATE12_DIR)
-    product_identity = contract.validate_product_identity()
-    product_identity["finalization_guard"] = "IMPLEMENTED / FROZEN"
-    api_preflight = {
-        project_id: {
-            "endpoints": {"query": f"http://{project_id}.test/engineering/query"},
-            "capabilities": {"schema_version": "capabilities_response_v1", "engineering_agent": True},
-            "knowledge": contract.KNOWLEDGE_STATUS,
-            "public_project_identity": {"project_name": project_id, "source": "configured"},
-            "runtime_binding_attestation": "operator_started_api_with_configured_project_root",
-        }
-        for project_id in ("my_agent", "pydantic_ai")
-    }
-    preflight = {
-        "roots": {
-            "evaluator": REPO_ROOT,
-            "my_agent": REPO_ROOT,
-            "pydantic_ai": REPO_ROOT,
-            "knowledge_corpus": REPO_ROOT,
-        },
-        "dataset": dataset,
-        "acceptance_contract": contract.load_system_c_acceptance_contract(),
-        "product": {
-            "evaluator_commit": "a" * 40,
-            "evaluator_commit_attestation": "locally_verified",
-            "system_c_product_commit": contract.SYSTEM_C_PRODUCT_COMMIT,
-            "system_c_product_commit_attestation": "locally_verified",
-            "product_source_paths": ["core/", "api/", "demo/", "config.yaml"],
-            "current_product_diff_clean": True,
-            "allowed_intervention_paths": [],
-            "observed_intervention_paths": [],
-            "intervention_diff_summary": {"product_source_paths_clean": True},
-            "product_identity": product_identity,
-        },
-        "project_validation": {
-            "projects": {
-                "my_agent": {"checkout": {"head": "465dd65e950e9c4a119820a5a27f558e74ad5892"}},
-                "pydantic_ai": {"checkout": {"head": "bfa8e9187b86aad7ec583665ab2743fadea458b1"}},
-            }
-        },
-        "api_preflight": api_preflight,
-    }
+    preflight = _offline_preflight()
     calls: list[tuple[str, str, Any]] = []
 
     def fake_client(method: str, url: str, payload: Any) -> runner.HttpReply:

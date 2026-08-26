@@ -29,9 +29,12 @@
 - **G12-04A System C Acceptance Contract = CLOSED / ACCEPTANCE CONTRACT FROZEN**
 - **G12-04B System C Guard Design = CLOSED / GUARD DESIGN FROZEN**
 - **G12-04C System C Guard Implementation = CLOSED / IMPLEMENTATION FROZEN**
-- **G12-04D System C Evaluation Harness = IN PROGRESS / HARNESS REVIEW PENDING**
-- **System C Formal = NOT RUN**
-- **NEXT = G12-04D Harness Reviewer Audit**
+- **G12-04D System C Evaluation Harness = CLOSED / HARNESS FROZEN**
+- **G12-05A = INVALID / PROVIDER-PLANE FAILURE**
+- **System C Formal = INVALID / PROVIDER-PLANE FAILURE**
+- **System C effect = NOT MEASURED**
+- **Manual Gold = NOT STARTED**
+- **NEXT = G12-05A-R2 Provider Diagnostic & Reviewer-Authorized Rerun**
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
@@ -145,6 +148,7 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **G12-04A contract freeze：** System C 只允许一个 tested factor：generic deterministic typed Evidence Requirement + system-level Finalization Guard；same benchmark/provider/model/Prompt v2/1200 cap/5-4-2/seven Tools/project commits/Knowledge corpus 全部保持不变。Acceptance contract SHA-256=`5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f`。核心 invariant 是 `completed AND evidence_sufficient=false` 必须为 `0/16`；primary Evidence Sufficiency=`>=8/16`，Full Task Success=`>=2/16` 且不低于 Baseline，PARTIAL-or-better=`>=9/16`。System C Formal=`NOT RUN`，G12-04B 才设计 Guard。
 - **G12-04A/04B boundary：** requirement 不得来自 evaluator Gold；request 仍只含 `question`，不得注入 case/task-family/Gold/source metadata。禁止 benchmark-specific router overfit、always-refuse、Prompt tuning、Runtime/Tool/API 修改和 Provider/System C rerun；有效 FAIL 不挑结果重跑，只有 INVALID infrastructure run 在修复后允许完整重跑并保留旧 artifact。详见 [System C Acceptance Contract](design/g12-system-c-acceptance-contract.md)、[Study Note 118](study-notes/118-G12-System-C验收线与A-B实验设计.md) 与 [Guard Design](design/g12-system-c-guard-design.md)。
 - **产品边界：** G12-02A/02B/03 与 G12-04A/04B 不实现 verifier/guard；G12-04C 仅实现已冻结的 typed requirement 与 Finalization Guard，修改范围限于 `core/engineering_requirements.py`、`core/engineering_agent.py`、`core/tool_agent/runtime.py`、`core/tool_agent/runtime_models.py`、必要的 Engineering safe trace、deterministic tests 与文档。Prompt、Tool implementation、registry、Knowledge backend、5/4/2 budget、product baseline、frozen evaluator files 均保持不变，未重跑 Provider/System C Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501`；G12 Baseline Formal=`VALID / MANUAL GOLD COMPLETE`；System C Formal=`NOT RUN`；Finalization Guard=`IMPLEMENTED / REVIEW PENDING`；G12-04C=`IN PROGRESS / IMPLEMENTATION REVIEW PENDING`；Core Agent System=`NOT COMPLETE`。
+- **G12-05A validity correction：** `g12-system-c-formal-20260826-173039` 的 16/16 case 在首次 Decision 返回 `ACTION_PROVIDER_ERROR`，provider calls=`16`、iterations=`16`、tool calls=`0`、Guard blocks=`0`。原 artifact 永久保留且未修改；它由 `VALID / MANUAL GOLD PENDING` 更正为 `INVALID / PROVIDER-PLANE FAILURE`，因此 System C effect、Formal A/B conclusion 与 Manual Gold 均为 `NOT MEASURED` / `NOT STARTED`。重分类 provenance 见 `evaluation/gate12/system_c_invalid_run_v1.json` 与 [Study Note 122](study-notes/122-G12-Provider-Failure与实验有效性.md)。
 
 ## 项目定位
 

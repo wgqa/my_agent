@@ -1,0 +1,27 @@
+{
+  "schema_version": "g12_system_c_invalid_run_reclassification_v1",
+  "run_id": "g12-system-c-formal-20260826-173039",
+  "original_artifact_sha256": {
+    "manifest.json": "cba204f2ddf03ee0d0dbbf6cdccff2e224a18daeab4cabf4a9d9a68bafe0de30",
+    "summary.json": "aa6ca8394594205ddb86901ad2c83d3629105efa25ff94a0e5fd0b1cca28fb67",
+    "case_results.jsonl": "2a4caeb9cdfd9ffa9fb0402fb6e796a7a44b722f033445ad9727804cba607d17",
+    "manual_review_template.jsonl": "d27fd24831d239dac44ea58960704726d9c77c165535d33dcc8c8fdd83094a99",
+    "acceptance_snapshot.json": "f0fe543bf6984ed9cd27416446c72374c5c5043e6f9a5a55f53c324d63dbc957",
+    "run_report.md": "420f9c95b4ddac273078bc6a1a8bc51793f1bc2b82e34a294dd640e4d4a65d0e"
+  },
+  "original_harness_classification": "VALID / MANUAL GOLD PENDING",
+  "reviewer_corrected_classification": "INVALID / PROVIDER-PLANE FAILURE",
+  "reason": {
+    "failure_observation": "16/16 cases returned ACTION_PROVIDER_ERROR on the first Decision",
+    "failure_code": "ACTION_PROVIDER_ERROR",
+    "provider_calls": 16,
+    "iterations": 16,
+    "tool_calls": 0,
+    "guard_blocks": 0
+  },
+  "guard_intervention_reached": false,
+  "formal_ab_conclusion": "NOT MEASURED",
+  "manual_gold": "NOT STARTED",
+  "original_artifact_unchanged": true,
+  "rerun_policy": "A full rerun may occur only after provider-plane diagnosis and reviewer authorization; the invalid artifact is retained."
+}

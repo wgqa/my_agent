@@ -35,6 +35,13 @@ GATE12_DIR = Path(__file__).resolve().parent
 SYSTEM_C_WORKFLOW_ID = "g12-system-c-evaluation-v1"
 SYSTEM_C_MANIFEST_SCHEMA = "g12_system_c_manifest_v1"
 SYSTEM_C_PRODUCT_COMMIT = "65ee45eb52c45e95d2871aa9060416dabcd3d759"
+PROVIDER_PLANE_FAILURE_CODES = frozenset(
+    {
+        "ACTION_PROVIDER_ERROR",
+        "ACTION_TIMEOUT",
+    }
+)
+PROVIDER_PLANE_INVALID_STATUS = "INVALID / PROVIDER-PLANE FAILURE"
 SYSTEM_C_ALLOWED_PRODUCT_INTERVENTION_PATHS = (
     "api/app.py",
     "core/engineering_agent.py",
@@ -617,6 +624,30 @@ def normalize_system_c_case(
     }
 
 
+def find_provider_plane_failures(
+    cases: Iterable[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    """Return case diagnostics that make the whole Formal run invalid.
+
+    These are stable product failure codes surfaced through an otherwise valid
+    HTTP response.  They are distinct from response-transport failures and
+    from valid agent outcomes such as parse, budget, duplicate, or Guard
+    refusal results.
+    """
+
+    return [
+        case
+        for case in cases
+        if is_provider_plane_failure(case.get("failure_code"))
+    ]
+
+
+def is_provider_plane_failure(failure_code: object) -> bool:
+    """Return whether a stable Agent failure invalidates the Formal run."""
+
+    return type(failure_code) is str and failure_code in PROVIDER_PLANE_FAILURE_CODES
+
+
 def _metrics_for_cases(cases: list[Mapping[str, Any]]) -> dict[str, Any]:
     count = len(cases)
     sequence_total = sum(len(item.get("tool_sequence", [])) for item in cases)
@@ -996,6 +1027,7 @@ def evaluate_system_c_acceptance(
     manual_metrics: Mapping[str, Any] | None = None,
     *,
     invalid: bool = False,
+    invalid_reason: str | None = None,
 ) -> dict[str, Any]:
     """Classify a run, requiring Manual Gold before PASS/MIXED/FAIL."""
 
@@ -1022,15 +1054,22 @@ def evaluate_system_c_acceptance(
         )
     }
     if invalid:
-        return {
+        snapshot = {
             "schema_version": "g12_system_c_acceptance_snapshot_v1",
             "acceptance_contract_sha256": SYSTEM_C_ACCEPTANCE_CONTRACT_SHA256,
-            "workflow_status": "INVALID / INFRASTRUCTURE FAILURE",
+            "workflow_status": (
+                f"INVALID / {invalid_reason}"
+                if invalid_reason
+                else "INVALID / INFRASTRUCTURE FAILURE"
+            ),
             "final_classification": "INVALID",
             "frozen_thresholds": frozen_thresholds,
             "automatic_metrics": automatic,
             "manual_metrics": manual or "NOT PRODUCED",
         }
+        if invalid_reason:
+            snapshot["invalid_reason"] = invalid_reason
+        return snapshot
     if manual is None:
         return {
             "schema_version": "g12_system_c_acceptance_snapshot_v1",
@@ -1243,6 +1282,8 @@ __all__ = [
     "SYSTEM_C_MANIFEST_SCHEMA",
     "SYSTEM_C_PRODUCT_COMMIT",
     "SYSTEM_C_WORKFLOW_ID",
+    "PROVIDER_PLANE_FAILURE_CODES",
+    "PROVIDER_PLANE_INVALID_STATUS",
     "_evidence_counts",
     "_evidence_paths",
     "_metrics_for_cases",
@@ -1254,6 +1295,8 @@ __all__ = [
     "build_acceptance_snapshot",
     "build_system_c_manual_review_entry",
     "evaluate_system_c_acceptance",
+    "find_provider_plane_failures",
+    "is_provider_plane_failure",
     "load_system_c_acceptance_contract",
     "normalize_system_c_case",
     "safe_system_c_trace",

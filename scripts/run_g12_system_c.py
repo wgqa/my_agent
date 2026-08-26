@@ -40,10 +40,12 @@ from evaluation.gate12.system_c_contract import (  # noqa: E402
     SYSTEM_C_MANIFEST_SCHEMA,
     SYSTEM_C_PRODUCT_COMMIT,
     SYSTEM_C_WORKFLOW_ID,
+    PROVIDER_PLANE_INVALID_STATUS,
     add_system_c_case_flags,
     build_acceptance_snapshot,
     build_system_c_manual_review_entry,
     evaluate_system_c_acceptance,
+    find_provider_plane_failures,
     load_system_c_acceptance_contract,
     normalize_system_c_case,
     summarize_system_c_metrics,
@@ -307,6 +309,7 @@ def _write_run_report(
     metrics: Mapping[str, Any],
     snapshot: Mapping[str, Any],
 ) -> None:
+    invalid_run = manifest["final_classification"] == "INVALID"
     lines = [
         "# G12 System C Evaluation Run",
         "",
@@ -318,7 +321,11 @@ def _write_run_report(
         f"- System C product commit: `{manifest['system_c_factor']['product_commit']}`",
         "- Each request contains only the frozen case question; no Gold, case, family, or requirement metadata is sent.",
         "- Evidence Sufficiency and Guard metrics are evaluator-side automatic structural diagnostics.",
-        "- Manual Task Success, Evidence Coverage/Correctness, Claim Grounding, and Docs labels remain pending.",
+        (
+            "- This run is invalid at the provider plane; System C effect, A/B conclusions, and Manual Gold were not measured."
+            if invalid_run
+            else "- Manual Task Success, Evidence Coverage/Correctness, Claim Grounding, and Docs labels remain pending."
+        ),
         "",
         "## Frozen Baseline A",
         "",
@@ -338,9 +345,24 @@ def _write_run_report(
         json.dumps(metrics, ensure_ascii=False, indent=2),
         "```",
         "",
-        "## Cases",
-        "",
     ]
+    if invalid_run:
+        lines.extend(
+            [
+                "## Invalidity",
+                "",
+                "```json",
+                json.dumps(manifest.get("invalidity", {}), ensure_ascii=False, indent=2),
+                "```",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Cases",
+            "",
+        ]
+    )
     for case in cases:
         lines.extend(
             [
@@ -366,6 +388,99 @@ def _write_run_report(
             ]
         )
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_provider_plane_invalid_run(
+    *,
+    output: Path,
+    manifest: dict[str, Any],
+    cases: list[Mapping[str, Any]],
+    metrics: dict[str, Any],
+    roots: list[Path],
+    failure_cases: list[Mapping[str, Any]],
+) -> None:
+    """Persist partial diagnostics without presenting them as System C data."""
+
+    overall = metrics["overall"]
+    attempted_case_ids = [case["case_id"] for case in cases]
+    failed_case_ids = [case["case_id"] for case in failure_cases]
+    failure_codes = sorted(
+        {
+            case.get("failure_code")
+            for case in failure_cases
+            if isinstance(case.get("failure_code"), str)
+        }
+    )
+    completed_case_count = sum(case.get("status") == "completed" for case in cases)
+    invalidity = {
+        "schema_version": "g12_system_c_provider_plane_failure_v1",
+        "run_status": PROVIDER_PLANE_INVALID_STATUS,
+        "final_classification": "INVALID",
+        "failure_stage": "case_request",
+        "provider_plane_failure_codes": failure_codes,
+        "first_failure_case_id": failed_case_ids[0],
+        "failed_case_ids": failed_case_ids,
+        "attempted_case_ids": attempted_case_ids,
+        "attempted_case_count": len(cases),
+        "completed_case_count": completed_case_count,
+        "guard_intervention_reached": overall.get("guard_block_count", 0) > 0,
+        "cost_before_failure": {
+            "provider_calls": overall.get("provider_calls", 0),
+            "tool_calls": overall.get("tool_calls", 0),
+            "iterations": overall.get("iterations", 0),
+        },
+        "system_c_effect": "NOT MEASURED",
+        "formal_ab_conclusion": "NOT MEASURED",
+        "manual_gold": "NOT STARTED",
+    }
+    safe_invalidity = sanitize_for_artifact(invalidity, roots)
+    manifest["run_status"] = PROVIDER_PLANE_INVALID_STATUS
+    manifest["final_classification"] = "INVALID"
+    manifest["baseline_comparison"]["manual_task_success_comparison"] = "NOT MEASURED"
+    manifest["manual_only_metrics"] = {
+        key: "NOT PRODUCED"
+        for key in (
+            "full_task_success",
+            "partial_or_better",
+            "evidence_coverage",
+            "evidence_correctness",
+            "claim_grounding",
+            "remediation_correctness",
+            "docs_semantic_label_correctness",
+        )
+    }
+    manifest["invalidity"] = safe_invalidity
+    safe_manifest = sanitize_for_artifact(manifest, roots)
+    metrics["run_status"] = PROVIDER_PLANE_INVALID_STATUS
+    metrics["final_classification"] = "INVALID"
+    metrics["valid_for_system_c_acceptance"] = False
+    metrics["provider_plane_failure"] = safe_invalidity
+    safe_metrics = sanitize_for_artifact(metrics, roots)
+    snapshot = evaluate_system_c_acceptance(
+        safe_metrics,
+        invalid=True,
+        invalid_reason="PROVIDER-PLANE FAILURE",
+    )
+    safe_snapshot = sanitize_for_artifact(snapshot, roots)
+
+    output.mkdir(parents=True, exist_ok=False)
+    (output / "manifest.json").write_text(
+        json.dumps(safe_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    with (output / "case_results.jsonl").open("w", encoding="utf-8") as handle:
+        for result in cases:
+            handle.write(json.dumps(result, ensure_ascii=False) + "\n")
+    (output / "summary.json").write_text(
+        json.dumps(safe_metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "acceptance_snapshot.json").write_text(
+        json.dumps(safe_snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "provider_plane_failure.json").write_text(
+        json.dumps(safe_invalidity, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    _write_run_report(output / "run_report.md", safe_manifest, cases, safe_metrics, safe_snapshot)
+    validate_system_c_artifact_safety(output, roots)
 
 
 def execute_system_c(
@@ -415,6 +530,8 @@ def execute_system_c(
                 roots=roots,
             )
             normalized_cases.append(add_system_c_case_flags(normalized, case))
+            if find_provider_plane_failures(normalized_cases):
+                break
     except InfrastructureFailure as exc:
         output.mkdir(parents=True, exist_ok=False)
         diagnostic = sanitize_for_artifact(
@@ -437,10 +554,25 @@ def execute_system_c(
         )
         validate_system_c_artifact_safety(output, roots)
         raise
+    metrics = summarize_system_c_metrics(normalized_cases)
+    provider_failure_cases = find_provider_plane_failures(normalized_cases)
+    if provider_failure_cases:
+        _write_provider_plane_invalid_run(
+            output=output,
+            manifest=build_system_c_manifest(
+                run_id=run_id,
+                label=label,
+                preflight=preflight,
+            ),
+            cases=normalized_cases,
+            metrics=metrics,
+            roots=roots,
+            failure_cases=provider_failure_cases,
+        )
+        return output
     manifest = sanitize_for_artifact(
         build_system_c_manifest(run_id=run_id, label=label, preflight=preflight), roots
     )
-    metrics = summarize_system_c_metrics(normalized_cases)
     snapshot = build_acceptance_snapshot(metrics)
     manual_review = [
         build_system_c_manual_review_entry(case, result)
@@ -503,17 +635,18 @@ def main() -> int:
     except (BaselineContractError, InfrastructureFailure, FileExistsError) as exc:
         print(f"G12 System C: INVALID / INFRASTRUCTURE FAILURE: {exc}", file=sys.stderr)
         return 1
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     print(
         json.dumps(
             {
                 "output": str(output),
-                "run_status": "VALID / MANUAL GOLD PENDING",
-                "final_classification": "PENDING_MANUAL_REVIEW",
+                "run_status": manifest["run_status"],
+                "final_classification": manifest["final_classification"],
             },
             ensure_ascii=False,
         )
     )
-    return 0
+    return 0 if manifest["final_classification"] != "INVALID" else 1
 
 
 if __name__ == "__main__":
