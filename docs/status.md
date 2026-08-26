@@ -26,7 +26,9 @@
 - **G12 Baseline Formal = VALID / MANUAL GOLD COMPLETE**
 - **Baseline evidence-grounded result = NEGATIVE**
 - **Finalization Guard = NOT IMPLEMENTED**
-- **NEXT = G12-04A System C Acceptance Contract**
+- **G12-04A System C Acceptance Contract = CLOSED / ACCEPTANCE CONTRACT FROZEN**
+- **System C Formal = NOT RUN**
+- **NEXT = G12-04B System C Guard Design**
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
@@ -122,7 +124,7 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 
 ## G12 Engineering Evaluation 2.0
 
-- **状态：** IN PROGRESS / EVALUATION；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A=`CLOSED / CANDIDATE POOL ACCEPTED`；G12-02B=`CLOSED / DATASET FROZEN`；G12-03=`CLOSED / BASELINE A FROZEN`；NEXT=`G12-04A System C Acceptance Contract`。
+- **状态：** IN PROGRESS / EVALUATION；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A=`CLOSED / CANDIDATE POOL ACCEPTED`；G12-02B=`CLOSED / DATASET FROZEN`；G12-03=`CLOSED / BASELINE A FROZEN`；G12-04A=`CLOSED / ACCEPTANCE CONTRACT FROZEN`；NEXT=`G12-04B System C Guard Design`。
 - **动机：** G11-02 Theory <-> Code=`CLOSED / MIXED`、G11-03 Change Impact <-> Test=`CLOSED / MIXED`、G11-04 Diagnosis / Config=`CLOSED / NEGATIVE`（Manual Gold 0/4）、G11-05 Docs <-> Code=`CLOSED / NEGATIVE`（Manual Gold 0/4）共同显示：Tool routing、path hit、evidence presence 或 completed 都不等于 evidence sufficiency、claim grounding 或 task success。
 - **G12-01/R1 冻结：** [Engineering Evaluation 2.0 Protocol](design/g12-engineering-evaluation-2.0.md) 与 [Study Note 113](study-notes/113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md)。第一版 benchmark 设计目标为 16 cases、四类 task family；最终 12-20 case 规模、external repository checkout proof、candidate pool 与 dataset construction 归 G12-02A。
 - **Evidence Sufficiency：** `required_evidence_groups` 是 AND-of-OR groups 的 shape-only automatic contract。Theory <-> Code=`[[knowledge], [project_code, project_doc]]`；Change Impact <-> Test=`[[project_change], [project_test]]`；Diagnosis=`[[project_code]]`，并在 `requires_cross_file=true` 时要求至少 2 个 distinct `project_code` paths；Docs <-> Code=`[[project_doc], [project_code]]`。public evidence kinds 保持 `knowledge`、`project_code`、`project_doc`、`project_change`、`project_test`。
@@ -136,7 +138,9 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **G12-03 Baseline A closure：** 唯一有效 Formal=`g12-baseline-a-formal-20260825-195305`，run status=`VALID`；evaluator=`f0852af1a339c72616b69c4ffdbdd6059c42bf5b`，dataset=`gate12-v1-630fc8b527c2`，product baseline=`0a1f42e8ee0320486dbd0ddc01400e1e19150501`。Manual Gold 为 Full Task Success `PASS=2 / PARTIAL=8 / FAIL=6`，strict rate=`2/16`，partial-or-better=`10/16`；Evidence Coverage=`FULL=1 / PARTIAL=8 / NONE=7`，Claim Grounding=`PASS=1 / PARTIAL=8 / FAIL=7`。Baseline capability=`MIXED`，Evidence-Grounded Reliability=`NEGATIVE`。Diagnosis / Config 最弱；`project_test` evidence=`0/16`。
 - **G12-03 metric correction：** 原始 summary 的 provider calls=`17`、平均=`1.0625` 是 evaluator aggregation error。每个 `decision_completed` 的本地 Decision call metadata 必须在 case 内求和；离线更正为 total=`54`、平均=`3.375`。原始 Formal artifact 不修改；`evaluation/gate12/baseline_a_metric_correction_v1.json` 仅 supersede cost metric，其他 automatic metrics 与 Manual Gold 保持不变。Manual Gold provenance 见 `baseline_a_manual_review_v1.jsonl` 与对应 manifest，Study Note 117 解释 `q004` shape-sufficient/semantic-partial 和 `q006` semantic-pass/evidence-insufficient 对照。
 - **G12-03 boundary：** Baseline A 已冻结；未重跑 Provider Formal，未修改 Prompt、Runtime、Tool、API、frozen cases 或 Finalization Guard。下一步是 G12-04A System C Acceptance Contract，不表示已开始 System C。
-- **产品边界：** G12-02A/02B 不实现 verifier/guard；G12-03 不改 Prompt、Runtime、Tool、API、5/4/2 budget、registry 或 product baseline，不重跑 Provider Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；G12 Baseline Formal=`VALID / MANUAL GOLD COMPLETE`；Finalization Guard=`NOT IMPLEMENTED`；Core Agent System=`NOT COMPLETE`。
+- **G12-04A contract freeze：** System C 只允许一个 tested factor：generic deterministic typed Evidence Requirement + system-level Finalization Guard；same benchmark/provider/model/Prompt v2/1200 cap/5-4-2/seven Tools/project commits/Knowledge corpus 全部保持不变。Acceptance contract SHA-256=`5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f`。核心 invariant 是 `completed AND evidence_sufficient=false` 必须为 `0/16`；primary Evidence Sufficiency=`>=8/16`，Full Task Success=`>=2/16` 且不低于 Baseline，PARTIAL-or-better=`>=9/16`。System C Formal=`NOT RUN`，G12-04B 才设计 Guard。
+- **G12-04A boundary：** requirement 不得来自 evaluator Gold；request 仍只含 `question`，不得注入 case/task-family/Gold/source metadata。禁止 benchmark-specific router overfit、always-refuse、Prompt tuning 和 Provider rerun；有效 FAIL 不挑结果重跑，只有 INVALID infrastructure run 在修复后允许完整重跑并保留旧 artifact。详见 [System C Acceptance Contract](design/g12-system-c-acceptance-contract.md) 与 [Study Note 118](study-notes/118-G12-System-C验收线与A-B实验设计.md)。
+- **产品边界：** G12-02A/02B 不实现 verifier/guard；G12-03/R1 与 G12-04A 不改 Prompt、Runtime、Tool、API、5/4/2 budget、registry 或 product baseline，不重跑 Provider/System C Formal。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501` 保持不变；G12 Baseline Formal=`VALID / MANUAL GOLD COMPLETE`；System C Formal=`NOT RUN`；Finalization Guard=`NOT IMPLEMENTED`；Core Agent System=`NOT COMPLETE`。
 
 ## 项目定位
 

@@ -1,0 +1,208 @@
+{
+  "schema_version": "g12_system_c_acceptance_contract_v1",
+  "acceptance_contract_sha256": "5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f",
+  "contract_status": "FROZEN / PRE-FORMAL",
+  "baseline": {
+    "run_id": "g12-baseline-a-formal-20260825-195305",
+    "dataset_freeze_id": "gate12-v1-630fc8b527c2",
+    "product_baseline_commit": "0a1f42e8ee0320486dbd0ddc01400e1e19150501",
+    "evaluator_commit": "f0852af1a339c72616b69c4ffdbdd6059c42bf5b",
+    "metrics": {
+      "case_count": 16,
+      "full_task_success_pass": 2,
+      "full_task_success_partial": 8,
+      "full_task_success_fail": 6,
+      "strict_full_task_success_rate": 0.125,
+      "partial_or_better_cases": 10,
+      "partial_or_better_rate": 0.625,
+      "evidence_sufficiency_cases": 2,
+      "premature_finalization_cases": 12,
+      "claim_grounding_pass": 1,
+      "claim_grounding_partial": 8,
+      "claim_grounding_fail": 7,
+      "evidence_coverage_full": 1,
+      "evidence_coverage_partial": 8,
+      "evidence_coverage_none": 7,
+      "provider_calls": 54,
+      "tool_calls": 37,
+      "iterations": 53,
+      "forbidden_tool_calls": 0,
+      "structured_parse_failure_cases": 1,
+      "duplicate_tool_stops": 1,
+      "budget_stops": 0,
+      "refused_cases": 1,
+      "failed_cases": 1
+    }
+  },
+  "system_c_required_controls": {
+    "intervention": [
+      "deterministic typed Evidence Requirement",
+      "system-level Finalization Guard"
+    ],
+    "prompt_version": "engineering_agent_decision_prompt_v2",
+    "prompt_sha256": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107",
+    "prompt_modified": false,
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "max_output_tokens": 1200,
+    "budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "toolset": [
+      "calculator",
+      "code_search",
+      "read_project_context",
+      "knowledge_search",
+      "changed_files",
+      "git_diff",
+      "find_tests"
+    ],
+    "registry_size": 7,
+    "project_snapshots": {
+      "my_agent": "465dd65e950e9c4a119820a5a27f558e74ad5892",
+      "pydantic_ai": "bfa8e9187b86aad7ec583665ab2743fadea458b1"
+    },
+    "project_commits_unchanged": true,
+    "knowledge_corpus": {
+      "corpus_id": "870e5864df67",
+      "file_count": 37,
+      "chunk_count": 215,
+      "retrieval_strategy": "bm25",
+      "manifest_experiment_id": "dbc497c796d5"
+    },
+    "gold_metadata_injected": false,
+    "task_family_hint_injected": false,
+    "formal_request_fields": ["question"]
+  },
+  "requirement_source_integrity": {
+    "source": "product/system-side generic bounded logic",
+    "evaluator_gold_is_not_requirement_source": true,
+    "forbidden_request_fields": [
+      "case_id",
+      "task_family",
+      "required_evidence_groups",
+      "requires_cross_file",
+      "min_distinct_project_code_paths",
+      "gold_obligations",
+      "gold_source_paths",
+      "source_candidate_id"
+    ],
+    "generic_task_semantics_only": true
+  },
+  "anti_leakage_rules": {
+    "forbid_case_id_rules": true,
+    "forbid_candidate_id_rules": true,
+    "forbid_question_string_rules": true,
+    "forbid_commit_sha_routing_rules": true,
+    "forbid_gold_source_path_rules": true,
+    "forbid_repository_filename_rules": true,
+    "forbid_repository_special_cases": true,
+    "implementation_tests_use_synthetic_queries": true
+  },
+  "primary_thresholds": {
+    "premature_finalization_cases_max": 0,
+    "evidence_sufficiency_cases_min": 8,
+    "family_evidence_sufficiency_min": {
+      "Theory <-> Code": 2,
+      "Change Impact <-> Test": 1,
+      "Diagnosis / Config": 1,
+      "Docs <-> Code": 1
+    },
+    "change_project_test_evidence_min": 2,
+    "diagnosis_cross_file_shape_cases_min": 2,
+    "diagnosis_cross_file_shape_denominator": 3,
+    "docs_bilateral_evidence_cases_min": 2,
+    "full_task_success_cases_min": 2,
+    "partial_or_better_cases_min": 9
+  },
+  "grounding_thresholds": {
+    "claim_grounding_pass_cases_min": 3,
+    "claim_grounding_fail_cases_max": 5
+  },
+  "outcome_thresholds": {
+    "refused_cases_max": 5,
+    "guard_specific_insufficient_evidence_refusals_max": 4,
+    "failed_cases_max": 2,
+    "always_refuse_is_success": false
+  },
+  "cost_thresholds": {
+    "provider_calls_max": 72,
+    "tool_calls_max": 52,
+    "iterations_max": 72,
+    "baseline_provider_calls": 54,
+    "baseline_tool_calls": 37,
+    "baseline_iterations": 53,
+    "latency_report_required": true,
+    "average_latency_major_regression_factor": 2.0,
+    "latency_alone_invalidates_run": false
+  },
+  "reliability_thresholds": {
+    "forbidden_tool_calls_max": 0,
+    "structured_parse_failure_cases_max": 1,
+    "duplicate_tool_stops_max": 1,
+    "budget_stops_max": 2,
+    "hard_budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "registry_size": 7
+  },
+  "guard_invariants": {
+    "completed_with_insufficient_evidence_max": 0,
+    "premature_finalization_is_correctness_gate": true,
+    "guard_must_not_always_refuse": true
+  },
+  "classification_rules": {
+    "precedence": ["INVALID", "FAIL", "PASS", "MIXED"],
+    "invalid_if_any": [
+      "infrastructure_failure",
+      "provenance_failure",
+      "dataset_drift",
+      "project_binding_mismatch",
+      "prompt_or_control_drift",
+      "gold_leakage",
+      "formal_execution_invalidity"
+    ],
+    "fail_if_any": [
+      "premature_finalization_cases > 0",
+      "evidence_sufficiency_cases < 6",
+      "full_task_success_cases < 2",
+      "severe_refusal_collapse",
+      "severe_cost_regression",
+      "severe_reliability_regression",
+      "guard_behavioral_invariant_failure"
+    ],
+    "pass_if_all": [
+      "integrity_checks_pass",
+      "primary_thresholds_pass",
+      "utility_thresholds_pass",
+      "grounding_thresholds_pass",
+      "cost_thresholds_pass",
+      "reliability_thresholds_pass"
+    ],
+    "mixed_if_all": [
+      "integrity_checks_pass",
+      "premature_finalization_cases == 0",
+      "evidence_sufficiency_cases >= 6",
+      "no_major_safety_or_utility_collapse",
+      "one_or_more_full_pass_gates_not_met"
+    ],
+    "fail_is_not_rerun_for_selection": true
+  },
+  "q004_q006_tradeoff_audit": {
+    "required": true,
+    "purpose": "audit shape sufficiency against semantic task success and prevent an always-refuse interpretation",
+    "baseline_shape_sufficient_but_partial": true,
+    "baseline_shape_insufficient_but_pass": true
+  },
+  "formal_policy": {
+    "system_c_formal_status": "NOT RUN",
+    "run_after_contract_review": true,
+    "official_run_policy": "one complete benchmark run; no cherry-picking individual cases",
+    "invalid_run_may_be_replaced_only_after_infrastructure_repair": true,
+    "previous_invalid_runs_retained": true
+  }
+}
