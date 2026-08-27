@@ -52,6 +52,10 @@ from api.schemas import (
 )
 from api.project_workspace import EngineeringProject, resolve_engineering_project
 from api.engineering_stream import STREAM_SCHEMA_VERSION, stream_engineering_query
+from api.engineering_stream_v2 import (
+    STREAM_SCHEMA_VERSION as STREAM_SCHEMA_VERSION_V2,
+    stream_engineering_query_v2,
+)
 from core.tool_agent.runtime_models import (
     EngineeringEvidence as RuntimeEngineeringEvidence,
     KnowledgeEvidence as RuntimeKnowledgeEvidence,
@@ -585,6 +589,26 @@ def engineering_query_stream(req: EngineeringQueryRequest) -> StreamingResponse:
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
             "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION,
+        },
+    )
+
+
+@app.post("/engineering/query/stream/v2")
+def engineering_query_stream_v2(req: EngineeringQueryRequest) -> StreamingResponse:
+    """Present rich safe Tool Activity progress without changing the v1 stream."""
+
+    facade = _get_engineering_agent_facade()
+    return StreamingResponse(
+        stream_engineering_query_v2(
+            facade,
+            req.question,
+            build_response=_build_engineering_response,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION_V2,
         },
     )
 

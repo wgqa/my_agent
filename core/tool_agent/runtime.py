@@ -21,6 +21,13 @@ from core.engineering_requirements import (
     EvidenceRequirementState,
     evaluate_evidence_requirement,
 )
+from core.tool_agent.activity import (
+    ActivityEvent,
+    EvidenceAddedActivity,
+    RunStartedActivity,
+    VerificationBlockedActivity,
+    build_tool_activity_event,
+)
 from core.tool_agent.actions import (
     AgentDecisionOutcome,
     FinalAnswerAction,
@@ -305,6 +312,7 @@ class ToolAgentRuntime:
         *,
         evidence_requirement: EngineeringEvidenceRequirement | None = None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
+        activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
         if type(user_query) is not str or not user_query.strip():
             raise ValueError("user_query 必须是非空字符串")
@@ -324,6 +332,12 @@ class ToolAgentRuntime:
         seen_evidence: set[tuple] = set()
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
+        activity_number = 0
+
+        self._record_activity(
+            RunStartedActivity(available_tool_count=len(self._registry)),
+            activity_sink,
+        )
 
         while True:
             iterations += 1
@@ -494,6 +508,15 @@ class ToolAgentRuntime:
                             ),
                             trace_sink,
                         )
+                        self._record_activity(
+                            VerificationBlockedActivity(
+                                iteration=iterations,
+                                missing_evidence_kinds=tuple(
+                                    sorted(_missing_evidence_kinds(evidence_requirement, state))
+                                ),
+                            ),
+                            activity_sink,
+                        )
                         last_blocked_fingerprint = fingerprint
                         recovery_control_active = True
                         continue
@@ -567,6 +590,18 @@ class ToolAgentRuntime:
                 )
 
             call = ToolCall.create(action.tool_name, action.arguments)
+            activity_number += 1
+            activity_id = f"A{activity_number}"
+            self._record_activity(
+                build_tool_activity_event(
+                    activity_id=activity_id,
+                    iteration=iterations,
+                    tool_name=call.tool_name,
+                    state="started",
+                    arguments=action.arguments,
+                ),
+                activity_sink,
+            )
             self._record_trace(
                 trace,
                 RuntimeTraceEvent(
@@ -621,6 +656,7 @@ class ToolAgentRuntime:
                 )
                 if item is not None
             )
+            added_evidence_ids: list[str] = []
             for observed in observed_evidence:
                 if isinstance(observed, KnowledgeEvidence):
                     key = (
@@ -638,7 +674,25 @@ class ToolAgentRuntime:
                 if key in seen_evidence:
                     continue
                 seen_evidence.add(key)
-                evidence.append(replace(observed, evidence_id=f"E{len(evidence) + 1}"))
+                added = replace(observed, evidence_id=f"E{len(evidence) + 1}")
+                evidence.append(added)
+                added_evidence_ids.append(added.evidence_id)
+                self._record_activity(
+                    EvidenceAddedActivity.from_public_evidence(added),
+                    activity_sink,
+                )
+            self._record_activity(
+                build_tool_activity_event(
+                    activity_id=activity_id,
+                    iteration=iterations,
+                    tool_name=call.tool_name,
+                    state="completed" if observation.status == "ok" else "error",
+                    arguments=action.arguments,
+                    observation=observation,
+                    evidence_ids_added=tuple(added_evidence_ids),
+                ),
+                activity_sink,
+            )
             if tool_errors >= self._budget.max_tool_errors:
                 return self._hard_stop(
                     trace,
@@ -722,6 +776,19 @@ class ToolAgentRuntime:
         if trace_sink is not None:
             try:
                 trace_sink(event)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _record_activity(
+        event: ActivityEvent,
+        activity_sink: Callable[[ActivityEvent], None] | None,
+    ) -> None:
+        """Notify the optional observer without entering Runtime control flow."""
+
+        if activity_sink is not None:
+            try:
+                activity_sink(event)
             except Exception:
                 pass
 

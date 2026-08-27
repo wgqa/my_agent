@@ -657,3 +657,48 @@ class TestTraceSink:
         ).run("calculate", trace_sink=broken_sink)
 
         assert with_broken_sink == no_sink
+
+
+class TestActivitySink:
+    def _run(self, activity_sink=None):
+        registry, _ = build_loop_registry()
+        return ToolAgentRuntime(
+            registry=registry,
+            provider=ScriptedDecisionProvider([
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="calculator",
+                    arguments={"expression": "1+1"},
+                ),
+                FinalAnswerAction(action="final_answer", answer="2"),
+            ]),
+        ).run("calculate", activity_sink=activity_sink)
+
+    def test_activity_sink_is_observational_and_cannot_change_run_result(self):
+        observed = []
+        without_sink = self._run()
+        with_sink = self._run(observed.append)
+
+        def broken_sink(_event):
+            raise RuntimeError("presentation transport failed")
+
+        with_broken_sink = self._run(broken_sink)
+
+        def normalized(result):
+            payload = result.to_dict()
+            for trace_event in payload["trace"]:
+                trace_event["call_id"] = None
+            return payload
+
+        # call_id is intentionally per-run unique; every other public result
+        # value must remain invariant when the observer is absent, healthy, or broken.
+        assert normalized(with_sink) == normalized(without_sink) == normalized(with_broken_sink)
+        assert [event.to_dict()["type"] for event in observed] == [
+            "run_started",
+            "activity",
+            "activity",
+        ]
+        started, completed = observed[1:]
+        assert started.activity_id == completed.activity_id == "A1"
+        assert started.state == "started"
+        assert completed.state == "completed"
