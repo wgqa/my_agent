@@ -417,8 +417,8 @@ class TestFacadeBoundary:
             def __init__(self):
                 self.received = []
 
-            def run(self, question, *, evidence_requirement=None):
-                self.received.append((question, evidence_requirement))
+            def run(self, question, *, evidence_requirement=None, trace_sink=None):
+                self.received.append((question, evidence_requirement, trace_sink))
                 return ToolAgentRunResult(
                     status="completed",
                     answer="synthetic",
@@ -439,4 +439,46 @@ class TestFacadeBoundary:
         result = EngineeringAgentFacade(runtime).run("synthetic question")
         assert result.status == "completed"
         assert calls == ["synthetic question"]
-        assert runtime.received == [("synthetic question", requirement)]
+        assert runtime.received == [("synthetic question", requirement, None)]
+
+    def test_facade_routes_once_and_passes_per_run_trace_sink(self, monkeypatch):
+        requirement = _requirement(
+            CHANGE_TEST_V1,
+            (("project_change",), ("project_test",)),
+            0,
+        )
+        calls = []
+
+        class RecordingRuntime(ToolAgentRuntime):
+            def __init__(self):
+                self.received = []
+
+            def run(self, question, *, evidence_requirement=None, trace_sink=None):
+                self.received.append((question, evidence_requirement, trace_sink))
+                return ToolAgentRunResult(
+                    status="completed",
+                    answer="synthetic",
+                    reason_code=None,
+                    failure_code=None,
+                    iterations_used=1,
+                    tool_calls_used=0,
+                    tool_errors_used=0,
+                    trace=(),
+                )
+
+        def route(question):
+            calls.append(question)
+            return requirement
+
+        runtime = RecordingRuntime()
+        monkeypatch.setattr(
+            engineering_agent_module,
+            "route_engineering_evidence_requirement",
+            route,
+        )
+        seen = []
+        sink = seen.append
+        EngineeringAgentFacade(runtime).run("synthetic question", trace_sink=sink)
+
+        assert calls == ["synthetic question"]
+        assert runtime.received == [("synthetic question", requirement, sink)]

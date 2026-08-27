@@ -14,6 +14,7 @@ import json
 import inspect
 from dataclasses import replace
 from pathlib import PurePosixPath
+from typing import Callable
 
 from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
@@ -303,6 +304,7 @@ class ToolAgentRuntime:
         user_query: str,
         *,
         evidence_requirement: EngineeringEvidenceRequirement | None = None,
+        trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
     ) -> ToolAgentRunResult:
         if type(user_query) is not str or not user_query.strip():
             raise ValueError("user_query 必须是非空字符串")
@@ -333,6 +335,7 @@ class ToolAgentRuntime:
                     tool_calls,
                     tool_errors,
                     AGENT_BUDGET_EXCEEDED,
+                    trace_sink,
                 )
 
             guard_state = (
@@ -381,7 +384,8 @@ class ToolAgentRuntime:
             if not isinstance(outcome, AgentDecisionOutcome):
                 # Provider 违反 Protocol 属于程序契约错误，fail-fast
                 raise TypeError("provider.decide 必须返回 AgentDecisionOutcome")
-            trace.append(
+            self._record_trace(
+                trace,
                 RuntimeTraceEvent(
                     iteration=iterations,
                     event_type="decision_completed",
@@ -409,12 +413,18 @@ class ToolAgentRuntime:
                         if outcome.call_metadata is not None
                         else None
                     ),
-                )
+                ),
+                trace_sink,
             )
 
             if outcome.failure_code is not None:
                 self._append_terminal(
-                    trace, iterations, tool_calls, tool_errors, outcome.failure_code
+                    trace,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    outcome.failure_code,
+                    trace_sink,
                 )
                 return ToolAgentRunResult(
                     status="failed",
@@ -445,6 +455,7 @@ class ToolAgentRuntime:
                                 tool_calls,
                                 tool_errors,
                                 INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                trace_sink,
                             )
                         if not _recovery_is_feasible(
                             self._registry,
@@ -462,8 +473,10 @@ class ToolAgentRuntime:
                                 tool_calls,
                                 tool_errors,
                                 INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                trace_sink,
                             )
-                        trace.append(
+                        self._record_trace(
+                            trace,
                             RuntimeTraceEvent(
                                 iteration=iterations,
                                 event_type="finalization_guard_blocked",
@@ -478,13 +491,14 @@ class ToolAgentRuntime:
                                 iterations_used=iterations,
                                 tool_calls_used=tool_calls,
                                 tool_errors_used=tool_errors,
-                            )
+                            ),
+                            trace_sink,
                         )
                         last_blocked_fingerprint = fingerprint
                         recovery_control_active = True
                         continue
                 self._append_terminal(
-                    trace, iterations, tool_calls, tool_errors, None
+                    trace, iterations, tool_calls, tool_errors, None, trace_sink
                 )
                 return ToolAgentRunResult(
                     status="completed",
@@ -499,7 +513,12 @@ class ToolAgentRuntime:
                 )
             if isinstance(action, RefuseAction):
                 self._append_terminal(
-                    trace, iterations, tool_calls, tool_errors, action.reason_code
+                    trace,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    action.reason_code,
+                    trace_sink,
                 )
                 return ToolAgentRunResult(
                     status="refused",
@@ -523,6 +542,7 @@ class ToolAgentRuntime:
                     tool_calls,
                     tool_errors,
                     AGENT_BUDGET_EXCEEDED,
+                    trace_sink,
                 )
             if tool_calls >= self._budget.max_tool_calls:
                 return self._hard_stop(
@@ -532,6 +552,7 @@ class ToolAgentRuntime:
                     tool_calls,
                     tool_errors,
                     AGENT_BUDGET_EXCEEDED,
+                    trace_sink,
                 )
             canonical = _canonical_call(action.tool_name, action.arguments)
             if canonical in executed:
@@ -542,10 +563,12 @@ class ToolAgentRuntime:
                     tool_calls,
                     tool_errors,
                     AGENT_DUPLICATE_TOOL_CALL,
+                    trace_sink,
                 )
 
             call = ToolCall.create(action.tool_name, action.arguments)
-            trace.append(
+            self._record_trace(
+                trace,
                 RuntimeTraceEvent(
                     iteration=iterations,
                     event_type="tool_call_created",
@@ -555,14 +578,16 @@ class ToolAgentRuntime:
                     iterations_used=iterations,
                     tool_calls_used=tool_calls,
                     tool_errors_used=tool_errors,
-                )
+                ),
+                trace_sink,
             )
             observation = self._executor.execute(call)
             tool_calls += 1
             if observation.status != "ok":
                 tool_errors += 1
             executed.add(canonical)
-            trace.append(
+            self._record_trace(
+                trace,
                 RuntimeTraceEvent(
                     iteration=iterations,
                     event_type="tool_observation",
@@ -574,7 +599,8 @@ class ToolAgentRuntime:
                     iterations_used=iterations,
                     tool_calls_used=tool_calls,
                     tool_errors_used=tool_errors,
-                )
+                ),
+                trace_sink,
             )
             context.append(
                 DecisionContextItem(
@@ -621,6 +647,7 @@ class ToolAgentRuntime:
                     tool_calls,
                     tool_errors,
                     AGENT_TOOL_ERROR_LIMIT,
+                    trace_sink,
                 )
             # 否则继续下一次 Decision
 
@@ -659,13 +686,15 @@ class ToolAgentRuntime:
         tool_calls: int,
         tool_errors: int,
         code: str | None,
+        trace_sink: Callable[[RuntimeTraceEvent], None] | None,
     ) -> None:
         """每次 run() 结束都追加 runtime_stopped 作为最后一条 Trace event。
 
         code 承载终止事实：completed→None、model refuse→reason_code、
         decision failure→failure_code、系统硬停止→termination code。
         """
-        trace.append(
+        self._record_trace(
+            trace,
             RuntimeTraceEvent(
                 iteration=iterations,
                 event_type="runtime_stopped",
@@ -673,8 +702,28 @@ class ToolAgentRuntime:
                 iterations_used=iterations,
                 tool_calls_used=tool_calls,
                 tool_errors_used=tool_errors,
-            )
+            ),
+            trace_sink,
         )
+
+    @staticmethod
+    def _record_trace(
+        trace: list[RuntimeTraceEvent],
+        event: RuntimeTraceEvent,
+        trace_sink: Callable[[RuntimeTraceEvent], None] | None,
+    ) -> None:
+        """Append the canonical trace before notifying an optional observer.
+
+        Observability is deliberately outside the Runtime control plane. A UI
+        or transport failure therefore cannot alter the result of this run.
+        """
+
+        trace.append(event)
+        if trace_sink is not None:
+            try:
+                trace_sink(event)
+            except Exception:
+                pass
 
     def _hard_stop(
         self,
@@ -684,8 +733,11 @@ class ToolAgentRuntime:
         tool_calls: int,
         tool_errors: int,
         code: str,
+        trace_sink: Callable[[RuntimeTraceEvent], None] | None,
     ) -> ToolAgentRunResult:
-        self._append_terminal(trace, iterations, tool_calls, tool_errors, code)
+        self._append_terminal(
+            trace, iterations, tool_calls, tool_errors, code, trace_sink
+        )
         return ToolAgentRunResult(
             status="refused",
             answer=None,

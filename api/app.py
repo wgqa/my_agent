@@ -10,6 +10,7 @@ load_dotenv()
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
@@ -50,6 +51,7 @@ from api.schemas import (
     KnowledgeEvidence,
 )
 from api.project_workspace import EngineeringProject, resolve_engineering_project
+from api.engineering_stream import STREAM_SCHEMA_VERSION, stream_engineering_query
 from core.tool_agent.runtime_models import (
     EngineeringEvidence as RuntimeEngineeringEvidence,
     KnowledgeEvidence as RuntimeKnowledgeEvidence,
@@ -565,6 +567,26 @@ def engineering_query(req: EngineeringQueryRequest):
             status_code=500, detail="Internal engineering agent query error"
         )
     return _build_engineering_response(result)
+
+
+@app.post("/engineering/query/stream")
+def engineering_query_stream(req: EngineeringQueryRequest) -> StreamingResponse:
+    """Present existing safe Runtime progress as guarded SSE events."""
+
+    facade = _get_engineering_agent_facade()
+    return StreamingResponse(
+        stream_engineering_query(
+            facade,
+            req.question,
+            build_response=_build_engineering_response,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION,
+        },
+    )
 
 
 @app.get(

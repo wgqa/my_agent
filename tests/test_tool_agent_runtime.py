@@ -613,3 +613,47 @@ class TestTerminalTraceCompleteness:
         # duplicate / budget terminal trace 保存 termination code
         assert cases[3].trace[-1].error_code == AGENT_DUPLICATE_TOOL_CALL
         assert cases[4].trace[-1].error_code == AGENT_BUDGET_EXCEEDED
+
+
+class TestTraceSink:
+    def test_sink_receives_existing_trace_events_in_canonical_order(self):
+        registry, _ = build_loop_registry()
+        observed = []
+        result = ToolAgentRuntime(
+            registry=registry,
+            provider=ScriptedDecisionProvider([
+                ToolCallAction(
+                    action="tool_call",
+                    tool_name="calculator",
+                    arguments={"expression": "1+1"},
+                ),
+                FinalAnswerAction(action="final_answer", answer="2"),
+            ]),
+        ).run("calculate", trace_sink=observed.append)
+
+        assert tuple(observed) == tuple(result.trace)
+        assert [event.event_type for event in observed] == [
+            "decision_completed",
+            "tool_call_created",
+            "tool_observation",
+            "decision_completed",
+            "runtime_stopped",
+        ]
+
+    def test_sink_failure_cannot_change_canonical_run_result(self):
+        registry, _ = build_loop_registry()
+        decisions = [FinalAnswerAction(action="final_answer", answer="2")]
+        no_sink = ToolAgentRuntime(
+            registry=registry,
+            provider=ScriptedDecisionProvider(decisions),
+        ).run("calculate")
+
+        def broken_sink(_event):
+            raise RuntimeError("observer transport failed")
+
+        with_broken_sink = ToolAgentRuntime(
+            registry=registry,
+            provider=ScriptedDecisionProvider(decisions),
+        ).run("calculate", trace_sink=broken_sink)
+
+        assert with_broken_sink == no_sink
