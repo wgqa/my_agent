@@ -28,12 +28,14 @@ from core.tool_agent import (
     ToolAgentBudget,
     ToolAgentRuntime,
     ToolAgentRunResult,
+    ToolCall,
     ToolCallAction,
     ToolExecutor,
     ToolRegistry,
     build_readonly_tool_registry,
 )
 from core.tool_agent.decision_prompt import build_decision_messages
+from core.tool_agent.activity import EvidenceAddedActivity
 from core.tool_agent.runtime_models import DecisionContextItem
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
 from core.tool_agent.tools.code_search import CODE_SEARCH_SPEC, CodeSearchHandler
@@ -41,6 +43,7 @@ from core.tool_agent.tools.knowledge_search import (
     KNOWLEDGE_SEARCH_SPEC,
     KnowledgeSearchHandler,
 )
+from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
 
 
 def make_doc(content, source_name="doc.md", chunk_id="c1", score=1.0, rank=1):
@@ -702,3 +705,102 @@ class TestActivitySink:
         assert started.activity_id == completed.activity_id == "A1"
         assert started.state == "started"
         assert completed.state == "completed"
+
+    @staticmethod
+    def _fix_call_id(monkeypatch):
+        original_create = ToolCall.create.__func__
+
+        def fixed_create(cls, tool_name, arguments):
+            call = original_create(cls, tool_name, arguments)
+            object.__setattr__(call, "call_id", "call_observability_test")
+            return call
+
+        monkeypatch.setattr(ToolCall, "create", classmethod(fixed_create))
+
+    def test_long_project_evidence_omits_activity_without_changing_result(self, monkeypatch):
+        self._fix_call_id(monkeypatch)
+        long_path = "src/" + "a" * 121 + ".py"
+
+        class LongPathHandler:
+            def execute(self, _arguments):
+                return {
+                    "path": long_path,
+                    "start_line": 1,
+                    "end_line": 1,
+                    "lines": [{"line": 1, "text": "public source evidence"}],
+                }
+
+        def run(activity_sink=None):
+            registry = ToolRegistry()
+            registry.register(READ_PROJECT_CONTEXT_SPEC, LongPathHandler())
+            return ToolAgentRuntime(
+                registry=registry,
+                provider=ScriptedDecisionProvider([
+                    ToolCallAction(
+                        action="tool_call",
+                        tool_name="read_project_context",
+                        arguments={
+                            "path": long_path,
+                            "line": 1,
+                            "context_lines": 0,
+                        },
+                    ),
+                    FinalAnswerAction(action="final_answer", answer="grounded"),
+                ]),
+            ).run("read source", activity_sink=activity_sink)
+
+        observed = []
+        without_sink = run()
+        with_sink = run(observed.append)
+
+        def throwing_sink(_event):
+            raise RuntimeError("presentation transport failed")
+
+        with_throwing_sink = run(throwing_sink)
+
+        assert without_sink == with_sink == with_throwing_sink
+        assert with_sink.evidence[0].path == long_path
+        assert len(long_path) > 120
+        assert not any(isinstance(event, EvidenceAddedActivity) for event in observed)
+        completed = observed[-1]
+        assert completed.state == "completed"
+        assert completed.evidence_ids_added == ("E1",)
+
+    def test_long_knowledge_source_omits_activity_without_changing_result(self, monkeypatch):
+        self._fix_call_id(monkeypatch)
+        long_source_name = "knowledge/" + "b" * 121 + ".md"
+
+        def run(activity_sink=None):
+            registry, _ = build_loop_registry(
+                port=FakeRetrievalPort(
+                    docs=(make_doc("public knowledge evidence", source_name=long_source_name),)
+                )
+            )
+            return ToolAgentRuntime(
+                registry=registry,
+                provider=ScriptedDecisionProvider([
+                    ToolCallAction(
+                        action="tool_call",
+                        tool_name="knowledge_search",
+                        arguments={"query": "evidence"},
+                    ),
+                    FinalAnswerAction(action="final_answer", answer="grounded"),
+                ]),
+            ).run("find knowledge", activity_sink=activity_sink)
+
+        observed = []
+        without_sink = run()
+        with_sink = run(observed.append)
+
+        def throwing_sink(_event):
+            raise RuntimeError("presentation transport failed")
+
+        with_throwing_sink = run(throwing_sink)
+
+        assert without_sink == with_sink == with_throwing_sink
+        assert with_sink.evidence[0].source_name == long_source_name
+        assert len(long_source_name) > 120
+        assert not any(isinstance(event, EvidenceAddedActivity) for event in observed)
+        completed = observed[-1]
+        assert completed.state == "completed"
+        assert completed.evidence_ids_added == ("E1",)

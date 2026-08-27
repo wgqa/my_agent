@@ -372,6 +372,23 @@ class EvidenceAddedActivity:
             end_line=getattr(evidence, "end_line", None),
         )
 
+    @classmethod
+    def try_from_public_evidence(
+        cls,
+        evidence: object,
+    ) -> "EvidenceAddedActivity | None":
+        """Return an event only when public evidence fits the activity boundary.
+
+        Runtime evidence is an older public contract with wider path and source
+        fields than the bounded activity presentation. Observability must omit
+        an unrepresentable event rather than alter the Runtime control plane.
+        """
+
+        try:
+            return cls.from_public_evidence(evidence)
+        except Exception:
+            return None
+
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
             "type": "evidence_added",

@@ -677,10 +677,9 @@ class ToolAgentRuntime:
                 added = replace(observed, evidence_id=f"E{len(evidence) + 1}")
                 evidence.append(added)
                 added_evidence_ids.append(added.evidence_id)
-                self._record_activity(
-                    EvidenceAddedActivity.from_public_evidence(added),
-                    activity_sink,
-                )
+                evidence_activity = EvidenceAddedActivity.try_from_public_evidence(added)
+                if evidence_activity is not None:
+                    self._record_activity(evidence_activity, activity_sink)
             self._record_activity(
                 build_tool_activity_event(
                     activity_id=activity_id,

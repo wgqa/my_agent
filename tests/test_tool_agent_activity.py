@@ -276,6 +276,33 @@ def test_evidence_added_events_expose_only_public_evidence_identity():
         assert "DO_NOT_LEAK" not in repr(payload)
 
 
+def test_unrepresentable_legacy_evidence_is_omitted_by_the_safe_factory():
+    long_path = "src/" + "a" * 121 + ".py"
+    long_source_name = "knowledge/" + "b" * 121 + ".md"
+    project_evidence = EngineeringEvidence(
+        evidence_id="E1",
+        kind="project_code",
+        path=long_path,
+        start_line=1,
+        end_line=1,
+        snippet="public source evidence",
+    )
+    knowledge_evidence = KnowledgeEvidence(
+        evidence_id="E2",
+        kind="knowledge",
+        source_name=long_source_name,
+        chunk_id="chunk-1",
+        score=0.9,
+        rank=1,
+        snippet="public knowledge evidence",
+    )
+
+    for evidence in (project_evidence, knowledge_evidence):
+        with pytest.raises(ValueError):
+            EvidenceAddedActivity.from_public_evidence(evidence)
+        assert EvidenceAddedActivity.try_from_public_evidence(evidence) is None
+
+
 def test_run_and_verification_activities_are_public_and_deterministic():
     assert RunStartedActivity(available_tool_count=7).to_dict() == {
         "type": "run_started",
