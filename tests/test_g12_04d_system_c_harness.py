@@ -20,6 +20,9 @@ from scripts import run_g12_system_c as runner
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GATE12_DIR = REPO_ROOT / "evaluation" / "gate12"
+SYSTEM_C_VALID_FORMAL_EVALUATOR_COMMIT = (
+    "c2ca9bd5c52ab1b7f9e94e869cd716be53dce0e0"
+)
 
 
 def _case(case_id: str) -> dict[str, Any]:
@@ -216,15 +219,21 @@ def test_provider_plane_reclassification_record_is_immutable_and_explicit():
 def test_product_attestation_proves_exact_04c_intervention_paths(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True).strip()
+    # G12-04D attests the historical Formal evaluator checkout. Post-G12
+    # productization may change current HEAD and must not redefine the
+    # frozen System C product attestation retroactively.
+    formal_evaluator_commit = SYSTEM_C_VALID_FORMAL_EVALUATOR_COMMIT
     monkeypatch.setattr(
         contract,
         "validate_evaluator_checkout",
-        lambda evaluator_commit, evaluator_git_root: (REPO_ROOT, head),
+        lambda evaluator_commit, evaluator_git_root: (
+            REPO_ROOT,
+            formal_evaluator_commit,
+        ),
     )
     attestation = contract.validate_system_c_product_attestation(
         evaluator_git_root=REPO_ROOT,
-        evaluator_commit=head,
+        evaluator_commit=formal_evaluator_commit,
     )
     assert attestation["current_product_diff_clean"] is True
     assert attestation["intervention_diff_summary"]["exact_allowed_product_intervention"] is True
