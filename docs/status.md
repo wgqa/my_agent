@@ -19,7 +19,7 @@
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **G11-05 Post-Formal Documentation Maintenance = CLOSED**
-- **G12 Engineering Evaluation 2.0 = IN PROGRESS / EVALUATION**
+- **G12 Engineering Evaluation 2.0 = CLOSED / FROZEN**
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
@@ -36,7 +36,8 @@
 - **Manual Gold = FROZEN / 16 CASES**
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
-- **NEXT = G12 final close**
+- **CORE AGENT SYSTEM = COMPLETE**
+- **NEXT = No automatic Gate 13**
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
@@ -132,7 +133,7 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 
 ## G12 Engineering Evaluation 2.0
 
-- **状态：** IN PROGRESS / FINAL EVALUATION；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A=`CLOSED / CANDIDATE POOL ACCEPTED`；G12-02B=`CLOSED / DATASET FROZEN`；G12-03=`CLOSED / BASELINE A FROZEN`；G12-04A=`CLOSED / ACCEPTANCE CONTRACT FROZEN`；G12-04B=`CLOSED / GUARD DESIGN FROZEN`；G12-04C=`CLOSED / IMPLEMENTATION FROZEN`；G12-04D=`CLOSED / HARNESS FROZEN`；G12-05B=`VALID / FAIL`；NEXT=`G12 final close`。
+- **状态：** CLOSED / FROZEN；G12-01=`CLOSED / DESIGN FROZEN`；G12-02A=`CLOSED / CANDIDATE POOL ACCEPTED`；G12-02B=`CLOSED / DATASET FROZEN`；G12-03=`CLOSED / BASELINE A FROZEN`；G12-04A=`CLOSED / ACCEPTANCE CONTRACT FROZEN`；G12-04B=`CLOSED / GUARD DESIGN FROZEN`；G12-04C=`CLOSED / IMPLEMENTATION FROZEN`；G12-04D=`CLOSED / HARNESS FROZEN`；G12-05B=`VALID / FAIL`；CORE AGENT SYSTEM=`COMPLETE`；NEXT=`No automatic Gate 13`。
 - **动机：** G11-02 Theory <-> Code=`CLOSED / MIXED`、G11-03 Change Impact <-> Test=`CLOSED / MIXED`、G11-04 Diagnosis / Config=`CLOSED / NEGATIVE`（Manual Gold 0/4）、G11-05 Docs <-> Code=`CLOSED / NEGATIVE`（Manual Gold 0/4）共同显示：Tool routing、path hit、evidence presence 或 completed 都不等于 evidence sufficiency、claim grounding 或 task success。
 - **G12-01/R1 冻结：** [Engineering Evaluation 2.0 Protocol](design/g12-engineering-evaluation-2.0.md) 与 [Study Note 113](study-notes/113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md)。第一版 benchmark 设计目标为 16 cases、四类 task family；最终 12-20 case 规模、external repository checkout proof、candidate pool 与 dataset construction 归 G12-02A。
 - **Evidence Sufficiency：** `required_evidence_groups` 是 AND-of-OR groups 的 shape-only automatic contract。Theory <-> Code=`[[knowledge], [project_code, project_doc]]`；Change Impact <-> Test=`[[project_change], [project_test]]`；Diagnosis=`[[project_code]]`，并在 `requires_cross_file=true` 时要求至少 2 个 distinct `project_code` paths；Docs <-> Code=`[[project_doc], [project_code]]`。public evidence kinds 保持 `knowledge`、`project_code`、`project_doc`、`project_change`、`project_test`。
@@ -149,12 +150,13 @@ Evidence Sufficiency / Claim-Evidence Coverage debt 最终统一带入 G12 Engin
 - **G12-03 boundary：** Baseline A 已冻结；未重跑 Provider Formal，未修改 Prompt、Runtime、Tool、API、frozen cases 或 Finalization Guard。下一步是 G12-04A System C Acceptance Contract，不表示已开始 System C。
 - **G12-04A contract freeze：** System C 只允许一个 tested factor：generic deterministic typed Evidence Requirement + system-level Finalization Guard；same benchmark/provider/model/Prompt v2/1200 cap/5-4-2/seven Tools/project commits/Knowledge corpus 全部保持不变。Acceptance contract SHA-256=`5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f`。核心 invariant 是 `completed AND evidence_sufficient=false` 必须为 `0/16`；primary Evidence Sufficiency=`>=8/16`，Full Task Success=`>=2/16` 且不低于 Baseline，PARTIAL-or-better=`>=9/16`。该 contract 后由 G12-05B 按冻结条件执行并判定。
 - **G12-04A/04B boundary：** requirement 不得来自 evaluator Gold；request 仍只含 `question`，不得注入 case/task-family/Gold/source metadata。禁止 benchmark-specific router overfit、always-refuse、Prompt tuning、Runtime/Tool/API 修改和 Provider/System C rerun；有效 FAIL 不挑结果重跑，只有 INVALID infrastructure run 在修复后允许完整重跑并保留旧 artifact。详见 [System C Acceptance Contract](design/g12-system-c-acceptance-contract.md)、[Study Note 118](study-notes/118-G12-System-C验收线与A-B实验设计.md) 与 [Guard Design](design/g12-system-c-guard-design.md)。
-- **产品边界：** G12-02A/02B/03 与 G12-04A/04B 不实现 verifier/guard；G12-04C 仅实现已冻结的 typed requirement 与 Finalization Guard，修改范围限于 `core/engineering_requirements.py`、`core/engineering_agent.py`、`core/tool_agent/runtime.py`、`core/tool_agent/runtime_models.py`、必要的 Engineering safe trace、deterministic tests 与文档。Prompt、Tool implementation、registry、Knowledge backend、5/4/2 budget、product baseline、frozen evaluator files 均保持不变。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501`；G12 Baseline Formal=`VALID / MANUAL GOLD COMPLETE`；System C Formal=`VALID / MANUAL GOLD COMPLETE / FAIL`；Finalization Guard=`IMPLEMENTED / FROZEN`；G12-04C=`CLOSED / IMPLEMENTATION FROZEN`；G12-05B=`VALID / FAIL`；Core Agent System=`NOT COMPLETE`。
+- **产品边界：** G12-02A/02B/03 与 G12-04A/04B 不实现 verifier/guard；G12-04C 仅实现已冻结的 typed requirement 与 Finalization Guard，修改范围限于 `core/engineering_requirements.py`、`core/engineering_agent.py`、`core/tool_agent/runtime.py`、`core/tool_agent/runtime_models.py`、必要的 Engineering safe trace、deterministic tests 与文档。Prompt、Tool implementation、registry、Knowledge backend、5/4/2 budget、product baseline、frozen evaluator files 均保持不变。`CURRENT PRODUCT BASELINE=0a1f42e8ee0320486dbd0ddc01400e1e19150501`；G12 Baseline Formal=`VALID / MANUAL GOLD COMPLETE`；System C Formal=`VALID / MANUAL GOLD COMPLETE / FAIL`；Finalization Guard=`IMPLEMENTED / FROZEN`；G12-04C=`CLOSED / IMPLEMENTATION FROZEN`；G12-05B=`VALID / FAIL`；Core Agent System=`COMPLETE`。
 - **G12-05A validity correction：** `g12-system-c-formal-20260826-173039` 的 16/16 case 在首次 Decision 返回 `ACTION_PROVIDER_ERROR`，provider calls=`16`、iterations=`16`、tool calls=`0`、Guard blocks=`0`。原 artifact 永久保留且未修改；它由 `VALID / MANUAL GOLD PENDING` 更正为 `INVALID / PROVIDER-PLANE FAILURE`，因此 System C effect、Formal A/B conclusion 与 Manual Gold 均为 `NOT MEASURED` / `NOT STARTED`。重分类 provenance 见 `evaluation/gate12/system_c_invalid_run_v1.json` 与 [Study Note 122](study-notes/122-G12-Provider-Failure与实验有效性.md)。
 - **G12-05B valid Formal：** 唯一用于 System C 能力结论的 run=`g12-system-c-formal-manual-20260826-203236`；dataset=`gate12-v1-630fc8b527c2`，evaluator=`c2ca9bd5c52ab1b7f9e94e869cd716be53dce0e0`，System C product=`65ee45eb52c45e95d2871aa9060416dabcd3d759`，acceptance contract SHA=`5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f`，case results SHA=`630a909e5563cd2c14d9d8ea4b292f0283e934acf6e02a659265d0edfbb694d6`。16 cases 完成后，Manual Gold 冻结为 Task `PASS=2 / PARTIAL=7 / FAIL=7`、Coverage `FULL=1 / PARTIAL=8 / NONE=7`、Correctness `PASS=5 / PARTIAL=4 / FAIL=3 / NO_EVIDENCE=4`、Grounding `PASS=1 / PARTIAL=5 / FAIL=10`。
 - **G12-05B final result：** automatic Evidence Sufficiency=`2/16`（Baseline A=`2/16`），Premature Finalization=`9/16`（A=`12/16`），required-tool complete=`7`（A=`6`），completed=`11`（A=`14`），refused=`4`（A=`1`），failed=`1`（A=`1`），provider/tool/iterations=`57/39/56`（A=`54/37/53`）。Acceptance 判定为 `run_validity=VALID`、`system_c_acceptance=FAIL`、`final_classification=VALID / FAIL`。Full Task Success PASS 达到最低线，但 partial-or-better 从 `10/16` 降到 `9/16`，Grounding FAIL 从 `7/16` 增到 `10/16`，人工 Evidence Coverage 未改善；不得写成 Guard 改善 reliability 或整个项目失败。
 - **G12-05B diagnosis boundary：** frozen Router 是 bounded lexical semantics；`q006` 没有明确 test/regression trigger，未选择 `CHANGE_TEST_V1`，该观察只用于 post-hoc diagnosis，不修改 Router、不重跑。`q005/q007` 未稳定完成 `find_tests → read_project_context(test)`；`q010` 虽发生 Guard block，却取得错误的 `project_code` 路径。Guard 可以阻止 unsupported completion，但不能产生缺失 evidence 或修复 semantic relevance。实现级 intervention path 可达，但最小 Guard 单独改善 evidence-grounded reliability 的假设未获支持。
 - **G12-05B closure boundary：** 两次早期 provider-plane invalid run 永久保留；最终有效 FAIL 不挑结果重跑，状态为 `No rerun`，Manual Gold 与 final assessment 作为 G12 final close 的唯一输入。详见 [Study Note 123](study-notes/123-G12-System-C负结果与Finalization-Guard边界.md) 与 `evaluation/gate12/system_c_final_assessment_v1.json`。
+- **G12 final close：** Gate 12 已 `CLOSED / FROZEN`，最终 provenance 见 `evaluation/gate12/gate12_final_close_v1.json` 与 [Study Note 124](study-notes/124-G12最终收口与核心Agent完成.md)。核心架构、工具面、评测协议、跨仓库 benchmark、Baseline A、最小 deterministic Guard、A/C Formal 和 Manual Gold 均已完成。System C 的 `VALID / FAIL` 是被接受的 negative result，不是项目失败；不做 benchmark-aware Router patch，不做结果选择式 rerun，`CORE AGENT SYSTEM=COMPLETE`，`No automatic Gate 13`。
 
 ## 项目定位
 

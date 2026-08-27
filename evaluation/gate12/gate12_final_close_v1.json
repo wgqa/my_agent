@@ -1,0 +1,85 @@
+{
+  "schema_version": "gate12_final_close_v1",
+  "gate12_status": "CLOSED / FROZEN",
+  "core_agent_system": "COMPLETE",
+  "final_gate12_baseline": "299632e6d78c1a0fb83f32c7dea7be70cc53e9fd",
+  "dataset": "gate12-v1-630fc8b527c2",
+  "benchmark_sha": "630fc8b527c22d3e7afc4f4288788524f5dfb52f5ed6ade13ec050abc35f215f",
+  "baseline_a_run": "g12-baseline-a-formal-20260825-195305",
+  "system_c_run": "g12-system-c-formal-manual-20260826-203236",
+  "system_c_product": "65ee45eb52c45e95d2871aa9060416dabcd3d759",
+  "acceptance_contract_sha": "5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f",
+  "system_c_final_assessment_commit": "299632e6d78c1a0fb83f32c7dea7be70cc53e9fd",
+  "system_c_final_classification": "VALID / FAIL",
+  "no_further_system_c_rerun": true,
+  "negative_result_accepted": true,
+  "no_benchmark_aware_router_patch": true,
+  "automatic_gate_13_opened": false,
+  "manual_gold_identities": {
+    "baseline_a": {
+      "file": "baseline_a_manual_review_v1.jsonl",
+      "sha256": "2162ab579a56369b4f6bc5665e1d0e62493a1b729e7a2e1d1dc8bb5366f92758",
+      "manifest_file": "baseline_a_manual_review_manifest_v1.json",
+      "run_id": "g12-baseline-a-formal-20260825-195305"
+    },
+    "system_c": {
+      "file": "system_c_manual_review_v1.jsonl",
+      "sha256": "6ac8edaaa2cee86f4fafea2a152a77b02c048839c62ac7bd1115cdeb87bc4b67",
+      "summary_file": "system_c_manual_review_summary_v1.json",
+      "run_id": "g12-system-c-formal-manual-20260826-203236"
+    }
+  },
+  "final_capability_conclusions": {
+    "baseline_a": {
+      "task_success": {"PASS": 2, "PARTIAL": 8, "FAIL": 6},
+      "evidence_sufficiency": "2/16",
+      "premature_finalization": "12/16",
+      "claim_grounding": {"PASS": 1, "PARTIAL": 8, "FAIL": 7}
+    },
+    "system_c": {
+      "task_success": {"PASS": 2, "PARTIAL": 7, "FAIL": 7},
+      "evidence_sufficiency": "2/16",
+      "premature_finalization": "9/16",
+      "claim_grounding": {"PASS": 1, "PARTIAL": 5, "FAIL": 10}
+    },
+    "engineering_conclusion": "Evidence-Grounded AI Engineering Agent 的核心架构、工具面、评测协议、跨仓库 transfer benchmark 与实验闭环均已完成。Baseline 显示系统具有 mixed task capability，但 evidence-grounded reliability 仍弱；最小 deterministic Finalization Guard 的实现机械正确且真实发生过 intervention，但单独依赖该 Guard 并未在 transfer benchmark 上产生预期的可靠性提升。",
+    "closure_conclusion": "因此 Gate 12 接受 negative result 并冻结，不进行 benchmark-aware Router patch 或结果选择式 rerun。"
+  },
+  "frozen_future_debt": [
+    "Requirement understanding / routing recall",
+    "Evidence planning",
+    "Evidence relevance",
+    "cross-file evidence acquisition",
+    "test evidence acquisition",
+    "claim-evidence grounding",
+    "tool-loop reliability"
+  ],
+  "provider_incident_provenance": {
+    "early_invalid_system_c_runs": [
+      {"run_id": "g12-system-c-formal-20260826-173039", "classification": "INVALID / PROVIDER-PLANE FAILURE"},
+      {"run_id": "g12-system-c-formal-r1-20260826-191531", "classification": "INVALID / PROVIDER-PLANE FAILURE"}
+    ],
+    "underlying_error": "APIConnectionError",
+    "manual_powershell_equivalent_api_health": "PASS",
+    "final_manual_process_16_case_formal": "VALID",
+    "environment_note": "Agent-managed execution environment showed reproducible APIConnectionError, while manually launched equivalent API processes succeeded."
+  },
+  "reproducibility_lesson": {
+    "future_real_network_provider_or_long_formal_execution": "operator runs from a normal local shell",
+    "execution_agent_scope": "generates commands, code, tests, and artifact analysis",
+    "invalidity_rule": "execution-environment anomalies must be classified as Product Failure or Infrastructure Invalidity before they are used as product conclusions"
+  },
+  "closure_policy": {
+    "current_core_agent_project_phase_complete": true,
+    "no_automatic_next_generation_repair": true,
+    "no_automatic_gate_13": true,
+    "future_enhancement_examples": [
+      "Evidence Planning 2.0",
+      "semantic requirement routing",
+      "Graph-based planning",
+      "multi-agent",
+      "GraphRAG"
+    ],
+    "future_enhancement_boundary": "A future phase is independent enhancement work, not an attempt to repair or select a better G12 result."
+  }
+}

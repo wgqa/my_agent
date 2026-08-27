@@ -268,7 +268,9 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 | G9 | Reliability |
 | G10 | Core Evidence Expansion |
 | G11 | Unified AI Engineering Agent / Engineering Task Validation |
-| G12 | Engineering Evaluation 2.0（NOT STARTED） |
+| G12 | Engineering Evaluation 2.0（CLOSED / FROZEN；Core Agent System COMPLETE） |
+
+G12 已在冻结的 16-case、two-repository transfer benchmark 上完成 Baseline A、最小 deterministic Finalization Guard、同 benchmark A/C Formal 和 Manual Gold。最终 System C 分类为 `VALID / FAIL`：系统具有 mixed task capability，但最小 Guard 未带来预期的 evidence-grounded reliability 提升。这个负结果已被接受并冻结；不会为改善该 benchmark 的结果自动修改 Router 或开启 Gate 13。详见 [G12 final close](docs/study-notes/124-G12最终收口与核心Agent完成.md)。
 
 ## Repository Map
 

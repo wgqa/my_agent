@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（77 份）
+## CURRENT（78 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -103,6 +103,7 @@
 | 121 | [121-G12-System-C-A-B评测Harness.md](121-G12-System-C-A-B评测Harness.md) | G12-04D：System C evaluator、automatic/manual separation、Guard trace、cost 与一次性 Formal policy |
 | 122 | [122-G12-Provider-Failure与实验有效性.md](122-G12-Provider-Failure与实验有效性.md) | G12-05A/R1：provider-plane failure、HTTP 200 与 provider success 的区别、INVALID reclassification |
 | 123 | [123-G12-System-C负结果与Finalization-Guard边界.md](123-G12-System-C负结果与Finalization-Guard边界.md) | G12 final Formal：System C Manual Gold、A/C 对照、Finalization Guard 负结果与 evidence-grounding 边界 |
+| 124 | [124-G12最终收口与核心Agent完成.md](124-G12最终收口与核心Agent完成.md) | G12 final close：negative result acceptance、Core Agent COMPLETE、future debt 与 reproducibility lesson |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -170,6 +171,6 @@
 
 ## 完整性声明
 
-- 当前索引列出 **124 份**，每份只出现一次：CURRENT 77 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 124。
+- 当前索引列出 **125 份**，每份只出现一次：CURRENT 78 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 125。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-27。
