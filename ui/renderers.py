@@ -12,6 +12,21 @@ from typing import Any, Optional
 import streamlit as st
 
 
+EVIDENCE_KIND_LABELS = {
+    "knowledge": "KNOWLEDGE",
+    "project_code": "CODE",
+    "project_doc": "DOC",
+    "project_change": "CHANGE",
+    "project_test": "TEST",
+}
+
+STATUS_MESSAGES = {
+    "refused": "I couldn't complete this safely with the available evidence.",
+    "deferred": "This analysis needs another pass before it can be completed.",
+    "failed": "The engineering analysis could not be completed.",
+}
+
+
 def format_score(score: Optional[float]) -> str:
     if score is None:
         return "N/A"
@@ -28,7 +43,8 @@ def _status_ui(status: str) -> None:
         "deferred": st.warning,
         "failed": st.error,
     }
-    mapping.get(status, st.info)(f"Status: **{status}**")
+    message = STATUS_MESSAGES.get(status, "The request did not complete.")
+    mapping.get(status, st.info)(message)
 
 
 def _render_answer(answer: Any) -> None:
@@ -187,13 +203,43 @@ def render_agent_result(result: dict) -> None:
 def _render_tool_evidence_body(evidence: list) -> None:
     for item in evidence:
         evidence_id = item.get("evidence_id", "?")
-        kind_label = "CODE" if item.get("kind") == "project_code" else "DOC"
+        kind_label = EVIDENCE_KIND_LABELS.get(item.get("kind"), "EVIDENCE")
         path = item.get("path", "?")
         start_line = item.get("start_line", "?")
         end_line = item.get("end_line", "?")
         st.markdown(f"**{evidence_id} · {kind_label}**")
         st.caption(f"{path} · lines {start_line}-{end_line}")
         st.text(item.get("snippet", ""))
+
+
+def _render_engineering_evidence_body(evidence: list) -> None:
+    for item in evidence:
+        evidence_id = item.get("evidence_id", "?")
+        kind = item.get("kind")
+        kind_label = EVIDENCE_KIND_LABELS.get(kind, "EVIDENCE")
+        source = item.get("source_name") or item.get("path") or "Unknown source"
+        st.markdown(f"**{evidence_id} · {kind_label}**")
+        if kind == "knowledge":
+            rank = item.get("rank")
+            score = format_score(item.get("score"))
+            metadata = [source]
+            if rank is not None:
+                metadata.append(f"rank {rank}")
+            metadata.append(f"score {score}")
+            st.caption(" · ".join(metadata))
+        else:
+            start_line = item.get("start_line", "?")
+            end_line = item.get("end_line", "?")
+            st.caption(f"{source} · lines {start_line}-{end_line}")
+        st.text(item.get("snippet", "") or "(No snippet returned)")
+
+
+def render_engineering_evidence(evidence: list) -> None:
+    if not evidence:
+        st.caption("No evidence was returned.")
+        return
+    with st.expander(f"Evidence ({len(evidence)})", expanded=False):
+        _render_engineering_evidence_body(evidence)
 
 
 def render_tool_evidence(evidence: list) -> None:
@@ -246,4 +292,26 @@ def render_tool_result(result: dict) -> None:
             _kv("Reason Code", result["reason_code"])
         if result.get("failure_code") is not None:
             _kv("Failure Code", result["failure_code"])
+        render_tool_trace(result.get("trace") or [], collapsed=False)
+
+
+def render_engineering_result(result: dict) -> None:
+    """Render the public Engineering Agent response in a chat-friendly layout."""
+    status = result.get("status")
+    if status not in (None, "completed"):
+        _status_ui(status)
+    _render_answer(result.get("answer"))
+    render_engineering_evidence(result.get("evidence") or [])
+
+    with st.expander("Execution details", expanded=False):
+        cols = st.columns(3)
+        cols[0].metric("Iterations", result.get("iterations_used", 0))
+        cols[1].metric("Tool calls", result.get("tool_calls_used", 0))
+        cols[2].metric("Tool errors", result.get("tool_errors_used", 0))
+        if status is not None:
+            _kv("Status", status)
+        if result.get("reason_code") is not None:
+            _kv("Reason code", result["reason_code"])
+        if result.get("failure_code") is not None:
+            _kv("Failure code", result["failure_code"])
         render_tool_trace(result.get("trace") or [], collapsed=False)

@@ -75,6 +75,19 @@ def test_project_get_url_and_parse(monkeypatch):
     assert captured["url"] == f"{BASE}/project"
 
 
+def test_engineering_knowledge_get_url_and_parse(monkeypatch):
+    payload = {
+        "schema_version": "engineering_knowledge_status_v1",
+        "ready": True,
+        "verified": True,
+    }
+    captured = _install(monkeypatch, _Resp(200, payload))
+    client = ApiClient(base_url=BASE)
+    assert client.engineering_knowledge() == payload
+    assert captured["method"] == "GET"
+    assert captured["url"] == f"{BASE}/engineering/knowledge"
+
+
 def test_query_payload_question_and_top_k(monkeypatch):
     captured = _install(monkeypatch, _Resp(200, {"answer": "a", "sources": []}))
     client = ApiClient(base_url=BASE)
@@ -119,6 +132,29 @@ def test_tool_agent_query_only_question(monkeypatch):
     body = captured["kwargs"]["json"]
     assert body == {"question": "问题"}
     assert set(body.keys()) == {"question"}
+
+
+def test_engineering_query_only_sends_question(monkeypatch):
+    captured = _install(monkeypatch, _Resp(200, {"status": "completed"}))
+    client = ApiClient(base_url=BASE)
+
+    assert client.engineering_query("Trace this config") == {"status": "completed"}
+    assert captured["method"] == "POST"
+    assert captured["url"] == f"{BASE}/engineering/query"
+    body = captured["kwargs"]["json"]
+    assert body == {"question": "Trace this config"}
+    assert set(body) == {"question"}
+    for forbidden in (
+        "history",
+        "top_k",
+        "provider",
+        "model",
+        "budget",
+        "task_family",
+        "required_evidence_groups",
+        "gold",
+    ):
+        assert forbidden not in body
 
 
 def test_index_file_sends_multipart(monkeypatch):

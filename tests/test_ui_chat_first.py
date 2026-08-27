@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 
 from ui import app, renderers
@@ -39,11 +40,25 @@ def test_conversations_create_switch_and_keep_mode_isolated(monkeypatch):
     second["title"] = app._title_for_question("second")
 
     assert second_id != first_id
-    assert second["mode"] == "agent"
+    assert second["mode"] == app.DEFAULT_MODE == "engineering"
     assert second["messages"][0]["content"] == "second"
     app._switch_conversation(first_id)
     assert app._active_conversation()["messages"][0]["content"] == "first"
     assert app._active_conversation()["mode"] == "agent"
+
+
+def test_default_conversation_uses_engineering_agent():
+    assert app._conversation()["mode"] == app.DEFAULT_MODE == "engineering"
+
+
+def test_legacy_demo_modes_remain_in_advanced_demo_selection():
+    assert app.ADVANCED_DEMO_OPTIONS == [
+        "Engineering Agent",
+        "Basic RAG",
+        "Agentic RAG",
+        "Structured Tool Agent",
+    ]
+    assert "st.radio" not in inspect.getsource(app.main)
 
 
 def test_title_is_local_truncated_first_question():
@@ -138,5 +153,16 @@ def test_empty_conversation_renderer_has_no_debug_sections(monkeypatch):
     rendered = []
     monkeypatch.setattr(app.st, "markdown", lambda value, **_kwargs: rendered.append(value))
     app._render_empty_conversation()
-    assert "How can I help?" in rendered[0]
+    assert "What can I help with?" in rendered[0]
+    assert "Trace a config value" in rendered[0]
+    assert "Assess a commit's impact" in rendered[0]
+    assert "Compare documented API behavior" in rendered[0]
+    assert "Diagnose a configuration issue" in rendered[0]
     assert "Planner" not in rendered[0]
+
+
+def test_product_shell_does_not_fake_streaming():
+    source = inspect.getsource(app)
+    assert "time.sleep" not in source
+    assert "write_stream" not in source
+    assert "for character in" not in source

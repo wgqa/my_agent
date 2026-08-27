@@ -81,7 +81,7 @@ def _assert_app_test(backend_base: str) -> None:
             raise AssertionError(f"Streamlit AppTest exception: {details}")
 
         titles = [getattr(item, "value", "") for item in app_test.title]
-        if not any("RAG Agent" in title for title in titles):
+        if not any("Engineering Agent" in title for title in titles):
             raise AssertionError(f"page title missing: {titles!r}")
 
         captions = [getattr(item, "value", "") for item in app_test.caption]
@@ -123,34 +123,22 @@ def _assert_app_test(backend_base: str) -> None:
         if len(app_test.tabs) != 0:
             raise AssertionError("legacy parallel tabs are still present")
 
-        if len(app_test.radio) == 0:
-            raise AssertionError("mode radio is missing")
-        modes = list(app_test.radio[0].options)
+        if len(app_test.radio) != 0:
+            raise AssertionError("legacy mode radio is still present")
         required_modes = (
             "Basic RAG",
             "Agentic RAG",
             "Structured Tool Agent",
         )
-        if not all(mode in modes for mode in required_modes):
+        demo_selectors = [
+            item for item in app_test.selectbox
+            if all(mode in item.options for mode in required_modes)
+        ]
+        if len(demo_selectors) != 1:
+            raise AssertionError("Advanced / Demo mode selection is missing")
+        modes = list(demo_selectors[0].options)
+        if modes != ["Engineering Agent", *required_modes]:
             raise AssertionError(f"required modes missing: {modes!r}")
-
-        # Mode changes rerun only the chat shell; no query endpoint is submitted.
-        for mode in required_modes:
-            app_test.radio[0].set_value(mode).run(timeout=30)
-            if len(app_test.exception) > 0:
-                details = "\n".join(str(item) for item in app_test.exception)
-                raise AssertionError(f"mode {mode!r} raised: {details}")
-            feature = {
-                "Basic RAG": "basic_rag",
-                "Agentic RAG": "agentic_rag",
-                "Structured Tool Agent": "structured_tool_agent",
-            }[mode]
-            if features.get(feature) is not True:
-                if len(app_test.chat_input) != 0:
-                    raise AssertionError(
-                        f"unavailable mode {mode!r} still exposes chat input"
-                    )
-                continue
     finally:
         if previous_url is None:
             os.environ.pop("RAG_API_URL", None)

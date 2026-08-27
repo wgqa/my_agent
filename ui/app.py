@@ -1,7 +1,7 @@
-"""G7-UI-01: Chat-first RAG Agent product UI.
+"""Post-G12 Engineering Agent product shell.
 
-The page keeps the existing API contract and safe response boundary while
-organising the demo around session-local conversations instead of debug tabs.
+The default conversation uses the public Engineering Agent API. Legacy RAG
+modes remain available as demos without competing with the main workflow.
 """
 
 from __future__ import annotations
@@ -21,22 +21,26 @@ MODES = {
     "Structured Tool Agent": "Decision → Tool → Observation → Final",
 }
 MODE_KEY = {
+    "Engineering Agent": "engineering",
     "Basic RAG": "basic",
     "Agentic RAG": "agent",
     "Structured Tool Agent": "tool_agent",
 }
 MODE_LABEL_BY_KEY = {value: label for label, value in MODE_KEY.items()}
 MODE_FEATURE = {
+    "Engineering Agent": "engineering_agent",
     "Basic RAG": "basic_rag",
     "Agentic RAG": "agentic_rag",
     "Structured Tool Agent": "structured_tool_agent",
 }
 MODE_FEATURE_BY_KEY = {value: MODE_FEATURE[label] for label, value in MODE_KEY.items()}
+DEFAULT_MODE = "engineering"
+ADVANCED_DEMO_OPTIONS = ["Engineering Agent", *MODES]
 DEFAULT_API_URL = os.getenv("RAG_API_URL", "http://localhost:8000")
 MAX_TITLE_LENGTH = 36
 
 
-def _conversation(mode: str = "basic") -> dict:
+def _conversation(mode: str = DEFAULT_MODE) -> dict:
     conversation_id = uuid4().hex[:10]
     return {
         "id": conversation_id,
@@ -80,6 +84,8 @@ def _init_state() -> None:
         st.session_state.runtime_health = None
     if not hasattr(st.session_state, "project_identity"):
         st.session_state.project_identity = None
+    if not hasattr(st.session_state, "engineering_knowledge_status"):
+        st.session_state.engineering_knowledge_status = None
     if not hasattr(st.session_state, "api_available"):
         st.session_state.api_available = False
     if not hasattr(st.session_state, "top_k"):
@@ -89,7 +95,7 @@ def _init_state() -> None:
 def _active_conversation() -> dict:
     if not hasattr(st.session_state, "conversations"):
         legacy = getattr(st.session_state, "messages_by_mode", {})
-        mode = "basic"
+        mode = DEFAULT_MODE
         conversations = {}
         if isinstance(legacy, dict):
             for legacy_mode in ("basic", "agent", "tool_agent"):
@@ -108,7 +114,7 @@ def _active_conversation() -> dict:
 
 def _new_conversation(mode: str | None = None) -> str:
     if mode is None:
-        mode = _active_conversation().get("mode", "basic")
+        mode = DEFAULT_MODE
     item = _conversation(mode)
     st.session_state.conversations[item["id"]] = item
     st.session_state.active_conversation_id = item["id"]
@@ -151,6 +157,14 @@ def _read_project(client: ApiClient) -> dict | None:
     return result if isinstance(result, dict) else None
 
 
+def _read_engineering_knowledge(client: ApiClient) -> dict | None:
+    try:
+        result = client.engineering_knowledge()
+    except (ApiError, AttributeError):
+        return None
+    return result if isinstance(result, dict) else None
+
+
 def _refresh_runtime(client: ApiClient) -> None:
     try:
         st.session_state.runtime_health = client.health()
@@ -160,6 +174,7 @@ def _refresh_runtime(client: ApiClient) -> None:
         st.session_state.api_available = False
     st.session_state.runtime_capabilities = _read_capabilities(client)
     st.session_state.project_identity = _read_project(client)
+    st.session_state.engineering_knowledge_status = _read_engineering_knowledge(client)
 
 
 def _render_project_identity(project: dict) -> None:
@@ -215,6 +230,15 @@ def _submit(
 
     client = st.session_state.api_client
     try:
+        if mode == "engineering":
+            result = client.engineering_query(question)
+            if render:
+                renderers.render_engineering_result(result)
+            return {
+                "content": result.get("answer", "") or "",
+                "kind": "engineering",
+                "result": result,
+            }
         if mode == "basic":
             result = client.query(question, top_k)
             if render:
@@ -252,7 +276,9 @@ def _render_assistant_message(message: dict) -> None:
     with column:
         result = message.get("result")
         kind = message.get("kind")
-        if result and kind == "basic":
+        if result and kind == "engineering":
+            renderers.render_engineering_result(result)
+        elif result and kind == "basic":
             renderers.render_basic_result(result)
         elif result and kind == "agent":
             renderers.render_agent_result(result)
@@ -327,6 +353,7 @@ def _render_settings(client: ApiClient) -> None:
             feature_state = capabilities.get("features") or {}
             st.caption("Runtime capabilities")
             for label, feature in (
+                ("Engineering Agent", "engineering_agent"),
                 ("Basic RAG", "basic_rag"),
                 ("Agentic RAG", "agentic_rag"),
                 ("Structured Tool Agent", "structured_tool_agent"),
@@ -346,11 +373,57 @@ def _render_settings(client: ApiClient) -> None:
         _render_knowledge_base(client)
 
 
+def _render_compact_workspace_status() -> None:
+    """Show only public API identities; no local paths or runtime internals."""
+    st.markdown("##### Workspace")
+    project = getattr(st.session_state, "project_identity", None)
+    if isinstance(project, dict) and isinstance(project.get("project_name"), str):
+        st.caption(f"Project · {project['project_name']}")
+    else:
+        st.caption("Project · unavailable")
+
+    if getattr(st.session_state, "api_available", False):
+        st.caption("API · connected")
+    else:
+        st.caption("API · unavailable")
+
+    knowledge = getattr(st.session_state, "engineering_knowledge_status", None)
+    if isinstance(knowledge, dict):
+        if knowledge.get("ready") is True and knowledge.get("verified") is True:
+            st.caption(f"Knowledge · verified · {knowledge.get('file_count', '?')} files")
+        elif knowledge.get("ready") is True:
+            st.caption("Knowledge · ready, not verified")
+        else:
+            st.caption("Knowledge · unavailable")
+    else:
+        st.caption("Knowledge · unavailable")
+
+
+def _render_advanced_demo_selector() -> None:
+    conversation = _active_conversation()
+    current_label = MODE_LABEL_BY_KEY.get(
+        conversation.get("mode", DEFAULT_MODE), "Engineering Agent"
+    )
+    with st.expander("Advanced / Demo", expanded=False):
+        selected_label = st.selectbox(
+            "Conversation mode",
+            ADVANCED_DEMO_OPTIONS,
+            index=ADVANCED_DEMO_OPTIONS.index(current_label),
+            label_visibility="collapsed",
+        )
+        selected_mode = MODE_KEY[selected_label]
+        if selected_mode != conversation.get("mode"):
+            conversation["mode"] = selected_mode
+            st.rerun()
+        if selected_mode != DEFAULT_MODE:
+            st.caption(MODES[selected_label])
+
+
 def _sidebar() -> int:
     client = st.session_state.api_client
     _refresh_runtime(client)
     with st.sidebar:
-        st.markdown("<div class='product-mark'>RAG Agent</div>", unsafe_allow_html=True)
+        st.markdown("<div class='product-mark'>Engineering Agent</div>", unsafe_allow_html=True)
         if st.button("＋ New chat", use_container_width=True):
             _new_conversation()
             st.rerun()
@@ -366,16 +439,21 @@ def _sidebar() -> int:
             elif st.button(label, key=f"conversation_{conversation_id}", use_container_width=True):
                 _switch_conversation(conversation_id)
                 st.rerun()
+        _render_compact_workspace_status()
+        _render_advanced_demo_selector()
         st.markdown("<div class='sidebar-spacer'></div>", unsafe_allow_html=True)
-        st.caption("User · Local session")
         _render_settings(client)
     return int(st.session_state.top_k)
 
 
 def _render_empty_conversation() -> None:
     st.markdown(
-        "<div class='empty-state'><h2>How can I help?</h2>"
-        "<p>Ask about your documents, retrieval, or project code.</p></div>",
+        "<div class='empty-state'><h2>What can I help with?</h2>"
+        "<p>Trace a config value from configuration to runtime behavior.</p>"
+        "<p>Assess a commit's impact and identify regression tests.</p>"
+        "<p>Compare documented API behavior with the implementation.</p>"
+        "<p>Diagnose a configuration issue using code and implementation evidence.</p>"
+        "</div>",
         unsafe_allow_html=True,
     )
 
@@ -386,16 +464,26 @@ def _tab_console(mode: str, top_k: int) -> None:
     conversation = _active_conversation()
     for message in conversation.get("messages", []):
         _render_message(message)
-    feature = MODE_FEATURE_BY_KEY[mode]
+    feature = MODE_FEATURE_BY_KEY.get(mode)
+    if feature is None:
+        st.error("The selected conversation mode is unavailable.")
+        return
     if not _feature_enabled(feature):
-        st.warning(f"{MODE_LABEL_BY_KEY[mode]} runtime 当前不可用，请检查后端运行时初始化状态。")
+        st.warning(
+            f"{MODE_LABEL_BY_KEY.get(mode, mode)} runtime 当前不可用，请检查后端运行时初始化状态。"
+        )
         return
     if not getattr(st.session_state, "api_available", True):
         st.error("API unavailable. Start the backend to begin a conversation.")
         return
     if not conversation.get("messages"):
         _render_empty_conversation()
-    prompt = st.chat_input("Message RAG Agent")
+    prompt_label = (
+        "Ask an engineering question"
+        if mode == DEFAULT_MODE
+        else "Message demo agent"
+    )
+    prompt = st.chat_input(prompt_label)
     if prompt:
         previous_messages = [
             {"role": item.get("role"), "content": item.get("content", "")}
@@ -405,20 +493,25 @@ def _tab_console(mode: str, top_k: int) -> None:
         conversation["messages"].append({"role": "user", "content": prompt})
         if conversation.get("title") == "New conversation":
             conversation["title"] = _title_for_question(prompt)
-        reply = _submit(
-            prompt,
-            mode,
-            top_k,
-            history=previous_messages if mode == "agent" else None,
-            render=False,
-        )
+        if mode == DEFAULT_MODE:
+            # This reflects the active HTTP request only; streaming is added separately.
+            with st.spinner("Analyzing engineering evidence..."):
+                reply = _submit(prompt, mode, top_k, render=False)
+        else:
+            reply = _submit(
+                prompt,
+                mode,
+                top_k,
+                history=previous_messages if mode == "agent" else None,
+                render=False,
+            )
         conversation["messages"].append({"role": "assistant", **reply})
         st.rerun()
 
 
 def main() -> None:
     st.set_page_config(
-        page_title="RAG Agent",
+        page_title="Engineering Agent",
         page_icon="✦",
         layout="wide",
         initial_sidebar_state="expanded",
@@ -442,19 +535,8 @@ def main() -> None:
     _init_state()
     top_k = _sidebar()
     conversation = _active_conversation()
-    st.title("RAG Agent")
+    st.title("Evidence-Grounded Engineering Agent")
     _render_project_tag(st.session_state.project_identity)
-    mode_labels = list(MODES)
-    current_label = MODE_LABEL_BY_KEY.get(conversation.get("mode", "basic"), "Basic RAG")
-    selected_label = st.radio(
-        "Mode",
-        mode_labels,
-        index=mode_labels.index(current_label),
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    conversation["mode"] = MODE_KEY[selected_label]
-    st.caption(MODES[selected_label])
     _tab_console(conversation["mode"], top_k)
 
 

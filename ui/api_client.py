@@ -94,6 +94,9 @@ class ApiClient:
     def project(self) -> dict:
         return self._request("GET", "/project")
 
+    def engineering_knowledge(self) -> dict:
+        return self._request("GET", "/engineering/knowledge")
+
     def index_file(self, file_bytes: bytes, filename: str) -> dict:
         files = {"file": (filename, file_bytes)}
         try:
@@ -123,4 +126,14 @@ class ApiClient:
         # 后端 ToolAgentQueryRequest extra=forbid：只允许 question
         return self._request(
             "POST", "/tool-agent/query", json_body={"question": question}
+        )
+
+    def engineering_query(self, question: str) -> dict:
+        """Submit the public Engineering Agent request boundary.
+
+        The backend deliberately accepts only the user's question. Project,
+        prompt, budget, and evidence policy remain system-managed.
+        """
+        return self._request(
+            "POST", "/engineering/query", json_body={"question": question}
         )

@@ -20,6 +20,7 @@ def _state(capabilities):
 def test_feature_mapping_is_strict_and_conservative(monkeypatch):
     capabilities = {
         "features": {
+            "engineering_agent": True,
             "indexing": True,
             "basic_rag": True,
             "agentic_rag": False,
@@ -28,6 +29,7 @@ def test_feature_mapping_is_strict_and_conservative(monkeypatch):
     }
     monkeypatch.setattr(app.st, "session_state", _state(capabilities))
 
+    assert app._feature_enabled("engineering_agent") is True
     assert app._feature_enabled("basic_rag") is True
     assert app._feature_enabled("agentic_rag") is False
     assert app._feature_enabled("structured_tool_agent") is False
@@ -55,6 +57,73 @@ def test_unavailable_mode_does_not_render_chat_or_call_query(monkeypatch):
     )
 
     app._tab_console("Agentic RAG", 5)
+
+
+def test_unavailable_engineering_mode_does_not_render_chat_or_call_query(monkeypatch):
+    class FailingClient:
+        def engineering_query(self, *_args):
+            raise AssertionError("unavailable mode must not call engineering_query")
+
+    monkeypatch.setattr(
+        app.st,
+        "session_state",
+        _state({"features": {"engineering_agent": False}}),
+    )
+    app.st.session_state.api_client = FailingClient()
+    monkeypatch.setattr(app.st, "warning", lambda _value: None)
+    monkeypatch.setattr(
+        app.st,
+        "chat_input",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unavailable mode must hide chat input")
+        ),
+    )
+
+    app._tab_console("engineering", 5)
+
+
+def test_engineering_submission_uses_engineering_endpoint_only(monkeypatch):
+    calls = []
+
+    class Client:
+        def engineering_query(self, question):
+            calls.append(question)
+            return {"status": "completed", "answer": "Grounded answer"}
+
+    class Spinner:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    state = SimpleNamespace(
+        api_client=Client(),
+        api_available=True,
+        runtime_capabilities={"features": {"engineering_agent": True}},
+        conversations={
+            "c1": {"id": "c1", "title": "New conversation", "mode": "engineering", "messages": []}
+        },
+        active_conversation_id="c1",
+    )
+    monkeypatch.setattr(app.st, "session_state", state)
+    monkeypatch.setattr(app.st, "markdown", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
+    monkeypatch.setattr(app.st, "spinner", lambda *_args, **_kwargs: Spinner())
+    monkeypatch.setattr(app.st, "rerun", lambda: None)
+
+    app._tab_console("engineering", 9)
+
+    assert calls == ["Trace config"]
+    assert state.conversations["c1"]["messages"] == [
+        {"role": "user", "content": "Trace config"},
+        {
+            "role": "assistant",
+            "content": "Grounded answer",
+            "kind": "engineering",
+            "result": {"status": "completed", "answer": "Grounded answer"},
+        },
+    ]
 
 
 def test_indexing_disabled_does_not_call_index_file(monkeypatch):
