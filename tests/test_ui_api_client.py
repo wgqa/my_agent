@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 import requests
-from ui.api_client import ApiClient, ApiError
+from ui.api_client import ApiClient, ApiError, ENGINEERING_STREAM_SCHEMA
 
 BASE = "http://127.0.0.1:9999"
 
@@ -25,6 +25,28 @@ class _Resp:
         return self._payload
 
 
+class _StreamResp:
+    def __init__(self, lines=(), status_code=200, headers=None, payload=None):
+        self.lines = list(lines)
+        self.status_code = status_code
+        self.headers = headers or {}
+        self._payload = payload if payload is not None else {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def iter_lines(self, decode_unicode=False):
+        yield from self.lines
+
+    def json(self):
+        if self._payload is _NOJSON:
+            raise ValueError("not json")
+        return self._payload
+
+
 def _install(monkeypatch, resp, exc=None):
     captured = {}
 
@@ -37,6 +59,20 @@ def _install(monkeypatch, resp, exc=None):
         return resp
 
     monkeypatch.setattr("ui.api_client.requests.request", fake_request)
+    return captured
+
+
+def _install_stream(monkeypatch, resp, exc=None):
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        if exc is not None:
+            raise exc
+        return resp
+
+    monkeypatch.setattr("ui.api_client.requests.post", fake_post)
     return captured
 
 
@@ -209,4 +245,100 @@ def test_non_json_response(monkeypatch):
     client = ApiClient(base_url=BASE)
     with pytest.raises(ApiError) as excinfo:
         client.health()
+    assert excinfo.value.kind == "invalid_response"
+
+
+def test_engineering_stream_posts_only_question_and_yields_events(monkeypatch):
+    response = _StreamResp(
+        lines=[
+            ": keep-alive",
+            "",
+            'data: {"type":"status","stage":"analysis","state":"started"}',
+            'data: {"type":"final","result":{"status":"refused"}}',
+            'data: {"type":"done"}',
+        ],
+        headers={
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "X-Engineering-Stream-Schema": ENGINEERING_STREAM_SCHEMA,
+        },
+    )
+    captured = _install_stream(monkeypatch, response)
+
+    events = list(ApiClient(base_url=BASE).engineering_query_stream("Trace config"))
+
+    assert captured["url"] == f"{BASE}/engineering/query/stream"
+    assert captured["kwargs"] == {
+        "json": {"question": "Trace config"},
+        "stream": True,
+        "timeout": (5.0, 30.0),
+    }
+    assert [event["type"] for event in events] == ["status", "final", "done"]
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Content-Type": "application/json", "X-Engineering-Stream-Schema": ENGINEERING_STREAM_SCHEMA},
+        {"Content-Type": "text/event-stream"},
+    ],
+)
+def test_engineering_stream_rejects_wrong_headers(monkeypatch, headers):
+    _install_stream(monkeypatch, _StreamResp(headers=headers))
+
+    with pytest.raises(ApiError) as excinfo:
+        list(ApiClient(base_url=BASE).engineering_query_stream("q"))
+
+    assert excinfo.value.kind == "invalid_response"
+
+
+def test_engineering_stream_preserves_http_error_classification(monkeypatch):
+    _install_stream(
+        monkeypatch,
+        _StreamResp(status_code=503, payload={"detail": "not ready"}),
+    )
+
+    with pytest.raises(ApiError) as excinfo:
+        list(ApiClient(base_url=BASE).engineering_query_stream("q"))
+
+    assert excinfo.value.kind == "http_error"
+    assert excinfo.value.status == 503
+
+
+def test_engineering_stream_rejects_malformed_or_incomplete_protocol(monkeypatch):
+    headers = {
+        "Content-Type": "text/event-stream",
+        "X-Engineering-Stream-Schema": ENGINEERING_STREAM_SCHEMA,
+    }
+    _install_stream(monkeypatch, _StreamResp(lines=["data: {bad"], headers=headers))
+    with pytest.raises(ApiError) as malformed:
+        list(ApiClient(base_url=BASE).engineering_query_stream("q"))
+    assert malformed.value.kind == "invalid_response"
+
+    _install_stream(
+        monkeypatch,
+        _StreamResp(
+            lines=['data: {"type":"status","stage":"analysis","state":"started"}'],
+            headers=headers,
+        ),
+    )
+    with pytest.raises(ApiError) as incomplete:
+        list(ApiClient(base_url=BASE).engineering_query_stream("q"))
+    assert incomplete.value.kind == "invalid_response"
+
+
+def test_engineering_stream_rejects_events_after_done(monkeypatch):
+    headers = {
+        "Content-Type": "text/event-stream",
+        "X-Engineering-Stream-Schema": ENGINEERING_STREAM_SCHEMA,
+    }
+    _install_stream(
+        monkeypatch,
+        _StreamResp(
+            lines=['data: {"type":"done"}', 'data: {"type":"done"}'],
+            headers=headers,
+        ),
+    )
+
+    with pytest.raises(ApiError) as excinfo:
+        list(ApiClient(base_url=BASE).engineering_query_stream("q"))
     assert excinfo.value.kind == "invalid_response"

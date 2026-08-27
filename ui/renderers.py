@@ -11,6 +11,8 @@ from typing import Any, Optional
 
 import streamlit as st
 
+from ui.streaming import EngineeringStreamState
+
 
 EVIDENCE_KIND_LABELS = {
     "knowledge": "KNOWLEDGE",
@@ -315,3 +317,36 @@ def render_engineering_result(result: dict) -> None:
         if result.get("failure_code") is not None:
             _kv("Failure code", result["failure_code"])
         render_tool_trace(result.get("trace") or [], collapsed=False)
+
+
+def render_engineering_stream_status(
+    container,
+    state: EngineeringStreamState,
+    *,
+    final: bool = False,
+) -> None:
+    """Render only the safe, user-facing progress summary for an SSE run."""
+
+    lines = ["✓ 分析任务" if state.analysis_started else "● 正在分析任务"]
+    icons = {
+        "running": "●",
+        "complete": "✓",
+        "error": "!",
+        "blocked": "↻",
+    }
+    lines.extend(
+        f"{icons.get(step.state, '●')} {step.label}" for step in state.steps
+    )
+    if state.evidence:
+        lines.append(f"Evidence · {len(state.evidence)}")
+    if state.error_code:
+        lines.append("! 分析过程中发生了服务错误，请重试。")
+    elif final:
+        lines.append("✓ 分析完成")
+
+    text = "\n".join(lines)
+    renderer = getattr(container, "markdown", None)
+    if callable(renderer):
+        renderer(text)
+    else:
+        st.markdown(text)

@@ -7,9 +7,12 @@ connection_error / timeout / http_error / invalid_response），message 面向�
 
 from __future__ import annotations
 
+import json
+
 import requests
 
 DEFAULT_TIMEOUT = 30.0
+ENGINEERING_STREAM_SCHEMA = "engineering_query_stream_v1"
 
 
 class ApiError(Exception):
@@ -137,3 +140,116 @@ class ApiClient:
         return self._request(
             "POST", "/engineering/query", json_body={"question": question}
         )
+
+    def engineering_query_stream(self, question: str):
+        """Yield decoded Engineering SSE events as they arrive.
+
+        SSE intentionally bypasses ``_request`` because that helper waits for
+        a complete JSON response. The response is kept open only for this
+        generator invocation, and the bounded tuple timeout leaves room for
+        the server's keep-alive comments.
+        """
+        saw_done = False
+        try:
+            response = requests.post(
+                self._url("/engineering/query/stream"),
+                json={"question": question},
+                stream=True,
+                timeout=(5.0, 30.0),
+            )
+            with response:
+                status_code = getattr(response, "status_code", None)
+                headers = getattr(response, "headers", {}) or {}
+                content_type = headers.get("Content-Type") or headers.get(
+                    "content-type", ""
+                )
+                if status_code is None:
+                    raise ApiError(
+                        "invalid_response",
+                        "API 返回了无效的流式响应",
+                    )
+                if status_code >= 400:
+                    detail = ""
+                    try:
+                        payload = response.json()
+                        if isinstance(payload, dict):
+                            detail = str(payload.get("detail", ""))
+                    except (ValueError, AttributeError):
+                        detail = ""
+                    if status_code == 503:
+                        raise ApiError(
+                            "http_error",
+                            "运行时当前不可用（Runtime not ready）",
+                            status=503,
+                            detail=detail,
+                        )
+                    raise ApiError(
+                        "http_error",
+                        f"请求失败（HTTP {status_code}）",
+                        status=status_code,
+                        detail=detail,
+                    )
+                if not str(content_type).lower().startswith("text/event-stream"):
+                    raise ApiError(
+                        "invalid_response",
+                        "API 返回了无效的流式响应类型",
+                        status=status_code,
+                    )
+                schema = headers.get("X-Engineering-Stream-Schema") or headers.get(
+                    "x-engineering-stream-schema"
+                )
+                if schema != ENGINEERING_STREAM_SCHEMA:
+                    raise ApiError(
+                        "invalid_response",
+                        "API 返回了未知的流式协议",
+                        status=status_code,
+                    )
+                for raw_line in response.iter_lines(decode_unicode=True):
+                    if isinstance(raw_line, bytes):
+                        raw_line = raw_line.decode("utf-8", errors="replace")
+                    line = str(raw_line or "")
+                    if not line or line.startswith(":"):
+                        continue
+                    if not line.startswith("data:"):
+                        continue
+                    try:
+                        event = json.loads(line[5:].lstrip())
+                    except (TypeError, ValueError):
+                        raise ApiError(
+                            "invalid_response",
+                            "API 返回了无法解析的流式事件",
+                            status=status_code,
+                        ) from None
+                    if not isinstance(event, dict) or not isinstance(
+                        event.get("type"), str
+                    ):
+                        raise ApiError(
+                            "invalid_response",
+                            "API 返回了无效的流式事件",
+                            status=status_code,
+                        )
+                    if saw_done:
+                        raise ApiError(
+                            "invalid_response",
+                            "流式响应在结束事件后仍有内容",
+                            status=status_code,
+                        )
+                    if event["type"] == "done":
+                        saw_done = True
+                    yield event
+                if not saw_done:
+                    raise ApiError(
+                        "invalid_response",
+                        "流式响应未正常结束",
+                        status=status_code,
+                    )
+        except ApiError:
+            raise
+        except requests.exceptions.Timeout:
+            raise ApiError("timeout", "请求超时")
+        except requests.exceptions.ConnectionError:
+            raise ApiError("connection_error", "无法连接 API，请先启动后端")
+        except requests.exceptions.RequestException as exc:
+            raise ApiError("connection_error", f"请求失败: {type(exc).__name__}")
+        except (UnicodeError, AttributeError, TypeError):
+            raise ApiError("invalid_response", "API 返回了无效的流式响应")

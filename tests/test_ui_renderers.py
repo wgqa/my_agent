@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from ui import app, renderers
+from ui.streaming import EngineeringStreamState, EngineeringStreamStep
 
 
 def test_basic_submit_renders_answer_and_sources_immediately(monkeypatch):
@@ -267,3 +268,38 @@ def test_engineering_refusal_and_failure_codes_stay_in_execution_details(monkeyp
     details = [value for context, value in markdown if context == "Execution details"]
     assert "**Reason code:** INSUFFICIENT_EVIDENCE_TO_FINALIZE" in details
     assert "**Failure code:** EVIDENCE_GAP" in details
+
+
+def test_engineering_stream_status_uses_safe_progress_labels():
+    rendered = []
+
+    class Container:
+        def markdown(self, value):
+            rendered.append(value)
+
+    state = EngineeringStreamState(
+        analysis_started=True,
+        steps=(
+            EngineeringStreamStep(
+                identity=(1, "code_search"),
+                tool_name="code_search",
+                label="正在搜索项目代码",
+                state="complete",
+            ),
+            EngineeringStreamStep(
+                identity=(2, "__verification__"),
+                tool_name="__verification__",
+                label="证据仍不充分，继续调查",
+                state="blocked",
+            ),
+        ),
+        evidence=(
+            {"kind": "project_code", "path": "src/app.py"},
+        ),
+    )
+
+    renderers.render_engineering_stream_status(Container(), state, final=True)
+
+    assert rendered == [
+        "✓ 分析任务\n✓ 正在搜索项目代码\n↻ 证据仍不充分，继续调查\nEvidence · 1\n✓ 分析完成"
+    ]

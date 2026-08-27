@@ -14,6 +14,12 @@ import streamlit as st
 
 from ui import renderers
 from ui.api_client import ApiClient, ApiError
+from ui.streaming import (
+    EngineeringStreamState,
+    StreamProtocolError,
+    consume_event,
+    validate_complete,
+)
 
 MODES = {
     "Basic RAG": "检索 → Rerank → Generate",
@@ -295,6 +301,67 @@ def _render_message(message: dict) -> None:
         _render_assistant_message(message)
 
 
+def _stream_engineering(question: str) -> dict | None:
+    """Run the Engineering Agent SSE flow without persisting partial output."""
+
+    state = EngineeringStreamState()
+    status_box = st.status("正在分析任务", expanded=True)
+    status_body = status_box.empty()
+    answer_placeholder = st.empty()
+    evidence_placeholder = st.empty()
+
+    try:
+        for event in st.session_state.api_client.engineering_query_stream(question):
+            state = consume_event(state, event)
+            renderers.render_engineering_stream_status(status_body, state)
+            if state.evidence:
+                evidence_placeholder.caption(f"Evidence · {len(state.evidence)}")
+            if state.answer_started:
+                answer_placeholder.markdown(state.answer_buffer + "▌")
+        state = validate_complete(state)
+    except ApiError as err:
+        status_box.update(label="分析请求失败", state="error", expanded=False)
+        answer_placeholder.empty()
+        evidence_placeholder.empty()
+        _show_error(err)
+        return None
+    except StreamProtocolError:
+        status_box.update(label="流式响应无效", state="error", expanded=False)
+        answer_placeholder.empty()
+        evidence_placeholder.empty()
+        st.error("分析过程中发生了服务错误，请重试。")
+        return None
+
+    if state.error_code:
+        renderers.render_engineering_stream_status(status_body, state, final=True)
+        status_box.update(label="分析请求失败", state="error", expanded=False)
+        answer_placeholder.empty()
+        evidence_placeholder.empty()
+        st.error("分析过程中发生了服务错误，请重试。")
+        return None
+
+    result = state.final_result
+    if not isinstance(result, dict):
+        status_box.update(label="流式响应无效", state="error", expanded=False)
+        answer_placeholder.empty()
+        evidence_placeholder.empty()
+        st.error("分析过程中发生了服务错误，请重试。")
+        return None
+    renderers.render_engineering_stream_status(status_body, state, final=True)
+    status_box.update(
+        label=f"已分析 {len(state.steps)} 步",
+        state="complete",
+        expanded=False,
+    )
+    answer_placeholder.empty()
+    evidence_placeholder.empty()
+    return {
+        "content": result.get("answer", "") or "",
+        "kind": "engineering",
+        "result": result,
+    }
+
+
 def _render_knowledge_base(client: ApiClient) -> None:
     st.markdown("##### Knowledge Base")
     if not _feature_enabled("indexing"):
@@ -494,9 +561,11 @@ def _tab_console(mode: str, top_k: int) -> None:
         if conversation.get("title") == "New conversation":
             conversation["title"] = _title_for_question(prompt)
         if mode == DEFAULT_MODE:
-            # This reflects the active HTTP request only; streaming is added separately.
-            with st.spinner("Analyzing engineering evidence..."):
-                reply = _submit(prompt, mode, top_k, render=False)
+            # Render the new user turn before the blocking stream begins.
+            _render_user_message(prompt)
+            reply = _stream_engineering(prompt)
+            if reply is None:
+                return
         else:
             reply = _submit(
                 prompt,

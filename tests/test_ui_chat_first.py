@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 from types import SimpleNamespace
 
+from ui.api_client import ApiError
 from ui import app, renderers
 
 
@@ -166,3 +167,112 @@ def test_product_shell_does_not_fake_streaming():
     assert "time.sleep" not in source
     assert "write_stream" not in source
     assert "for character in" not in source
+
+
+class _Placeholder:
+    def markdown(self, *_args, **_kwargs):
+        return None
+
+    def caption(self, *_args, **_kwargs):
+        return None
+
+    def empty(self):
+        return None
+
+
+class _Status(_Placeholder):
+    def empty(self):
+        return _Placeholder()
+
+    def update(self, *_args, **_kwargs):
+        return None
+
+
+class _Column:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+
+def _install_live_ui_stubs(monkeypatch):
+    monkeypatch.setattr(app.st, "columns", lambda *_args, **_kwargs: (_Column(), _Column()))
+    monkeypatch.setattr(app.st, "status", lambda *_args, **_kwargs: _Status())
+    monkeypatch.setattr(app.st, "empty", lambda *_args, **_kwargs: _Placeholder())
+    monkeypatch.setattr(app.st, "markdown", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app.st, "error", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app.st, "rerun", lambda: None)
+
+
+def test_engineering_chat_persists_only_a_complete_sse_result(monkeypatch):
+    calls = []
+
+    class Client:
+        def engineering_query(self, *_args):
+            raise AssertionError("live Engineering UI must not use synchronous query")
+
+        def engineering_query_stream(self, question):
+            calls.append(question)
+            yield {"type": "status", "stage": "analysis", "state": "started"}
+            yield {"type": "answer_start"}
+            yield {"type": "answer_delta", "delta": "Final answer"}
+            yield {
+                "type": "final",
+                "result": {"status": "completed", "answer": "Final answer"},
+            }
+            yield {"type": "done"}
+
+    state = SimpleNamespace(
+        api_client=Client(),
+        api_available=True,
+        runtime_capabilities={"features": {"engineering_agent": True}},
+        conversations={
+            "c1": {"id": "c1", "title": "New conversation", "mode": "engineering", "messages": []}
+        },
+        active_conversation_id="c1",
+    )
+    monkeypatch.setattr(app.st, "session_state", state)
+    monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
+    _install_live_ui_stubs(monkeypatch)
+
+    app._tab_console("engineering", 5)
+
+    assert calls == ["Trace config"]
+    assert state.conversations["c1"]["messages"] == [
+        {"role": "user", "content": "Trace config"},
+        {
+            "role": "assistant",
+            "content": "Final answer",
+            "kind": "engineering",
+            "result": {"status": "completed", "answer": "Final answer"},
+        },
+    ]
+
+
+def test_engineering_chat_discards_partial_answer_on_stream_error(monkeypatch):
+    class Client:
+        def engineering_query_stream(self, _question):
+            yield {"type": "status", "stage": "analysis", "state": "started"}
+            yield {"type": "answer_start"}
+            yield {"type": "answer_delta", "delta": "partial"}
+            raise ApiError("connection_error", "offline")
+
+    state = SimpleNamespace(
+        api_client=Client(),
+        api_available=True,
+        runtime_capabilities={"features": {"engineering_agent": True}},
+        conversations={
+            "c1": {"id": "c1", "title": "New conversation", "mode": "engineering", "messages": []}
+        },
+        active_conversation_id="c1",
+    )
+    monkeypatch.setattr(app.st, "session_state", state)
+    monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
+    _install_live_ui_stubs(monkeypatch)
+
+    app._tab_console("engineering", 5)
+
+    assert state.conversations["c1"]["messages"] == [
+        {"role": "user", "content": "Trace config"}
+    ]

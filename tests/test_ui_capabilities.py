@@ -87,10 +87,37 @@ def test_engineering_submission_uses_engineering_endpoint_only(monkeypatch):
 
     class Client:
         def engineering_query(self, question):
-            calls.append(question)
-            return {"status": "completed", "answer": "Grounded answer"}
+            raise AssertionError("Engineering UI must use the SSE endpoint")
 
-    class Spinner:
+        def engineering_query_stream(self, question):
+            calls.append(question)
+            yield {"type": "status", "stage": "analysis", "state": "started"}
+            yield {"type": "answer_start"}
+            yield {"type": "answer_delta", "delta": "Grounded answer"}
+            yield {
+                "type": "final",
+                "result": {"status": "completed", "answer": "Grounded answer"},
+            }
+            yield {"type": "done"}
+
+    class Placeholder:
+        def markdown(self, *_args, **_kwargs):
+            return None
+
+        def caption(self, *_args, **_kwargs):
+            return None
+
+        def empty(self):
+            return None
+
+    class Status(Placeholder):
+        def empty(self):
+            return Placeholder()
+
+        def update(self, *_args, **_kwargs):
+            return None
+
+    class Column:
         def __enter__(self):
             return self
 
@@ -109,7 +136,9 @@ def test_engineering_submission_uses_engineering_endpoint_only(monkeypatch):
     monkeypatch.setattr(app.st, "session_state", state)
     monkeypatch.setattr(app.st, "markdown", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
-    monkeypatch.setattr(app.st, "spinner", lambda *_args, **_kwargs: Spinner())
+    monkeypatch.setattr(app.st, "columns", lambda *_args, **_kwargs: (Column(), Column()))
+    monkeypatch.setattr(app.st, "status", lambda *_args, **_kwargs: Status())
+    monkeypatch.setattr(app.st, "empty", lambda *_args, **_kwargs: Placeholder())
     monkeypatch.setattr(app.st, "rerun", lambda: None)
 
     app._tab_console("engineering", 9)
