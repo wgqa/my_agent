@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（64 份）
+## CURRENT（77 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -83,6 +83,7 @@
 | 101 | [101-Gate5-README与项目叙事.md](101-Gate5-README与项目叙事.md) | G5-README-08：README front door、功能/实验/工程证据分层、冻结结果与负结果叙事、Gate 演进和面试讲法 |
 | 102 | [102-Gate5-Release安全与仓库卫生.md](102-Gate5-Release安全与仓库卫生.md) | G5-HYGIENE-09：tracked secret scan、untracked 分类、精确 `.gitignore`、pytest 配置、冻结 artifact 边界和 Release blocker 判定 |
 | 103 | [103-Gate5-Release1.0最终验收与冻结.md](103-Gate5-Release1.0最终验收与冻结.md) | G5-FINAL-10：Feature complete 与 Release accepted、CI final gate、非自指 freeze、Smoke/Demo/Benchmark 边界、V1.1 debt 与 Gate 1→5 工程演进 |
+| 104 | [104-Agentic-RAG-对话上下文与长期记忆.md](104-Agentic-RAG-对话上下文与长期记忆.md) | Agentic RAG 对话上下文解析、standalone query resolver 与长期记忆边界 |
 | 105 | [105-LLM调用失败语义与轻量可靠性.md](105-LLM调用失败语义与轻量可靠性.md) | G9-RELIABILITY-01：Generator typed failure、有限 retry、Basic/Agentic/Tool Agent 失败边界、脱敏与 fail-fast/graceful degradation |
 | 106 | [106-Git变更证据与只读工程Agent.md](106-Git变更证据与只读工程Agent.md) | Git Change Evidence v1：changed_files → git_diff 两阶段链路、固定 Git argv、ref/path 安全边界、bounded diff 与 project_change evidence |
 | 107 | [107-测试发现与工程变更证据.md](107-测试发现与工程变更证据.md) | G10-02：bounded find_tests 候选发现、测试约定、确定性排序、project_test evidence 与 Git change 组合 |
@@ -90,6 +91,18 @@
 | 109 | [109-Theory-Code跨源工程分析工作流.md](109-Theory-Code跨源工程分析工作流.md) | G11-02：Theory ↔ Code 跨源工程分析、Knowledge/Repository Evidence、Engineering Prompt Profile 与 baseline→intervention→rerun 实验方法 |
 | 110 | [110-Change-Impact与测试推荐工作流.md](110-Change-Impact与测试推荐工作流.md) | G11-03：Change Impact、Git Change/Test Evidence 链路、candidate 与 test evidence 边界、transfer validation |
 | 111 | [111-Diagnosis与Config-Analysis工作流.md](111-Diagnosis与Config-Analysis工作流.md) | G11-04：症状/配置线索 → code_search → bounded project context → diagnosis → remediation；配置边界、证据形状与人工 Gold review |
+| 112 | [112-Docs与Code-Consistency工作流.md](112-Docs与Code-Consistency工作流.md) | G11-05：文档 claim → code/document evidence → consistency judgment；evaluator/project 隔离与 contamination 边界 |
+| 113 | [113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md](113-Engineering-Evaluation-2.0与Evidence-Sufficiency.md) | G12-01：Evidence Sufficiency、AND-of-OR groups、shape-only automatic metric 与 Manual Gold 边界 |
+| 114 | [114-G12外部仓库与Candidate-Pool.md](114-G12外部仓库与Candidate-Pool.md) | G12-02A：external repository proof、candidate pool、source provenance 与 viability audit |
+| 115 | [115-G12-Engineering-Benchmark-Freeze.md](115-G12-Engineering-Benchmark-Freeze.md) | G12-02B：16-case Engineering benchmark 的 selection、Gold contract、dataset identity 与冻结边界 |
+| 116 | [116-G12-Baseline-A评测Harness.md](116-G12-Baseline-A评测Harness.md) | G12-03：Baseline A evaluator、双 project API routing、automatic structural metrics 与 artifact safety |
+| 117 | [117-G12-Baseline-A-Manual-Gold.md](117-G12-Baseline-A-Manual-Gold.md) | G12-03 closure：Baseline A 16-case Manual Gold、provider metric correction 与 evidence-grounded reliability baseline |
+| 118 | [118-G12-System-C验收线与A-B实验设计.md](118-G12-System-C验收线与A-B实验设计.md) | G12-04A：System C acceptance thresholds、PASS/MIXED/FAIL/INVALID、成本与可靠性边界 |
+| 119 | [119-G12-Typed-Requirement与Finalization-Guard.md](119-G12-Typed-Requirement与Finalization-Guard.md) | G12-04B：generic typed requirement、system-level Finalization Guard、anti-overfit 与 evidence shape boundary |
+| 120 | [120-G12-Finalization-Guard实现.md](120-G12-Finalization-Guard实现.md) | G12-04C：typed requirement 与 Finalization Guard 的实现边界、trusted control state 与 deterministic tests |
+| 121 | [121-G12-System-C-A-B评测Harness.md](121-G12-System-C-A-B评测Harness.md) | G12-04D：System C evaluator、automatic/manual separation、Guard trace、cost 与一次性 Formal policy |
+| 122 | [122-G12-Provider-Failure与实验有效性.md](122-G12-Provider-Failure与实验有效性.md) | G12-05A/R1：provider-plane failure、HTTP 200 与 provider success 的区别、INVALID reclassification |
+| 123 | [123-G12-System-C负结果与Finalization-Guard边界.md](123-G12-System-C负结果与Finalization-Guard边界.md) | G12 final Formal：System C Manual Gold、A/C 对照、Finalization Guard 负结果与 evidence-grounding 边界 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -157,6 +170,6 @@
 
 ## 完整性声明
 
-- 当前索引列出 **111 份**，每份只出现一次：CURRENT 64 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 111。
+- 当前索引列出 **124 份**，每份只出现一次：CURRENT 77 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 124。
 - 原始笔记一律未修改。
-- 当前日期：2026-08-22。
+- 当前日期：2026-08-27。

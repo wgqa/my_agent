@@ -1,0 +1,57 @@
+{
+  "schema_version": "g12_system_c_manual_review_summary_v1",
+  "review_status": "FROZEN / REVIEWER COMPLETE",
+  "run_id": "g12-system-c-formal-manual-20260826-203236",
+  "gate12_dataset_freeze_id": "gate12-v1-630fc8b527c2",
+  "final_benchmark_sha256": "630fc8b527c22d3e7afc4f4288788524f5dfb52f5ed6ade13ec050abc35f215f",
+  "evaluator_commit": "c2ca9bd5c52ab1b7f9e94e869cd716be53dce0e0",
+  "system_c_product_commit": "65ee45eb52c45e95d2871aa9060416dabcd3d759",
+  "acceptance_contract_sha256": "5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f",
+  "case_results_sha256": "630a909e5563cd2c14d9d8ea4b292f0283e934acf6e02a659265d0edfbb694d6",
+  "source_artifact_sha256": {
+    "acceptance_snapshot.json": "ed00e476580be498b70e85e180cce07ce8cdb6dbcf84d3ec2d6c566867417819",
+    "case_results.jsonl": "630a909e5563cd2c14d9d8ea4b292f0283e934acf6e02a659265d0edfbb694d6",
+    "manifest.json": "76085fc449a0035fe1bf12b5709ac72e4ae205f5fb21f25f3537855d907db02d",
+    "manual_review_template.jsonl": "930ff6345a66f86fb0fc2193cb23a8c331c29dc27722743218ecd2faf97a88b7",
+    "run_report.md": "7cb7b5fcd10cc743c3301038527b7d66820aff1d315b5b0ace88df12da4e8ee7",
+    "summary.json": "3816f14e67b33daf6dd7181766b290bbd8d9dabce5948b3819543130bc802523"
+  },
+  "case_count": 16,
+  "case_ids": [
+    "g12q001", "g12q002", "g12q003", "g12q004",
+    "g12q005", "g12q006", "g12q007", "g12q008",
+    "g12q009", "g12q010", "g12q011", "g12q012",
+    "g12q013", "g12q014", "g12q015", "g12q016"
+  ],
+  "task_success": {
+    "PASS": 2,
+    "PARTIAL": 7,
+    "FAIL": 7
+  },
+  "strict_full_task_success_rate": 0.125,
+  "partial_or_better_cases": 9,
+  "partial_or_better_rate": 0.5625,
+  "evidence_coverage": {
+    "FULL": 1,
+    "PARTIAL": 8,
+    "NONE": 7
+  },
+  "evidence_correctness": {
+    "PASS": 5,
+    "PARTIAL": 4,
+    "FAIL": 3,
+    "NO_EVIDENCE": 4
+  },
+  "claim_grounding": {
+    "PASS": 1,
+    "PARTIAL": 5,
+    "FAIL": 10
+  },
+  "family_task_success": {
+    "Theory <-> Code": {"PASS": 1, "PARTIAL": 3, "FAIL": 0},
+    "Change Impact <-> Test": {"PASS": 1, "PARTIAL": 0, "FAIL": 3},
+    "Diagnosis / Config": {"PASS": 0, "PARTIAL": 2, "FAIL": 2},
+    "Docs <-> Code": {"PASS": 0, "PARTIAL": 2, "FAIL": 2}
+  },
+  "manual_gold_boundary": "Reviewer semantic judgment; not automatic evaluator scoring"
+}

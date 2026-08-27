@@ -1,0 +1,215 @@
+{
+  "schema_version": "g12_system_c_final_assessment_v1",
+  "assessment_status": "FROZEN / REVIEWER COMPLETE",
+  "run_validity": "VALID",
+  "system_c_acceptance": "FAIL",
+  "final_classification": "VALID / FAIL",
+  "run_identity": {
+    "run_id": "g12-system-c-formal-manual-20260826-203236",
+    "gate12_dataset_freeze_id": "gate12-v1-630fc8b527c2",
+    "final_benchmark_sha256": "630fc8b527c22d3e7afc4f4288788524f5dfb52f5ed6ade13ec050abc35f215f",
+    "acceptance_contract_sha256": "5a9d190dcb585a29097fac206c14aa0f31c27d178d8fe0cae8d72b1b8c17bb8f",
+    "evaluator_commit": "c2ca9bd5c52ab1b7f9e94e869cd716be53dce0e0",
+    "system_c_product_commit": "65ee45eb52c45e95d2871aa9060416dabcd3d759",
+    "case_results_sha256": "630a909e5563cd2c14d9d8ea4b292f0283e934acf6e02a659265d0edfbb694d6",
+    "manual_review_file": "system_c_manual_review_v1.jsonl"
+  },
+  "source_artifact_sha256": {
+    "acceptance_snapshot.json": "ed00e476580be498b70e85e180cce07ce8cdb6dbcf84d3ec2d6c566867417819",
+    "case_results.jsonl": "630a909e5563cd2c14d9d8ea4b292f0283e934acf6e02a659265d0edfbb694d6",
+    "manifest.json": "76085fc449a0035fe1bf12b5709ac72e4ae205f5fb21f25f3537855d907db02d",
+    "manual_review_template.jsonl": "930ff6345a66f86fb0fc2193cb23a8c331c29dc27722743218ecd2faf97a88b7",
+    "run_report.md": "7cb7b5fcd10cc743c3301038527b7d66820aff1d315b5b0ace88df12da4e8ee7",
+    "summary.json": "3816f14e67b33daf6dd7181766b290bbd8d9dabce5948b3819543130bc802523"
+  },
+  "frozen_controls": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "prompt_version": "engineering_agent_decision_prompt_v2",
+    "prompt_sha256": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107",
+    "repair_prompt_version": "engineering_action_repair_prompt_v1",
+    "repair_prompt_sha256": "958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636",
+    "max_output_tokens": 1200,
+    "budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "registry_size": 7,
+    "provider_network_retries": 0,
+    "intervention": [
+      "deterministic typed Evidence Requirement",
+      "system-level Finalization Guard"
+    ],
+    "request_payload_fields": ["question"],
+    "prompt_modified": false,
+    "gold_metadata_injected": false,
+    "task_family_hint_injected": false
+  },
+  "baseline_a": {
+    "run_id": "g12-baseline-a-formal-20260825-195305",
+    "product_baseline_commit": "0a1f42e8ee0320486dbd0ddc01400e1e19150501",
+    "manual_gold": {
+      "full_task_success": {"PASS": 2, "PARTIAL": 8, "FAIL": 6},
+      "strict_full_task_success_rate": 0.125,
+      "partial_or_better_cases": 10,
+      "partial_or_better_rate": 0.625,
+      "evidence_coverage": {"FULL": 1, "PARTIAL": 8, "NONE": 7},
+      "evidence_correctness": {"PASS": 5, "PARTIAL": 5, "FAIL": 3, "NO_EVIDENCE": 3},
+      "claim_grounding": {"PASS": 1, "PARTIAL": 8, "FAIL": 7}
+    },
+    "automatic": {
+      "evidence_sufficiency_cases": 2,
+      "premature_finalization_cases": 12,
+      "required_tool_complete_cases": 6,
+      "completed_cases": 14,
+      "refused_cases": 1,
+      "failed_cases": 1,
+      "provider_calls": 54,
+      "tool_calls": 37,
+      "iterations": 53,
+      "structured_parse_failure_cases": 1,
+      "duplicate_tool_stops": 1,
+      "budget_stops": 0,
+      "forbidden_tool_calls": 0
+    }
+  },
+  "system_c": {
+    "manual_gold": {
+      "source": "system_c_manual_review_v1.jsonl",
+      "full_task_success": {"PASS": 2, "PARTIAL": 7, "FAIL": 7},
+      "strict_full_task_success_rate": 0.125,
+      "partial_or_better_cases": 9,
+      "partial_or_better_rate": 0.5625,
+      "evidence_coverage": {"FULL": 1, "PARTIAL": 8, "NONE": 7},
+      "evidence_correctness": {"PASS": 5, "PARTIAL": 4, "FAIL": 3, "NO_EVIDENCE": 4},
+      "claim_grounding": {"PASS": 1, "PARTIAL": 5, "FAIL": 10}
+    },
+    "automatic": {
+      "case_count": 16,
+      "completed_cases": 11,
+      "refused_cases": 4,
+      "failed_cases": 1,
+      "evidence_sufficiency_cases": 2,
+      "premature_finalization_cases": 9,
+      "required_tool_complete_cases": 7,
+      "change_project_test_evidence_cases": 0,
+      "diagnosis_cross_file_shape_satisfied_cases": 0,
+      "diagnosis_cross_file_shape_applicable_cases": 3,
+      "docs_bilateral_evidence_cases": 0,
+      "provider_calls": 57,
+      "tool_calls": 39,
+      "iterations": 56,
+      "structured_parse_failure_cases": 1,
+      "duplicate_tool_stops": 2,
+      "budget_stops": 0,
+      "forbidden_tool_calls": 0,
+      "average_latency_ms": 7437.66,
+      "latency_ms_total": 119002.53,
+      "guard_block_count": 1,
+      "guard_blocked_cases": 1,
+      "guard_recovery_attempted_cases": 1,
+      "guard_recovery_succeeded_cases": 0,
+      "guard_specific_refusal_count": 2,
+      "family_evidence_sufficiency": {
+        "Theory <-> Code": 2,
+        "Change Impact <-> Test": 0,
+        "Diagnosis / Config": 0,
+        "Docs <-> Code": 0
+      }
+    }
+  },
+  "a_to_c_comparison": {
+    "evidence_sufficiency_cases": {"baseline_a": 2, "system_c": 2, "delta": 0},
+    "premature_finalization_cases": {"baseline_a": 12, "system_c": 9, "delta": -3},
+    "required_tool_complete_cases": {"baseline_a": 6, "system_c": 7, "delta": 1},
+    "completed_cases": {"baseline_a": 14, "system_c": 11, "delta": -3},
+    "refused_cases": {"baseline_a": 1, "system_c": 4, "delta": 3},
+    "failed_cases": {"baseline_a": 1, "system_c": 1, "delta": 0},
+    "provider_calls": {"baseline_a": 54, "system_c": 57, "delta": 3},
+    "tool_calls": {"baseline_a": 37, "system_c": 39, "delta": 2},
+    "iterations": {"baseline_a": 53, "system_c": 56, "delta": 3},
+    "manual_full_task_success_pass": {"baseline_a": 2, "system_c": 2, "delta": 0},
+    "manual_partial_or_better": {"baseline_a": 10, "system_c": 9, "delta": -1},
+    "manual_evidence_coverage": {
+      "baseline_a": {"FULL": 1, "PARTIAL": 8, "NONE": 7},
+      "system_c": {"FULL": 1, "PARTIAL": 8, "NONE": 7},
+      "changed": false
+    },
+    "manual_claim_grounding_fail": {"baseline_a": 7, "system_c": 10, "delta": 3}
+  },
+  "threshold_evaluation": {
+    "hard_failures": [
+      {"metric": "premature_finalization_cases", "observed": 9, "required": "<= 0", "passed": false},
+      {"metric": "evidence_sufficiency_cases", "observed": 2, "required": ">= 8", "passed": false},
+      {"metric": "Theory <-> Code evidence sufficiency", "observed": 2, "required": ">= 2", "passed": true},
+      {"metric": "Change Impact <-> Test evidence sufficiency", "observed": 0, "required": ">= 1", "passed": false},
+      {"metric": "Diagnosis / Config evidence sufficiency", "observed": 0, "required": ">= 1", "passed": false},
+      {"metric": "Docs <-> Code evidence sufficiency", "observed": 0, "required": ">= 1", "passed": false},
+      {"metric": "Change project_test evidence", "observed": 0, "required": ">= 2", "passed": false},
+      {"metric": "Diagnosis cross-file shape", "observed": "0/3", "required": ">= 2/3", "passed": false},
+      {"metric": "Docs bilateral evidence", "observed": 0, "required": ">= 2", "passed": false},
+      {"metric": "Claim Grounding PASS", "observed": 1, "required": ">= 3", "passed": false},
+      {"metric": "Claim Grounding FAIL", "observed": 10, "required": "<= 5", "passed": false},
+      {"metric": "duplicate_tool_stops", "observed": 2, "required": "<= 1", "passed": false}
+    ],
+    "passed_controls": [
+      {"metric": "Full Task Success PASS", "observed": 2, "required": ">= 2", "passed": true},
+      {"metric": "Partial-or-better", "observed": 9, "required": ">= 9", "passed": true},
+      {"metric": "refused_cases", "observed": 4, "required": "<= 5", "passed": true},
+      {"metric": "failed_cases", "observed": 1, "required": "<= 2", "passed": true},
+      {"metric": "provider_calls", "observed": 57, "required": "<= 72", "passed": true},
+      {"metric": "tool_calls", "observed": 39, "required": "<= 52", "passed": true},
+      {"metric": "iterations", "observed": 56, "required": "<= 72", "passed": true},
+      {"metric": "forbidden_tool_calls", "observed": 0, "required": "<= 0", "passed": true},
+      {"metric": "structured_parse_failure_cases", "observed": 1, "required": "<= 1", "passed": true},
+      {"metric": "budget_stops", "observed": 0, "required": "<= 2", "passed": true}
+    ],
+    "automatic_guard_invariant": {
+      "completed_with_insufficient_evidence": 9,
+      "required": 0,
+      "passed": false
+    }
+  },
+  "tradeoff_audit": {
+    "q004": {
+      "automatic_evidence_sufficiency": true,
+      "observed_shape": ["knowledge", "project_doc"],
+      "manual_full_task_success": "PARTIAL",
+      "manual_evidence_coverage": "PARTIAL",
+      "gold_semantic_need": ["StateGraph knowledge", "CallToolsNode implementation evidence"],
+      "observed_project_evidence": ["docs/agent.md"],
+      "missing_key_evidence": "pydantic_ai_slim/pydantic_ai/_agent_graph.py",
+      "conclusion": "Structural evidence sufficiency does not imply semantic evidence sufficiency."
+    },
+    "q006": {
+      "automatic_evidence_sufficiency": false,
+      "premature_finalization": true,
+      "manual_full_task_success": "PASS",
+      "observed_evidence": ["project_change"],
+      "missing_evidence": ["project_test"],
+      "semantic_observation": "The answer correctly covered most resolver failure semantics despite incomplete public evidence.",
+      "conclusion": "Semantic correctness does not imply evidence-grounded reliability.",
+      "router_observation": "The question had no explicit test/regression trigger, so CHANGE_TEST_V1 was not selected.",
+      "diagnosis_status": "POST-HOC DIAGNOSIS; NO ROUTER PATCH; NO RERUN"
+    }
+  },
+  "root_cause_summary": {
+    "router": "The frozen router is bounded lexical task-semantic logic. Natural-language benchmark questions often omit its exact trigger terms, so Gold-required evidence can meet NO_ADDITIONAL_REQUIREMENT and never reach the Guard.",
+    "evidence_planning": "q005 and q007 did not stably execute find_tests -> read_project_context(test); budget was spent on repeated git_diff or code_search and the cases ended in safe refusal.",
+    "relevance": "q010 reached the Guard once, then acquired project_code from core/adaptive_retrieval/policy.py while Gold required query-planning files; an evidence kind can be present while the evidence is semantically irrelevant.",
+    "guard_boundary": "The Guard can block unsupported completion, but it cannot create missing evidence or repair requirement-recall and evidence-planning failures.",
+    "implementation_vs_effectiveness": "The deterministic Finalization Guard implementation is mechanically valid and its intervention path was observed in the Formal run. However, the frozen hypothesis that this minimal Guard alone would materially improve evidence-grounded reliability was not supported by the transfer benchmark."
+  },
+  "early_provider_invalid_runs": [
+    {"run_id": "g12-system-c-formal-20260826-173039", "classification": "INVALID / PROVIDER-PLANE FAILURE"},
+    {"run_id": "g12-system-c-formal-r1-20260826-191531", "classification": "INVALID / PROVIDER-PLANE FAILURE"}
+  ],
+  "environment_note": "Agent-managed execution environment showed reproducible APIConnectionError, while manually launched equivalent API processes succeeded.",
+  "rerun_policy": {
+    "no_further_system_c_rerun": true,
+    "reason": "This is a valid FAIL, not an infrastructure-invalid run; no result selection rerun is permitted.",
+    "next_workflow": "G12 final close"
+  },
+  "manual_gold_boundary": "Manual semantic review is separate from automatic structural evaluator metrics; no LLM judge or automatic answer-semantic scorer was used."
+}
