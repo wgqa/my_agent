@@ -207,8 +207,10 @@ def test_acceptance_contract_identity_and_baseline_manual_values_are_unchanged()
 def test_system_c_automatic_metrics_and_frozen_threshold_failures_are_explicit():
     assessment = _load_json(ASSESSMENT_PATH)
     automatic = assessment["system_c"]["automatic"]
-    failures = {item["metric"]: item for item in assessment["threshold_evaluation"]["hard_failures"]}
-    passed = {item["metric"]: item for item in assessment["threshold_evaluation"]["passed_controls"]}
+    failed_thresholds = assessment["threshold_evaluation"]["hard_failures"]
+    passed_thresholds = assessment["threshold_evaluation"]["passed_controls"]
+    failures = {item["metric"]: item for item in failed_thresholds}
+    passed = {item["metric"]: item for item in passed_thresholds}
 
     assert automatic["case_count"] == 16
     assert automatic["completed_cases"] == 11
@@ -230,9 +232,38 @@ def test_system_c_automatic_metrics_and_frozen_threshold_failures_are_explicit()
         "Diagnosis / Config": 0,
         "Docs <-> Code": 0,
     }
-    assert all(item["passed"] is False for item in failures.values() if item["metric"] != "Theory <-> Code evidence sufficiency")
-    assert failures["Theory <-> Code evidence sufficiency"]["passed"] is True
-    assert all(item["passed"] is True for item in passed.values())
+    assert all(item["passed"] is False for item in failed_thresholds)
+    assert all(item["passed"] is True for item in passed_thresholds)
+    assert "Theory <-> Code evidence sufficiency" not in failures
+    assert passed["Theory <-> Code evidence sufficiency"] == {
+        "metric": "Theory <-> Code evidence sufficiency",
+        "observed": 2,
+        "required": ">= 2",
+        "passed": True,
+    }
+    assert passed["guard_specific_insufficient_evidence_refusals"] == {
+        "metric": "guard_specific_insufficient_evidence_refusals",
+        "observed": 2,
+        "required": "<= 4",
+        "passed": True,
+    }
+    assert passed["guard_not_always_refuse"] == {
+        "metric": "guard_not_always_refuse",
+        "observed": {"completed_cases": 11, "refused_cases": 4, "failed_cases": 1},
+        "required": "completed_cases > 0; always-refuse is not success",
+        "passed": True,
+    }
+    assert passed["latency_reporting_and_major_regression"] == {
+        "metric": "latency_reporting_and_major_regression",
+        "observed": {
+            "latency_report_present": True,
+            "average_latency_ms": 7437.66,
+            "major_regression_factor_threshold": 2.0,
+            "major_latency_regression": False,
+        },
+        "required": "latency report present; major_latency_regression = false",
+        "passed": True,
+    }
     assert assessment["threshold_evaluation"]["automatic_guard_invariant"] == {
         "completed_with_insufficient_evidence": 9,
         "required": 0,

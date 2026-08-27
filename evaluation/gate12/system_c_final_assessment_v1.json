@@ -142,7 +142,6 @@
     "hard_failures": [
       {"metric": "premature_finalization_cases", "observed": 9, "required": "<= 0", "passed": false},
       {"metric": "evidence_sufficiency_cases", "observed": 2, "required": ">= 8", "passed": false},
-      {"metric": "Theory <-> Code evidence sufficiency", "observed": 2, "required": ">= 2", "passed": true},
       {"metric": "Change Impact <-> Test evidence sufficiency", "observed": 0, "required": ">= 1", "passed": false},
       {"metric": "Diagnosis / Config evidence sufficiency", "observed": 0, "required": ">= 1", "passed": false},
       {"metric": "Docs <-> Code evidence sufficiency", "observed": 0, "required": ">= 1", "passed": false},
@@ -154,16 +153,20 @@
       {"metric": "duplicate_tool_stops", "observed": 2, "required": "<= 1", "passed": false}
     ],
     "passed_controls": [
+      {"metric": "Theory <-> Code evidence sufficiency", "observed": 2, "required": ">= 2", "passed": true},
       {"metric": "Full Task Success PASS", "observed": 2, "required": ">= 2", "passed": true},
       {"metric": "Partial-or-better", "observed": 9, "required": ">= 9", "passed": true},
       {"metric": "refused_cases", "observed": 4, "required": "<= 5", "passed": true},
+      {"metric": "guard_specific_insufficient_evidence_refusals", "observed": 2, "required": "<= 4", "passed": true},
+      {"metric": "guard_not_always_refuse", "observed": {"completed_cases": 11, "refused_cases": 4, "failed_cases": 1}, "required": "completed_cases > 0; always-refuse is not success", "passed": true},
       {"metric": "failed_cases", "observed": 1, "required": "<= 2", "passed": true},
       {"metric": "provider_calls", "observed": 57, "required": "<= 72", "passed": true},
       {"metric": "tool_calls", "observed": 39, "required": "<= 52", "passed": true},
       {"metric": "iterations", "observed": 56, "required": "<= 72", "passed": true},
       {"metric": "forbidden_tool_calls", "observed": 0, "required": "<= 0", "passed": true},
       {"metric": "structured_parse_failure_cases", "observed": 1, "required": "<= 1", "passed": true},
-      {"metric": "budget_stops", "observed": 0, "required": "<= 2", "passed": true}
+      {"metric": "budget_stops", "observed": 0, "required": "<= 2", "passed": true},
+      {"metric": "latency_reporting_and_major_regression", "observed": {"latency_report_present": true, "average_latency_ms": 7437.66, "major_regression_factor_threshold": 2.0, "major_latency_regression": false}, "required": "latency report present; major_latency_regression = false", "passed": true}
     ],
     "automatic_guard_invariant": {
       "completed_with_insufficient_evidence": 9,
