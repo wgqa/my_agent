@@ -1,0 +1,198 @@
+{
+  "schema_version": "integration_v7_protocol_manifest_v1",
+  "protocol_version": "v7_architecture_integration_evaluation_v1",
+  "protocol_sha256": "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42",
+  "case_count": 27,
+  "family_counts": {
+    "knowledge_only": {"integration_dev": 2, "integration_holdout": 1},
+    "repo_only": {"integration_dev": 2, "integration_holdout": 1},
+    "theory_code": {"integration_dev": 2, "integration_holdout": 1},
+    "context_followup": {"integration_dev": 2, "integration_holdout": 1},
+    "change_test": {"integration_dev": 2, "integration_holdout": 1},
+    "docs_code": {"integration_dev": 2, "integration_holdout": 1},
+    "diagnosis": {"integration_dev": 2, "integration_holdout": 1},
+    "decomposed_knowledge": {"integration_dev": 2, "integration_holdout": 1},
+    "insufficient_refusal": {"integration_dev": 2, "integration_holdout": 1}
+  },
+  "datasets": {
+    "integration_dev": {
+      "file": "integration_dev_v1.jsonl",
+      "case_count": 18,
+      "sha256": "ab7a553a0b18b54c5493ab42815307233e15219d280a8fbf510bafb730a34385"
+    },
+    "integration_holdout": {
+      "file": "integration_holdout_v1.jsonl",
+      "case_count": 9,
+      "sha256": "382c19fecda6df140196f2a506ea89f8a60a613ba751ce132799de448f5eebd4"
+    }
+  },
+  "system_a_commit": "0eef8ef9d6decdaa10efebe04087b06611654670",
+  "system_b_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+  "target_project_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+  "target_project": {
+    "project_id": "my_agent",
+    "source_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+    "dirty": false,
+    "binding_source": "ENGINEERING_PROJECT_ROOT"
+  },
+  "corpus_identity": {
+    "repository": "wgqa/agent_data",
+    "source_commit": "179f18e812ad63c36c5569de8e86c5ff5a931cb5",
+    "path": "agent_ai_v1/02_corpus_candidate",
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "chunk_count": 215,
+    "retrieval_strategy": "bm25",
+    "manifest_experiment_id": "dbc497c796d5"
+  },
+  "systems": {
+    "A": {
+      "name": "toolagent_only_pre_architecture_baseline",
+      "source_commit": "0eef8ef9d6decdaa10efebe04087b06611654670",
+      "target_project_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "engineering_prompt": {
+        "version": "engineering_agent_decision_prompt_v2",
+        "sha256": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107"
+      },
+      "repair_prompt": {
+        "version": "engineering_action_repair_prompt_v1",
+        "sha256": "958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636",
+        "max_parse_repairs": 1
+      },
+      "max_output_tokens": 1200,
+      "network_retry": 0,
+      "budget": {"max_agent_iterations": 5, "max_tool_calls": 4, "max_tool_errors": 2},
+      "toolset": {
+        "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
+        "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+      },
+      "planner": null,
+      "adaptive_policy": null,
+      "planned_retrieval": null,
+      "evidence_verifier": null,
+      "corpus_identity": {
+        "repository": "wgqa/agent_data",
+        "source_commit": "179f18e812ad63c36c5569de8e86c5ff5a931cb5",
+        "path": "agent_ai_v1/02_corpus_candidate",
+        "corpus_id": "870e5864df67",
+        "file_count": 37,
+        "chunk_count": 215,
+        "retrieval_strategy": "bm25",
+        "manifest_experiment_id": "dbc497c796d5"
+      }
+    },
+    "B": {
+      "name": "unified_runtime_v7_cutover",
+      "source_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+      "target_project_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "engineering_prompt": {
+        "version": "engineering_agent_decision_prompt_v2",
+        "sha256": "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107"
+      },
+      "repair_prompt": {
+        "version": "engineering_action_repair_prompt_v1",
+        "sha256": "958588d91f825d8ac4d1181dc10cf50cfb904e264604b91697316a9262c28636",
+        "max_parse_repairs": 1
+      },
+      "max_output_tokens": 1200,
+      "network_retry": 0,
+      "budget": {"max_agent_iterations": 5, "max_tool_calls": 4, "max_tool_errors": 2},
+      "toolset": {
+        "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
+        "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+      },
+      "planner": {
+        "prompt_version": "gate3_planner_prompt_v1",
+        "prompt_sha256": "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95",
+        "user_payload_version": "planner_user_payload_v1",
+        "max_output_tokens": 800,
+        "network_retry": 0
+      },
+      "adaptive_policy": {"version": "adaptive_retrieval_policy_v1"},
+      "planned_retrieval": {
+        "top_k": 5,
+        "max_planned_retrieval_calls": 4,
+        "max_evidence_items": 5,
+        "merge_policy": "subquery_rrf_merge_v2",
+        "rrf_k": 60.0
+      },
+      "evidence_verifier": {
+        "module": "core/engineering_verification.py",
+        "contract_class": "EngineeringVerificationResult",
+        "source_commit": "385b7795eafde7c114efc382e95c0d18ec273f54"
+      },
+      "context_resolver": {
+        "prompt_version": "agentic_rag_context_resolver_v1",
+        "max_output_tokens": 160,
+        "network_retry": 0
+      },
+      "requirement_router": {"version": "engineering_requirement_router_v1"},
+      "corpus_identity": {
+        "repository": "wgqa/agent_data",
+        "source_commit": "179f18e812ad63c36c5569de8e86c5ff5a931cb5",
+        "path": "agent_ai_v1/02_corpus_candidate",
+        "corpus_id": "870e5864df67",
+        "file_count": 37,
+        "chunk_count": 215,
+        "retrieval_strategy": "bm25",
+        "manifest_experiment_id": "dbc497c796d5"
+      }
+    }
+  },
+  "metric_schema": {
+    "schema_version": "integration_v7_metrics_v1",
+    "automatic": ["task_completion", "required_evidence_coverage", "tool_coverage", "premature_finalization", "refusal_correctness", "context_resolution_correct", "knowledge_source_hit_at_5", "retrieval_call_count", "subquery_coverage", "hybrid_rescue_attempted", "hybrid_rescue_used", "merged_evidence_count", "tool_calls", "llm_calls_context", "llm_calls_planner", "llm_calls_toolagent_decision", "llm_calls_repair", "llm_calls_total", "latency_e2e_ms", "latency_context_ms", "latency_planner_ms", "latency_retrieval_ms", "latency_toolagent_ms", "latency_verifier_ms", "latency_finalization_ms", "token_cost"],
+    "token_cost_unavailable_value": "UNAVAILABLE",
+    "retrieval_calls_are_not_llm_calls": true
+  },
+  "manual_rubric": {
+    "schema_version": "integration_v7_manual_rubric_v1",
+    "dimensions": ["task_success", "evidence_correctness", "grounding", "answer_obligation", "unsupported_claim", "citation_validity"],
+    "answer_obligation_values": ["O1", "O2", "aggregate"],
+    "unsupported_claim_values": ["NONE", "PRESENT"],
+    "citation_validity_values": ["VALID", "INVALID", "NOT_PRESENT", "NOT_APPLICABLE"],
+    "citation_is_not_semantic_entailment": true
+  },
+  "compatibility_requirements": {
+    "gate_1_to_gate_12_frozen_facts_immutable": true,
+    "gate_2_gate_3_sealed_formal_not_retuned": true,
+    "legacy_endpoint_regression_required": ["/query", "/agent/query", "/tool-agent/query"],
+    "g12_question_only_contract_preserved": true,
+    "component_migration_only": true,
+    "no_big_bang_rewrite": true
+  },
+  "execution_scope": {
+    "protocol_only": true,
+    "real_provider_run": false,
+    "ab_generation_run": false,
+    "holdout_run": false,
+    "formal_run": false,
+    "manual_scoring_run": false,
+    "unified_runtime_pass_claimed": false
+  },
+  "run_order": "deterministic_alternation_A_then_B_on_odd_case_and_B_then_A_on_even_case",
+  "failure_policy": {
+    "infrastructure_is_invalid": true,
+    "product_failures_are_normal_negatives": true,
+    "infrastructure_examples": ["provider_outage", "APIConnectionError", "port_or_process_failure", "wrong_repo", "dirty_repo", "corpus_mismatch", "missing_environment", "artifact_write_failure"],
+    "product_examples": ["planner_error", "retrieval_error", "insufficient_evidence", "premature_finalization", "wrong_refusal", "unsupported_claim"]
+  },
+  "contamination_policy": {
+    "holdout_candidate_sha_must_be_frozen_before_open_or_run": true,
+    "no_result_driven_production_or_gold_edits_after_freeze": true,
+    "dev_may_be_used_for_diagnosis_and_metric_validation": true
+  },
+  "holdout_execution": {
+    "default": "DENY",
+    "confirmation_argument": "--confirm-frozen-candidate <exact integration_holdout dataset SHA256>",
+    "arch_eval_08a_runs": false
+  },
+  "artifact_schema": {
+    "public_artifact_must_include": ["protocol_version", "system_identity", "target_project_binding", "corpus_identity", "case_result", "automatic_metrics", "manual_rubric_result", "failure_classification"],
+    "public_artifact_must_exclude": ["absolute_paths", "api_keys", "raw_provider_response", "raw_model_output", "private_reasoning", "full_prompt"]
+  }
+}

@@ -247,7 +247,7 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 ## Known Limitations
 
 - Engineering Agent 的统一 API 主链与 Streamlit 三种 legacy/demo mode 分开；当前不把 Engineering 伪装成第四个 UI mode。
-- Evidence Sufficiency 与 Claim-Evidence Coverage 尚未由 system-level verifier 强制保证。
+- Structural/query-level evidence sufficiency 已由 deterministic verification stack 检查；claim-level semantic grounding/entailment 仍未解决。`ARCH-EVAL-08` 将验证这一架构整合是否产生真实效果；不要将当前检查写成完整 factual verification 或 semantic correctness guarantee。
 - G11 多个 task family 已真实暴露 premature finalization、cross-file / bilateral evidence 缺失等问题。
 - Basic `/query` schema 支持 `history`；当前 Streamlit UI 不把会话历史发送给后端。
 - Agentic RAG 与 Tool Agent 当前是单轮 request contract；UI 也按模式隔离历史。

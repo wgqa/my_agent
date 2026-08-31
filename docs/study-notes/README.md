@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（83 份）
+## CURRENT（84 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -109,6 +109,7 @@
 | 127 | [127-Unified Runtime Evidence Planning Migration.md](127-Unified%20Runtime%20Evidence%20Planning%20Migration.md) | ARCH-PLAN-04：G3 QueryPlan / Query Decomposition 作为 Evidence Planner 组件迁移、trusted PlannerOutcome、fallback 与 Plan enforcement 延后边界 |
 | 128 | [128-Unified Runtime Adaptive Retrieval Migration.md](128-Unified%20Runtime%20Adaptive%20Retrieval%20Migration.md) | ARCH-RETRIEVAL-05：将 QueryPlan 驱动的 Adaptive / Multi-query Knowledge Retrieval 迁移为有限 Evidence Backend 组件，保留 G3 EvidenceBundle/RRF v2，并把 planned evidence 安全交给 ToolAgent |
 | 129 | [129-Unified Runtime Evidence Verification.md](129-Unified%20Runtime%20Evidence%20Verification.md) | ARCH-VERIFY-06：复用 G3 MinimalEvidenceVerifier、G12 typed requirement 与 CitationValidator，形成单一 EngineeringVerificationResult / Finalization seam，并区分可恢复与不可恢复证据不足 |
+| 130 | [130-ARCH-EVAL-08A-V7架构整合评测协议.md](130-ARCH-EVAL-08A-V7架构整合评测协议.md) | ARCH-EVAL-08A：V7 Architecture Integration Evaluation Protocol、27-case Dev/Holdout freeze、A/B identity、指标、manual rubric、污染规则与 Holdout deny-by-default |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -176,6 +177,6 @@
 
 ## 完整性声明
 
-- 当前索引列出 **130 份**，每份只出现一次：CURRENT 83 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 130。
+- 当前索引列出 **131 份**，每份只出现一次：CURRENT 84 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 131。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-31。

@@ -16,7 +16,12 @@
 - **ARCH-PLAN-04 = ACCEPT / CLOSED**
 - **ARCH-RETRIEVAL-05 = ACCEPT / CLOSED**
 - **ARCH-VERIFY-06 = ACCEPT / CLOSED**
-- **ARCH-CUTOVER-07 = CURRENT / REVIEW PENDING**
+- **ARCH-CUTOVER-07 = ACCEPT / CLOSED**
+- **ARCH-EVAL-08A = CURRENT / REVIEW PENDING**（protocol freeze only；no real Provider/Holdout/Formal/manual scoring）
+- **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
+- **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
+- **ARCH-EVAL-08A dataset = 18 Dev + 9 Holdout；9 task families × (2 Dev + 1 Holdout)**
+- **ARCH-EVAL-08A corpus = `870e5864df67` / 37 files / 215 chunks / bm25 / `dbc497c796d5`**
 - **Planner = ACTIVE / Knowledge Retrieval Plan enforcement = ACTIVE / EngineeringEvidenceVerifier = ACTIVE / Unified Engineering main-chain assembly = ACTIVE**
 - **G6 = CLOSED**
 - **G7 = CLOSED / Ledger optional**
@@ -47,13 +52,20 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-CUTOVER-07**（完成当前 cutover 并独立审计后才可进入 `ARCH-EVAL-08`）
+- **NEXT = ARCH-EVAL-08A**（只冻结 protocol；完成后立即停止，后续评测阶段须另行授权）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
+## ARCH-EVAL-08A V7 Architecture Integration Evaluation Protocol
+
+- **状态：** CURRENT / REVIEW PENDING；权威协议资产为 `evaluation/integration_v7/`。
+- **冻结内容：** System A/B、目标项目与 verified corpus identity、27 个全新 case、9 个 family 的 2 Dev + 1 Holdout 矩阵、automatic metric schema、manual rubric、failure classification、contamination policy、canonical SHA 与 Holdout deny-by-default。
+- **运行边界：** 本阶段只做离线 contract/validator/deterministic tests；没有真实 Provider、A/B generation、Holdout、Formal、manual scoring 或 product result。完成后停止，不自行进入后续评测阶段。
+- **兼容边界：** G1～G12 frozen facts、Gate 2/3 sealed/formal、G12 question-only contract、legacy endpoint regression、Prompt/Router/Guard/5-4-2 budget 均不因协议冻结而重写或调参。
+
 ## ARCH-CUTOVER-07 Unified Runtime Main-Chain Cutover
 
-- **状态：** CURRENT / REVIEW PENDING；本阶段只完成并审计主链切换，不开始 `ARCH-EVAL-08`。
+- **状态：** ACCEPT / CLOSED；本阶段完成并审计主链切换，后续进入 `ARCH-EVAL-08A` protocol freeze。
 - **主链：** `/engineering/query`、`/engineering/query/stream`、`/engineering/query/stream/v2` 共用 `EngineeringAgentFacade → UnifiedEngineeringRuntime → Context Resolver → Evidence Planner → Requirement Router → planned Retrieval / Evidence Aggregation → bounded ToolAgent execution component → Unified EngineeringEvidenceVerifier → single finalization point`；三者只在 observer transport 上不同。
 - **Assembly：** `UnifiedEngineeringRuntime` 生产构造必须提供 Context Resolver、Evidence Planner、Engineering Retrieval Component、Engineering Evidence Verifier 与 `LegacyToolAgentExecutionAdapter`；缺失组件 fail-fast/unready，禁止兼容旁路静默降级。
 - **Ownership：** Single Engineering Agent、one trusted control state、one logical Budget Owner；ToolAgentRuntime 继续执行冻结的 5/4/2，只是 execution component，不是第二个 Agent/controller。
