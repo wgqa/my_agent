@@ -1,6 +1,6 @@
 # ADR-002: Unified Engineering Runtime Migration
 
-> Status: **Accepted — architecture freeze; ARCH-VERIFY-06 migration active**<br>
+> Status: **Accepted — architecture freeze; ARCH-CUTOVER-07 migration active**<br>
 > Date: **2026-08-31**<br>
 > Baseline: `0eef8ef9d6decdaa10efebe04087b06611654670`<br>
 > Scope: Unified Runtime architecture and bounded G8/G3 Context, Planning, Knowledge Retrieval, and Evidence Verification component migration；不授权无关生产 Runtime 变更。
@@ -15,7 +15,7 @@
 EngineeringAgentFacade → ToolAgentRuntime → bounded Tool loop → finalization
 ```
 
-ARCH-FREEZE-01 起点时，G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。ARCH-CONTEXT-03、ARCH-PLAN-04、ARCH-RETRIEVAL-05 已分别接入 Context、trusted Plan 与有限 planned Knowledge Retrieval；ARCH-VERIFY-06 现在把 G3 retrieval coverage、G12 typed evidence shape 与 Citation-ID existence check 收敛为一个 trusted verification result，但 ToolAgent 仍承载唯一的 Decision → Tool → Observation execution loop，最终 Execution Policy / Finalization Policy cutover 仍待完成。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，却还没有完整收敛到唯一的 Context、Plan、Budget、Evidence、Verification、Finalization、Activity ownership。这就是本 ADR 要处理的 **Architecture Integration Drift**。
+ARCH-FREEZE-01 起点时，G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。ARCH-CONTEXT-03、ARCH-PLAN-04、ARCH-RETRIEVAL-05、ARCH-VERIFY-06 已分别把 Context、trusted Plan、有限 planned Knowledge Retrieval 与统一 Verification seam 接到迁移边界；但 ToolAgent 仍承载唯一的 Decision → Tool → Observation execution loop，最终的主链装配、fail-fast 组件契约与入口一致性仍需单独 cutover。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，现阶段的 **Architecture Integration Drift** 具体收敛为：能力已经有组件边界，但生产 Engineering assembly 仍必须明确唯一控制状态、唯一 budget owner、唯一 finalization seam，且不能通过兼容分支静默降级。
 
 本 ADR 与以下事实同时成立：
 
@@ -184,6 +184,64 @@ unchanged. `ToolAgentRuntime` remains only the execution component and there
 is no nested autonomous controller, FinalizationRuntime, or third product
 Runtime.
 
+## ARCH-CUTOVER-07 implementation addendum
+
+ARCH-CUTOVER-07 将 Engineering 主链正式固定为：
+
+```text
+/engineering/*
+  → EngineeringAgentFacade
+  → UnifiedEngineeringRuntime
+  → ContextResolver
+  → EvidencePlanner
+  → Requirement Router
+  → Adaptive Planned Retrieval / Evidence Aggregation
+  → bounded ToolAgent execution component
+  → Unified EngineeringEvidenceVerifier
+  → single ToolAgent finalization point
+  → Engineering response / SSE
+```
+
+Production `UnifiedEngineeringRuntime` now requires, at construction time, the
+Context Resolver, Evidence Planner, Engineering Retrieval Component,
+Engineering Evidence Verifier, and the `LegacyToolAgentExecutionAdapter`.
+The compatibility planner, optional core components, direct legacy delegate
+branch, and conditional verifier path are not valid assembly modes. Missing a
+core component fails fast or leaves the Engineering capability unready; it
+never silently downgrades the request to a legacy execution path.
+
+The three Engineering entries—`/engineering/query`,
+`/engineering/query/stream`, and `/engineering/query/stream/v2`—share the same
+Facade and Unified Runtime. Their difference is observer transport: safe Trace
+for the first stream and Rich Activity for v2. `/engineering/knowledge` stays
+a status/identity endpoint and does not execute the Agent. `/query`,
+`/agent/query`, and `/tool-agent/query` remain independent legacy
+regression/historical/debugging paths; they are not redirected to the new
+main chain and are not a second product controller.
+
+`LegacyToolAgentExecutionAdapter` remains a thin delegation boundary. It does
+not own planning, retrieval, verification, budget, finalization policy, or an
+additional loop. `ToolAgentRuntime` keeps the frozen 5/4/2 hard enforcement and
+its allowlist/duplicate/error semantics as the bounded Tool Execution Engine
+during migration. It is not a second Agent/controller, and there is no
+`UnifiedBudget`, `PlannerBudget`, `VerifierBudget`, `RetrievalBudget`, or other
+parallel budget ledger.
+
+This cutover is evidenced by deterministic proofs for Knowledge-only,
+Repository-only, Cross-source, Change/Test, Contextual follow-up, and failure
+semantics. The proofs assert planned retrieval handoff and suppression of the
+duplicate `knowledge_search`, dynamic repository/change/test evidence,
+standalone context resolution, one accumulated unified evidence sequence, one
+verifier/finalization result, bounded recovery, and the existing hard-stop
+matrix. Sync, stream v1, and stream v2 preserve the same business result.
+
+The cutover does not change the public question-only schema, Prompt, Router,
+Guard semantics, 5/4/2 values, historical Gate facts, or observability outcome
+isolation. It is component migration with regression coverage, not a big-bang
+ToolAgent rewrite, not a nested autonomous controller, and not a permanent
+discarding of G3. `ARCH-EVAL-08` remains the next independent evaluation stage
+after this cutover is reviewed.
+
 ## Consequences
 
 ### Positive
@@ -207,15 +265,20 @@ Runtime.
 ## Compatibility and guardrails
 
 - Gate 1～G12 frozen facts 不重写；Gate 2 / Gate 3 sealed/formal 不因迁移重新调参或重跑；
-- legacy `/agent/query`、`/tool-agent/query`、Engineering query 及 stream endpoint 在迁移期间保持回归；
+- legacy `/query`、`/agent/query`、`/tool-agent/query` 与三条 Engineering
+  entry 在迁移期间保持回归；legacy routes 独立保留，Engineering 三条 entry
+  共用一个 Facade/Unified Runtime；
 - G12 question-only contract 保持，不向 request 注入 evaluator Gold、case 或 source metadata；
 - `P1-OBS-03A-R1-MICRO` 继续是 `ACCEPT / CLOSED`，Activity/Observability 只读投影，不改变 runtime outcome；
 - 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-RETRIEVAL-05 的
-  有限 Knowledge Retrieval 与 ARCH-VERIFY-06 的统一 Verification seam
-  均保持组件边界，最终 cutover 仍待后续阶段；
+  有限 Knowledge Retrieval、ARCH-VERIFY-06 的统一 Verification seam 与
+  ARCH-CUTOVER-07 的严格 assembly 均保持组件边界；ARCH-EVAL-08 仍待独立审计；
 - G3 `MinimalEvidenceVerifier`、G12 evaluator 与 `CitationValidator` 只由
   一个 `EngineeringEvidenceVerifier` 编排并产生一个 trusted result；不
   允许三个独立 finalizer、citation repair LLM 或 Knowledge retry；
+- ARCH-CUTOVER-07 的 Engineering production assembly 必须提供全部核心
+  component 与唯一 execution adapter；缺失时 fail-fast/unready，不得静默
+  fallback 到 legacy path；三条 Engineering entry 必须共用同一 Facade/Runtime；
 - 后续必须先做 component migration，不能 big-bang rewrite、不能永久丢弃 G3、不能引入第三个产品 Runtime。
 
 ## Non-decisions

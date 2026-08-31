@@ -9,6 +9,7 @@ from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
     route_engineering_evidence_requirement,
 )
+from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import (
@@ -390,6 +391,8 @@ def _build_unified_runtime(query, port, provider):
             StaticPlanner(_outcome(query))
         ),
         retrieval_component=EngineeringRetrievalComponent(port),
+        context_resolver=EngineeringContextResolver(),
+        evidence_verifier=EngineeringEvidenceVerifier(),
     )
 
 
@@ -437,6 +440,8 @@ def test_retrieval_coverage_shortage_hard_stops_without_knowledge_retry():
             StaticPlanner(outcome)
         ),
         retrieval_component=EngineeringRetrievalComponent(port),
+        context_resolver=EngineeringContextResolver(),
+        evidence_verifier=EngineeringEvidenceVerifier(),
     )
 
     result = runtime.run(query)

@@ -30,10 +30,7 @@ from core.tool_agent.runtime_models import (
 )
 from core.tool_agent.tools.git_change import GIT_DIFF_SPEC
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
-from core.unified_engineering_runtime import (
-    LegacyToolAgentExecutionAdapter,
-    UnifiedEngineeringRuntime,
-)
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 client = TestClient(api.app.app)
@@ -238,7 +235,7 @@ def test_v2_uses_real_tool_lifecycle_evidence_and_guard_events(monkeypatch):
     _install_facade(
         monkeypatch,
         EngineeringAgentFacade(
-            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+            build_full_unified_runtime(runtime)
         ),
     )
 

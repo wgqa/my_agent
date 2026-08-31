@@ -17,10 +17,7 @@ from core.tool_agent import (
     ENGINEERING_DECISION_PROMPT_V2_SHA256,
     build_tool_agent_runtime,
 )
-from core.unified_engineering_runtime import (
-    LegacyToolAgentExecutionAdapter,
-    UnifiedEngineeringRuntime,
-)
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 LEGACY_TRACE_KEYS = {
@@ -85,7 +82,7 @@ def _install_metadata_runtime(monkeypatch, tmp_path: Path) -> None:
         api.app,
         "engineering_agent_facade",
         EngineeringAgentFacade(
-            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+            build_full_unified_runtime(runtime)
         ),
     )
 

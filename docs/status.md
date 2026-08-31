@@ -15,8 +15,9 @@
 - **ARCH-CONTEXT-03 = ACCEPT / CLOSED**
 - **ARCH-PLAN-04 = ACCEPT / CLOSED**
 - **ARCH-RETRIEVAL-05 = ACCEPT / CLOSED**
-- **ARCH-VERIFY-06 = CURRENT / REVIEW PENDING**
-- **Planner = ACTIVE / Knowledge Retrieval Plan enforcement = ACTIVE / EngineeringEvidenceVerifier = ACTIVE**
+- **ARCH-VERIFY-06 = ACCEPT / CLOSED**
+- **ARCH-CUTOVER-07 = CURRENT / REVIEW PENDING**
+- **Planner = ACTIVE / Knowledge Retrieval Plan enforcement = ACTIVE / EngineeringEvidenceVerifier = ACTIVE / Unified Engineering main-chain assembly = ACTIVE**
 - **G6 = CLOSED**
 - **G7 = CLOSED / Ledger optional**
 - **G8 = CLOSED / Context v1 mixed**
@@ -46,9 +47,18 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-VERIFY-06**（完成当前迁移并独立审计后才可进入 `ARCH-CUTOVER-07`）
+- **NEXT = ARCH-CUTOVER-07**（完成当前 cutover 并独立审计后才可进入 `ARCH-EVAL-08`）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
+
+## ARCH-CUTOVER-07 Unified Runtime Main-Chain Cutover
+
+- **状态：** CURRENT / REVIEW PENDING；本阶段只完成并审计主链切换，不开始 `ARCH-EVAL-08`。
+- **主链：** `/engineering/query`、`/engineering/query/stream`、`/engineering/query/stream/v2` 共用 `EngineeringAgentFacade → UnifiedEngineeringRuntime → Context Resolver → Evidence Planner → Requirement Router → planned Retrieval / Evidence Aggregation → bounded ToolAgent execution component → Unified EngineeringEvidenceVerifier → single finalization point`；三者只在 observer transport 上不同。
+- **Assembly：** `UnifiedEngineeringRuntime` 生产构造必须提供 Context Resolver、Evidence Planner、Engineering Retrieval Component、Engineering Evidence Verifier 与 `LegacyToolAgentExecutionAdapter`；缺失组件 fail-fast/unready，禁止兼容旁路静默降级。
+- **Ownership：** Single Engineering Agent、one trusted control state、one logical Budget Owner；ToolAgentRuntime 继续执行冻结的 5/4/2，只是 execution component，不是第二个 Agent/controller。
+- **兼容：** `/query`、`/agent/query`、`/tool-agent/query` 继续作为独立 legacy regression/historical/debugging routes；`/engineering/knowledge` 只提供 status/identity；G12 question-only contract、Prompt、Router、Guard、frozen Gate facts 与 observability outcome isolation 不变。
+- **证据：** deterministic coverage 已覆盖 Knowledge-only、Repository-only、Cross-source、Change/Test、Contextual follow-up 与 failure matrix；sync/v1/v2 的 business result parity 由同一 Facade/Runtime 保证。
 
 ## G11-02 Theory ↔ Code Closure
 

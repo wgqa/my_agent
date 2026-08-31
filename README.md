@@ -48,15 +48,28 @@ flowchart TD
     O --> L[Bounded Iteration]
     L --> TF[Final Answer]
 
-    API --> EA[Engineering Agent<br/>POST /engineering/query]
-    EA --> DL[Decision / Tool Loop]
-    DL --> KE[Knowledge Evidence<br/>knowledge_search]
-    DL --> RE[Repository Evidence<br/>code_search<br/>read_project_context<br/>changed_files<br/>git_diff<br/>find_tests]
-    KE --> EF[Grounded Engineering Answer]
-    RE --> EF
+    API --> EA[Engineering product path<br/>/engineering/query]
+    EA --> F[EngineeringAgentFacade]
+    F --> UR[UnifiedEngineeringRuntime]
+    UR --> C[Context Resolver]
+    C --> P2[Evidence Planner]
+    P2 --> RR2[Requirement Router]
+    RR2 --> PR[Adaptive Planned Retrieval]
+    PR --> AG[Evidence Aggregator]
+    AG --> TE[Bounded Tool Execution Engine]
+    TE --> EB[Evidence Backends<br/>Knowledge / Repository / Git / Test]
+    EB --> UE[One Unified Evidence sequence]
+    UE --> EV[EngineeringEvidenceVerifier]
+    EV --> FIN[Single finalization point]
+    FIN --> ER[Engineering response / SSE]
+
+    API --> LQ[Legacy /query]
+    API --> LA[Legacy /agent/query]
+    API --> LT[Legacy /tool-agent/query]
+    API --> KS[/engineering/knowledge<br/>status / identity only]
 ```
 
-Basic、Agentic、Structured Tool Agent 与 Engineering Agent 共用 HTTP 入口层，但使用相互独立的 runtime contract。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。Streamlit 目前仍只有 Basic RAG、Agentic RAG 与 Structured Tool Agent 三种 Demo mode；Engineering Agent 是 API/product entry，不是第四个 Streamlit mode selector。
+Engineering Agent 是默认产品定位与统一 API 主入口；Basic、Agentic、Structured Tool Agent 及其 legacy endpoint 保留为独立回归、历史和调试路径，不是 Engineering Runtime 的替代 controller。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。Streamlit 目前仍提供 Basic RAG、Agentic RAG 与 Structured Tool Agent 三种 Demo mode；Engineering Agent API 不作为第四个 mode selector。
 
 ## 三种 Demo 运行模式与 Engineering API 入口
 
@@ -80,9 +93,9 @@ Decision → Tool Call → Observation → bounded iteration → Final Answer。
 
 ### Engineering Agent API
 
-`POST /engineering/query` 是统一的 Engineering Agent query entry，面向当前系统绑定项目与 verified Engineering Knowledge 的 evidence-grounded 分析。`GET /engineering/knowledge` 公开 verified Knowledge backend 的状态和 identity；`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
+`POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 verified Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开 verified Knowledge backend 的状态和 identity，不执行 Agent；`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
 
-Engineering Agent 当前是 API/product entry，尚未作为第四种 Streamlit Demo mode 出现在 mode selector 中。
+`/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。
 
 ## 5 分钟体验
 
@@ -109,7 +122,7 @@ uvicorn api.app:app --host 127.0.0.1 --port 8000
 streamlit run ui/app.py
 ```
 
-打开 Streamlit 地址后，可以在 Agent Console 中切换三种 Demo mode：Basic RAG、Agentic RAG 和 Structured Tool Agent。侧栏会先读取 `/health` 与 `/capabilities`；runtime 未 ready 的模式会在提交前提示，不会等一次 503 才暴露问题。Engineering Agent 通过 API entry 提供，不在当前 Streamlit mode selector 中。
+打开 Streamlit 地址后，可以在 Agent Console 中切换三种 Demo mode：Basic RAG、Agentic RAG 和 Structured Tool Agent。侧栏会先读取 `/health` 与 `/capabilities`；runtime 未 ready 的模式会在提交前提示，不会等一次 503 才暴露问题。默认产品路径是 Engineering API；它不作为第四个 Streamlit mode selector。
 
 如果 API 不在默认地址，可设置 `RAG_API_URL=http://127.0.0.1:<port>` 后再启动 UI。
 
@@ -146,6 +159,8 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 | `POST /agent/query` | Agentic RAG |
 | `POST /tool-agent/query` | Structured Tool Agent |
 | `POST /engineering/query` | 统一 Engineering Agent query entry |
+| `POST /engineering/query/stream` | Engineering Agent safe Trace SSE |
+| `POST /engineering/query/stream/v2` | Engineering Agent Rich Activity SSE |
 | `GET /engineering/knowledge` | Verified Engineering Knowledge backend 的公开状态与 identity |
 | `GET /project` | 当前 system-bound project 的公开 identity，不暴露本地绝对路径 |
 
@@ -231,12 +246,12 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 
 ## Known Limitations
 
-- Engineering Agent 当前有 API entry，但尚未进入 Streamlit mode selector。
+- Engineering Agent 的统一 API 主链与 Streamlit 三种 legacy/demo mode 分开；当前不把 Engineering 伪装成第四个 UI mode。
 - Evidence Sufficiency 与 Claim-Evidence Coverage 尚未由 system-level verifier 强制保证。
 - G11 多个 task family 已真实暴露 premature finalization、cross-file / bilateral evidence 缺失等问题。
 - Basic `/query` schema 支持 `history`；当前 Streamlit UI 不把会话历史发送给后端。
 - Agentic RAG 与 Tool Agent 当前是单轮 request contract；UI 也按模式隔离历史。
-- 当前没有 streaming 输出。
+- Engineering stream v1/v2 只在 SSE observer transport 上不同，业务结果仍来自同一 Unified Runtime。
 - Tool Agent 正式 Dev baseline 的 multi-step allowed sequence match 为 `1/4`，required tool coverage 为 `14/20`；`ACTION_PARSE_FAILED` 为 `2/24`，budget stop 为 `1/24`。
 - Gate 3 Dev 侧有 `4/24` generation failures；检索找到证据不等于 Generator 覆盖全部 answer obligation。
 - 当前默认是本地单用户 Demo，不包含认证、租户隔离或面向公网的部署安全层。

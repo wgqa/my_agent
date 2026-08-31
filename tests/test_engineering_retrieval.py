@@ -7,6 +7,7 @@ import pytest
 from core.agent_runtime import Document
 from core.agent_runtime.evidence import DEFAULT_MERGE_RRF_K, SUBQUERY_RRF_MERGE_V2
 from core.engineering_agent import EngineeringAgentFacade
+from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_requirements import route_engineering_evidence_requirement
 from core.engineering_retrieval import (
@@ -15,6 +16,7 @@ from core.engineering_retrieval import (
     MAX_RETRIEVAL_CALLS,
     RETRIEVAL_TOP_K,
 )
+from core.engineering_verification import EngineeringEvidenceVerifier
 from core.query_planning import BaseQueryPlanner, PlannerOutcome, QueryPlan, Subquery
 from core.tool_agent import (
     AgentDecisionOutcome,
@@ -396,6 +398,8 @@ def test_planned_context_and_evidence_are_seeded_before_first_decision():
             RecordingPlanner(_outcome(query))
         ),
         retrieval_component=EngineeringRetrievalComponent(port),
+        context_resolver=EngineeringContextResolver(),
+        evidence_verifier=EngineeringEvidenceVerifier(),
     )
 
     result = runtime.run(query)
@@ -477,6 +481,8 @@ def test_engineering_registry_hides_knowledge_search_while_legacy_registry_stays
             RecordingPlanner(_outcome(query))
         ),
         retrieval_component=EngineeringRetrievalComponent(port),
+        context_resolver=EngineeringContextResolver(),
+        evidence_verifier=EngineeringEvidenceVerifier(),
     )
 
     result = runtime.run(query)
@@ -524,6 +530,8 @@ def test_retrieval_exception_fails_fast_before_tool_provider():
             RecordingPlanner(_outcome(query))
         ),
         retrieval_component=EngineeringRetrievalComponent(port),
+        context_resolver=EngineeringContextResolver(),
+        evidence_verifier=EngineeringEvidenceVerifier(),
     )
 
     with pytest.raises(RuntimeError, match="backend crashed"):

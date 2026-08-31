@@ -18,6 +18,7 @@ from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
     UnifiedEngineeringRuntime,
 )
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 class ScriptedProvider:
@@ -72,8 +73,8 @@ def _completed_result(answer="synthetic"):
 
 
 def _unified(runtime, *, context_resolver=None):
-    return UnifiedEngineeringRuntime(
-        LegacyToolAgentExecutionAdapter(runtime),
+    return build_full_unified_runtime(
+        runtime,
         context_resolver=context_resolver,
     )
 
@@ -121,6 +122,10 @@ def test_requirement_routing_happens_once_in_unified_runtime_not_in_facade(monke
             user_input,
             *,
             evidence_requirement=None,
+            initial_context=(),
+            initial_evidence=(),
+            disabled_tools=(),
+            finalization_verifier=None,
             trace_sink=None,
             activity_sink=None,
         ):
@@ -233,7 +238,14 @@ def test_direct_tool_agent_runtime_construction_is_not_a_supported_facade_bounda
         [FinalAnswerAction(action="final_answer", answer="ok")]
     )
 
-    with pytest.raises(TypeError, match="LegacyToolAgentExecutionAdapter"):
+    with pytest.raises(TypeError):
         UnifiedEngineeringRuntime(runtime)
     with pytest.raises(TypeError, match="UnifiedEngineeringRuntime"):
         EngineeringAgentFacade(runtime)
+
+
+def test_unified_runtime_requires_all_core_components():
+    runtime, _ = _runtime(_direct_actions())
+
+    with pytest.raises(TypeError, match="context_resolver"):
+        UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))

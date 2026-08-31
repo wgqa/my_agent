@@ -19,30 +19,9 @@ from core.engineering_requirements import (
     route_engineering_evidence_requirement,
 )
 from core.engineering_verification import EngineeringEvidenceVerifier
-from core.query_planning import (
-    BaseQueryPlanner,
-    PlannerOutcome,
-    build_planner_fallback_outcome,
-)
 from core.tool_agent.activity import ActivityEvent
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import RuntimeTraceEvent, ToolAgentRunResult
-
-
-class _CompatibilityFallbackPlanner(BaseQueryPlanner):
-    """No-provider compatibility seam for legacy direct Runtime construction."""
-
-    def plan(self, original_query: str) -> PlannerOutcome:
-        return build_planner_fallback_outcome(
-            original_query,
-            "PLANNER_PROVIDER_ERROR",
-        )
-
-
-def _default_evidence_planner() -> EngineeringEvidencePlanner:
-    """Keep no-history legacy construction usable outside production wiring."""
-
-    return EngineeringEvidencePlanner(_CompatibilityFallbackPlanner())
 
 
 class LegacyToolAgentExecutionAdapter:
@@ -94,48 +73,30 @@ class UnifiedEngineeringRuntime:
         self,
         execution_adapter: LegacyToolAgentExecutionAdapter,
         *,
-        context_resolver: EngineeringContextResolver | None = None,
-        evidence_planner: EngineeringEvidencePlanner | None = None,
-        retrieval_component: EngineeringRetrievalComponent | None = None,
-        evidence_verifier: EngineeringEvidenceVerifier | None = None,
+        context_resolver: EngineeringContextResolver,
+        evidence_planner: EngineeringEvidencePlanner,
+        retrieval_component: EngineeringRetrievalComponent,
+        evidence_verifier: EngineeringEvidenceVerifier,
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
                 "execution_adapter 必须是 LegacyToolAgentExecutionAdapter"
             )
-        if context_resolver is not None and not isinstance(
-            context_resolver, EngineeringContextResolver
-        ):
+        if not isinstance(context_resolver, EngineeringContextResolver):
             raise TypeError("context_resolver 必须是 EngineeringContextResolver")
-        if evidence_planner is not None and not isinstance(
-            evidence_planner, EngineeringEvidencePlanner
-        ):
+        if not isinstance(evidence_planner, EngineeringEvidencePlanner):
             raise TypeError("evidence_planner must be EngineeringEvidencePlanner")
-        if retrieval_component is not None and not isinstance(
-            retrieval_component, EngineeringRetrievalComponent
-        ):
+        if not isinstance(retrieval_component, EngineeringRetrievalComponent):
             raise TypeError(
                 "retrieval_component must be EngineeringRetrievalComponent"
             )
-        if evidence_verifier is not None and not isinstance(
-            evidence_verifier, EngineeringEvidenceVerifier
-        ):
+        if not isinstance(evidence_verifier, EngineeringEvidenceVerifier):
             raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
         self._execution_adapter = execution_adapter
-        # Keep the constructor compatible for no-history callers while the
-        # production wiring injects the real provider-backed component.
-        self._context_resolver = context_resolver or EngineeringContextResolver()
-        # Production always injects the G3-backed Planner.  The deterministic
-        # fallback keeps older direct construction sites behavior-compatible;
-        # it is not an Agent, provider, loop, or second budget owner.
-        self._evidence_planner = evidence_planner or _default_evidence_planner()
-        # Production injects the planned Knowledge Retrieval component. Keeping
-        # this seam optional preserves older direct construction sites until
-        # they opt into the component, without changing their legacy behavior.
+        self._context_resolver = context_resolver
+        self._evidence_planner = evidence_planner
         self._retrieval_component = retrieval_component
-        self._evidence_verifier = evidence_verifier or (
-            EngineeringEvidenceVerifier() if retrieval_component is not None else None
-        )
+        self._evidence_verifier = evidence_verifier
 
     def run(
         self,
@@ -157,19 +118,10 @@ class UnifiedEngineeringRuntime:
         # Knowledge Retrieval component below.
         planner_outcome = self._evidence_planner.plan(resolved_input)
         requirement = route_engineering_evidence_requirement(resolved_input)
-        if self._retrieval_component is None:
-            return self._execution_adapter.run(
-                resolved_input,
-                evidence_requirement=requirement,
-                trace_sink=trace_sink,
-                activity_sink=activity_sink,
-            )
         retrieval_snapshot = self._retrieval_component.retrieve(
             resolved_input,
             planner_outcome,
         )
-        if self._evidence_verifier is None:  # pragma: no cover - constructor guard
-            raise RuntimeError("retrieval component requires an evidence verifier")
         finalization_verifier = self._evidence_verifier.bind(
             planner_outcome,
             retrieval_snapshot,

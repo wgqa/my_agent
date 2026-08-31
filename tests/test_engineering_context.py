@@ -27,6 +27,7 @@ from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
     UnifiedEngineeringRuntime,
 )
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 class _RecordingResolver:
@@ -69,13 +70,7 @@ def _tool_runtime(provider=None):
 
 def _unified(context_resolver, provider=None):
     runtime, provider = _tool_runtime(provider)
-    return (
-        UnifiedEngineeringRuntime(
-            LegacyToolAgentExecutionAdapter(runtime),
-            context_resolver=context_resolver,
-        ),
-        provider,
-    )
+    return (build_full_unified_runtime(runtime, context_resolver=context_resolver), provider)
 
 
 def _history(size=8):

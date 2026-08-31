@@ -3,8 +3,8 @@
 > Status: **Architecture baseline and migration contract**
 > Project identity: **Evidence-Grounded AI Engineering Agent**
 > Architecture baseline: `c6ee568923babcb0dc3e040ceef1e18e162b02db`
-> Current migration baseline: `c08cdb0886ee3e3dc1e89c9bdeaa7117ae90deab`
-> Current migration: `ARCH-VERIFY-06`
+> Current migration baseline: `e5092df2b87bcadf382193f94bf2143121424ecd`
+> Current migration: `ARCH-CUTOVER-07`
 > Historical Gate facts are immutable; this document defines the only target architecture for `ARCH-RUNTIME-02` through `ARCH-EVAL-08`.
 
 ## 1. Purpose and boundary
@@ -171,7 +171,48 @@ point on this path. `ToolAgentRuntime` still enforces 5/4/2 and executes the
 bounded loop, but it is only the Unified Runtime's execution component; there
 is no FinalizationRuntime, nested AgentRuntime, repair LLM, or new controller.
 
-### 2.5 G8 context contract being migrated
+### 2.5 Current ARCH-CUTOVER-07 main-chain assembly
+
+The cutover candidate now has one strict production-shaped assembly:
+
+```text
+/engineering/query
+/engineering/query/stream
+/engineering/query/stream/v2
+          │  same EngineeringAgentFacade; observer transport differs only
+          v
+EngineeringAgentFacade
+          v
+UnifiedEngineeringRuntime
+  -> ContextResolver
+  -> EvidencePlanner
+  -> Requirement Router
+  -> EngineeringRetrievalComponent / Evidence Aggregator
+  -> LegacyToolAgentExecutionAdapter
+  -> ToolAgentRuntime bounded execution component
+  -> one EngineeringEvidenceVerifier / one finalization seam
+```
+
+`UnifiedEngineeringRuntime` requires Context Resolver, Evidence Planner,
+Engineering Retrieval Component, Engineering Evidence Verifier, and the
+ToolAgent execution adapter at construction time. The compatibility planner,
+optional component parameters, direct legacy delegate branch, and conditional
+verification path are removed. A missing core component fails assembly rather
+than silently downgrading to a legacy run.
+
+`ToolAgentRuntime` still controls the bounded inner Decision → Tool →
+Observation loop and continues to enforce 5/4/2 during migration. It is the
+Unified Runtime's execution component, not a second Agent/controller. The
+ARCH-FREEZE-01 statement that G3/G8 capabilities were outside the main chain
+is retained as a historical starting fact in §2.1; their migrated component
+seams are now assembled before the ToolAgent execution component. G11 Unified
+Evidence and G12 Requirement/Guard remain **ACTIVE** inputs.
+
+The legacy `/query`, `/agent/query`, and `/tool-agent/query` routes remain
+independent regression/historical/debugging paths. `/engineering/knowledge`
+reports backend identity/status only and never executes the Engineering Agent.
+
+### 2.6 G8 context contract being migrated
 
 The migration reuses, without redesigning, the existing G8 components:
 
@@ -190,7 +231,7 @@ The migration reuses, without redesigning, the existing G8 components:
 provider. Invalid history/message values fail through the existing strict
 validation rather than being silently discarded.
 
-### 2.6 Planner component contract
+### 2.7 Planner component contract
 
 `EngineeringEvidencePlanner` accepts only an existing `BaseQueryPlanner` and
 returns the exact existing `PlannerOutcome` object after strict type and
@@ -278,14 +319,14 @@ execution adapter.
 | `MinimalEvidenceVerifier` | G3 verifier implementation | **ACTIVE in ARCH-VERIFY-06** as a delegated query-level retrieval/coverage check | Evidence Verifier | Call the existing verifier with snapshot pre-merge required/covered IDs and retain its `VerificationResult` | No algorithm, semantic claim, threshold, or frozen artifact change |
 | Grounded Generation | Agentic RAG answer path / generator ports | Existing generation path; answer eligibility now consumes the unified result, but semantic grounding is not claimed | Finalization Policy | Pass the proposed answer through the one verification seam before the existing finalization transition | Existing generator failure semantics preserved; no LLM judge or semantic entailment claim |
 | Citation Validator | `core/generator/citation.py` | **ACTIVE in ARCH-VERIFY-06** as citation-ID existence checking | Evidence Verifier | Adapt the same EvidenceBundle items to ContextBlock and delegate one citation check | Citation-free answer is nonblocking; invalid IDs block; no UI/persistence expansion |
-| G4 Tool loop / allowlist / budget | `core/tool_agent/runtime.py`, `integration.py` | Active bounded ToolAgent execution: 5/4/2, allowlist, duplicate/error guards; Engineering can receive seeded evidence and a filtered registry | Execution Policy + Tool Execution Engine | Keep ToolAgentRuntime as the execution component through the migration adapter; disable duplicate Engineering knowledge search | 5/4/2 hard enforcement, allowlist, and terminal semantics remain frozen; legacy registry unchanged |
+| G4 Tool loop / allowlist / budget | `core/tool_agent/runtime.py`, `integration.py` | Active bounded ToolAgent execution: 5/4/2, allowlist, duplicate/error guards; Engineering receives planned evidence and a filtered registry | Execution Policy + Tool Execution Engine | Keep ToolAgentRuntime as the bounded execution component through the migration adapter; disable duplicate Engineering knowledge search; fail assembly when the Unified components are missing | 5/4/2 hard enforcement, allowlist, and terminal semantics remain frozen; legacy registry unchanged |
 | Safe Trace | `core/tool_agent/runtime_models.py`, `api/app.py` | Active safe projection; no raw prompt/observation/secret | Activity / Observability | Keep as an output projection of trusted events | Observability cannot change runtime outcomes or become control state |
 | G6 Repository Evidence | `core/tool_agent/tools/`, repository adapters | Active read-only code/project evidence | Evidence Backend | Expose repo tools through Tool Execution Engine and Unified Evidence | Workspace binding, bounded output, path safety, and legacy endpoint regression |
 | G8 Context / Standalone Resolver | `core/conversation_context/`, `core/engineering_context.py` | G8 result is `MIXED / USEFUL BUT NOT GENERAL`; Context component fronts Engineering Runtime | Context Resolver | Reuse bounded window/resolver; pass one resolved input downstream | None/empty no provider; max one resolver call; fallback and fail-fast semantics preserved |
 | G9 failure semantics | `core/generator/errors.py`, Agent/Tool runtime handling | Typed provider failures and programming-error propagation are active | Execution Policy + Finalization Policy | Map component failures into the single trusted run state | Provider text/key/traceback not leaked; unknown programming errors remain visible to boundary |
 | G10 `changed_files` / `git_diff` / `find_tests` | `core/tool_agent/tools/` | Active read-only tools and workflow evidence | Evidence Backend + Evidence Aggregator | Register each as typed evidence producer under one execution policy | Existing safe path, diff bounds, candidate-source and endpoint contracts regress |
-| G11 Unified Evidence | G11 Engineering response/runtime models | **ACTIVE**; Retrieval now hands off trusted planned Knowledge evidence while ToolAgent emits other evidence kinds | Evidence Aggregator | Preserve internal G3 bundle identity and adapt backend outputs to one evidence envelope/provenance path | G11 historical task-family outcomes and known negatives remain unchanged |
-| G12 Typed Requirement / Finalization Guard | `core/engineering_requirements.py`, ToolAgent finalization guard | **ACTIVE**; typed requirement is delegated into the unified result and existing finalization point remains the seam | Evidence Verifier + Finalization Policy | Reuse one G12 state in `EngineeringVerificationResult`; allow only bounded producer-tool recovery | G12 question-only contract, guard schema, Formal and valid FAIL remain frozen |
+| G11 Unified Evidence | G11 Engineering response/runtime models | **ACTIVE**; planned Knowledge and dynamic Repository/Git/Test facts share one `ToolAgentRunResult.evidence` | Evidence Aggregator | Preserve internal G3 bundle identity and adapt all backend outputs to one deterministic evidence envelope/provenance path | G11 historical task-family outcomes and known negatives remain unchanged; one result/evidence sequence |
+| G12 Typed Requirement / Finalization Guard | `core/engineering_requirements.py`, ToolAgent finalization guard | **ACTIVE**; one verifier result is consumed at the single ToolAgent finalization point | Evidence Verifier + Finalization Policy | Reuse one G12 state in `EngineeringVerificationResult`; allow only bounded producer-tool recovery and one finalization transition | G12 question-only contract, guard schema, Formal and valid FAIL remain frozen |
 | Rich Activity | `core/tool_agent/activity.py`, stream v2 | Active safe lifecycle projection | Activity / Observability | Project Unified Runtime events without feeding them back into control | No context content, prompt, raw observation, or outcome mutation |
 
 ## 5. Ownership Matrix
@@ -371,6 +412,16 @@ ownership of evidence and finalization.
   enforcement during migration; the Unified Runtime still has exactly one
   logical Budget Owner. ToolAgentRuntime is an execution component, not a
   second Agent/controller.
+- Production Engineering assembly requires all core components and the
+  execution adapter; missing components fail fast/unready and never fall back
+  to a direct legacy Unified run.
+- `/engineering/query`, `/engineering/query/stream`, and
+  `/engineering/query/stream/v2` use the same Facade/Unified Runtime business
+  path; only safe trace versus rich activity observation transport differs.
+  `/query`, `/agent/query`, and `/tool-agent/query` remain independent legacy
+  regression/historical/debugging paths.
+- `/engineering/knowledge` is a status/identity endpoint, not an execution
+  route; public Engineering requests have no runtime selector field.
 - Migration is component-by-component with adapters and contract tests. It is
   not a big-bang rewrite and it does not permanently discard G3.
 - No Persistence, Citation UI, new Multi-Agent design, or third product
@@ -378,42 +429,44 @@ ownership of evidence and finalization.
 
 ## 7. Current vs Target Architecture
 
-### 7.1 Current capability islands
+### 7.1 Current capability islands and cutover chain
 
 ```text
-                         current Engineering product path
-Client ──> Facade ──> Unified Runtime
-                         │
-                         ├─ Context Resolver
-                         ├─ Evidence Planner (trusted QueryPlan)
-                         ├─ Requirement route once
-                         ├─ Planned Knowledge Retrieval
-                         │    └─ Adaptive / multi-query / RRF v2 → EvidenceBundle
-                         └─ Adapter ──> ToolAgentRuntime
-                                               ├─ Decision
-                                               ├─ Tool allowlist
-                                               ├─ 5/4/2 hard budget
-                                               ├─ Observation / Repo-Git-Test evidence
-                                               └─ EngineeringEvidenceVerifier
-                                                    ├─ G3 MinimalEvidenceVerifier
-                                                    ├─ G12 typed requirement
-                                                    ├─ Citation-ID validator
-                                                    └─ one can_finalize result
-                                                         │
-                                                         v
-                                                    existing finalization point
+  ARCH-FREEZE-01 starting state (historical capability islands)
+  ┌──────────────────────────────────────────────────────────────┐
+  │ G3 Planner / Decomposition / Adaptive + Multi-query Retrieval │
+  │ MinimalEvidenceVerifier                                      │
+  │ G8 Context / Standalone Resolver                              │
+  │                                                               │
+  │ These capabilities existed, but were not in the ToolAgent-only │
+  │ Engineering main chain. G11 Unified Evidence + G12 Guard were  │
+  │ active integration inputs.                                    │
+  └──────────────────────────────────────────────────────────────┘
+                               │ component migration
+                               v
+  Current ARCH-CUTOVER-07 Engineering path
+  /engineering/* ──> one Facade ──> UnifiedEngineeringRuntime
+                                      │
+                                      ├─ Context Resolver
+                                      ├─ Evidence Planner + Requirement Router
+                                      ├─ Planned Retrieval / Evidence Aggregator
+                                      └─ one execution adapter ──> ToolAgentRuntime
+                                                                     ├─ Decision
+                                                                     ├─ allowlist + 5/4/2
+                                                                     ├─ Repo/Git/Test evidence
+                                                                     ├─ one Unified Evidence sequence
+                                                                     └─ one Verifier / finalization seam
 
-  Remaining integration drift (cutover is not yet complete)
-  ┌────────────────────────────────────────────────────────┐
-  │ Execution Policy ownership and Finalization Policy      │
-  │ still converge through the ToolAgent execution adapter  │
-  └────────────────────────────────────────────────────────┘
-
-  G8 is now a Context component; G3 Planner/Decomposition, Adaptive Retrieval,
-  Multi-query Retrieval, deterministic Evidence Merge, and unified verification
-  are bounded components. G11 Unified Evidence and G12 Requirement/Guard
-  remain active inputs; final control-plane cutover is the remaining drift.
+  Independent legacy rails (kept for regression/history/debugging)
+  /query ──> Pipeline       /agent/query ──> AgentRuntime
+  /tool-agent/query ──> ToolAgentRuntime
+  /engineering/knowledge ──> status/identity only
 ```
+
+The current inner loop is still implemented by `ToolAgentRuntime`, but the
+strict assembly makes it one bounded execution component of the Unified
+Runtime. There is no compatibility bypass, second Agent/controller, or second
+logical budget owner.
 
 ### 7.2 Final unified control plane
 

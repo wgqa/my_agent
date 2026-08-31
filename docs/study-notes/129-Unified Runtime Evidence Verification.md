@@ -103,4 +103,7 @@ component hard-enforce；逻辑上仍只有一个 Budget Owner。
 ARCH-VERIFY-06 是 component migration：保留 Gate 1～G12 frozen facts、Gate 2/3
 sealed/formal 结论、G12 question-only contract、legacy endpoint regression 和
 public API/SSE shape；不改 Prompt、Router、5/4/2、Formal、Persistence 或
-Citation UI。最终 control-plane cutover 仍由 ARCH-CUTOVER-07 单独处理。
+Citation UI。ARCH-CUTOVER-07 现在把三条 Engineering entry 固定到同一
+Facade/Unified Runtime，要求 Context/Plan/Retrieval/Verifier 全部显式装配，
+并禁止 silent compatibility fallback；ToolAgentRuntime 仍只是 bounded
+execution component。完成本阶段独立审计前，不开始 ARCH-EVAL-08。

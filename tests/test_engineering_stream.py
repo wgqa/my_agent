@@ -25,10 +25,7 @@ from core.tool_agent.runtime_models import (
 )
 from core.tool_agent.tools.git_change import GIT_DIFF_SPEC
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
-from core.unified_engineering_runtime import (
-    LegacyToolAgentExecutionAdapter,
-    UnifiedEngineeringRuntime,
-)
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 client = TestClient(api.app.app)
@@ -217,7 +214,7 @@ def test_guard_blocked_answer_never_enters_sse_and_approved_answer_streams(monke
         ),
     )
     facade = EngineeringAgentFacade(
-        UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+        build_full_unified_runtime(runtime)
     )
     requirement = EngineeringEvidenceRequirement(
         requirement_profile=CHANGE_TEST_V1,

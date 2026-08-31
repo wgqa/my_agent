@@ -34,10 +34,7 @@ from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
 from core.tool_agent.tools.git_change import GIT_DIFF_SPEC
 from core.tool_agent.tools.knowledge_search import KNOWLEDGE_SEARCH_SPEC
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
-from core.unified_engineering_runtime import (
-    LegacyToolAgentExecutionAdapter,
-    UnifiedEngineeringRuntime,
-)
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 class StaticHandler:
@@ -421,7 +418,18 @@ class TestFacadeBoundary:
             def __init__(self):
                 self.received = []
 
-            def run(self, question, *, evidence_requirement=None, trace_sink=None):
+            def run(
+                self,
+                question,
+                *,
+                evidence_requirement=None,
+                initial_context=(),
+                initial_evidence=(),
+                disabled_tools=(),
+                finalization_verifier=None,
+                trace_sink=None,
+                activity_sink=None,
+            ):
                 self.received.append((question, evidence_requirement, trace_sink))
                 return ToolAgentRunResult(
                     status="completed",
@@ -441,7 +449,7 @@ class TestFacadeBoundary:
             route,
         )
         result = EngineeringAgentFacade(
-            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+            build_full_unified_runtime(runtime)
         ).run("synthetic question")
         assert result.status == "completed"
         assert calls == ["synthetic question"]
@@ -459,7 +467,18 @@ class TestFacadeBoundary:
             def __init__(self):
                 self.received = []
 
-            def run(self, question, *, evidence_requirement=None, trace_sink=None):
+            def run(
+                self,
+                question,
+                *,
+                evidence_requirement=None,
+                initial_context=(),
+                initial_evidence=(),
+                disabled_tools=(),
+                finalization_verifier=None,
+                trace_sink=None,
+                activity_sink=None,
+            ):
                 self.received.append((question, evidence_requirement, trace_sink))
                 return ToolAgentRunResult(
                     status="completed",
@@ -485,7 +504,7 @@ class TestFacadeBoundary:
         seen = []
         sink = seen.append
         EngineeringAgentFacade(
-            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+            build_full_unified_runtime(runtime)
         ).run("synthetic question", trace_sink=sink)
 
         assert calls == ["synthetic question"]

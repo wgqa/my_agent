@@ -30,6 +30,7 @@ from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
     UnifiedEngineeringRuntime,
 )
+from tests._engineering_runtime_support import build_full_unified_runtime
 
 
 class _RecordingPlanner(BaseQueryPlanner):
@@ -113,10 +114,10 @@ def _runtime(planner: BaseQueryPlanner, *, context_resolver=None, provider=None)
         registry=ToolRegistry(),
         provider=provider,
     )
-    runtime = UnifiedEngineeringRuntime(
-        LegacyToolAgentExecutionAdapter(execution_runtime),
+    runtime = build_full_unified_runtime(
+        execution_runtime,
         context_resolver=context_resolver or EngineeringContextResolver(),
-        evidence_planner=EngineeringEvidencePlanner(planner),
+        planner=planner,
     )
     return runtime, provider
 

@@ -46,13 +46,13 @@ v7 的总原则：
 
 ## 0.2 当前 Architecture Integration Drift
 
-当前仍存在明确但已收敛的 **Architecture Integration Drift**：产品 Engineering 主链的 LLM Decision → Tool → Observation 执行 loop 仍由 `ToolAgentRuntime` 控制；ARCH-FREEZE-01 的起点事实是 G3 retrieval/verifier 与 G8 Context 尚未进入该主链，ARCH-VERIFY-06 已把 retrieval truth、G3/G12/Citation 检查收敛为一个统一验证结果，但最终 cutover 尚未完成。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
+当前仍存在明确但已收敛的 **Architecture Integration Drift**：产品 Engineering 主链的 bounded LLM Decision → Tool → Observation 执行 loop 仍由 `ToolAgentRuntime` 控制；ARCH-FREEZE-01 的起点事实是 G3 retrieval/verifier 与 G8 Context 尚未进入该主链，前序迁移已将它们接成 Context/Plan/Retrieval/Verification 组件，但生产 assembly 的严格必需依赖、单一入口控制面和 legacy bypass 清理正在由 ARCH-CUTOVER-07 审计。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
 
-- ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当前主链；ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，ARCH-VERIFY-06 再以 `EngineeringEvidenceVerifier` 复用 `MinimalEvidenceVerifier`，但 `ToolAgentRuntime` 仍是迁移期执行组件；
-- ARCH-FREEZE-01 起点的 G8 Context / Standalone Resolver 未进入当前主链；ARCH-CONTEXT-03 已将其作为 Context Resolver 组件接入，当前 Engineering endpoint 仍保持 question-only；
+- ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当时主链；ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，ARCH-VERIFY-06 再以 `EngineeringEvidenceVerifier` 复用 `MinimalEvidenceVerifier`，但 `ToolAgentRuntime` 仍是迁移期 bounded execution component；
+- ARCH-FREEZE-01 起点的 G8 Context / Standalone Resolver 未进入当时主链；ARCH-CONTEXT-03 已将其作为 Context Resolver 组件接入，当前 Engineering endpoint 仍保持 question-only；
 - G11 Unified Evidence 与 G12 Typed Requirement / Finalization Guard 是当前整合输入，状态为 **ACTIVE**；G12 历史评测结论仍按其原有 frozen 状态解释；
 - `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其 observability 结论保留，且 observability 不得改变 runtime outcome；
-- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = ACCEPT / CLOSED`；`ARCH-VERIFY-06 = CURRENT / REVIEW PENDING`。当前已有有限 Plan enforcement 与统一 Verification/Finalization seam；Grounded Generation 的语义评估、最终 cutover 与后续评测仍留待后续阶段。
+- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = ACCEPT / CLOSED`；`ARCH-VERIFY-06 = ACCEPT / CLOSED`；`ARCH-CUTOVER-07 = CURRENT / REVIEW PENDING`。当前已有有限 Plan enforcement、planned retrieval handoff 与统一 Verification/Finalization seam；Grounded Generation 的语义评估与后续评测仍留待后续阶段。
 
 ## 0.3 当前 NEXT
 
@@ -65,7 +65,7 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 `ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
 保留历史 context/fallback 语义并通过回归。
 
-**NEXT = `ARCH-VERIFY-06`（CURRENT / REVIEW PENDING）**
+**NEXT = `ARCH-CUTOVER-07`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后的后续唯一顺序为：
 
@@ -81,7 +81,7 @@ ARCH-RUNTIME-02
 ```
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
-`ARCH-VERIFY-06`，完成后不得自行开始 `ARCH-CUTOVER-07`。
+`ARCH-CUTOVER-07`，完成后不得自行开始 `ARCH-EVAL-08`。
 
 ---
 
@@ -312,7 +312,7 @@ Execution Ledger：**DEFERRED / OPTIONAL**
 
 ### G11 — Unified Evidence：ACTIVE
 
-G11 的 Unified Evidence 是当前架构整合的活动输入：Knowledge、Repository、Change、Test 等 evidence kind 已由当前 Tool Agent 产出并进入 Engineering response；ARCH-RETRIEVAL-05 的 planned Knowledge evidence 与 ARCH-VERIFY-06 的统一验证结果已进入当前链路，但最终 cutover 仍未完成。G11 的历史 task-family 结果、负结果和冻结约束保持不变。
+G11 的 Unified Evidence 是当前架构整合的活动输入：Knowledge、Repository、Change、Test 等 evidence kind 已由当前 Tool Agent 产出并进入 Engineering response；ARCH-RETRIEVAL-05 的 planned Knowledge evidence 与 ARCH-VERIFY-06 的统一验证结果已进入当前链路。ARCH-CUTOVER-07 正在把三条 Engineering entry 固定到同一 Facade/Runtime，并移除静默兼容旁路。G11 的历史 task-family 结果、负结果和冻结约束保持不变。
 
 ### G12 — Typed Requirement / Finalization Guard：ACTIVE
 
@@ -324,7 +324,7 @@ G12 的 Typed Requirement 与 Finalization Guard 是当前主链的活动控制�
 
 ### Drift boundary
 
-当前不是“缺少所有能力”，而是“能力存在但控制权仍在迁移”：`ToolAgentRuntime` 仍是 Engineering 主链中实际的 Decision → Tool → Observation execution component；G3 Planner、有限 Knowledge Retrieval、G8 Context 与 `EngineeringEvidenceVerifier` 已通过组件边界接入，且 G3/G12/Citation 只产生一个 trusted verification result，但最终的统一 Execution Policy / Finalization Policy cutover 尚未完成，不能被误称为最终统一架构。
+当前不是“缺少所有能力”，而是“能力存在且正在完成控制面收敛”：`ToolAgentRuntime` 仍是 Engineering 主链中实际的 bounded Decision → Tool → Observation execution component；G3 Planner、有限 Knowledge Retrieval、G8 Context 与 `EngineeringEvidenceVerifier` 已通过组件边界接入，且 G3/G12/Citation 只产生一个 trusted verification result。ARCH-CUTOVER-07 的 REVIEW PENDING 边界是严格 full assembly、唯一 Facade/Runtime、唯一 logical Budget Owner 与无 silent fallback；在独立审计完成前，不把候选 cutover 写成最终评测结论。
 
 ---
 

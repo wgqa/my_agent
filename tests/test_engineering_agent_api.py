@@ -17,10 +17,9 @@ import pytest
 import api.app
 from core.agent_runtime import Document
 from core.engineering_agent import EngineeringAgentFacade
-from core.unified_engineering_runtime import (
-    LegacyToolAgentExecutionAdapter,
-    UnifiedEngineeringRuntime,
-)
+from core.agent_runtime.runtime import RetrievalPort
+from core.query_planning import BaseQueryPlanner, PlannerOutcome, QueryPlan
+from tests._engineering_runtime_support import build_full_unified_runtime
 from core.tool_agent import (
     AgentDecisionOutcome,
     FinalAnswerAction,
@@ -33,14 +32,40 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 client = TestClient(api.app.app)
 
 
-class FakeRetrievalPort:
+class FakeRetrievalPort(RetrievalPort):
     supported_strategies = ("bm25",)
 
     def __init__(self, docs=()):
         self.docs = tuple(docs)
+        self.calls = []
 
     def search(self, query, strategy, top_k):
+        self.calls.append((query, strategy, top_k))
         return self.docs
+
+
+class ProductPlanner(BaseQueryPlanner):
+    def __init__(self, use_retrieval: bool):
+        self.use_retrieval = use_retrieval
+
+    def plan(self, question: str) -> PlannerOutcome:
+        if self.use_retrieval:
+            plan = QueryPlan.create(
+                original_query=question,
+                query_type="fact",
+                retrieval_required=True,
+                action="single_retrieval",
+                reason_code="SIMPLE_FACT",
+            )
+        else:
+            plan = QueryPlan.create(
+                original_query=question,
+                query_type="unanswerable_or_no_retrieval",
+                retrieval_required=False,
+                action="no_retrieval",
+                reason_code="NO_RETRIEVAL_NEEDED",
+            )
+        return PlannerOutcome(plan=plan, fallback_used=False, failure_code=None)
 
 
 class ScriptedProvider:
@@ -65,9 +90,10 @@ def _outcome(action):
 
 
 def _install(monkeypatch, decisions, *, repo_root=REPO_ROOT, docs=()):
+    retrieval_port = FakeRetrievalPort(docs)
     runtime = build_tool_agent_runtime(
         repo_root=repo_root,
-        retrieval_port=FakeRetrievalPort(docs),
+        retrieval_port=retrieval_port,
         provider=ScriptedProvider(decisions),
     )
     monkeypatch.setattr(api.app, "tool_agent_runtime", runtime)
@@ -75,7 +101,11 @@ def _install(monkeypatch, decisions, *, repo_root=REPO_ROOT, docs=()):
         api.app,
         "engineering_agent_facade",
         EngineeringAgentFacade(
-            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+            build_full_unified_runtime(
+                runtime,
+                planner=ProductPlanner(bool(docs)),
+                retrieval_port=retrieval_port,
+            )
         ),
     )
     return runtime
@@ -138,13 +168,6 @@ def test_knowledge_only_returns_bounded_knowledge_evidence_and_legacy_survives(
     _install(
         monkeypatch,
         [
-            _outcome(
-                ToolCallAction(
-                    action="tool_call",
-                    tool_name="knowledge_search",
-                    arguments={"query": "RRF"},
-                )
-            ),
             _outcome(FinalAnswerAction("final_answer", "RRF uses reciprocal rank.")),
         ],
         docs=docs,
@@ -155,7 +178,7 @@ def test_knowledge_only_returns_bounded_knowledge_evidence_and_legacy_survives(
     data = response.json()
     assert data["schema_version"] == "engineering_query_response_v1"
     assert data["status"] == "completed"
-    assert data["tool_calls_used"] == 1
+    assert data["tool_calls_used"] == 0
     assert [item["evidence_id"] for item in data["evidence"]] == ["E1", "E2"]
     assert all(item["kind"] == "knowledge" for item in data["evidence"])
     assert data["evidence"][0]["source_name"] == "docs/rrf.md"
@@ -269,13 +292,6 @@ def test_cross_source_combines_knowledge_and_repository_evidence(monkeypatch, tm
             _outcome(
                 ToolCallAction(
                     action="tool_call",
-                    tool_name="knowledge_search",
-                    arguments={"query": "RRF"},
-                )
-            ),
-            _outcome(
-                ToolCallAction(
-                    action="tool_call",
                     tool_name="code_search",
                     arguments={"query": "def rrf"},
                 )
@@ -290,8 +306,8 @@ def test_cross_source_combines_knowledge_and_repository_evidence(monkeypatch, tm
     response = _post("How does theory differ from this implementation?")
     assert response.status_code == 200
     data = response.json()
-    assert data["iterations_used"] == 4
-    assert data["tool_calls_used"] == 3
+    assert data["iterations_used"] == 3
+    assert data["tool_calls_used"] == 2
     assert [item["evidence_id"] for item in data["evidence"]] == ["E1", "E2"]
     assert [item["kind"] for item in data["evidence"]] == [
         "knowledge",
@@ -458,8 +474,7 @@ def test_knowledge_absolute_provenance_fails_closed_without_evidence(monkeypatch
     )
 
     response = _post("Find the private file")
-    assert response.status_code == 200
-    assert response.json()["evidence"] == []
+    assert response.status_code == 500
     assert "private" not in response.text.lower()
     assert "secret.md" not in response.text
 
