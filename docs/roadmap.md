@@ -1,18 +1,20 @@
-# 可评测 RAG Agent 项目主路线图 v6
+# 可评测 RAG Agent 项目主路线图 v7
 
-> 项目：`wgqa/my_agent`  
-> 路线图版本：**v6（Evidence-Grounded AI Engineering Agent）**  
-> 编写日期：**2026-08-22**  
-> 当前远端基线：`2603ab788b6dbb4b079f5383525fb9d2cea8d388`（`fix: normalize generator failure semantics`）  
-> Release 1.0 冻结提交：`75ae103f3a3483ef3213fbd5520c8b06bb0157ce`  
-> 数据仓库：`wgqa/agent_data`  
+> 项目：`wgqa/my_agent`<br>
+> 路线图版本：**v7（Evidence-Grounded AI Engineering Agent）**<br>
+> 编写日期：**2026-08-31**<br>
+> Architecture Freeze 基线：`0eef8ef9d6decdaa10efebe04087b06611654670`（`fix: isolate observability from runtime outcomes`）<br>
+> Release 1.0 冻结提交：`75ae103f3a3483ef3213fbd5520c8b06bb0157ce`<br>
+> 数据仓库：`wgqa/agent_data`<br>
 > 冻结领域知识 corpus：`agent_ai_v1/02_corpus_candidate`，37 documents，corpus_id=`870e5864df67`
+
+> v7 说明：本文保留 v6 的产品定位、历史 Gate、正式实验和 frozen 结论，作为不可改写的历史依据。当前架构治理以本节、§5、§13 以及 [Unified Engineering Runtime v1](design/unified_engineering_runtime_v1.md) 为准；历史实验不会因架构迁移而重跑、重调或改写。
 
 ---
 
-# 0. v6 的核心决策
+# 0. v7 的核心决策
 
-v6 不再继续扩大“泛 Software Engineering Agent”概念，也不把项目改造成 EvoAgent 的简化复刻。
+v7 延续 v6 的产品边界，不再扩大“泛 Software Engineering Agent”概念，也不把项目改造成 EvoAgent 的简化复刻；本版本冻结的是**统一控制面与能力迁移边界**。
 
 **正式项目定位冻结为：**
 
@@ -28,13 +30,54 @@ v6 不再继续扩大“泛 Software Engineering Agent”概念，也不把项�
 
 > 融合可评测 Knowledge RAG、按需代码仓库检索、Structured Tool Use、Conversation Context 与 Evidence Verification，支持技术知识问答、项目理解、理论到实现映射、配置分析、故障诊断、变更影响与测试建议。
 
-v6 的总原则：
+v7 的总原则：
 
-> **先把 Core AI Engineering Agent 做成完整系统，再选择性吸收 EvoAgent 等前沿 Agent System 的 Runtime、Specialist/Critic、Checkpoint、Multi-Agent 与 Controlled Evolution 思想。高级能力用于增强技术广度，但不能反过来改变项目主线。**
+> **Single Engineering Agent、one trusted control state、one logical budget owner。已有 G3/G4/G6/G8/G9/G10/G11/G12 能力以 component migration 进入统一 Engineering Agent Runtime；禁止 nested autonomous controller、禁止第三个产品 Runtime。**
+
+## 0.1 项目身份（保持不变）
+
+正式项目定位仍为：
+
+# Evidence-Grounded AI Engineering Agent
+
+> **面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent**
+
+长期 Knowledge RAG、当前 Repository、Git、Test 与其他取证能力都属于 Evidence Plane。它们为一个 Engineering Agent 提供证据，不各自成为独立 Agent。
+
+## 0.2 当前 Architecture Integration Drift
+
+当前已形成明确的 **Architecture Integration Drift**：能力已经分别存在或被 Gate 验证，但产品 Engineering 主链仍由 `ToolAgentRuntime` 控制，G3/G8 的能力孤岛尚未进入同一控制面。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
+
+- G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 已有实现/历史验证，但未进入当前 Engineering 主链；
+- G8 Context / Standalone Resolver 已有实现/实验结论，但当前 Engineering endpoint 仍保持 question-only，resolver 未进入当前主链；
+- G11 Unified Evidence 与 G12 Typed Requirement / Finalization Guard 是当前整合输入，状态为 **ACTIVE**；G12 历史评测结论仍按其原有 frozen 状态解释；
+- `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其 observability 结论保留，且 observability 不得改变 runtime outcome；
+- 本次 `ARCH-FREEZE-01` 只冻结设计边界，不开始 Context、Planner 或其他 runtime migration coding。
+
+## 0.3 当前 NEXT
+
+**NEXT = `ARCH-FREEZE-01`（Unified Architecture Freeze）**
+
+本任务完成后，后续唯一顺序为：
+
+```text
+ARCH-RUNTIME-02
+→ ARCH-CONTEXT-03
+→ ARCH-PLAN-04
+→ ARCH-RETRIEVAL-05
+→ ARCH-VERIFY-06
+→ ARCH-CUTOVER-07
+→ ARCH-EVAL-08
+→ Productization
+```
+
+顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；不得跳过 `ARCH-FREEZE-01` 直接编码。
 
 ---
 
-# 1. 为什么从 v5 调整到 v6
+# 1. 为什么从 v5 调整到 v6（历史背景，保留）
+
+> 本节是 v6 产品边界的历史记录。v7 不反向改写其产品判断，只在上方增加统一控制面与迁移治理。
 
 ## 1.1 v5 的问题不是技术错误，而是产品边界过宽
 
@@ -190,7 +233,9 @@ Release 2.0 Core 必须真正覆盖以下任务，而不是只扩大架构图。
 
 ---
 
-# 5. 当前项目真实状态（v6 起点）
+# 5. 当前项目真实状态（v7 Architecture Freeze 起点）
+
+> 下列 Gate / Release 结论按各自历史 artifact 解释。v7 只记录当前架构边界，不改变历史实验身份、指标、sealed/formal 结论或既有 frozen runtime 契约。
 
 ## Release 1.0
 **CLOSED / FROZEN**
@@ -253,9 +298,29 @@ Execution Ledger：**DEFERRED / OPTIONAL**
 
 **G9-RELIABILITY-01 = CLOSED**
 
+## v7 Architecture Integration Status
+
+### G11 — Unified Evidence：ACTIVE
+
+G11 的 Unified Evidence 是当前架构整合的活动输入：Knowledge、Repository、Change、Test 等 evidence kind 已由当前 Tool Agent 产出并进入 Engineering response，但证据规划、跨后端聚合、验证和最终化仍分散在现有组件中，尚未形成统一控制面。G11 的历史 task-family 结果、负结果和冻结约束保持不变。
+
+### G12 — Typed Requirement / Finalization Guard：ACTIVE
+
+G12 的 Typed Requirement 与 Finalization Guard 是当前主链的活动控制输入：它们用于在 finalization 前检查结构化 evidence shape。G12 的 benchmark、Formal、Manual Gold、有效 FAIL 及其 frozen 事实不因架构迁移而改写；后续迁移只允许把现有 requirement/verifier/finalization 责任放入唯一 owner。
+
+### P1-OBS-03A-R1-MICRO：ACCEPT / CLOSED
+
+该 observability micro gate 已 **ACCEPT / CLOSED**。其 safe/rich activity 事实继续保留；activity / observability 是旁路输出，不得回写、覆盖或改变 runtime outcome。
+
+### Drift boundary
+
+当前不是“缺少所有能力”，而是“能力存在但控制权分裂/未接线”：`ToolAgentRuntime` 仍是 Engineering 主链的唯一实际 controller；G3/G8 组件是待迁移能力，不能在迁移期被误称为已生效的统一架构。
+
 ---
 
-# 6. v6 主路线：先完成 Core Agent System
+# 6. v6 Core Agent 路线（历史规划，v7 迁移顺序优先）
+
+> 本节保留 v6 对 Core Agent 能力的规划背景。自 v7 起，任何实现任务必须先遵守 §0.3 的 architecture migration sequence；本节不授权在 `ARCH-FREEZE-01` 完成前开始实现。
 
 从这里开始，路线不再以“加更多 Agent 概念”为目标，而以**扩大真实 AI Engineering Task 面**为目标。
 
@@ -543,37 +608,31 @@ Long-term Memory 只有长会话任务明确受限时才做。
 
 ---
 
-# 13. 推荐执行顺序
+# 13. v7 Architecture Migration 执行顺序
+
+当前不再沿用 v6 的 A1/A2/B1 等“先扩展能力再整合”的执行顺序。唯一受治理的下一步顺序如下：
 
 ```text
-CURRENT
-2603ab7
-G9-RELIABILITY-01 CLOSED
+ARCH-FREEZE-01
         ↓
-A1 Git / Change Evidence
+ARCH-RUNTIME-02
         ↓
-A2 Test Evidence
+ARCH-CONTEXT-03
         ↓
-B1/B2
-Implementation + Theory↔Code
+ARCH-PLAN-04
         ↓
-B3/B4/B5
-Diagnosis + Change Impact + Docs-Code
+ARCH-RETRIEVAL-05
         ↓
-C Engineering Evaluation 2.0
+ARCH-VERIFY-06
         ↓
-CORE AGENT COMPLETE
+ARCH-CUTOVER-07
         ↓
-选择性吸收 EvoAgent
+ARCH-EVAL-08
         ↓
-Specialist/Critic A-B
-Checkpoint/Resume（条件）
-Controlled Evolution（推荐）
-Memory（条件）
-MCP adapter（可选）
-        ↓
-Release 2.0 Evaluation / Demo / Freeze
+Productization
 ```
+
+每一阶段必须保持 legacy endpoint 回归、历史 Gate frozen facts 与 G12 question-only contract；不得在阶段之间引入第二个 Agent controller、第二个 logical budget owner 或第三个产品 Runtime。
 
 ---
 
@@ -613,7 +672,7 @@ Single vs Specialist/Critic，或 checkpoint/resume，或 controlled evolution�
 
 ---
 
-# 16. v6 治理规则
+# 16. v7 治理规则
 
 今后所有新需求先问：
 
@@ -626,6 +685,6 @@ Single vs Specialist/Critic，或 checkpoint/resume，或 controlled evolution�
 ### Q3. 是否可被实验 / case 验证？
 如果只有“这个词很火”，没有任务、baseline 或验证方式，默认不进入主线。
 
-最终原则：
+v7 最终原则：
 
-> **Core 先完整，Advanced 再前沿；Evidence 是主轴，EvoAgent 是参考，不是需求清单。**
+> **Single Engineering Agent；one trusted control state；one logical budget owner；Evidence Backend 不升级为独立 Agent；component migration 逐步接线；不重写、不复制、不永久丢弃 G3。**

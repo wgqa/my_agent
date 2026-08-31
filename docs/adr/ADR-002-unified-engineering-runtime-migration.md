@@ -1,0 +1,111 @@
+# ADR-002: Unified Engineering Runtime Migration
+
+> Status: **Accepted — architecture freeze**<br>
+> Date: **2026-08-31**<br>
+> Baseline: `0eef8ef9d6decdaa10efebe04087b06611654670`<br>
+> Scope: docs-only decision；本 ADR 不改变生产 Runtime。
+
+## Context
+
+项目已经从 RAG、Gate 3 Planning/Adaptive Retrieval、Gate 4 Structured Tool Agent、G6 Repository Evidence、G8 Context、G9 Reliability、G10 Change/Test Evidence 演进到 G11 Unified Evidence 和 G12 Typed Requirement / Finalization Guard。
+
+但当前 Engineering 产品入口的实际链路仍是：
+
+```text
+EngineeringAgentFacade → ToolAgentRuntime → bounded Tool loop → finalization
+```
+
+G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，却还没有一个唯一的 Context、Plan、Budget、Evidence、Verification、Finalization、Activity ownership。这就是本 ADR 要处理的 **Architecture Integration Drift**。
+
+本 ADR 与以下事实同时成立：
+
+- G1～G12 的历史 Gate/frozen/sealed/formal facts 只读，不因迁移改写；
+- Gate 2 / Gate 3 sealed/formal 结果不重新调参或重跑；
+- `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`，observability 与 runtime outcomes 保持隔离；
+- 当前 G11 Unified Evidence、G12 Requirement/Guard 是 **ACTIVE** 的架构整合输入；
+- G12 question-only request contract 继续有效。
+
+## Decision
+
+采用 **Unified Engineering Agent Runtime v1**，决策如下：
+
+1. **Single Engineering Agent**：产品只有一个 Engineering Agent，不向 Knowledge RAG、Repository、Git、Test backend 分配 Agent 身份。
+2. **One trusted control state**：一次 run 只有一个控制状态和一个 completion transition，包含 Context、Plan、Policy/Budget、Evidence、Verification、Finalization 及 safe activity projection。
+3. **One logical budget owner**：目标唯一 owner 是 `Execution Policy`。迁移期间 `ToolAgentRuntime` 可以继续执行 frozen `5/4/2` hard enforcement，但只是 Unified Runtime 的 execution component，不是第二个 controller。
+4. **Component migration**：按 `ARCH-RUNTIME-02` → `ARCH-CONTEXT-03` → `ARCH-PLAN-04` → `ARCH-RETRIEVAL-05` → `ARCH-VERIFY-06` → `ARCH-CUTOVER-07` → `ARCH-EVAL-08` → `Productization` 逐步迁移。
+5. **No nested autonomous controller**：禁止 `AgentRuntime` 套 `ToolAgentRuntime`，禁止两个自主 loop、两个 finalization、两个 budget ledger 或两个互相竞争的 stop/refusal 机制。
+6. **No third product Runtime**：既不复制 Gate 3 `AgentRuntime` 成为另一套产品 runtime，也不在现有 ToolAgentRuntime 外再发明第三个产品 Runtime。
+7. G3 能力**不被永久废弃**：QueryPlan、decomposition、adaptive retrieval、multi-query merge 和 verifier 作为已验证 component，通过 adapter 和统一 contract 进入目标控制面。
+
+## Why G11 ToolAgent-only was reasonable but temporary
+
+G11 阶段选择 ToolAgent-only 是合理的工程简化，原因是：
+
+- G11 首先要验证跨任务族的 Engineering evidence、tool safety、bounded loop、failure semantics 和 transfer-validation，而不是在同一轮同时重组所有历史 Runtime；
+- G4 `ToolAgentRuntime` 已经提供明确的 allowlist、duplicate-call guard、`5/4/2` hard budget、structured action、safe trace 和 bounded termination，复用它可以降低新增 controller 的实验风险；
+- G3 的 sealed/formal 边界已经冻结。把 G3 AgentRuntime 当作 G11 的新主链，会混入不同的 planner/retrieval/generator 假设，难以区分 G11 的 task evidence 与历史 G3 结果；
+- ToolAgent-only 让 G11 能在不改写 Gate 2/3 frozen evidence 的前提下完成工程任务 transfer validation，并暴露 evidence sufficiency、bilateral grounding、premature finalization 等真正的系统性 debt。
+
+这个决定的范围是“当时用于验证和交付的最小主链”，不是最终架构承诺。随着 G11/G12 暴露出能力整合 drift，继续把 ToolAgent-only 当成永久架构会把临时简化误当成设计真相，因此现在需要冻结迁移边界。
+
+## Why we do not roll back or copy Gate 3 AgentRuntime
+
+不回滚的原因：回滚会把已经形成的 G4/G6/G9/G10/G11/G12 product boundary、Tool Agent safety 和当前 Engineering endpoint 退回到较早的 runtime 假设；也会混淆已冻结的 Gate 3 历史事实与当前产品行为。历史正确不等于应当重新成为当前 controller。
+
+不复制的原因：复制 Gate 3 `AgentRuntime` 会复制 QueryPlan、RouteDecision、EvidenceBundle、budget、finalization 和 trace 的权威来源，产生两套 schema 和两套行为。之后即使两个 runtime 都“可用”，也无法回答哪个 planner、哪个 verifier、哪个 budget ledger 对一次 Engineering run 负责。
+
+正确的复用方式是把 G3 的已验证能力作为 component：保留 frozen contract 和 historical artifact，通过 adapter 接入 Unified Runtime 的 Context/Plan/Evidence/Verification owner。这样既不回滚，也不复制 controller。
+
+## Why AgentRuntime must not wrap ToolAgentRuntime
+
+`AgentRuntime → ToolAgentRuntime` 的嵌套会形成两个 controller：外层可能拥有自己的 plan/round/budget/finalization，内层又拥有 `5/4/2`、allowlist、duplicate guard 和 stop/refusal。其风险是结构性的：
+
+- 一次 Tool call 到底由哪一层计入 budget 不再唯一，容易 double spend 或绕过 hard limit；
+- 外层和内层可能分别决定继续、拒答、失败或 completed，最终状态没有单一真相；
+- outer observation 与 inner observation 的 provenance、citation 和 evidence sufficiency 可能不一致；
+- trace/activity 无法稳定表达真正的 step owner，异常恢复会变成递归或重复执行；
+- backend 或 nested runtime 可能偷偷获得第二套 autonomous planning，破坏 Evidence Backend “不是 Agent”的边界。
+
+因此 `ToolAgentRuntime` 在迁移期只能位于 `Tool Execution Engine` 这一侧，接受统一的 execution policy 并执行它。它不得再被描述为 Unified Runtime 之外的 Agent/controller。
+
+## Why component migration instead of rewrite or permanently dropping G3
+
+选择 component migration 是因为 G3 能力已经有明确模型、历史实验和 frozen/sealed 保护；QueryPlan、decomposition、adaptive retrieval、multi-query retrieval、merge 和 `MinimalEvidenceVerifier` 的价值不应因为当前未接线就被丢弃。永久废弃 G3 会直接放弃复杂问题覆盖、计划可审计性和 Evidence-first retrieval 的能力基础，不能解决 drift，只会把债务隐藏起来。
+
+选择 component migration 而不是 rewrite，是因为 big-bang rewrite 会同时改变控制流、预算、retrieval、evidence、failure 和 endpoint compatibility，无法将新问题归因到单一迁移阶段，也更容易意外重写 Gate 3 结论。逐组件迁移可以：
+
+- 先冻结唯一 owner 和 state boundary；
+- 通过 adapter 复用已有实现，不复制自主控制器；
+- 每阶段保持 legacy endpoint regression；
+- 在 `ARCH-EVAL-08` 才评估 cutover 后的系统能力；
+- 保留 G3 的历史事实，同时允许它以目标 component 形式重新进入产品主链。
+
+## Consequences
+
+### Positive
+
+- Architecture Integration Drift 有唯一解释和唯一迁移顺序；
+- Context、Plan、Budget、Evidence、Verification、Finalization、Activity 的责任可审计；
+- ToolAgentRuntime 的成熟安全执行机制可以渐进复用，不需要临时复制一套 Agent；
+- G3 能力得到保留，G11/G12 的 evidence/guard work 可以落到统一 lifecycle；
+- 历史 Gate 结果与新架构评估分离，避免“迁移后数字变了就重写历史”。
+
+### Trade-offs
+
+- 迁移期会同时存在 legacy endpoint、ToolAgentRuntime execution component 和 target contracts，需要 adapter 与回归测试；
+- 当前不立即获得 G3/G8 的统一主链收益，必须按阶段推进；
+- single controller 约束限制了为了局部便利而引入 nested Agent 或独立 backend loop；
+- G12 shape-only Guard 仍不能替代完整语义 verifier，必须在 `ARCH-VERIFY-06` 明确扩展边界并单独评估。
+
+## Compatibility and guardrails
+
+- Gate 1～G12 frozen facts 不重写；Gate 2 / Gate 3 sealed/formal 不因迁移重新调参或重跑；
+- legacy `/agent/query`、`/tool-agent/query`、Engineering query 及 stream endpoint 在迁移期间保持回归；
+- G12 question-only contract 保持，不向 request 注入 evaluator Gold、case 或 source metadata；
+- `P1-OBS-03A-R1-MICRO` 继续是 `ACCEPT / CLOSED`，Activity/Observability 只读投影，不改变 runtime outcome；
+- 不新增 Multi-Agent、不做 Persistence/Citation UI、不开始 Context/Planner migration coding 于本 ADR；
+- 后续必须先做 component migration，不能 big-bang rewrite、不能永久丢弃 G3、不能引入第三个产品 Runtime。
+
+## Non-decisions
+
+本 ADR 不决定具体 Prompt、provider/model、retrieval threshold、budget 数值、Guard 算法细节、Persistence schema、Citation UI 或 product rollout。它也不授权重跑 Formal 或改变任何 Gate artifact；这些只能由后续阶段在本架构边界内单独提出并审计。
