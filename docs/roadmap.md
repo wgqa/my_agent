@@ -46,13 +46,13 @@ v7 的总原则：
 
 ## 0.2 当前 Architecture Integration Drift
 
-当前已形成明确的 **Architecture Integration Drift**：能力已经分别存在或被 Gate 验证，但产品 Engineering 主链仍由 `ToolAgentRuntime` 控制，G3/G8 的能力孤岛尚未进入同一控制面。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
+当前仍存在明确的 **Architecture Integration Drift**：产品 Engineering 主链的执行 loop 仍由 `ToolAgentRuntime` 控制，G3 的 retrieval/verifier 能力尚未进入统一控制面；本阶段只把 G3 Planner/Query Decomposition 作为 trusted planning state 接入。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
 
-- G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 已有实现/历史验证，但未进入当前 Engineering 主链；
-- G8 Context / Standalone Resolver 已有实现/实验结论，但当前 Engineering endpoint 仍保持 question-only，resolver 未进入当前主链；
+- G3 Planner、Query Decomposition 已进入当前主链的 Evidence Planner 组件，但 Planner 输出暂不驱动 Tool 选择、Multi-query Retrieval、Adaptive Router、Evidence Merge 或 `MinimalEvidenceVerifier`；
+- G8 Context / Standalone Resolver 已作为 Context Resolver 组件进入当前主链；当前 Engineering endpoint 仍保持 question-only；
 - G11 Unified Evidence 与 G12 Typed Requirement / Finalization Guard 是当前整合输入，状态为 **ACTIVE**；G12 历史评测结论仍按其原有 frozen 状态解释；
 - `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其 observability 结论保留，且 observability 不得改变 runtime outcome；
-- 本次 `ARCH-FREEZE-01` 只冻结设计边界，不开始 Context、Planner 或其他 runtime migration coding。
+- `Planner = ACTIVE`，`Plan enforcement = DEFERRED TO ARCH-RETRIEVAL-05`；本阶段不提前迁移 retrieval。
 
 ## 0.3 当前 NEXT
 
@@ -62,7 +62,10 @@ v7 的总原则：
 Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成并
 通过独立审计。
 
-**NEXT = `ARCH-CONTEXT-03`（CURRENT / REVIEW PENDING）**
+`ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
+保留历史 context/fallback 语义并通过回归。
+
+**NEXT = `ARCH-PLAN-04`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后，后续唯一顺序为：
 
@@ -78,7 +81,7 @@ ARCH-RUNTIME-02
 ```
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
-`ARCH-CONTEXT-03`，不得在其独立审计 ACCEPT 前推进到 `ARCH-PLAN-04`。
+`ARCH-PLAN-04`，不得在其独立审计 ACCEPT 前推进到 `ARCH-RETRIEVAL-05`。
 
 ---
 

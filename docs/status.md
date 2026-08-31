@@ -12,7 +12,9 @@
 - **Release 2.0 = IN PROGRESS**
 - **ARCH-FREEZE-01 = ACCEPT / CLOSED**
 - **ARCH-RUNTIME-02 = ACCEPT / CLOSED**
-- **ARCH-CONTEXT-03 = CURRENT / REVIEW PENDING**
+- **ARCH-CONTEXT-03 = ACCEPT / CLOSED**
+- **ARCH-PLAN-04 = CURRENT / REVIEW PENDING**
+- **Planner = ACTIVE / Plan enforcement = DEFERRED TO ARCH-RETRIEVAL-05**
 - **G6 = CLOSED**
 - **G7 = CLOSED / Ledger optional**
 - **G8 = CLOSED / Context v1 mixed**
@@ -42,7 +44,7 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-CONTEXT-03**（独立审计 ACCEPT 前不得推进到 `ARCH-PLAN-04`）
+- **NEXT = ARCH-PLAN-04**（独立审计 ACCEPT 前不得推进到 `ARCH-RETRIEVAL-05`）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 

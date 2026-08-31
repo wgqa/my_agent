@@ -1,9 +1,9 @@
 # ADR-002: Unified Engineering Runtime Migration
 
-> Status: **Accepted — architecture freeze; ARCH-CONTEXT-03 migration active**<br>
+> Status: **Accepted — architecture freeze; ARCH-PLAN-04 migration active**<br>
 > Date: **2026-08-31**<br>
 > Baseline: `0eef8ef9d6decdaa10efebe04087b06611654670`<br>
-> Scope: Unified Runtime architecture and bounded G8 component migration；不授权无关生产 Runtime 变更。
+> Scope: Unified Runtime architecture and bounded G8/G3 component migration；不授权无关生产 Runtime 变更。
 
 ## Context
 
@@ -104,6 +104,27 @@ question-only contract, or authorize a second controller, a second logical
 budget owner, a third product Runtime, Persistence, Citation UI, or Formal
 reruns.
 
+## ARCH-PLAN-04 implementation addendum
+
+ARCH-PLAN-04 migrates only the G3 planning boundary. The new
+`EngineeringEvidencePlanner` accepts an existing `BaseQueryPlanner`, delegates
+one `plan(resolved_input)` call, validates the returned `PlannerOutcome` and
+resolved-query identity, and returns the same existing outcome without
+reconstructing `QueryPlan` or `Subquery`.
+
+The Unified Runtime order is now Context → Evidence Planner → Requirement
+Router → Legacy Tool execution. The Planner outcome is trusted planning state
+but remains passive in this stage: it does not select Tools, change strategy or
+top-k, execute subqueries, merge evidence, run adaptive rescue, or alter G12
+finalization. Plan enforcement is deferred to ARCH-RETRIEVAL-05.
+
+Production wiring uses the existing G3 `OpenAICompatibleQueryPlanner` and G3
+Planner prompt with provider identity `deepseek/deepseek-chat`, existing
+`DEEPSEEK_BASE_URL`, and `DEEPSEEK_API_KEY`. Planner provider calls are not
+ToolAgent iterations, Tool calls, Tool errors, or a second budget ledger.
+Unknown programming errors propagate before routing or execution; known G3
+provider/output failures retain deterministic `single_retrieval` fallback.
+
 ## Consequences
 
 ### Positive
@@ -117,7 +138,7 @@ reruns.
 ### Trade-offs
 
 - 迁移期会同时存在 legacy endpoint、ToolAgentRuntime execution component 和 target contracts，需要 adapter 与回归测试；
-- 当前不立即获得 G3/G8 的统一主链收益，必须按阶段推进；
+- 当前只获得 G3/G8 的 Context/Plan 组件接入，retrieval/verification/finalization 仍必须按阶段推进；
 - single controller 约束限制了为了局部便利而引入 nested Agent 或独立 backend loop；
 - G12 shape-only Guard 仍不能替代完整语义 verifier，必须在 `ARCH-VERIFY-06` 明确扩展边界并单独评估。
 
@@ -127,7 +148,7 @@ reruns.
 - legacy `/agent/query`、`/tool-agent/query`、Engineering query 及 stream endpoint 在迁移期间保持回归；
 - G12 question-only contract 保持，不向 request 注入 evaluator Gold、case 或 source metadata；
 - `P1-OBS-03A-R1-MICRO` 继续是 `ACCEPT / CLOSED`，Activity/Observability 只读投影，不改变 runtime outcome；
-- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-CONTEXT-03 只按本 ADR 做 Context component migration，Planner 仍待其后续阶段；
+- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-PLAN-04 只形成 trusted Plan，Plan enforcement 仍待 ARCH-RETRIEVAL-05；
 - 后续必须先做 component migration，不能 big-bang rewrite、不能永久丢弃 G3、不能引入第三个产品 Runtime。
 
 ## Non-decisions

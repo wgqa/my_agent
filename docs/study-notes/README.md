@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（80 份）
+## CURRENT（81 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -106,6 +106,7 @@
 | 124 | [124-G12最终收口与核心Agent完成.md](124-G12最终收口与核心Agent完成.md) | G12 final close：negative result acceptance、Core Agent COMPLETE、future debt 与 reproducibility lesson |
 | 125 | [125-Unified Engineering Runtime Contract.md](125-Unified%20Engineering%20Runtime%20Contract.md) | ARCH-RUNTIME-02：Facade、Unified Runtime、Legacy ToolAgent execution adapter、single loop/budget/finalization、question-only seam 与 behavior-preserving migration |
 | 126 | [126-Unified Runtime Context Migration.md](126-Unified%20Runtime%20Context%20Migration.md) | ARCH-CONTEXT-03：G8 bounded context / standalone resolver 作为 Unified Runtime Context Resolver 组件迁移、single resolved input、failure 与 budget 边界 |
+| 127 | [127-Unified Runtime Evidence Planning Migration.md](127-Unified%20Runtime%20Evidence%20Planning%20Migration.md) | ARCH-PLAN-04：G3 QueryPlan / Query Decomposition 作为 Evidence Planner 组件迁移、trusted PlannerOutcome、fallback 与 Plan enforcement 延后边界 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -173,6 +174,6 @@
 
 ## 完整性声明
 
-- 当前索引列出 **127 份**，每份只出现一次：CURRENT 80 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 127。
+- 当前索引列出 **128 份**，每份只出现一次：CURRENT 81 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 128。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-31。

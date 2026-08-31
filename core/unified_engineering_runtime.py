@@ -11,13 +11,35 @@ from __future__ import annotations
 from typing import Callable
 
 from core.engineering_context import EngineeringContextResolver
+from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
     route_engineering_evidence_requirement,
 )
+from core.query_planning import (
+    BaseQueryPlanner,
+    PlannerOutcome,
+    build_planner_fallback_outcome,
+)
 from core.tool_agent.activity import ActivityEvent
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import RuntimeTraceEvent, ToolAgentRunResult
+
+
+class _CompatibilityFallbackPlanner(BaseQueryPlanner):
+    """No-provider compatibility seam for legacy direct Runtime construction."""
+
+    def plan(self, original_query: str) -> PlannerOutcome:
+        return build_planner_fallback_outcome(
+            original_query,
+            "PLANNER_PROVIDER_ERROR",
+        )
+
+
+def _default_evidence_planner() -> EngineeringEvidencePlanner:
+    """Keep no-history legacy construction usable outside production wiring."""
+
+    return EngineeringEvidencePlanner(_CompatibilityFallbackPlanner())
 
 
 class LegacyToolAgentExecutionAdapter:
@@ -58,6 +80,7 @@ class UnifiedEngineeringRuntime:
         execution_adapter: LegacyToolAgentExecutionAdapter,
         *,
         context_resolver: EngineeringContextResolver | None = None,
+        evidence_planner: EngineeringEvidencePlanner | None = None,
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
@@ -67,10 +90,18 @@ class UnifiedEngineeringRuntime:
             context_resolver, EngineeringContextResolver
         ):
             raise TypeError("context_resolver 必须是 EngineeringContextResolver")
+        if evidence_planner is not None and not isinstance(
+            evidence_planner, EngineeringEvidencePlanner
+        ):
+            raise TypeError("evidence_planner must be EngineeringEvidencePlanner")
         self._execution_adapter = execution_adapter
         # Keep the constructor compatible for no-history callers while the
         # production wiring injects the real provider-backed component.
         self._context_resolver = context_resolver or EngineeringContextResolver()
+        # Production always injects the G3-backed Planner.  The deterministic
+        # fallback keeps older direct construction sites behavior-compatible;
+        # it is not an Agent, provider, loop, or second budget owner.
+        self._evidence_planner = evidence_planner or _default_evidence_planner()
 
     def run(
         self,
@@ -87,6 +118,9 @@ class UnifiedEngineeringRuntime:
             conversation_context,
         )
         resolved_input = context_snapshot.resolved_input
+        # Form trusted planning state exactly once.  ARCH-PLAN-04 deliberately
+        # does not interpret this outcome to select Tools or execute subqueries.
+        _planner_outcome = self._evidence_planner.plan(resolved_input)
         requirement = route_engineering_evidence_requirement(resolved_input)
         return self._execution_adapter.run(
             resolved_input,
