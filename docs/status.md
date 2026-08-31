@@ -4,12 +4,14 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-27
+**更新日期：** 2026-08-31
 
 ## 当前状态
 
 - **Release 1.0 = CLOSED / FROZEN**
 - **Release 2.0 = IN PROGRESS**
+- **ARCH-FREEZE-01 = ACCEPT / CLOSED**
+- **ARCH-RUNTIME-02 = CURRENT / REVIEW PENDING**
 - **G6 = CLOSED**
 - **G7 = CLOSED / Ledger optional**
 - **G8 = CLOSED / Context v1 mixed**
@@ -19,7 +21,9 @@
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **G11-05 Post-Formal Documentation Maintenance = CLOSED**
+- **G11 Unified Evidence architecture integration = ACTIVE**
 - **G12 Engineering Evaluation 2.0 = CLOSED / FROZEN**
+- **G12 Requirement / Finalization Guard architecture integration = ACTIVE**
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
 - **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
@@ -37,7 +41,7 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = No automatic Gate 13**
+- **NEXT = ARCH-RUNTIME-02**（独立审计 ACCEPT 前不得推进到 `ARCH-CONTEXT-03`）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 

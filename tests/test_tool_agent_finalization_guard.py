@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import api.app
-import core.engineering_agent as engineering_agent_module
+import core.unified_engineering_runtime as unified_runtime_module
 from core.engineering_agent import EngineeringAgentFacade
 from core.engineering_requirements import (
     CHANGE_TEST_V1,
@@ -34,6 +34,10 @@ from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
 from core.tool_agent.tools.git_change import GIT_DIFF_SPEC
 from core.tool_agent.tools.knowledge_search import KNOWLEDGE_SEARCH_SPEC
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
+from core.unified_engineering_runtime import (
+    LegacyToolAgentExecutionAdapter,
+    UnifiedEngineeringRuntime,
+)
 
 
 class StaticHandler:
@@ -432,11 +436,13 @@ class TestFacadeBoundary:
 
         runtime = RecordingRuntime()
         monkeypatch.setattr(
-            engineering_agent_module,
+            unified_runtime_module,
             "route_engineering_evidence_requirement",
             route,
         )
-        result = EngineeringAgentFacade(runtime).run("synthetic question")
+        result = EngineeringAgentFacade(
+            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+        ).run("synthetic question")
         assert result.status == "completed"
         assert calls == ["synthetic question"]
         assert runtime.received == [("synthetic question", requirement, None)]
@@ -472,13 +478,15 @@ class TestFacadeBoundary:
 
         runtime = RecordingRuntime()
         monkeypatch.setattr(
-            engineering_agent_module,
+            unified_runtime_module,
             "route_engineering_evidence_requirement",
             route,
         )
         seen = []
         sink = seen.append
-        EngineeringAgentFacade(runtime).run("synthetic question", trace_sink=sink)
+        EngineeringAgentFacade(
+            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+        ).run("synthetic question", trace_sink=sink)
 
         assert calls == ["synthetic question"]
         assert runtime.received == [("synthetic question", requirement, sink)]

@@ -17,6 +17,10 @@ import pytest
 import api.app
 from core.agent_runtime import Document
 from core.engineering_agent import EngineeringAgentFacade
+from core.unified_engineering_runtime import (
+    LegacyToolAgentExecutionAdapter,
+    UnifiedEngineeringRuntime,
+)
 from core.tool_agent import (
     AgentDecisionOutcome,
     FinalAnswerAction,
@@ -70,7 +74,9 @@ def _install(monkeypatch, decisions, *, repo_root=REPO_ROOT, docs=()):
     monkeypatch.setattr(
         api.app,
         "engineering_agent_facade",
-        EngineeringAgentFacade(runtime),
+        EngineeringAgentFacade(
+            UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+        ),
     )
     return runtime
 

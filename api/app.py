@@ -15,6 +15,10 @@ from fastapi.responses import StreamingResponse
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
 from core.engineering_agent import EngineeringAgentFacade
+from core.unified_engineering_runtime import (
+    LegacyToolAgentExecutionAdapter,
+    UnifiedEngineeringRuntime,
+)
 from core.engineering_knowledge import (
     CORPUS_ENV_VAR,
     VerifiedEngineeringKnowledge,
@@ -77,7 +81,8 @@ _WINDOWS_ILLEGAL_CHARS = set('<>:"|?*')
 pipeline: Optional[Pipeline] = None
 agent_runtime: Optional[AgentRuntime] = None
 tool_agent_runtime: Optional[ToolAgentRuntime] = None
-engineering_agent_runtime: Optional[ToolAgentRuntime] = None
+engineering_tool_execution_runtime: Optional[ToolAgentRuntime] = None
+unified_engineering_runtime: Optional[UnifiedEngineeringRuntime] = None
 engineering_agent_facade: Optional[EngineeringAgentFacade] = None
 engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
 engineering_project: Optional[EngineeringProject] = None
@@ -85,7 +90,8 @@ engineering_project: Optional[EngineeringProject] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline, agent_runtime, tool_agent_runtime, engineering_agent_runtime
+    global pipeline, agent_runtime, tool_agent_runtime
+    global engineering_tool_execution_runtime, unified_engineering_runtime
     global engineering_agent_facade, engineering_knowledge_backend, engineering_project
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
@@ -101,7 +107,8 @@ async def lifespan(app: FastAPI):
         pipeline = None
     agent_runtime = None
     tool_agent_runtime = None
-    engineering_agent_runtime = None
+    engineering_tool_execution_runtime = None
+    unified_engineering_runtime = None
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     if pipeline is not None:
@@ -127,7 +134,8 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("Legacy tool agent runtime init failed")
             tool_agent_runtime = None
-            engineering_agent_runtime = None
+            engineering_tool_execution_runtime = None
+            unified_engineering_runtime = None
             engineering_agent_facade = None
         else:
             try:
@@ -135,25 +143,32 @@ async def lifespan(app: FastAPI):
                     os.getenv(CORPUS_ENV_VAR),
                     repo_root=REPO_ROOT,
                 )
-                engineering_agent_runtime = build_tool_agent_runtime(
+                engineering_tool_execution_runtime = build_tool_agent_runtime(
                     repo_root=engineering_project.root,
                     retrieval_port=engineering_knowledge_backend.retrieval_port,
                     api_key=os.getenv("DEEPSEEK_API_KEY"),
                     base_url=DEEPSEEK_BASE_URL,
                     prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE,
                 )
+                unified_engineering_runtime = UnifiedEngineeringRuntime(
+                    LegacyToolAgentExecutionAdapter(
+                        engineering_tool_execution_runtime
+                    )
+                )
                 engineering_agent_facade = EngineeringAgentFacade(
-                    engineering_agent_runtime
+                    unified_engineering_runtime
                 )
             except Exception:
                 logger.exception("Engineering agent runtime init failed")
-                engineering_agent_runtime = None
+                engineering_tool_execution_runtime = None
+                unified_engineering_runtime = None
                 engineering_agent_facade = None
     yield
     pipeline = None
     agent_runtime = None
     tool_agent_runtime = None
-    engineering_agent_runtime = None
+    engineering_tool_execution_runtime = None
+    unified_engineering_runtime = None
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     engineering_project = None

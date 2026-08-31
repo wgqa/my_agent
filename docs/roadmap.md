@@ -56,9 +56,11 @@ v7 的总原则：
 
 ## 0.3 当前 NEXT
 
-**NEXT = `ARCH-FREEZE-01`（Unified Architecture Freeze）**
+`ARCH-FREEZE-01 = ACCEPT / CLOSED`。
 
-本任务完成后，后续唯一顺序为：
+**NEXT = `ARCH-RUNTIME-02`（CURRENT / REVIEW PENDING）**
+
+当前任务完成后，后续唯一顺序为：
 
 ```text
 ARCH-RUNTIME-02

@@ -137,7 +137,7 @@ def test_engineering_production_wiring_uses_v2_without_clearing_legacy_runtime(
     async def run_lifespan():
         async with api.app.lifespan(api.app.app):
             assert api.app.tool_agent_runtime is legacy_runtime
-            assert api.app.engineering_agent_runtime is None
+            assert api.app.unified_engineering_runtime is None
             assert api.app.engineering_agent_facade is None
 
     asyncio.run(run_lifespan())
@@ -167,7 +167,7 @@ def test_legacy_init_failure_blocks_engineering_init(monkeypatch, tmp_path):
     async def run_lifespan():
         async with api.app.lifespan(api.app.app):
             assert api.app.tool_agent_runtime is None
-            assert api.app.engineering_agent_runtime is None
+            assert api.app.unified_engineering_runtime is None
             assert api.app.engineering_agent_facade is None
 
     asyncio.run(run_lifespan())

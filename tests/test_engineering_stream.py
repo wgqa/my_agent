@@ -25,6 +25,10 @@ from core.tool_agent.runtime_models import (
 )
 from core.tool_agent.tools.git_change import GIT_DIFF_SPEC
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
+from core.unified_engineering_runtime import (
+    LegacyToolAgentExecutionAdapter,
+    UnifiedEngineeringRuntime,
+)
 
 
 client = TestClient(api.app.app)
@@ -212,14 +216,16 @@ def test_guard_blocked_answer_never_enters_sse_and_approved_answer_streams(monke
             ]
         ),
     )
-    facade = EngineeringAgentFacade(runtime)
+    facade = EngineeringAgentFacade(
+        UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+    )
     requirement = EngineeringEvidenceRequirement(
         requirement_profile=CHANGE_TEST_V1,
         required_evidence_groups=(("project_change",), ("project_test",)),
         min_distinct_project_code_paths=0,
     )
     monkeypatch.setattr(
-        "core.engineering_agent.route_engineering_evidence_requirement",
+        "core.unified_engineering_runtime.route_engineering_evidence_requirement",
         lambda _question: requirement,
     )
     _install_facade(monkeypatch, facade)
