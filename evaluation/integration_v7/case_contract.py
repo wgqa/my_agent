@@ -72,6 +72,7 @@ HOLDOUT_SPLIT = "integration_holdout"
 
 SYSTEM_A_COMMIT = "0eef8ef9d6decdaa10efebe04087b06611654670"
 SYSTEM_B_COMMIT = "385b7795eafde7c114efc382e95c0d18ec273f54"
+CORPUS_SOURCE_COMMIT = "179f18e812ad63c36c5569de8e86c5ff9a931cb5"
 TARGET_PROJECT_COMMIT = SYSTEM_B_COMMIT
 TARGET_PROJECT_ID = "my_agent"
 
@@ -103,6 +104,17 @@ TOOLS = frozenset(
         READ_PROJECT_CONTEXT_SPEC.name,
     }
 )
+TOOLSET_NAMES = (
+    "calculator",
+    "changed_files",
+    "code_search",
+    "find_tests",
+    "git_diff",
+    "knowledge_search",
+    "read_project_context",
+)
+SYSTEM_A_DYNAMIC_TOOL_NAMES = TOOLSET_NAMES
+SYSTEM_B_DYNAMIC_TOOL_NAMES = tuple(name for name in TOOLSET_NAMES if name != "knowledge_search")
 KNOWLEDGE_FAMILIES = frozenset({"knowledge_only", "theory_code", "decomposed_knowledge"})
 CONTEXT_FAMILIES = frozenset({"context_followup"})
 CHANGE_TEST_FAMILIES = frozenset({"change_test"})
@@ -145,6 +157,7 @@ _CASE_FIELDS = frozenset(
         "decomposition_facets",
         "required_evidence_groups",
         "required_tools",
+        "required_tools_by_system",
         "forbidden_tools",
         "min_distinct_project_code_paths",
         "expected_outcome",
@@ -171,6 +184,7 @@ _REQUIRED_CASE_FIELDS = frozenset(
         "knowledge_probe_query",
         "required_evidence_groups",
         "required_tools",
+        "required_tools_by_system",
         "forbidden_tools",
         "min_distinct_project_code_paths",
         "expected_outcome",
@@ -230,6 +244,39 @@ def _safe_relative_path(value: object, label: str) -> str:
     ):
         raise ProtocolViolation(f"{label} must be a repo-relative POSIX path")
     return posix.as_posix()
+
+
+def _proof_cases(cases: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    if cases is not None:
+        return cases
+    return load_cases(DEV_DATASET_PATH) + load_cases(HOLDOUT_DATASET_PATH)
+
+
+def _resolve_source_anchor(text: str, anchor: str, label: str) -> None:
+    """Resolve a deterministic line or literal-text anchor in frozen source."""
+
+    if anchor.startswith("line:"):
+        raw_line = anchor.removeprefix("line:")
+        if not raw_line.isdigit() or int(raw_line) < 1:
+            raise ProtocolViolation(f"{label} has an invalid line anchor")
+        line_number = int(raw_line)
+        lines = text.splitlines()
+        if line_number > len(lines) or not lines[line_number - 1].strip():
+            raise ProtocolViolation(f"{label} line anchor does not resolve")
+        return
+    if anchor not in text:
+        raise ProtocolViolation(f"{label} text anchor does not resolve")
+
+
+def _proof_source_path(root: Path, relative_path: str, label: str) -> Path:
+    safe_path = _safe_relative_path(relative_path, label)
+    resolved_root = root.resolve()
+    resolved_path = (resolved_root / safe_path).resolve()
+    try:
+        resolved_path.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ProtocolViolation(f"{label} escapes the frozen source root") from exc
+    return resolved_path
 
 
 def _walk_forbidden(value: object, path: str = "case") -> None:
@@ -326,6 +373,83 @@ def _validate_string_list(value: object, label: str, *, allowed: set[str] | froz
     return value
 
 
+def required_tools_for_system(case: Mapping[str, Any], system: str) -> list[str]:
+    """Return only the dynamic ToolAgent obligations for one system contract."""
+
+    if system not in {"A", "B"}:
+        raise ProtocolViolation("system must be A or B")
+    mapping = case.get("required_tools_by_system")
+    if not isinstance(mapping, Mapping):
+        raise ProtocolViolation("required_tools_by_system must be an object")
+    tools = mapping.get(system)
+    allowed = TOOLS if system == "A" else TOOLS - {KNOWLEDGE_SEARCH_SPEC.name}
+    return _validate_string_list(tools, f"required_tools_by_system.{system}", allowed=allowed)
+
+
+def compute_tool_coverage(case: Mapping[str, Any], system: str, observed_tools: list[str] | tuple[str, ...] | set[str]) -> float:
+    """Compute coverage against one system's dynamic-tool contract only."""
+
+    required = set(required_tools_for_system(case, system))
+    observed = set(_validate_string_list(list(observed_tools), "observed_tools", allowed=TOOLS))
+    if not required:
+        return 1.0
+    return len(required & observed) / len(required)
+
+
+def compute_task_completion(case: Mapping[str, Any], terminal_state: Mapping[str, Any]) -> bool:
+    """Use runtime/business terminal state; semantic Gold remains manual."""
+
+    if not isinstance(terminal_state, Mapping):
+        raise ProtocolViolation("terminal_state must be an object")
+    status = terminal_state.get("status")
+    if status not in {"completed", "refused", "failed"}:
+        raise ProtocolViolation("terminal_state.status must be completed, refused, or failed")
+    expected = case.get("expected_outcome")
+    if expected not in _OUTCOMES:
+        raise ProtocolViolation("case expected_outcome is invalid")
+    return (expected == "answerable" and status == "completed") or (
+        expected == "refusal" and status == "refused"
+    )
+
+
+def compute_required_evidence_coverage(case: Mapping[str, Any], satisfied_groups: list[bool] | tuple[bool, ...]) -> float:
+    """Return satisfied required groups / total groups, with no Gold-obligation inference."""
+
+    groups = case.get("required_evidence_groups")
+    if not isinstance(groups, list) or not isinstance(satisfied_groups, (list, tuple)):
+        raise ProtocolViolation("required evidence coverage inputs must be lists")
+    if len(groups) != len(satisfied_groups):
+        raise ProtocolViolation("one satisfaction value is required for every evidence group")
+    if any(type(value) is not bool for value in satisfied_groups):
+        raise ProtocolViolation("evidence group satisfaction values must be booleans")
+    if not groups:
+        return 1.0
+    return sum(satisfied_groups) / len(groups)
+
+
+def compute_premature_finalization(case: Mapping[str, Any], finalization_state: Mapping[str, Any]) -> bool:
+    """Detect finalization before typed/evidence state is satisfied."""
+
+    if not isinstance(finalization_state, Mapping):
+        raise ProtocolViolation("finalization_state must be an object")
+    finalized = finalization_state.get("finalized")
+    if type(finalized) is not bool:
+        raise ProtocolViolation("finalization_state.finalized must be a boolean")
+    if not finalized:
+        return False
+    required_satisfied = finalization_state.get("required_evidence_satisfied", True)
+    typed_satisfied = finalization_state.get("typed_requirement_satisfied", True)
+    if type(required_satisfied) is not bool or type(typed_satisfied) is not bool:
+        raise ProtocolViolation("finalization satisfaction state must be boolean")
+    return not (required_satisfied and typed_satisfied)
+
+
+def compute_refusal_correctness(case: Mapping[str, Any], terminal_state: Mapping[str, Any]) -> bool:
+    """Compare expected outcome with terminal answer/refusal state only."""
+
+    return compute_task_completion(case, terminal_state)
+
+
 def validate_case(case: Mapping[str, Any], *, line_number: int = 0) -> set[tuple[str, str, str]]:
     if not isinstance(case, Mapping):
         raise ProtocolViolation(f"case line {line_number} must be an object")
@@ -400,8 +524,15 @@ def validate_case(case: Mapping[str, Any], *, line_number: int = 0) -> set[tuple
         raise ProtocolViolation("answerable case requires required_evidence_groups")
 
     required_tools = _validate_string_list(case["required_tools"], "required_tools", allowed=TOOLS)
+    required_tools_a = required_tools_for_system(case, "A")
+    required_tools_b = required_tools_for_system(case, "B")
+    common_tools = [tool for tool in required_tools_a if tool in required_tools_b]
+    if required_tools != common_tools:
+        raise ProtocolViolation(
+            "required_tools must contain only obligations common to both system contracts"
+        )
     forbidden_tools = _validate_string_list(case["forbidden_tools"], "forbidden_tools", allowed=TOOLS)
-    if set(required_tools) & set(forbidden_tools):
+    if set(required_tools_a + required_tools_b) & set(forbidden_tools):
         raise ProtocolViolation("required_tools and forbidden_tools overlap")
     min_paths = case["min_distinct_project_code_paths"]
     if type(min_paths) is not int or min_paths < 0 or min_paths > 5:
@@ -573,6 +704,138 @@ def validate_target_project_checkout(
         raise ProtocolViolation("target project checkout must be tracked-clean")
 
 
+def _validate_frozen_git_checkout(
+    root: str | Path,
+    *,
+    expected_commit: str,
+    label: str,
+    allow_untracked: bool = False,
+) -> Path:
+    checkout = Path(root)
+    if not checkout.is_dir():
+        raise ProtocolViolation(f"{label} checkout is missing")
+    _require_sha(expected_commit, f"{label} expected SHA")
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=checkout,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=checkout,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ProtocolViolation(f"{label} checkout cannot be inspected") from exc
+    if revision.returncode != 0 or revision.stdout.strip() != expected_commit:
+        raise ProtocolViolation(f"{label} checkout SHA does not match the frozen source")
+    if status.returncode != 0:
+        raise ProtocolViolation(f"{label} checkout status cannot be inspected")
+    status_lines = [line for line in status.stdout.splitlines() if line.strip()]
+    if allow_untracked:
+        if any(not line.startswith("?? ") for line in status_lines):
+            raise ProtocolViolation(f"{label} checkout has tracked source changes")
+    elif status_lines:
+        raise ProtocolViolation(f"{label} checkout must be tracked-clean")
+    return checkout
+
+
+def _validate_source_proof_files(
+    cases: list[dict[str, Any]],
+    *,
+    source_root: Path,
+    proof_kinds: set[str],
+    source_label: str,
+    git_checkout: Path,
+) -> None:
+    for case in cases:
+        for index, proof in enumerate(case["source_proofs"]):
+            if proof["kind"] not in proof_kinds:
+                continue
+            label = f"{source_label} proof {case['case_id']}[{index}]"
+            source_path = _proof_source_path(source_root, proof["relative_path"], f"{label}.relative_path")
+            if not source_path.is_file():
+                raise ProtocolViolation(f"{label} source file is missing")
+            try:
+                repo_relative_path = source_path.resolve().relative_to(git_checkout.resolve()).as_posix()
+            except ValueError as exc:
+                raise ProtocolViolation(f"{label} source path escapes the checkout") from exc
+            try:
+                tracked = subprocess.run(
+                    ["git", "cat-file", "-e", f"HEAD:{repo_relative_path}"],
+                    cwd=git_checkout,
+                    check=False,
+                    capture_output=True,
+                    timeout=10,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise ProtocolViolation(f"{label} source provenance cannot be inspected") from exc
+            if tracked.returncode != 0:
+                raise ProtocolViolation(f"{label} source file is not present in the frozen commit")
+            try:
+                source_text = source_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise ProtocolViolation(f"{label} source file is unreadable") from exc
+            _resolve_source_anchor(source_text, proof["anchor"], f"{label}.anchor")
+
+
+def validate_project_source_proofs(
+    target_checkout: str | Path,
+    *,
+    expected_commit: str = TARGET_PROJECT_COMMIT,
+    cases: list[dict[str, Any]] | None = None,
+) -> None:
+    """Audit every project proof against an exact clean frozen target checkout."""
+
+    checkout = _validate_frozen_git_checkout(
+        target_checkout,
+        expected_commit=expected_commit,
+        label="target project",
+    )
+    _validate_source_proof_files(
+        _proof_cases(cases),
+        source_root=checkout,
+        proof_kinds={"project_code", "project_doc", "project_change", "project_test"},
+        source_label="project",
+        git_checkout=checkout,
+    )
+
+
+def validate_knowledge_source_proofs(
+    corpus_checkout: str | Path,
+    *,
+    expected_commit: str = CORPUS_SOURCE_COMMIT,
+    cases: list[dict[str, Any]] | None = None,
+) -> None:
+    """Audit every knowledge proof against the frozen agent_data checkout."""
+
+    checkout = _validate_frozen_git_checkout(
+        corpus_checkout,
+        expected_commit=expected_commit,
+        label="knowledge corpus",
+        allow_untracked=True,
+    )
+    manifest_corpus_path = Path(load_protocol_manifest()["corpus_identity"]["path"])
+    candidate_root = checkout / manifest_corpus_path
+    source_root = candidate_root if candidate_root.is_dir() else checkout
+    if not source_root.is_dir():
+        raise ProtocolViolation("knowledge corpus source root is missing")
+    _validate_source_proof_files(
+        _proof_cases(cases),
+        source_root=source_root,
+        proof_kinds={"knowledge"},
+        source_label="knowledge",
+        git_checkout=checkout,
+    )
+
+
 def validate_corpus_identity(observed: Mapping[str, Any], expected: Mapping[str, Any] | None = None) -> None:
     if not isinstance(observed, Mapping):
         raise ProtocolViolation("corpus identity must be an object")
@@ -617,6 +880,32 @@ def _computed_protocol_sha256(manifest: Mapping[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(_manifest_payload(manifest))).hexdigest()
 
 
+def _toolset_identity(names: tuple[str, ...]) -> dict[str, Any]:
+    registry_specs = {
+        CALCULATOR_SPEC.name: CALCULATOR_SPEC,
+        CHANGED_FILES_SPEC.name: CHANGED_FILES_SPEC,
+        CODE_SEARCH_SPEC.name: CODE_SEARCH_SPEC,
+        FIND_TESTS_SPEC.name: FIND_TESTS_SPEC,
+        GIT_DIFF_SPEC.name: GIT_DIFF_SPEC,
+        KNOWLEDGE_SEARCH_SPEC.name: KNOWLEDGE_SEARCH_SPEC,
+        READ_PROJECT_CONTEXT_SPEC.name: READ_PROJECT_CONTEXT_SPEC,
+    }
+    return {"names": list(names), "sha256": compute_toolset_sha256(tuple(registry_specs[name] for name in names))}
+
+
+def _validate_system_a_toolset_identity(system_a: Mapping[str, Any]) -> None:
+    toolset = system_a.get("toolset")
+    if not isinstance(toolset, Mapping):
+        raise ProtocolViolation("System A toolset identity must be an object")
+    expected = _toolset_identity(SYSTEM_A_DYNAMIC_TOOL_NAMES)
+    base = toolset.get("base_registry")
+    effective = toolset.get("effective_dynamic_registry")
+    if toolset.get("names") != expected["names"] or toolset.get("sha256") != expected["sha256"]:
+        raise ProtocolViolation("System A base toolset identity drift")
+    if base != expected or effective != expected:
+        raise ProtocolViolation("System A effective toolset identity drift")
+
+
 def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
     if not isinstance(system_b, Mapping):
         raise ProtocolViolation("System B identity must be an object")
@@ -626,16 +915,8 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
         "max_tool_calls": budget.max_tool_calls,
         "max_tool_errors": budget.max_tool_errors,
     }
-    registry_specs = (
-        CALCULATOR_SPEC,
-        CHANGED_FILES_SPEC,
-        CODE_SEARCH_SPEC,
-        FIND_TESTS_SPEC,
-        GIT_DIFF_SPEC,
-        KNOWLEDGE_SEARCH_SPEC,
-        READ_PROJECT_CONTEXT_SPEC,
-    )
-    expected_toolset = compute_toolset_sha256(registry_specs)
+    expected_base_toolset = _toolset_identity(SYSTEM_A_DYNAMIC_TOOL_NAMES)
+    expected_effective_toolset = _toolset_identity(SYSTEM_B_DYNAMIC_TOOL_NAMES)
     checks = {
         "provider": FROZEN_TOOL_PROVIDER,
         "model": FROZEN_TOOL_MODEL,
@@ -646,7 +927,7 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
         "max_parse_repairs": max_parse_repairs_for_profile(ENGINEERING_DECISION_PROMPT_V2_PROFILE),
         "max_output_tokens": max_output_tokens_for_profile(ENGINEERING_DECISION_PROMPT_V2_PROFILE),
         "budget": expected_budget,
-        "toolset_sha256": expected_toolset,
+        "toolset_sha256": expected_base_toolset["sha256"],
     }
     engineering_prompt = system_b.get("engineering_prompt")
     repair_prompt = system_b.get("repair_prompt")
@@ -667,6 +948,19 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
     }
     if observed != checks:
         raise ProtocolViolation(f"System B product identity drift: {observed!r} != {checks!r}")
+    expected_planned_backend = {
+        "component": "EngineeringRetrievalComponent",
+        "capability": "knowledge_evidence",
+        "strategy": "bm25",
+        "top_k": RETRIEVAL_TOP_K,
+        "max_planned_retrieval_calls": MAX_RETRIEVAL_CALLS,
+    }
+    if toolset.get("base_registry") != expected_base_toolset:
+        raise ProtocolViolation("System B base toolset identity drift")
+    if toolset.get("effective_dynamic_registry") != expected_effective_toolset:
+        raise ProtocolViolation("System B effective dynamic toolset identity drift")
+    if toolset.get("planned_knowledge_backend") != expected_planned_backend:
+        raise ProtocolViolation("System B planned knowledge backend identity drift")
 
     planner = system_b.get("planner")
     adaptive_policy = system_b.get("adaptive_policy")
@@ -748,11 +1042,22 @@ def validate_protocol_manifest(path: str | Path = MANIFEST_PATH) -> dict[str, An
         raise ProtocolViolation("System A source commit drift")
     if systems["B"].get("source_commit") != SYSTEM_B_COMMIT:
         raise ProtocolViolation("System B source commit drift")
+    _validate_system_a_toolset_identity(systems["A"])
     _validate_current_system_b_identity(systems["B"])
     if systems["A"].get("target_project_commit") != TARGET_PROJECT_COMMIT or systems["B"].get("target_project_commit") != TARGET_PROJECT_COMMIT:
         raise ProtocolViolation("A/B must bind the same target project commit")
     if systems["A"].get("corpus_identity") != systems["B"].get("corpus_identity"):
         raise ProtocolViolation("A/B corpus identities differ")
+    tool_coverage = manifest.get("tool_coverage")
+    if not isinstance(tool_coverage, Mapping):
+        raise ProtocolViolation("tool coverage contract is missing")
+    if tool_coverage.get("scope") != "system_contract_local":
+        raise ProtocolViolation("tool coverage must be system-contract-local")
+    if tool_coverage.get("knowledge_acquisition") != {
+        "A": "knowledge_search",
+        "B": "planned_retrieval",
+    }:
+        raise ProtocolViolation("knowledge acquisition tool mapping drift")
     datasets = manifest.get("datasets")
     if not isinstance(datasets, Mapping) or set(datasets) != {DEV_SPLIT, HOLDOUT_SPLIT}:
         raise ProtocolViolation("protocol must contain exactly Dev and Holdout dataset entries")

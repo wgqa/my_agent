@@ -66,7 +66,7 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 `ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
 保留历史 context/fallback 语义并通过回归。
 
-**`ARCH-EVAL-08A = CURRENT / REVIEW PENDING`**：冻结 v7 Architecture Integration Evaluation Protocol、27 个全新 Dev/Holdout cases、A/B identity、metric schema、manual rubric、contamination policy 与 Holdout deny-by-default contract；不执行真实 Provider、Holdout、Formal 或 manual scoring。
+**`ARCH-EVAL-08A = CURRENT / REVIEW PENDING`**：冻结 v7 Architecture Integration Evaluation Protocol、27 个全新 Dev/Holdout cases、A/B identity、metric schema、manual rubric、contamination policy 与 Holdout deny-by-default contract；不执行真实 Provider、Holdout、Formal 或 manual scoring。`ARCH-EVAL-08A-R1-MICRO = ACCEPT / CLOSED` 已修复 system-local tool coverage、effective toolset identity 与 frozen-source proof locator；R1 不是运行结果。
 
 **NEXT = `ARCH-EVAL-08A`（CURRENT / REVIEW PENDING）**
 
@@ -85,6 +85,14 @@ ARCH-RUNTIME-02
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
 `ARCH-EVAL-08A` 协议冻结，完成后立即停止，后续评测阶段须另行授权。
+
+R1 provenance note：R0 protocol SHA
+`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被
+supersede，且从未用于 product run/result。R1 只修复 pre-run protocol；不重写
+Gate 1～G12 frozen facts，不重新调参 Gate 2/3 sealed/formal，也不因 Holdout
+尚未执行而把候选修改写成 contamination。可复核的 agent_data source commit
+为 `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；此前 `...c5ff5a...` 是 R0
+元数据中的非 Git object 拼写错误，已在 R1 manifest 中显式说明并更正。
 
 ---
 

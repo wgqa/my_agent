@@ -5,11 +5,13 @@ from __future__ import annotations
 import copy
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from evaluation.integration_v7 import (
     DEV_SPLIT,
+    CORPUS_SOURCE_COMMIT,
     EXPECTED_CASE_COUNTS,
     EXPECTED_FAMILY_COUNTS,
     HOLDOUT_SPLIT,
@@ -17,10 +19,17 @@ from evaluation.integration_v7 import (
     ProtocolViolation,
     assert_execution_allowed,
     canonical_jsonl_sha256,
+    compute_premature_finalization,
+    compute_refusal_correctness,
+    compute_required_evidence_coverage,
+    compute_task_completion,
+    compute_tool_coverage,
     load_cases,
     load_protocol_manifest,
     validate_corpus_identity,
+    validate_knowledge_source_proofs,
     validate_protocol_manifest,
+    validate_project_source_proofs,
     validate_target_project_binding,
     validate_target_project_checkout,
 )
@@ -33,8 +42,13 @@ from evaluation.integration_v7.case_contract import (
     _historical_g12_questions_and_proofs,
     _normalise_question,
     _validate_dataset_pair,
+    _computed_protocol_sha256,
     validate_case,
+    required_tools_for_system,
 )
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_frozen_manifest_and_dataset_matrix_are_provider_free() -> None:
@@ -221,3 +235,125 @@ def test_dataset_hash_is_canonical_and_manifest_hashes_are_present() -> None:
     assert len(canonical_jsonl_sha256(HOLDOUT_DATASET_PATH)) == 64
     assert len(manifest["protocol_sha256"]) == 64
     assert manifest["metric_schema"]["retrieval_calls_are_not_llm_calls"] is True
+
+
+def test_system_local_tool_contract_keeps_planned_knowledge_fair() -> None:
+    manifest = validate_protocol_manifest()
+    a_tools = manifest["systems"]["A"]["toolset"]["effective_dynamic_registry"]["names"]
+    b_tools = manifest["systems"]["B"]["toolset"]["effective_dynamic_registry"]["names"]
+    assert "knowledge_search" in a_tools
+    assert "knowledge_search" not in b_tools
+    knowledge_case = load_cases(DEV_DATASET_PATH)[0]
+    assert knowledge_case["task_family"] == "knowledge_only"
+    assert required_tools_for_system(knowledge_case, "A") == ["knowledge_search"]
+    assert required_tools_for_system(knowledge_case, "B") == []
+    assert knowledge_case["required_tools"] == []
+    assert compute_tool_coverage(knowledge_case, "B", []) == 1.0
+    assert compute_tool_coverage(knowledge_case, "A", []) == 0.0
+
+
+def test_tool_obligation_mapping_is_architecture_local_for_mixed_case() -> None:
+    case = next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d005")
+    assert case["required_tools"] == ["code_search"]
+    assert case["required_tools_by_system"] == {
+        "A": ["knowledge_search", "code_search"],
+        "B": ["code_search"],
+    }
+    assert compute_tool_coverage(case, "B", ["code_search"]) == 1.0
+
+
+def test_automatic_metrics_use_runtime_state_and_evidence_groups_only() -> None:
+    answerable = load_cases(DEV_DATASET_PATH)[2]
+    assert compute_task_completion(answerable, {"status": "completed"}) is True
+    mutated_gold = copy.deepcopy(answerable)
+    mutated_gold["gold_obligations"][0]["claim"] = "intentionally not used by automatic completion"
+    assert compute_task_completion(mutated_gold, {"status": "completed"}) is True
+
+    grouped = next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d009")
+    assert compute_required_evidence_coverage(grouped, [True, False]) == 0.5
+    assert compute_premature_finalization(
+        grouped,
+        {"finalized": True, "required_evidence_satisfied": False, "typed_requirement_satisfied": True},
+    ) is True
+    assert compute_premature_finalization(grouped, {"finalized": True}) is False
+
+    refusal = next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d017")
+    assert compute_refusal_correctness(refusal, {"status": "refused"}) is True
+    assert compute_refusal_correctness(refusal, {"status": "completed"}) is False
+
+
+def _init_git_fixture(root: Path, relative_path: str, content: str) -> str:
+    target = root / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "protocol@example.invalid"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Protocol Test"], cwd=root, check=True)
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "fixture"], cwd=root, check=True)
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def test_project_source_proof_validator_rejects_missing_anchor_wrong_source_and_escape(tmp_path) -> None:
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    commit = _init_git_fixture(checkout, "README.md", "first\nsecond\n")
+    case = {"case_id": "fixture", "source_proofs": [{"kind": "project_doc", "relative_path": "README.md", "anchor": "line:2", "bounded_proof": "second", "obligation_ids": ["O1"]}]}
+    validate_project_source_proofs(checkout, expected_commit=commit, cases=[case])
+
+    missing = copy.deepcopy(case)
+    missing["source_proofs"][0]["anchor"] = "line:99"
+    with pytest.raises(ProtocolViolation, match="anchor"):
+        validate_project_source_proofs(checkout, expected_commit=commit, cases=[missing])
+    with pytest.raises(ProtocolViolation, match="SHA"):
+        validate_project_source_proofs(checkout, expected_commit="0" * 40, cases=[case])
+
+    escaped = copy.deepcopy(case)
+    escaped["source_proofs"][0]["relative_path"] = "../outside.md"
+    with pytest.raises(ProtocolViolation, match="repo-relative|escapes"):
+        validate_project_source_proofs(checkout, expected_commit=commit, cases=[escaped])
+
+
+def test_knowledge_source_proof_validator_uses_frozen_fixture_commit(tmp_path) -> None:
+    checkout = tmp_path / "corpus"
+    checkout.mkdir()
+    commit = _init_git_fixture(
+        checkout,
+        "agent_ai_v1/02_corpus_candidate/fixture.md",
+        "corpus anchor\n",
+    )
+    case = {"case_id": "fixture", "source_proofs": [{"kind": "knowledge", "relative_path": "fixture.md", "anchor": "line:1", "bounded_proof": "corpus anchor", "obligation_ids": ["O1"]}]}
+    validate_knowledge_source_proofs(checkout, expected_commit=commit, cases=[case])
+
+    missing = copy.deepcopy(case)
+    missing["source_proofs"][0]["anchor"] = "missing text"
+    with pytest.raises(ProtocolViolation, match="anchor"):
+        validate_knowledge_source_proofs(checkout, expected_commit=commit, cases=[missing])
+    with pytest.raises(ProtocolViolation, match="SHA"):
+        validate_knowledge_source_proofs(checkout, expected_commit=CORPUS_SOURCE_COMMIT, cases=[case])
+
+
+def test_v7d012_project_proofs_are_visible_at_target_sha() -> None:
+    case = next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d012")
+    for proof in case["source_proofs"]:
+        if not proof["kind"].startswith("project_"):
+            continue
+        shown = subprocess.run(
+            ["git", "show", f"{SYSTEM_B_COMMIT}:{proof['relative_path']}"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout.decode("utf-8")
+        assert proof["anchor"].startswith("line:")
+        line_number = int(proof["anchor"].removeprefix("line:"))
+        assert shown.splitlines()[line_number - 1].strip()
+
+
+def test_r1_dataset_and_protocol_hashes_are_self_consistent() -> None:
+    manifest = validate_protocol_manifest()
+    assert manifest["datasets"][DEV_SPLIT]["sha256"] == canonical_jsonl_sha256(DEV_DATASET_PATH)
+    assert manifest["datasets"][HOLDOUT_SPLIT]["sha256"] == canonical_jsonl_sha256(HOLDOUT_DATASET_PATH)
+    assert manifest["protocol_sha256"] == _computed_protocol_sha256(manifest)
+    assert manifest["supersedes_protocol_sha256"] == "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42"

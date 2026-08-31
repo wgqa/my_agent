@@ -1,7 +1,10 @@
 {
   "schema_version": "integration_v7_protocol_manifest_v1",
   "protocol_version": "v7_architecture_integration_evaluation_v1",
-  "protocol_sha256": "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42",
+  "protocol_sha256": "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31",
+  "supersedes_protocol_sha256": "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42",
+  "supersession_note": "ARCH-EVAL-08A-R1-MICRO supersedes the R0 manifest identity after fixing system-local tool coverage and frozen-source proof locators; the superseded SHA was never used for a product run or result.",
+  "corpus_identity_note": "R0 recorded a non-existent ...c5ff5a... value; R1 uses the verified 40-character agent_data commit ...c5ff9a... from the clean public-data lock and checkout. No historical experiment or result is rewritten.",
   "case_count": 27,
   "family_counts": {
     "knowledge_only": {"integration_dev": 2, "integration_holdout": 1},
@@ -18,12 +21,12 @@
     "integration_dev": {
       "file": "integration_dev_v1.jsonl",
       "case_count": 18,
-      "sha256": "ab7a553a0b18b54c5493ab42815307233e15219d280a8fbf510bafb730a34385"
+      "sha256": "193927d64dc39c08706455843b171a92f40dacb9641a8513a270039349eaa9cd"
     },
     "integration_holdout": {
       "file": "integration_holdout_v1.jsonl",
       "case_count": 9,
-      "sha256": "382c19fecda6df140196f2a506ea89f8a60a613ba751ce132799de448f5eebd4"
+      "sha256": "30253df76b45354de0fae7b3e9318d40e9e413c7ef01930ec044f8423f62ac8e"
     }
   },
   "system_a_commit": "0eef8ef9d6decdaa10efebe04087b06611654670",
@@ -35,9 +38,17 @@
     "dirty": false,
     "binding_source": "ENGINEERING_PROJECT_ROOT"
   },
+  "tool_coverage": {
+    "scope": "system_contract_local",
+    "required_tools_field": "dynamic_toolagent_obligations_only",
+    "knowledge_acquisition": {
+      "A": "knowledge_search",
+      "B": "planned_retrieval"
+    }
+  },
   "corpus_identity": {
     "repository": "wgqa/agent_data",
-    "source_commit": "179f18e812ad63c36c5569de8e86c5ff5a931cb5",
+    "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
     "path": "agent_ai_v1/02_corpus_candidate",
     "corpus_id": "870e5864df67",
     "file_count": 37,
@@ -66,7 +77,15 @@
       "budget": {"max_agent_iterations": 5, "max_tool_calls": 4, "max_tool_errors": 2},
       "toolset": {
         "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
-        "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+        "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f",
+        "base_registry": {
+          "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
+          "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+        },
+        "effective_dynamic_registry": {
+          "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
+          "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+        }
       },
       "planner": null,
       "adaptive_policy": null,
@@ -74,7 +93,7 @@
       "evidence_verifier": null,
       "corpus_identity": {
         "repository": "wgqa/agent_data",
-        "source_commit": "179f18e812ad63c36c5569de8e86c5ff5a931cb5",
+        "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
         "path": "agent_ai_v1/02_corpus_candidate",
         "corpus_id": "870e5864df67",
         "file_count": 37,
@@ -103,7 +122,22 @@
       "budget": {"max_agent_iterations": 5, "max_tool_calls": 4, "max_tool_errors": 2},
       "toolset": {
         "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
-        "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+        "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f",
+        "base_registry": {
+          "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "knowledge_search", "read_project_context"],
+          "sha256": "9b846d9e72e8d5536c2b3de8730f61433a96d7ff59f557a70f07c6a0c33bb85f"
+        },
+        "effective_dynamic_registry": {
+          "names": ["calculator", "changed_files", "code_search", "find_tests", "git_diff", "read_project_context"],
+          "sha256": "8d0bca387ffef15bd0fc001439bf6581c8dbd5279efd63686ae19d775d05133c"
+        },
+        "planned_knowledge_backend": {
+          "component": "EngineeringRetrievalComponent",
+          "capability": "knowledge_evidence",
+          "strategy": "bm25",
+          "top_k": 5,
+          "max_planned_retrieval_calls": 4
+        }
       },
       "planner": {
         "prompt_version": "gate3_planner_prompt_v1",
@@ -133,7 +167,7 @@
       "requirement_router": {"version": "engineering_requirement_router_v1"},
       "corpus_identity": {
         "repository": "wgqa/agent_data",
-        "source_commit": "179f18e812ad63c36c5569de8e86c5ff5a931cb5",
+        "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
         "path": "agent_ai_v1/02_corpus_candidate",
         "corpus_id": "870e5864df67",
         "file_count": 37,
@@ -147,7 +181,13 @@
     "schema_version": "integration_v7_metrics_v1",
     "automatic": ["task_completion", "required_evidence_coverage", "tool_coverage", "premature_finalization", "refusal_correctness", "context_resolution_correct", "knowledge_source_hit_at_5", "retrieval_call_count", "subquery_coverage", "hybrid_rescue_attempted", "hybrid_rescue_used", "merged_evidence_count", "tool_calls", "llm_calls_context", "llm_calls_planner", "llm_calls_toolagent_decision", "llm_calls_repair", "llm_calls_total", "latency_e2e_ms", "latency_context_ms", "latency_planner_ms", "latency_retrieval_ms", "latency_toolagent_ms", "latency_verifier_ms", "latency_finalization_ms", "token_cost"],
     "token_cost_unavailable_value": "UNAVAILABLE",
-    "retrieval_calls_are_not_llm_calls": true
+    "retrieval_calls_are_not_llm_calls": true,
+    "task_completion_source": "runtime_business_terminal_state",
+    "required_evidence_coverage_formula": "satisfied_required_groups / total_required_groups",
+    "required_evidence_coverage_does_not_score_gold_obligations": true,
+    "premature_finalization_source": "finalization_typed_and_evidence_state",
+    "refusal_correctness_source": "expected_outcome_vs_terminal_answer_or_refusal_state",
+    "semantic_gold_scoring": "manual_only"
   },
   "manual_rubric": {
     "schema_version": "integration_v7_manual_rubric_v1",

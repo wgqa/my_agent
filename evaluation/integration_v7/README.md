@@ -56,7 +56,7 @@ verified manifest:
 
 ```text
 repository             = wgqa/agent_data
-source_commit          = 179f18e812ad63c36c5569de8e86c5ff5a931cb5
+source_commit          = 179f18e812ad63c36c5569de8e86c5ff9a931cb5
 path                   = agent_ai_v1/02_corpus_candidate
 corpus_id              = 870e5864df67
 file_count             = 37
@@ -108,6 +108,7 @@ schema_version, case_id, split, task_family, difficulty, question,
 conversation_context, project_id, project_source_commit, gold_obligations,
 source_proofs, knowledge_gold_sources, knowledge_probe_query,
 required_evidence_groups, required_tools, forbidden_tools,
+required_tools_by_system,
 min_distinct_project_code_paths, expected_outcome, independence_note
 ```
 
@@ -175,17 +176,21 @@ cost are diagnostic facts and do not change task outcome. Observability is not
 a second control state.
 
 The operational definitions are frozen as follows: `task_completion` is a
-case-level pass only when the expected answer/refusal outcome and all required
-Gold obligations are met; `required_evidence_coverage` is the fraction of Gold
-obligations whose required evidence group is satisfied, with groups evaluated
-as AND-of-OR; `tool_coverage` is required tools attempted at least once divided
-by required tools; `premature_finalization` is an answerable finalization that
-occurs before required evidence/obligation checks pass; and
-`refusal_correctness` is a refusal on a refusal case, or a non-refusal answer
-on an answerable case, subject to the case Gold. `context_resolution_correct`
-compares the resolved standalone intent with the case oracle; System A is
-recorded as having no context resolver because it receives the current
-question only. `knowledge_source_hit_at_5` checks whether a Gold knowledge
+case-level comparison of `expected_outcome` with the runtime/business
+terminal state (`completed`, `refused`, or `failed`); Gold semantic obligations
+do not enter this automatic metric. `required_evidence_coverage` is
+`satisfied required groups / total required groups` per case, with groups
+evaluated as AND-of-OR; the schema has no obligation-to-group mapping.
+`tool_coverage` is system-contract-local: `required_tools_by_system` counts
+only that system's dynamic ToolAgent obligations, so B's planned knowledge
+retrieval is not penalized for not calling `knowledge_search`.
+`premature_finalization` is true when finalization occurs while required
+evidence or typed requirement state is unmet. `refusal_correctness` compares
+`expected_outcome` with the terminal answer/refusal state; refusal-reason
+quality remains in the manual rubric. `context_resolution_correct` compares
+the resolved standalone intent with the case oracle; System A is recorded as
+having no context resolver because it receives the current question only.
+`knowledge_source_hit_at_5` checks whether a Gold knowledge
 source is present in the top five returned sources. `retrieval_call_count`,
 `subquery_coverage`, `hybrid_rescue_attempted`, `hybrid_rescue_used`, and
 `merged_evidence_count` are taken from the retrieval component trace, before
@@ -218,9 +223,11 @@ or semantic correctness.
 Dev may be used to diagnose bugs and validate metric implementation. The
 Holdout candidate SHA must be frozen before the first Holdout open or run.
 After that freeze, no result-driven production, Prompt, Router, Guard, budget,
-Gold, or easy-case modification is allowed. If such a modification occurs,
-the Holdout is no longer independent and must not be reported as a clean
-comparison.
+Gold, or easy-case modification is allowed. This R1 repair happened before
+any Holdout execution, so its Holdout Gold/source-proof changes are protocol
+repair, not result-driven contamination. If a result-driven modification
+occurs after the candidate freeze, the Holdout is no longer independent and
+must not be reported as a clean comparison.
 
 The files may live in the repository, but the runner default is Dev. Holdout
 is deny-by-default. It requires both `--split holdout` and an exact
@@ -234,7 +241,11 @@ no real Provider call, no manual scoring, and no result artifact.
 values, exact counts and family matrix, System A/B identities, target project
 commit, corpus identity, prompt/planner/policy/toolset/budget identities,
 metric schema identity, manual rubric identity, failure classification,
-contamination policy, and Holdout protection.
+contamination policy, and Holdout protection. R1 explicitly distinguishes
+System A's base/effective dynamic registry from System B's base registry,
+effective Engineering dynamic registry, and planned knowledge backend. B's
+dynamic registry excludes `knowledge_search`; planned retrieval supplies
+knowledge evidence instead.
 
 Dataset SHA-256 is over canonical JSON objects in JSONL order, with stable
 UTF-8 JSON serialization. The protocol SHA is over the canonical manifest
@@ -244,6 +255,24 @@ protocol and system identity, target binding, corpus identity, case result,
 automatic metrics, manual rubric result, and failure classification; it must
 exclude absolute paths, API keys, raw provider/model output, private
 reasoning, and full prompts.
+
+R1 supersedes the R0 protocol SHA
+`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` after
+repairing system-local tool coverage and replacing synthetic proof labels
+with frozen-source locators. That superseded identity was never used for a
+product run or result. `validate_project_source_proofs(target_checkout)` and
+`validate_knowledge_source_proofs(corpus_checkout)` verify tracked source
+files, deterministic line/text anchors, exact source commits, and safe paths;
+they do not attempt semantic scoring of `bounded_proof`.
+
+The automatic metric boundary is explicit: `task_completion` reads only the
+runtime/business terminal state; Task Success and Answer Obligation remain
+manual semantic dimensions. `required_evidence_coverage` is
+`satisfied_required_groups / total_required_groups` per case and does not
+invent an obligation-to-group mapping. `premature_finalization` reads typed
+requirement/evidence state at finalization, while `refusal_correctness`
+compares `expected_outcome` with the terminal answer/refusal state; refusal
+reason quality remains manual.
 
 ## Current versus target architecture
 

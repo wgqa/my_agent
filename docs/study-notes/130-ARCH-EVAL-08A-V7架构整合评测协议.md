@@ -53,7 +53,7 @@ Execution Engine，不是第二个 controller。
   clean、read-only checkout，通过 `ENGINEERING_PROJECT_ROOT` 绑定；公开 artifact
   不写本地绝对路径。
 - 共享已验证 corpus：`wgqa/agent_data` commit
-  `179f18e812ad63c36c5569de8e86c5ff5a931cb5`、path
+  `179f18e812ad63c36c5569de8e86c5ff9a931cb5`、path
   `agent_ai_v1/02_corpus_candidate`、37 files、215 chunks、`bm25`、
   `corpus_id=870e5864df67`、manifest experiment `dbc497c796d5`。
 
@@ -83,6 +83,14 @@ current_question、expected_standalone_intent；history 遵守 G8 的最多 6 �
 1200-token bound。Change/test case 另存 base/head ref 和 accepted test paths。
 所有路径为 repo-relative POSIX path，不存绝对路径、API key、raw CoT 或 full prompt。
 
+R1 将 `required_tools` 限定为两套系统共有的 dynamic ToolAgent obligations，
+并为每条 case 增加 `required_tools_by_system`。A 的 knowledge acquisition 可由
+`knowledge_search` 覆盖；B 的 knowledge acquisition 由 planned retrieval 和
+knowledge evidence metrics 覆盖，因此 B 不因正确跳过 `knowledge_search` 而丢失
+tool coverage。Manifest 同时记录 A base/effective registry、B base/effective
+Engineering registry 与 planned knowledge backend；B effective dynamic registry
+不包含 `knowledge_search`。
+
 ## 5. 运行、指标和人工 rubric
 
 A/B 使用相同 provider/model、项目快照、corpus、environment、question、Gold 和
@@ -94,6 +102,14 @@ source hit@5、retrieval call count、subquery coverage、hybrid rescue attempte
 merged evidence count、tool/LLM call count（context、planner、ToolAgent decision、
 repair、total）、E2E/组件 latency 与 token cost。Token usage 不可得时为
 `UNAVAILABLE`；retrieval call 不是 LLM call。
+
+R1 metric semantics：`task_completion` 只从 Runtime/business terminal state
+读取 `completed/refused/failed`，不自动判断 Gold semantic obligations；Task
+Success 与 Answer Obligation 仍由人工评分。`required_evidence_coverage` 严格为
+`satisfied required groups / total required groups`，当前 schema 不虚构
+obligation-to-group mapping。`premature_finalization` 读取 finalization 时的
+required-evidence/typed state；`refusal_correctness` 比较 expected outcome 与
+terminal answer/refusal state，拒答理由质量仍属 manual rubric。
 
 每 case 人工记录：Task Success `PASS/FAIL`；Evidence Correctness
 `PASS/PARTIAL/FAIL`；Grounding `PASS/PARTIAL/FAIL`；O1/O2 与 aggregate；
@@ -113,6 +129,13 @@ Dev 可以诊断和验证指标。Holdout candidate SHA 必须在首次 open/run
 否则 Holdout 不再独立。文件可在 repo 中，但默认只允许 Dev；Holdout 必须显式给出
 `--split holdout --confirm-frozen-candidate <exact SHA>`。08A 不运行真实 Provider、
 不打开 Holdout、不做人工评分、不生成产品结果。
+
+R1 是 pre-run protocol repair：更新 Holdout Gold/source proof 不属于
+result-driven contamination，因为 Holdout 从未执行。R0 protocol SHA
+`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被
+supersede，且从未成为 product run/result。所有 27 条 source proof 均通过
+真实 target/corpus checkout 的 file、tracked-at-commit 与 deterministic anchor
+审计；校验器不自动声称 `bounded_proof` 的语义正确。
 
 ## 7. Artifact 与验证边界
 

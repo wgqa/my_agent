@@ -17,6 +17,7 @@
 - **ARCH-RETRIEVAL-05 = ACCEPT / CLOSED**
 - **ARCH-VERIFY-06 = ACCEPT / CLOSED**
 - **ARCH-CUTOVER-07 = ACCEPT / CLOSED**
+- **ARCH-EVAL-08A-R1-MICRO = ACCEPT / CLOSED**（protocol integrity repair only）
 - **ARCH-EVAL-08A = CURRENT / REVIEW PENDING**（protocol freeze only；no real Provider/Holdout/Formal/manual scoring）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
@@ -62,6 +63,10 @@
 - **冻结内容：** System A/B、目标项目与 verified corpus identity、27 个全新 case、9 个 family 的 2 Dev + 1 Holdout 矩阵、automatic metric schema、manual rubric、failure classification、contamination policy、canonical SHA 与 Holdout deny-by-default。
 - **运行边界：** 本阶段只做离线 contract/validator/deterministic tests；没有真实 Provider、A/B generation、Holdout、Formal、manual scoring 或 product result。完成后停止，不自行进入后续评测阶段。
 - **兼容边界：** G1～G12 frozen facts、Gate 2/3 sealed/formal、G12 question-only contract、legacy endpoint regression、Prompt/Router/Guard/5-4-2 budget 均不因协议冻结而重写或调参。
+- **R1 integrity repair：** `required_tools_by_system` 将 tool coverage 限定为 system-contract-local dynamic ToolAgent obligations；A 可把 `knowledge_search` 作为 dynamic obligation，B 的 effective dynamic registry 排除它，由 planned retrieval / knowledge evidence metrics 证明知识获取。`ToolAgentRuntime` 仍只是统一 Runtime 的 execution component，只有一个 logical Budget Owner。
+- **R1 proof audit：** 27/27 cases 的 source proof 已改为真实 frozen-source line anchors；project proof 通过 target `385b7795eafde7c114efc382e95c0d18ec273f54` 审计，knowledge proof 通过可复核的 agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5` 与 `agent_ai_v1/02_corpus_candidate` 审计。R0 protocol SHA `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已明确 superseded，且从未用于 product run/result。
+- **R1 metric boundary：** `task_completion` 只读取 runtime/business terminal state；`required_evidence_coverage = satisfied required groups / total required groups`；`premature_finalization` 读取 finalization 时 typed/evidence state；`refusal_correctness` 比较 expected outcome 与 terminal answer/refusal state。Gold semantic obligations、Task Success、Answer Obligation 与拒答理由质量仍为 manual。
+- **R1 status：** 新 Dev SHA=`193927d64dc39c08706455843b171a92f40dacb9641a8513a270039349eaa9cd`；新 Holdout SHA=`30253df76b45354de0fae7b3e9318d40e9e413c7ef01930ec044f8423f62ac8e`；新 Protocol SHA=`534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`。Holdout 仍 default DENY，未执行。
 
 ## ARCH-CUTOVER-07 Unified Runtime Main-Chain Cutover
 
