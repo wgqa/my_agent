@@ -14,8 +14,9 @@
 - **ARCH-RUNTIME-02 = ACCEPT / CLOSED**
 - **ARCH-CONTEXT-03 = ACCEPT / CLOSED**
 - **ARCH-PLAN-04 = ACCEPT / CLOSED**
-- **ARCH-RETRIEVAL-05 = CURRENT / REVIEW PENDING**
-- **Planner = ACTIVE / Knowledge Retrieval Plan enforcement = ACTIVE / MinimalEvidenceVerifier = NOT YET MIGRATED**
+- **ARCH-RETRIEVAL-05 = ACCEPT / CLOSED**
+- **ARCH-VERIFY-06 = CURRENT / REVIEW PENDING**
+- **Planner = ACTIVE / Knowledge Retrieval Plan enforcement = ACTIVE / EngineeringEvidenceVerifier = ACTIVE**
 - **G6 = CLOSED**
 - **G7 = CLOSED / Ledger optional**
 - **G8 = CLOSED / Context v1 mixed**
@@ -45,7 +46,7 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-RETRIEVAL-05**（完成当前迁移并独立审计后才可进入 `ARCH-VERIFY-06`）
+- **NEXT = ARCH-VERIFY-06**（完成当前迁移并独立审计后才可进入 `ARCH-CUTOVER-07`）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 

@@ -147,6 +147,8 @@ def test_no_retrieval_never_calls_backend_or_falls_back_to_bm25():
     assert snapshot.retrieval_call_count == 0
     assert snapshot.knowledge_evidence == ()
     assert snapshot.initial_context == ()
+    assert snapshot.required_query_ids == ()
+    assert snapshot.covered_query_ids == ()
 
 
 def test_fact_uses_bm25_once_with_frozen_top_k():
@@ -161,6 +163,8 @@ def test_fact_uses_bm25_once_with_frozen_top_k():
     assert snapshot.route_decision.retrieval_strategy == "bm25"
     assert snapshot.retrieval_call_count == 1
     assert snapshot.query_count == 1
+    assert snapshot.required_query_ids == ("q0",)
+    assert snapshot.covered_query_ids == ("q0",)
 
 
 def test_complex_single_uses_hybrid_directly_when_supported():
@@ -209,6 +213,8 @@ def test_single_empty_bm25_gets_exactly_one_hybrid_rescue():
     assert snapshot.upgrade_attempted is True
     assert snapshot.upgrade_used is True
     assert snapshot.retrieval_call_count == 2
+    assert snapshot.required_query_ids == ("q0",)
+    assert snapshot.covered_query_ids == ("q0",)
 
 
 def test_single_successful_bm25_does_not_rescue():
@@ -222,6 +228,8 @@ def test_single_successful_bm25_does_not_rescue():
     assert len(port.calls) == 1
     assert snapshot.upgrade_attempted is False
     assert snapshot.upgrade_used is False
+    assert snapshot.required_query_ids == ("q0",)
+    assert snapshot.covered_query_ids == ("q0",)
 
 
 def test_decomposed_two_subqueries_run_bm25_in_stable_order():
@@ -240,6 +248,8 @@ def test_decomposed_two_subqueries_run_bm25_in_stable_order():
     assert snapshot.query_count == 2
     assert snapshot.retrieval_call_count == 2
     assert [item.query_id for item in snapshot.evidence_bundle.items] == ["sq1", "sq2"]
+    assert snapshot.required_query_ids == ("sq1", "sq2")
+    assert snapshot.covered_query_ids == ("sq1", "sq2")
 
 
 def test_decomposed_three_subqueries_run_bm25_three_times():
@@ -289,6 +299,8 @@ def test_multiple_missing_subqueries_only_first_gets_one_rescue():
     assert snapshot.upgrade_used is True
     assert snapshot.retrieval_call_count == 4
     assert snapshot.retrieval_call_count <= MAX_RETRIEVAL_CALLS
+    assert snapshot.required_query_ids == ("sq1", "sq2", "sq3")
+    assert snapshot.covered_query_ids == ("sq1", "sq3")
 
 
 def test_decomposed_merge_uses_frozen_rrf_deterministic_dedup_and_cap():

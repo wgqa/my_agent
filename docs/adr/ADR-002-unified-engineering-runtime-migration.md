@@ -1,9 +1,9 @@
 # ADR-002: Unified Engineering Runtime Migration
 
-> Status: **Accepted — architecture freeze; ARCH-RETRIEVAL-05 migration active**<br>
+> Status: **Accepted — architecture freeze; ARCH-VERIFY-06 migration active**<br>
 > Date: **2026-08-31**<br>
 > Baseline: `0eef8ef9d6decdaa10efebe04087b06611654670`<br>
-> Scope: Unified Runtime architecture and bounded G8/G3 Context, Planning, and Knowledge Retrieval component migration；不授权无关生产 Runtime 变更。
+> Scope: Unified Runtime architecture and bounded G8/G3 Context, Planning, Knowledge Retrieval, and Evidence Verification component migration；不授权无关生产 Runtime 变更。
 
 ## Context
 
@@ -15,7 +15,7 @@
 EngineeringAgentFacade → ToolAgentRuntime → bounded Tool loop → finalization
 ```
 
-ARCH-FREEZE-01 起点时，G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。ARCH-CONTEXT-03、ARCH-PLAN-04 已分别接入 Context 与 trusted Plan；ARCH-RETRIEVAL-05 再把有限的 Knowledge Retrieval 作为组件接入，但 ToolAgent 仍承载唯一的 Decision → Tool → Observation loop，Verification/Finalization 仍待迁移。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，却还没有完整收敛到唯一的 Context、Plan、Budget、Evidence、Verification、Finalization、Activity ownership。这就是本 ADR 要处理的 **Architecture Integration Drift**。
+ARCH-FREEZE-01 起点时，G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。ARCH-CONTEXT-03、ARCH-PLAN-04、ARCH-RETRIEVAL-05 已分别接入 Context、trusted Plan 与有限 planned Knowledge Retrieval；ARCH-VERIFY-06 现在把 G3 retrieval coverage、G12 typed evidence shape 与 Citation-ID existence check 收敛为一个 trusted verification result，但 ToolAgent 仍承载唯一的 Decision → Tool → Observation execution loop，最终 Execution Policy / Finalization Policy cutover 仍待完成。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，却还没有完整收敛到唯一的 Context、Plan、Budget、Evidence、Verification、Finalization、Activity ownership。这就是本 ADR 要处理的 **Architecture Integration Drift**。
 
 本 ADR 与以下事实同时成立：
 
@@ -155,6 +155,35 @@ Planner, ToolAgent prompt, Requirement Router, G12 Guard, public API schemas,
 or historical artifacts. Those boundaries are prerequisites for the next
 reviewed stage and do not authorize ARCH-VERIFY-06 to start automatically.
 
+## ARCH-VERIFY-06 implementation addendum
+
+ARCH-VERIFY-06 implements the next component boundary without introducing a
+new verifier algorithm or controller. `EngineeringEvidenceVerifier` delegates
+the existing G3 `MinimalEvidenceVerifier`, the existing G12
+`evaluate_evidence_requirement`, and the existing `CitationValidator`, then
+publishes one immutable `EngineeringVerificationResult`. Only that result's
+`can_finalize` and bounded recovery fields are consumed by the existing
+ToolAgent finalization point.
+
+Retrieval sufficiency uses the G3 result and explicit coverage truth captured
+before RRF merge: direct retrieval has no required IDs, single retrieval has
+`q0`, and decomposed plans use the exact ordered `sq1`… IDs. A deduplicated RRF
+representative item's query ID cannot erase a covered subquery. G12 remains a
+shape-level requirement check. Citation validation checks only whether
+referenced `[C#]` IDs exist in the adapted EvidenceBundle context; it does not
+claim semantic entailment or claim-level grounding. No citation is
+nonblocking; an invalid citation reference is a hard stop.
+
+The recovery boundary is explicit: missing Repository/Git/Test evidence may
+use the next existing producer Tool when the current 5/4/2 enforcement allows
+it; retrieval insufficiency, incomplete planned coverage, and invalid citation
+references are non-recoverable and do not re-enable `knowledge_search` or add a
+repair LLM. The legacy endpoint behavior, public API/SSE shapes, prompts,
+router, guard contract, counters, and observability outcome isolation remain
+unchanged. `ToolAgentRuntime` remains only the execution component and there
+is no nested autonomous controller, FinalizationRuntime, or third product
+Runtime.
+
 ## Consequences
 
 ### Positive
@@ -168,11 +197,12 @@ reviewed stage and do not authorize ARCH-VERIFY-06 to start automatically.
 ### Trade-offs
 
 - 迁移期会同时存在 legacy endpoint、ToolAgentRuntime execution component 和 target contracts，需要 adapter 与回归测试；
-- 当前已获得 G3/G8 的 Context/Plan 与有限 Knowledge Retrieval 组件接入，
-  `MinimalEvidenceVerifier`/verification、generation/finalization/citation
-  仍必须按阶段推进；
+- 当前已获得 G3/G8 的 Context/Plan、有限 Knowledge Retrieval 与统一
+  `EngineeringEvidenceVerifier` 组件接入；Grounded Generation 的语义评估
+  与最终 control-plane cutover 仍必须按阶段推进；
 - single controller 约束限制了为了局部便利而引入 nested Agent 或独立 backend loop；
-- G12 shape-only Guard 仍不能替代完整语义 verifier，必须在 `ARCH-VERIFY-06` 明确扩展边界并单独评估。
+- G12 shape-only Guard 与 Citation-ID validation 仍不能替代完整语义
+  verifier；本阶段明确保持这一边界，后续只能在架构顺序内单独评估。
 
 ## Compatibility and guardrails
 
@@ -180,9 +210,12 @@ reviewed stage and do not authorize ARCH-VERIFY-06 to start automatically.
 - legacy `/agent/query`、`/tool-agent/query`、Engineering query 及 stream endpoint 在迁移期间保持回归；
 - G12 question-only contract 保持，不向 request 注入 evaluator Gold、case 或 source metadata；
 - `P1-OBS-03A-R1-MICRO` 继续是 `ACCEPT / CLOSED`，Activity/Observability 只读投影，不改变 runtime outcome；
-- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-RETRIEVAL-05 只
-  对 Knowledge Retrieval 做有限 Plan enforcement，Verifier/Finalization
-  仍待后续阶段；
+- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-RETRIEVAL-05 的
+  有限 Knowledge Retrieval 与 ARCH-VERIFY-06 的统一 Verification seam
+  均保持组件边界，最终 cutover 仍待后续阶段；
+- G3 `MinimalEvidenceVerifier`、G12 evaluator 与 `CitationValidator` 只由
+  一个 `EngineeringEvidenceVerifier` 编排并产生一个 trusted result；不
+  允许三个独立 finalizer、citation repair LLM 或 Knowledge retry；
 - 后续必须先做 component migration，不能 big-bang rewrite、不能永久丢弃 G3、不能引入第三个产品 Runtime。
 
 ## Non-decisions

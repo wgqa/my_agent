@@ -344,8 +344,32 @@ def _recovery_is_feasible(
     return False
 
 
+def _run_finalization_verifier(
+    verifier,
+    evidence: list[EngineeringEvidence | KnowledgeEvidence],
+    proposed_answer: str | None,
+):
+    """Run the one trusted Engineering verification seam, fail-fast on drift."""
+
+    verify = getattr(verifier, "verify", None)
+    if not callable(verify):
+        raise TypeError("finalization_verifier 必须提供 verify 方法")
+    result = verify(tuple(evidence), proposed_answer)
+    from core.engineering_verification import EngineeringVerificationResult
+
+    if not isinstance(result, EngineeringVerificationResult):
+        raise TypeError(
+            "finalization_verifier.verify 必须返回 EngineeringVerificationResult"
+        )
+    return result
+
+
 class ToolAgentRuntime:
-    """Bounded Decision → Tool → Observation loop。预算唯一所有者是 Runtime。
+    """Bounded Decision → Tool → Observation execution component。
+
+    During Unified Engineering migration it enforces the existing 5/4/2
+    hard limits, but it is not a second Agent/controller or logical budget
+    owner.
 
     Executor 固定为 ToolExecutor(registry)：Decision 与执行始终绑定同一个
     registry，杜绝 "模型看到的能力" 与 "系统实际执行的能力" 分裂。
@@ -383,6 +407,7 @@ class ToolAgentRuntime:
         initial_context: Sequence[DecisionContextItem] = (),
         initial_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = (),
         disabled_tools: Collection[str] = (),
+        finalization_verifier=None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
@@ -394,6 +419,10 @@ class ToolAgentRuntime:
             raise TypeError(
                 "evidence_requirement 必须是 EngineeringEvidenceRequirement 或 None"
             )
+        if finalization_verifier is not None and not callable(
+            getattr(finalization_verifier, "verify", None)
+        ):
+            raise TypeError("finalization_verifier 必须提供 verify 方法")
         seed_context = _normalize_initial_context(initial_context)
         seed_evidence = _normalize_initial_evidence(initial_evidence)
         disabled = _normalize_disabled_tools(disabled_tools, self._registry)
@@ -437,11 +466,19 @@ class ToolAgentRuntime:
                     trace_sink,
                 )
 
-            guard_state = (
-                evaluate_evidence_requirement(evidence_requirement, evidence)
-                if evidence_requirement is not None
-                else None
-            )
+            if finalization_verifier is None:
+                guard_state = (
+                    evaluate_evidence_requirement(evidence_requirement, evidence)
+                    if evidence_requirement is not None
+                    else None
+                )
+            else:
+                current_verification = _run_finalization_verifier(
+                    finalization_verifier,
+                    evidence,
+                    None,
+                )
+                guard_state = current_verification.evidence_requirement_state
             if guard_state is None or guard_state.satisfied:
                 recovery_control_active = False
             control_state = DecisionControlState(
@@ -542,7 +579,81 @@ class ToolAgentRuntime:
 
             action = outcome.action
             if isinstance(action, FinalAnswerAction):
-                if evidence_requirement is not None:
+                if finalization_verifier is not None:
+                    finalization_result = _run_finalization_verifier(
+                        finalization_verifier,
+                        evidence,
+                        action.answer,
+                    )
+                    if not finalization_result.can_finalize:
+                        state = finalization_result.evidence_requirement_state
+                        if (
+                            not finalization_result.recovery_allowed
+                            or not _recovery_is_feasible(
+                                run_registry,
+                                evidence_requirement,
+                                state,
+                                iterations=iterations,
+                                tool_calls=tool_calls,
+                                tool_errors=tool_errors,
+                                budget=self._budget,
+                            )
+                        ):
+                            return self._hard_stop(
+                                trace,
+                                evidence,
+                                iterations,
+                                tool_calls,
+                                tool_errors,
+                                INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                trace_sink,
+                            )
+                        fingerprint = _evidence_fingerprint(evidence)
+                        if (
+                            last_blocked_fingerprint is not None
+                            and fingerprint == last_blocked_fingerprint
+                        ):
+                            return self._hard_stop(
+                                trace,
+                                evidence,
+                                iterations,
+                                tool_calls,
+                                tool_errors,
+                                INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                trace_sink,
+                            )
+                        self._record_trace(
+                            trace,
+                            RuntimeTraceEvent(
+                                iteration=iterations,
+                                event_type="finalization_guard_blocked",
+                                guard_status="blocked",
+                                missing_evidence_groups=state.missing_evidence_groups,
+                                distinct_project_code_paths=(
+                                    state.distinct_project_code_paths
+                                ),
+                                required_min_distinct_project_code_paths=(
+                                    state.required_min_distinct_project_code_paths
+                                ),
+                                iterations_used=iterations,
+                                tool_calls_used=tool_calls,
+                                tool_errors_used=tool_errors,
+                            ),
+                            trace_sink,
+                        )
+                        self._record_activity(
+                            VerificationBlockedActivity(
+                                iteration=iterations,
+                                missing_evidence_kinds=tuple(
+                                    sorted(finalization_result.missing_evidence_kinds)
+                                ),
+                            ),
+                            activity_sink,
+                        )
+                        last_blocked_fingerprint = fingerprint
+                        recovery_control_active = True
+                        continue
+                elif evidence_requirement is not None:
                     state = evaluate_evidence_requirement(evidence_requirement, evidence)
                     if not state.satisfied:
                         fingerprint = _evidence_fingerprint(evidence)

@@ -46,13 +46,13 @@ v7 的总原则：
 
 ## 0.2 当前 Architecture Integration Drift
 
-当前仍存在明确但已收敛的 **Architecture Integration Drift**：产品 Engineering 主链的 LLM Decision → Tool → Observation 执行 loop 仍由 `ToolAgentRuntime` 控制；ARCH-FREEZE-01 的起点事实是 G3 retrieval/verifier 与 G8 Context 尚未进入该主链，ARCH-RETRIEVAL-05 正在以 component migration 把其中的计划检索能力接入统一控制面。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
+当前仍存在明确但已收敛的 **Architecture Integration Drift**：产品 Engineering 主链的 LLM Decision → Tool → Observation 执行 loop 仍由 `ToolAgentRuntime` 控制；ARCH-FREEZE-01 的起点事实是 G3 retrieval/verifier 与 G8 Context 尚未进入该主链，ARCH-VERIFY-06 已把 retrieval truth、G3/G12/Citation 检查收敛为一个统一验证结果，但最终 cutover 尚未完成。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
 
-- ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当前主链；当前 ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，但 `MinimalEvidenceVerifier` 仍未迁移；
+- ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当前主链；ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，ARCH-VERIFY-06 再以 `EngineeringEvidenceVerifier` 复用 `MinimalEvidenceVerifier`，但 `ToolAgentRuntime` 仍是迁移期执行组件；
 - ARCH-FREEZE-01 起点的 G8 Context / Standalone Resolver 未进入当前主链；ARCH-CONTEXT-03 已将其作为 Context Resolver 组件接入，当前 Engineering endpoint 仍保持 question-only；
 - G11 Unified Evidence 与 G12 Typed Requirement / Finalization Guard 是当前整合输入，状态为 **ACTIVE**；G12 历史评测结论仍按其原有 frozen 状态解释；
 - `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其 observability 结论保留，且 observability 不得改变 runtime outcome；
-- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = CURRENT / REVIEW PENDING`；当前仅对 Knowledge Retrieval 做有限 Plan enforcement，`MinimalEvidenceVerifier`、Grounded Generation、Finalization 与 Citation Validator 留待后续阶段。
+- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = ACCEPT / CLOSED`；`ARCH-VERIFY-06 = CURRENT / REVIEW PENDING`。当前已有有限 Plan enforcement 与统一 Verification/Finalization seam；Grounded Generation 的语义评估、最终 cutover 与后续评测仍留待后续阶段。
 
 ## 0.3 当前 NEXT
 
@@ -65,7 +65,7 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 `ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
 保留历史 context/fallback 语义并通过回归。
 
-**NEXT = `ARCH-RETRIEVAL-05`（CURRENT / REVIEW PENDING）**
+**NEXT = `ARCH-VERIFY-06`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后的后续唯一顺序为：
 
@@ -81,7 +81,7 @@ ARCH-RUNTIME-02
 ```
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
-`ARCH-RETRIEVAL-05`，完成后不得自行开始 `ARCH-VERIFY-06`。
+`ARCH-VERIFY-06`，完成后不得自行开始 `ARCH-CUTOVER-07`。
 
 ---
 
@@ -312,7 +312,7 @@ Execution Ledger：**DEFERRED / OPTIONAL**
 
 ### G11 — Unified Evidence：ACTIVE
 
-G11 的 Unified Evidence 是当前架构整合的活动输入：Knowledge、Repository、Change、Test 等 evidence kind 已由当前 Tool Agent 产出并进入 Engineering response，但证据规划、跨后端聚合、验证和最终化仍分散在现有组件中，尚未形成统一控制面。G11 的历史 task-family 结果、负结果和冻结约束保持不变。
+G11 的 Unified Evidence 是当前架构整合的活动输入：Knowledge、Repository、Change、Test 等 evidence kind 已由当前 Tool Agent 产出并进入 Engineering response；ARCH-RETRIEVAL-05 的 planned Knowledge evidence 与 ARCH-VERIFY-06 的统一验证结果已进入当前链路，但最终 cutover 仍未完成。G11 的历史 task-family 结果、负结果和冻结约束保持不变。
 
 ### G12 — Typed Requirement / Finalization Guard：ACTIVE
 
@@ -324,7 +324,7 @@ G12 的 Typed Requirement 与 Finalization Guard 是当前主链的活动控制�
 
 ### Drift boundary
 
-当前不是“缺少所有能力”，而是“能力存在但控制权仍在迁移”：`ToolAgentRuntime` 仍是 Engineering 主链中实际的 Decision → Tool → Observation controller；G3 Planner、有限 Knowledge Retrieval、G8 Context 已通过组件边界接入，`MinimalEvidenceVerifier`、Grounded Generation、Finalization 与 Citation 仍是待迁移能力，不能被误称为已完成统一架构。
+当前不是“缺少所有能力”，而是“能力存在但控制权仍在迁移”：`ToolAgentRuntime` 仍是 Engineering 主链中实际的 Decision → Tool → Observation execution component；G3 Planner、有限 Knowledge Retrieval、G8 Context 与 `EngineeringEvidenceVerifier` 已通过组件边界接入，且 G3/G12/Citation 只产生一个 trusted verification result，但最终的统一 Execution Policy / Finalization Policy cutover 尚未完成，不能被误称为最终统一架构。
 
 ---
 

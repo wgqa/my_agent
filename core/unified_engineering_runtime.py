@@ -18,6 +18,7 @@ from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
     route_engineering_evidence_requirement,
 )
+from core.engineering_verification import EngineeringEvidenceVerifier
 from core.query_planning import (
     BaseQueryPlanner,
     PlannerOutcome,
@@ -60,6 +61,7 @@ class LegacyToolAgentExecutionAdapter:
         initial_context: Sequence = (),
         initial_evidence: Sequence = (),
         disabled_tools: Collection[str] = (),
+        finalization_verifier=None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
@@ -76,6 +78,8 @@ class LegacyToolAgentExecutionAdapter:
             kwargs["initial_evidence"] = initial_evidence
         if disabled_tools:
             kwargs["disabled_tools"] = disabled_tools
+        if finalization_verifier is not None:
+            kwargs["finalization_verifier"] = finalization_verifier
         if trace_sink is not None:
             kwargs["trace_sink"] = trace_sink
         if activity_sink is not None:
@@ -93,6 +97,7 @@ class UnifiedEngineeringRuntime:
         context_resolver: EngineeringContextResolver | None = None,
         evidence_planner: EngineeringEvidencePlanner | None = None,
         retrieval_component: EngineeringRetrievalComponent | None = None,
+        evidence_verifier: EngineeringEvidenceVerifier | None = None,
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
@@ -112,6 +117,10 @@ class UnifiedEngineeringRuntime:
             raise TypeError(
                 "retrieval_component must be EngineeringRetrievalComponent"
             )
+        if evidence_verifier is not None and not isinstance(
+            evidence_verifier, EngineeringEvidenceVerifier
+        ):
+            raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
         self._execution_adapter = execution_adapter
         # Keep the constructor compatible for no-history callers while the
         # production wiring injects the real provider-backed component.
@@ -124,6 +133,9 @@ class UnifiedEngineeringRuntime:
         # this seam optional preserves older direct construction sites until
         # they opt into the component, without changing their legacy behavior.
         self._retrieval_component = retrieval_component
+        self._evidence_verifier = evidence_verifier or (
+            EngineeringEvidenceVerifier() if retrieval_component is not None else None
+        )
 
     def run(
         self,
@@ -156,12 +168,20 @@ class UnifiedEngineeringRuntime:
             resolved_input,
             planner_outcome,
         )
+        if self._evidence_verifier is None:  # pragma: no cover - constructor guard
+            raise RuntimeError("retrieval component requires an evidence verifier")
+        finalization_verifier = self._evidence_verifier.bind(
+            planner_outcome,
+            retrieval_snapshot,
+            requirement,
+        )
         return self._execution_adapter.run(
             resolved_input,
             evidence_requirement=requirement,
             initial_context=retrieval_snapshot.initial_context,
             initial_evidence=retrieval_snapshot.knowledge_evidence,
             disabled_tools=("knowledge_search",),
+            finalization_verifier=finalization_verifier,
             trace_sink=trace_sink,
             activity_sink=activity_sink,
         )

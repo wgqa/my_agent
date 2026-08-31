@@ -140,6 +140,8 @@ class EngineeringRetrievalSnapshot:
     query_count: int
     upgrade_attempted: bool
     upgrade_used: bool
+    required_query_ids: tuple[str, ...]
+    covered_query_ids: tuple[str, ...]
     merge_policy: str
     merge_rrf_k: float
     knowledge_evidence: tuple[KnowledgeEvidence, ...]
@@ -176,6 +178,40 @@ class EngineeringRetrievalSnapshot:
                 raise TypeError(f"{label} 必须是 bool")
         if self.upgrade_used and not self.upgrade_attempted:
             raise ValueError("upgrade_used=True 要求 upgrade_attempted=True")
+        if type(self.required_query_ids) is not tuple or any(
+            type(query_id) is not str or not query_id.strip()
+            for query_id in self.required_query_ids
+        ):
+            raise TypeError("required_query_ids 必须是非空字符串 tuple")
+        if type(self.covered_query_ids) is not tuple or any(
+            type(query_id) is not str or not query_id.strip()
+            for query_id in self.covered_query_ids
+        ):
+            raise TypeError("covered_query_ids 必须是非空字符串 tuple")
+        if len(set(self.required_query_ids)) != len(self.required_query_ids):
+            raise ValueError("required_query_ids 不得重复")
+        if len(set(self.covered_query_ids)) != len(self.covered_query_ids):
+            raise ValueError("covered_query_ids 不得重复")
+        if any(
+            query_id not in self.required_query_ids
+            for query_id in self.covered_query_ids
+        ):
+            raise ValueError("covered_query_ids 必须是 required_query_ids 的子集")
+        expected_query_ids = {
+            "direct_answer": (),
+            "single_retrieval": ("q0",),
+            "decomposed_retrieval": tuple(
+                _SUBQUERY_IDS[: len(self.route_decision.queries)]
+            ),
+        }[self.route_decision.route]
+        if self.required_query_ids != expected_query_ids:
+            raise ValueError("required_query_ids 不符合 route 的稳定内部 identity")
+        if self.covered_query_ids != tuple(
+            query_id
+            for query_id in self.required_query_ids
+            if query_id in self.covered_query_ids
+        ):
+            raise ValueError("covered_query_ids 必须保持 required 的确定性顺序")
         if self.merge_policy != SUBQUERY_RRF_MERGE_V2:
             raise ValueError("merge_policy 必须是冻结的 subquery_rrf_merge_v2")
         if self.merge_rrf_k != DEFAULT_MERGE_RRF_K:
@@ -239,6 +275,8 @@ class EngineeringRetrievalComponent:
         *,
         upgrade_attempted: bool,
         upgrade_used: bool,
+        required_query_ids: tuple[str, ...],
+        covered_query_ids: tuple[str, ...],
         merge_metadata: Mapping[str, object],
     ) -> EngineeringRetrievalSnapshot:
         return EngineeringRetrievalSnapshot(
@@ -250,6 +288,8 @@ class EngineeringRetrievalComponent:
             query_count=bundle.query_count,
             upgrade_attempted=upgrade_attempted,
             upgrade_used=upgrade_used,
+            required_query_ids=required_query_ids,
+            covered_query_ids=covered_query_ids,
             merge_policy=SUBQUERY_RRF_MERGE_V2,
             merge_rrf_k=DEFAULT_MERGE_RRF_K,
             knowledge_evidence=_convert_evidence(bundle),
@@ -286,6 +326,8 @@ class EngineeringRetrievalComponent:
                 bundle,
                 upgrade_attempted=False,
                 upgrade_used=False,
+                required_query_ids=(),
+                covered_query_ids=(),
                 merge_metadata={
                     **frozen_merge_metadata,
                     "input_candidate_count": 0,
@@ -314,6 +356,7 @@ class EngineeringRetrievalComponent:
                 retrieval_call_count=retrieval_call_count,
                 query_count=1,
             )
+            covered_query_ids = ("q0",) if documents else ()
             return self._snapshot(
                 resolved_input,
                 planner_outcome,
@@ -321,6 +364,8 @@ class EngineeringRetrievalComponent:
                 bundle,
                 upgrade_attempted=upgrade_attempted,
                 upgrade_used=upgrade_used,
+                required_query_ids=("q0",),
+                covered_query_ids=covered_query_ids,
                 merge_metadata={
                     **frozen_merge_metadata,
                     "input_candidate_count": len(documents),
@@ -371,6 +416,10 @@ class EngineeringRetrievalComponent:
                 "required_query_count": len(query_results),
             }
         )
+        required_query_ids = tuple(query_id for query_id, _ in query_results)
+        covered_query_ids = tuple(
+            query_id for query_id, documents in query_results if documents
+        )
         return self._snapshot(
             resolved_input,
             planner_outcome,
@@ -378,6 +427,8 @@ class EngineeringRetrievalComponent:
             bundle,
             upgrade_attempted=upgrade_attempted,
             upgrade_used=upgrade_used,
+            required_query_ids=required_query_ids,
+            covered_query_ids=covered_query_ids,
             merge_metadata=merge_metadata,
         )
 

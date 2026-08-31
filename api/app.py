@@ -19,6 +19,7 @@ from core.conversation_context import OpenAICompatibleConversationQueryResolver
 from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
+from core.engineering_verification import EngineeringEvidenceVerifier
 from core.query_planning import OpenAICompatibleQueryPlanner
 from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
@@ -191,6 +192,7 @@ async def lifespan(app: FastAPI):
                     context_resolver=engineering_context_resolver,
                     evidence_planner=engineering_evidence_planner,
                     retrieval_component=engineering_retrieval_component,
+                    evidence_verifier=EngineeringEvidenceVerifier(),
                 )
                 engineering_agent_facade = EngineeringAgentFacade(
                     unified_engineering_runtime

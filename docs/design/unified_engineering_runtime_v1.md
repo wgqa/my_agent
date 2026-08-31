@@ -3,8 +3,8 @@
 > Status: **Architecture baseline and migration contract**
 > Project identity: **Evidence-Grounded AI Engineering Agent**
 > Architecture baseline: `c6ee568923babcb0dc3e040ceef1e18e162b02db`
-> Current migration baseline: `eb9d93a821525fbccfef8fdd2c540fd81e9a1695`
-> Current migration: `ARCH-RETRIEVAL-05`
+> Current migration baseline: `c08cdb0886ee3e3dc1e89c9bdeaa7117ae90deab`
+> Current migration: `ARCH-VERIFY-06`
 > Historical Gate facts are immutable; this document defines the only target architecture for `ARCH-RUNTIME-02` through `ARCH-EVAL-08`.
 
 ## 1. Purpose and boundary
@@ -132,7 +132,46 @@ Generation, Finalization Policy, or Citation Validator. ToolAgentRuntime remains
 the only LLM Decision → Tool → Observation loop, and no nested autonomous
 controller or replanning/retry loop is introduced.
 
-### 2.4 G8 context contract being migrated
+### 2.4 Migration state after ARCH-VERIFY-06
+
+ARCH-VERIFY-06 reconciles the planned retrieval result, G3's existing
+`MinimalEvidenceVerifier`, G12's typed requirement evaluator, and the existing
+`CitationValidator` behind one `EngineeringEvidenceVerifier`. The current
+Engineering chain is now:
+
+```text
+Context Resolver
+  -> Evidence Planner -> Requirement Router
+  -> Planned Knowledge Retrieval / Evidence Aggregator
+  -> ToolAgentRuntime dynamic Repo/Git/Test evidence
+  -> EngineeringEvidenceVerifier
+       -> one EngineeringVerificationResult
+       -> one can_finalize decision
+  -> existing ToolAgent finalization point
+```
+
+The verifier delegates existing checks; it does not replace their algorithms,
+claim-level semantics, prompts, or frozen artifacts. `MinimalEvidenceVerifier`
+is a query-level retrieval/coverage check, G12 remains a typed evidence-shape
+check, and `CitationValidator` checks citation-ID existence only. No component
+claims semantic entailment or LLM-judge grounding. A citation-free answer is
+nonblocking; an invalid citation reference is blocking.
+
+Coverage truth is recorded in `EngineeringRetrievalSnapshot` before
+deterministic RRF merge: direct retrieval has no required query IDs, single
+retrieval uses `q0`, and decomposition uses the exact ordered `sq1`… IDs.
+RRF's representative item query ID is never used as a substitute for this
+pre-merge coverage truth. Retrieval insufficiency or incomplete subquery
+coverage is a non-recoverable hard stop; G12 missing Repository/Git/Test
+evidence may use the next existing ToolAgent Decision when the producer and
+the frozen 5/4/2 budget permit it. Planned Knowledge Retrieval is not rerun.
+
+The unified result is the only verification input to the existing finalization
+point on this path. `ToolAgentRuntime` still enforces 5/4/2 and executes the
+bounded loop, but it is only the Unified Runtime's execution component; there
+is no FinalizationRuntime, nested AgentRuntime, repair LLM, or new controller.
+
+### 2.5 G8 context contract being migrated
 
 The migration reuses, without redesigning, the existing G8 components:
 
@@ -151,7 +190,7 @@ The migration reuses, without redesigning, the existing G8 components:
 provider. Invalid history/message values fail through the existing strict
 validation rather than being silently discarded.
 
-### 2.5 Planner component contract
+### 2.6 Planner component contract
 
 `EngineeringEvidencePlanner` accepts only an existing `BaseQueryPlanner` and
 returns the exact existing `PlannerOutcome` object after strict type and
@@ -236,9 +275,9 @@ execution adapter.
 | Adaptive Router | `core/adaptive_retrieval/` | **ACTIVE in ARCH-RETRIEVAL-05** as a bounded route decision; not an autonomous controller | Execution Policy via `EngineeringRetrievalComponent` | Reuse the pure G3 route decision and execute only the frozen single/decomposed policy | Do not re-tune sealed Gate 3 routing facts; no new retrieval budget |
 | Multi-query Retrieval | G3 retrieval orchestration and `core/engineering_retrieval.py` | **ACTIVE in ARCH-RETRIEVAL-05** behind the planned retrieval handoff | Execution Policy + Knowledge Evidence Backend | Execute the exact QueryPlan subqueries, at most one rescue, and no new subquery/loop | 2–3 primary calls, at most one Hybrid rescue, total ≤4; legacy path regresses |
 | Evidence Merge | `core/agent_runtime/evidence.py`, `core/engineering_retrieval.py` | **ACTIVE in ARCH-RETRIEVAL-05** as deterministic internal G3 `EvidenceBundle` merge | Evidence Aggregator | Reuse `merge_subquery_results_policy` with frozen RRF merge v2 and convert only bounded public evidence | Preserve query IDs, provenance, deduplication, deterministic order, max 5, and RRF k=60 |
-| `MinimalEvidenceVerifier` | G3 verifier implementation | **NOT YET MIGRATED**; remains a historical/legacy capability and regression subject | Evidence Verifier | Migrate only in ARCH-VERIFY-06 under the single verifier owner | Do not invoke, duplicate, or re-tune it during Retrieval migration |
-| Grounded Generation | Agentic RAG answer path / generator ports | Existing generation path; not a separate controller | Finalization Policy | Consume verified evidence through a single finalization transition | Existing generator failure semantics and safe failure categories preserved |
-| Citation Validator | G3/G12 evidence/citation validation work | Partial/contract-specific validation exists | Evidence Verifier | Consolidate validation inputs under one verifier contract | No UI/persistence expansion; invalid citations never become trusted evidence |
+| `MinimalEvidenceVerifier` | G3 verifier implementation | **ACTIVE in ARCH-VERIFY-06** as a delegated query-level retrieval/coverage check | Evidence Verifier | Call the existing verifier with snapshot pre-merge required/covered IDs and retain its `VerificationResult` | No algorithm, semantic claim, threshold, or frozen artifact change |
+| Grounded Generation | Agentic RAG answer path / generator ports | Existing generation path; answer eligibility now consumes the unified result, but semantic grounding is not claimed | Finalization Policy | Pass the proposed answer through the one verification seam before the existing finalization transition | Existing generator failure semantics preserved; no LLM judge or semantic entailment claim |
+| Citation Validator | `core/generator/citation.py` | **ACTIVE in ARCH-VERIFY-06** as citation-ID existence checking | Evidence Verifier | Adapt the same EvidenceBundle items to ContextBlock and delegate one citation check | Citation-free answer is nonblocking; invalid IDs block; no UI/persistence expansion |
 | G4 Tool loop / allowlist / budget | `core/tool_agent/runtime.py`, `integration.py` | Active bounded ToolAgent execution: 5/4/2, allowlist, duplicate/error guards; Engineering can receive seeded evidence and a filtered registry | Execution Policy + Tool Execution Engine | Keep ToolAgentRuntime as the execution component through the migration adapter; disable duplicate Engineering knowledge search | 5/4/2 hard enforcement, allowlist, and terminal semantics remain frozen; legacy registry unchanged |
 | Safe Trace | `core/tool_agent/runtime_models.py`, `api/app.py` | Active safe projection; no raw prompt/observation/secret | Activity / Observability | Keep as an output projection of trusted events | Observability cannot change runtime outcomes or become control state |
 | G6 Repository Evidence | `core/tool_agent/tools/`, repository adapters | Active read-only code/project evidence | Evidence Backend | Expose repo tools through Tool Execution Engine and Unified Evidence | Workspace binding, bounded output, path safety, and legacy endpoint regression |
@@ -246,7 +285,7 @@ execution adapter.
 | G9 failure semantics | `core/generator/errors.py`, Agent/Tool runtime handling | Typed provider failures and programming-error propagation are active | Execution Policy + Finalization Policy | Map component failures into the single trusted run state | Provider text/key/traceback not leaked; unknown programming errors remain visible to boundary |
 | G10 `changed_files` / `git_diff` / `find_tests` | `core/tool_agent/tools/` | Active read-only tools and workflow evidence | Evidence Backend + Evidence Aggregator | Register each as typed evidence producer under one execution policy | Existing safe path, diff bounds, candidate-source and endpoint contracts regress |
 | G11 Unified Evidence | G11 Engineering response/runtime models | **ACTIVE**; Retrieval now hands off trusted planned Knowledge evidence while ToolAgent emits other evidence kinds | Evidence Aggregator | Preserve internal G3 bundle identity and adapt backend outputs to one evidence envelope/provenance path | G11 historical task-family outcomes and known negatives remain unchanged |
-| G12 Typed Requirement / Finalization Guard | `core/engineering_requirements.py`, ToolAgent finalization guard | **ACTIVE**; requirement route and shape guard are integrated in current path | Execution Policy / Finalization Policy | Keep one requirement state and one finalization transition; later reconcile verifier | G12 question-only contract, guard schema, Formal and valid FAIL remain frozen |
+| G12 Typed Requirement / Finalization Guard | `core/engineering_requirements.py`, ToolAgent finalization guard | **ACTIVE**; typed requirement is delegated into the unified result and existing finalization point remains the seam | Evidence Verifier + Finalization Policy | Reuse one G12 state in `EngineeringVerificationResult`; allow only bounded producer-tool recovery | G12 question-only contract, guard schema, Formal and valid FAIL remain frozen |
 | Rich Activity | `core/tool_agent/activity.py`, stream v2 | Active safe lifecycle projection | Activity / Observability | Project Unified Runtime events without feeding them back into control | No context content, prompt, raw observation, or outcome mutation |
 
 ## 5. Ownership Matrix
@@ -260,8 +299,8 @@ operation, but they must not create a second authority for the same state.
 | Plan | Evidence Planner | normalized QueryPlan and bounded evidence intent | Tool execution, budget, final answer |
 | Budget | Execution Policy | the one trusted run budget and stop decision | provider prompt suggestions, backend-local ledgers, observer counters |
 | Evidence | Evidence Aggregator | evidence identity, provenance, deduplication, bounded merge | planning, finalization, UI decisions |
-| Verification | Evidence Verifier | evidence sufficiency/shape/citation verification result | Tool retries, generation, public transport |
-| Finalization | Finalization Policy | one terminal completed/refused/failed transition and answer eligibility | new evidence retrieval, observability delivery |
+| Verification | Evidence Verifier | one `EngineeringVerificationResult` composed from G3 retrieval coverage, G12 evidence shape, and citation-ID checks | Tool retries, generation, semantic entailment claims, public transport |
+| Finalization | Finalization Policy | one terminal completed/refused/failed transition, consuming the unified `can_finalize` result and bounded recovery fields | independent G3/G12/Citation decisions, new evidence retrieval, observability delivery |
 | Activity / Observability | Activity / Observability | safe trace/activity projection | any runtime decision, budget mutation, recovery, or outcome rewrite |
 
 There is exactly **one logical Budget Owner**: `Execution Policy`. During
@@ -270,6 +309,12 @@ enforcement because it is the current execution component. That does not make
 it a second Agent or controller. Its budget checks must eventually be
 represented as the Unified Runtime's execution-policy state, not duplicated by
 an outer AgentRuntime.
+
+The verifier is also one logical verification owner: G3
+`MinimalEvidenceVerifier`, G12 `evaluate_evidence_requirement`, and
+`CitationValidator` are delegated checks, not three competing finalizers. The
+existing ToolAgent finalization branch consumes the one result; it does not
+independently recompute G12 when the unified seam is enabled.
 
 Likewise, `AgentRuntime` must not wrap `ToolAgentRuntime`. Such nesting would
 create two autonomous loops, two stop decisions, two ledgers, and ambiguous
@@ -309,10 +354,23 @@ ownership of evidence and finalization.
   Decision. The Engineering registry disables the duplicate `knowledge_search`
   Tool, while the legacy `/tool-agent/query` registry and behavior remain
   unchanged. Retrieval calls do not increment ToolAgent counters.
+- ARCH-VERIFY-06 reuses the existing G3 `MinimalEvidenceVerifier`, G12 typed
+  evaluator, and `CitationValidator` behind one `EngineeringEvidenceVerifier`
+  and one `EngineeringVerificationResult`. The result's `can_finalize` is the
+  conjunction of retrieval sufficiency, G12 requirement satisfaction, and
+  non-invalid citation status. It does not claim semantic entailment.
+- Required/covered subquery IDs come from pre-merge retrieval results, not the
+  representative query ID on a deduplicated RRF item. Missing G12
+  Repository/Git/Test evidence may recover through an existing producer Tool
+  within 5/4/2; retrieval insufficiency, incomplete planned coverage, and
+  invalid citation references hard-stop with the existing public refusal code.
+- `CitationValidator` is nonblocking when the answer has no citations. No
+  citation repair LLM, knowledge-search retry, or additional finalizer is
+  introduced, and verification does not change ToolAgent counters.
 - The current `ToolAgentRuntime` enforcement remains the only 5/4/2 hard
-  enforcement during migration; the future Unified Runtime still has exactly
-  one logical Budget Owner. `MinimalEvidenceVerifier`, Grounded Generation,
-  Finalization Policy, and Citation Validator are not yet migrated.
+  enforcement during migration; the Unified Runtime still has exactly one
+  logical Budget Owner. ToolAgentRuntime is an execution component, not a
+  second Agent/controller.
 - Migration is component-by-component with adapters and contract tests. It is
   not a big-bang rewrite and it does not permanently discard G3.
 - No Persistence, Citation UI, new Multi-Agent design, or third product
@@ -335,19 +393,26 @@ Client ──> Facade ──> Unified Runtime
                                                ├─ Decision
                                                ├─ Tool allowlist
                                                ├─ 5/4/2 hard budget
-                                               ├─ Observation
-                                               └─ G12 finalization guard
+                                               ├─ Observation / Repo-Git-Test evidence
+                                               └─ EngineeringEvidenceVerifier
+                                                    ├─ G3 MinimalEvidenceVerifier
+                                                    ├─ G12 typed requirement
+                                                    ├─ Citation-ID validator
+                                                    └─ one can_finalize result
+                                                         │
+                                                         v
+                                                    existing finalization point
 
-  Remaining capability island (not yet migrated in ARCH-RETRIEVAL-05)
+  Remaining integration drift (cutover is not yet complete)
   ┌────────────────────────────────────────────────────────┐
-  │ MinimalEvidenceVerifier / Grounded Generation           │
-  │ Finalization Policy / Citation Validator                │
+  │ Execution Policy ownership and Finalization Policy      │
+  │ still converge through the ToolAgent execution adapter  │
   └────────────────────────────────────────────────────────┘
 
   G8 is now a Context component; G3 Planner/Decomposition, Adaptive Retrieval,
-  Multi-query Retrieval and deterministic Evidence Merge are now bounded
-  components. G11 Unified Evidence and G12 Requirement/Guard remain active
-  inputs; Verification/Finalization is still migrated in later stages.
+  Multi-query Retrieval, deterministic Evidence Merge, and unified verification
+  are bounded components. G11 Unified Evidence and G12 Requirement/Guard
+  remain active inputs; final control-plane cutover is the remaining drift.
 ```
 
 ### 7.2 Final unified control plane
