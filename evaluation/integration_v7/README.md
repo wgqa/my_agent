@@ -106,7 +106,7 @@ Each JSONL case follows `integration_v7_case_v1` and includes:
 ```text
 schema_version, case_id, split, task_family, difficulty, question,
 conversation_context, project_id, project_source_commit, gold_obligations,
-source_proofs, knowledge_gold_sources, knowledge_probe_query,
+source_proofs (including source_excerpt), knowledge_gold_sources, knowledge_probe_query,
 required_evidence_groups, required_tools, forbidden_tools,
 required_tools_by_system,
 min_distinct_project_code_paths, expected_outcome, independence_note
@@ -223,9 +223,10 @@ or semantic correctness.
 Dev may be used to diagnose bugs and validate metric implementation. The
 Holdout candidate SHA must be frozen before the first Holdout open or run.
 After that freeze, no result-driven production, Prompt, Router, Guard, budget,
-Gold, or easy-case modification is allowed. This R1 repair happened before
-any Holdout execution, so its Holdout Gold/source-proof changes are protocol
-repair, not result-driven contamination. If a result-driven modification
+Gold, or easy-case modification is allowed. The R1 locator repair and R2
+semantic-provenance closure happened before any Holdout execution, so their
+Holdout Gold/source-proof changes are protocol repairs, not result-driven
+contamination. If a result-driven modification
 occurs after the candidate freeze, the Holdout is no longer independent and
 must not be reported as a clean comparison.
 
@@ -241,7 +242,8 @@ no real Provider call, no manual scoring, and no result artifact.
 values, exact counts and family matrix, System A/B identities, target project
 commit, corpus identity, prompt/planner/policy/toolset/budget identities,
 metric schema identity, manual rubric identity, failure classification,
-contamination policy, and Holdout protection. R1 explicitly distinguishes
+contamination policy, Gold proof audit identity, and Holdout protection. R1
+explicitly distinguishes
 System A's base/effective dynamic registry from System B's base registry,
 effective Engineering dynamic registry, and planned knowledge backend. B's
 dynamic registry excludes `knowledge_search`; planned retrieval supplies
@@ -256,14 +258,24 @@ automatic metrics, manual rubric result, and failure classification; it must
 exclude absolute paths, API keys, raw provider/model output, private
 reasoning, and full prompts.
 
-R1 supersedes the R0 protocol SHA
-`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` after
-repairing system-local tool coverage and replacing synthetic proof labels
-with frozen-source locators. That superseded identity was never used for a
-product run or result. `validate_project_source_proofs(target_checkout)` and
-`validate_knowledge_source_proofs(corpus_checkout)` verify tracked source
-files, deterministic line/text anchors, exact source commits, and safe paths;
-they do not attempt semantic scoring of `bounded_proof`.
+R2 supersedes the R1 protocol SHA
+`534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`, while R1
+superseded the R0 protocol SHA
+`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42`. R0 and
+R1 were never used for a product run or result. Each proof now carries a
+short exact `source_excerpt`; project code/doc uses target
+`385b7795eafde7c114efc382e95c0d18ec273f54`, project changes must be members of
+the declared historical diff and use head-side changed text, project tests
+must be readable at `head_ref` and listed in `accepted_test_paths`, and
+knowledge uses the verified corpus commit
+`179f18e812ad63c36c5569de8e86c5ff9a931cb5`. The offline validators enforce
+these locator contracts and the `gold_proof_audit_v1.jsonl` identity; semantic
+entailment is recorded by review, not auto-inferred from a class/type name.
+
+The Gold audit has one record per case/obligation/proof and is prepared with
+`review_decision = ACCEPT`, but this is not an Agent self-acceptance. The
+architecture/evaluation status remains `ARCH-EVAL-08A-R2-MICRO = CURRENT /
+REVIEW PENDING` until an independent audit makes the final ACCEPT decision.
 
 The automatic metric boundary is explicit: `task_completion` reads only the
 runtime/business terminal state; Task Success and Answer Obligation remain
@@ -324,6 +336,7 @@ There is no nested autonomous controller and no third product Runtime.
 - `integration_dev_v1.jsonl`: 18 frozen Dev cases;
 - `integration_holdout_v1.jsonl`: 9 frozen Holdout cases;
 - `protocol_manifest_v1.json`: identity, hashes, metrics, rubric, and safety;
+- `gold_proof_audit_v1.jsonl`: obligation-level Gold provenance review records;
 - `case_contract.py`: offline case/identity/hash/checkout validator;
 - `tests/test_integration_v7_protocol.py`: deterministic contract tests.
 

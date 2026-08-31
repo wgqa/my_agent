@@ -1,9 +1,9 @@
 {
   "schema_version": "integration_v7_protocol_manifest_v1",
   "protocol_version": "v7_architecture_integration_evaluation_v1",
-  "protocol_sha256": "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31",
-  "supersedes_protocol_sha256": "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42",
-  "supersession_note": "ARCH-EVAL-08A-R1-MICRO supersedes the R0 manifest identity after fixing system-local tool coverage and frozen-source proof locators; the superseded SHA was never used for a product run or result.",
+  "protocol_sha256": "c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5",
+  "supersedes_protocol_sha256": "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31",
+  "supersession_note": "ARCH-EVAL-08A-R2-MICRO supersedes the R1 manifest identity after closing Gold source-excerpt and semantic-provenance contracts; R0 and R1 were protocol-only revisions and were never used for a product run or result.",
   "corpus_identity_note": "R0 recorded a non-existent ...c5ff5a... value; R1 uses the verified 40-character agent_data commit ...c5ff9a... from the clean public-data lock and checkout. No historical experiment or result is rewritten.",
   "case_count": 27,
   "family_counts": {
@@ -21,13 +21,22 @@
     "integration_dev": {
       "file": "integration_dev_v1.jsonl",
       "case_count": 18,
-      "sha256": "193927d64dc39c08706455843b171a92f40dacb9641a8513a270039349eaa9cd"
+      "sha256": "9fa6ae90fcb2fe35c0d64ca834ca694025ae90deced58651955be499bad75e82"
     },
     "integration_holdout": {
       "file": "integration_holdout_v1.jsonl",
       "case_count": 9,
-      "sha256": "30253df76b45354de0fae7b3e9318d40e9e413c7ef01930ec044f8423f62ac8e"
+      "sha256": "dff29368853f64d67185cf02a9b1e87be0b8ca087567153020e6c22d55e8530b"
     }
+  },
+  "gold_proof_audit": {
+    "file": "gold_proof_audit_v1.jsonl",
+    "record_count": 56,
+    "scope": "all 27 cases and every Gold obligation-to-proof mapping",
+    "review_decision": "PREPARED_ACCEPT_PENDING_INDEPENDENT_AUDIT",
+    "agent_may_not_self_accept": true,
+    "independent_final_acceptance_required": true,
+    "semantic_entailment_is_not_automated": true
   },
   "system_a_commit": "0eef8ef9d6decdaa10efebe04087b06611654670",
   "system_b_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
@@ -207,6 +216,8 @@
   },
   "execution_scope": {
     "protocol_only": true,
+    "gold_semantic_provenance_audit_prepared": true,
+    "independent_gold_audit_signoff": false,
     "real_provider_run": false,
     "ab_generation_run": false,
     "holdout_run": false,

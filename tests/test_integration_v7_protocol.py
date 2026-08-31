@@ -24,10 +24,12 @@ from evaluation.integration_v7 import (
     compute_required_evidence_coverage,
     compute_task_completion,
     compute_tool_coverage,
+    load_gold_proof_audit,
     load_cases,
     load_protocol_manifest,
     validate_corpus_identity,
     validate_knowledge_source_proofs,
+    validate_gold_proof_audit,
     validate_protocol_manifest,
     validate_project_source_proofs,
     validate_target_project_binding,
@@ -300,7 +302,7 @@ def test_project_source_proof_validator_rejects_missing_anchor_wrong_source_and_
     checkout = tmp_path / "project"
     checkout.mkdir()
     commit = _init_git_fixture(checkout, "README.md", "first\nsecond\n")
-    case = {"case_id": "fixture", "source_proofs": [{"kind": "project_doc", "relative_path": "README.md", "anchor": "line:2", "bounded_proof": "second", "obligation_ids": ["O1"]}]}
+    case = {"case_id": "fixture", "source_proofs": [{"kind": "project_doc", "relative_path": "README.md", "anchor": "line:2", "source_excerpt": "second", "bounded_proof": "second", "obligation_ids": ["O1"]}]}
     validate_project_source_proofs(checkout, expected_commit=commit, cases=[case])
 
     missing = copy.deepcopy(case)
@@ -324,7 +326,7 @@ def test_knowledge_source_proof_validator_uses_frozen_fixture_commit(tmp_path) -
         "agent_ai_v1/02_corpus_candidate/fixture.md",
         "corpus anchor\n",
     )
-    case = {"case_id": "fixture", "source_proofs": [{"kind": "knowledge", "relative_path": "fixture.md", "anchor": "line:1", "bounded_proof": "corpus anchor", "obligation_ids": ["O1"]}]}
+    case = {"case_id": "fixture", "source_proofs": [{"kind": "knowledge", "relative_path": "fixture.md", "anchor": "line:1", "source_excerpt": "corpus anchor", "bounded_proof": "corpus anchor", "obligation_ids": ["O1"]}]}
     validate_knowledge_source_proofs(checkout, expected_commit=commit, cases=[case])
 
     missing = copy.deepcopy(case)
@@ -351,9 +353,173 @@ def test_v7d012_project_proofs_are_visible_at_target_sha() -> None:
         assert shown.splitlines()[line_number - 1].strip()
 
 
-def test_r1_dataset_and_protocol_hashes_are_self_consistent() -> None:
+def test_r2_dataset_and_protocol_hashes_are_self_consistent() -> None:
     manifest = validate_protocol_manifest()
     assert manifest["datasets"][DEV_SPLIT]["sha256"] == canonical_jsonl_sha256(DEV_DATASET_PATH)
     assert manifest["datasets"][HOLDOUT_SPLIT]["sha256"] == canonical_jsonl_sha256(HOLDOUT_DATASET_PATH)
     assert manifest["protocol_sha256"] == _computed_protocol_sha256(manifest)
-    assert manifest["supersedes_protocol_sha256"] == "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42"
+    assert manifest["supersedes_protocol_sha256"] == "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31"
+
+
+def test_r2_source_excerpt_must_be_exact_and_at_the_declared_anchor(tmp_path) -> None:
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    commit = _init_git_fixture(checkout, "README.md", "first\nsecond\n")
+    case = {
+        "case_id": "fixture",
+        "source_proofs": [
+            {
+                "kind": "project_doc",
+                "relative_path": "README.md",
+                "anchor": "line:2",
+                "source_excerpt": "second",
+                "bounded_proof": "second",
+                "obligation_ids": ["O1"],
+            }
+        ],
+    }
+    validate_project_source_proofs(checkout, expected_commit=commit, cases=[case])
+
+    missing = copy.deepcopy(case)
+    missing["source_proofs"][0].pop("source_excerpt")
+    with pytest.raises(ProtocolViolation, match="source_excerpt"):
+        validate_project_source_proofs(checkout, expected_commit=commit, cases=[missing])
+
+    unrelated = copy.deepcopy(case)
+    unrelated["source_proofs"][0]["source_excerpt"] = "first"
+    with pytest.raises(ProtocolViolation, match="located at its line anchor"):
+        validate_project_source_proofs(checkout, expected_commit=commit, cases=[unrelated])
+
+    mismatched = copy.deepcopy(case)
+    mismatched["source_proofs"][0]["source_excerpt"] = "not in source"
+    with pytest.raises(ProtocolViolation, match="does not exist"):
+        validate_project_source_proofs(checkout, expected_commit=commit, cases=[mismatched])
+
+
+def test_r2_project_change_proof_requires_path_membership_in_declared_diff(tmp_path) -> None:
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    base = _init_git_fixture(checkout, "README.md", "first\n")
+    (checkout / "other.py").write_text("changed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "other.py"], cwd=checkout, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", "change"], cwd=checkout, check=True, capture_output=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=checkout, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    case = {
+        "case_id": "fixture",
+        "base_ref": base,
+        "head_ref": head,
+        "accepted_test_paths": ["tests/test_fixture.py"],
+        "source_proofs": [
+            {
+                "kind": "project_change",
+                "relative_path": "README.md",
+                "anchor": "line:1",
+                "source_excerpt": "first",
+                "bounded_proof": "README changed",
+                "obligation_ids": ["O1"],
+            }
+        ],
+    }
+    with pytest.raises(ProtocolViolation, match="not present in git diff"):
+        validate_project_source_proofs(checkout, expected_commit=head, cases=[case])
+
+
+def test_r2_project_test_proof_requires_accepted_path_and_head_source(tmp_path) -> None:
+    checkout = tmp_path / "project"
+    checkout.mkdir()
+    base = _init_git_fixture(checkout, "tests/test_fixture.py", "assert True\n")
+    case = {
+        "case_id": "fixture",
+        "base_ref": base,
+        "head_ref": base,
+        "accepted_test_paths": ["tests/other_test.py"],
+        "source_proofs": [
+            {
+                "kind": "project_test",
+                "relative_path": "tests/test_fixture.py",
+                "anchor": "line:1",
+                "source_excerpt": "assert True",
+                "bounded_proof": "actual assertion",
+                "obligation_ids": ["O1"],
+            }
+        ],
+    }
+    with pytest.raises(ProtocolViolation, match="accepted_test_paths"):
+        validate_project_source_proofs(checkout, expected_commit=base, cases=[case])
+
+    case["accepted_test_paths"] = ["tests/test_fixture.py"]
+    (checkout / "tests/test_fixture.py").unlink()
+    subprocess.run(["git", "rm", "-q", "tests/test_fixture.py"], cwd=checkout, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", "remove test"], cwd=checkout, check=True, capture_output=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=checkout, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    case["head_ref"] = head
+    with pytest.raises(ProtocolViolation, match="source file is missing"):
+        validate_project_source_proofs(checkout, expected_commit=head, cases=[case])
+
+
+def test_r2_duplicate_required_evidence_groups_are_rejected() -> None:
+    case = copy.deepcopy(load_cases(DEV_DATASET_PATH)[0])
+    case["required_evidence_groups"] = [["knowledge"], ["knowledge"]]
+    with pytest.raises(ProtocolViolation, match="duplicate group"):
+        validate_case(case)
+
+
+def test_r2_every_gold_obligation_has_an_accepted_audit_record() -> None:
+    cases = load_cases(DEV_DATASET_PATH) + load_cases(HOLDOUT_DATASET_PATH)
+    records = load_gold_proof_audit()
+    assert len(records) == 56
+    assert {record["review_decision"] for record in records} == {"ACCEPT"}
+    validate_gold_proof_audit(cases=cases)
+
+    expected = {
+        (
+            case["case_id"],
+            proof["obligation_ids"][0],
+            proof["kind"],
+            proof["relative_path"],
+            proof["anchor"],
+        ): proof["source_excerpt"]
+        for case in cases
+        for proof in case["source_proofs"]
+    }
+    actual = {
+        (
+            record["case_id"],
+            record["obligation_id"],
+            record["proof_kind"],
+            record["relative_path"],
+            record["anchor"],
+        ): record["source_excerpt"]
+        for record in records
+    }
+    assert actual.keys() == expected.keys()
+    for record in records:
+        proof = next(
+            proof
+            for case in cases
+            if case["case_id"] == record["case_id"]
+            for proof in case["source_proofs"]
+            if proof["kind"] == record["proof_kind"]
+            and proof["relative_path"] == record["relative_path"]
+            and proof["anchor"] == record["anchor"]
+        )
+        assert record["source_excerpt"] == proof["source_excerpt"]
+
+
+def test_r2_frozen_project_corpus_and_holdout_boundaries_remain_unchanged() -> None:
+    manifest = validate_protocol_manifest()
+    assert manifest["target_project_commit"] == TARGET_PROJECT_COMMIT == SYSTEM_B_COMMIT
+    assert manifest["corpus_identity"]["source_commit"] == CORPUS_SOURCE_COMMIT
+    assert manifest["holdout_execution"]["default"] == "DENY"
+    assert manifest["systems"]["A"]["toolset"]["names"] == [
+        "calculator", "changed_files", "code_search", "find_tests", "git_diff",
+        "knowledge_search", "read_project_context",
+    ]
+    assert manifest["systems"]["B"]["toolset"]["effective_dynamic_registry"]["names"] == [
+        "calculator", "changed_files", "code_search", "find_tests", "git_diff",
+        "read_project_context",
+    ]

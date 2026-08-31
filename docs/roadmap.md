@@ -52,8 +52,8 @@ v7 的总原则：
 - ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当时主链；ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，ARCH-VERIFY-06 再以 `EngineeringEvidenceVerifier` 复用 `MinimalEvidenceVerifier`，但 `ToolAgentRuntime` 仍是迁移期 bounded execution component；
 - ARCH-FREEZE-01 起点的 G8 Context / Standalone Resolver 未进入当时主链；ARCH-CONTEXT-03 已将其作为 Context Resolver 组件接入，当前 Engineering endpoint 仍保持 question-only；
 - G11 Unified Evidence 与 G12 Typed Requirement / Finalization Guard 是当前整合输入，状态为 **ACTIVE**；G12 历史评测结论仍按其原有 frozen 状态解释；
-- `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其 observability 结论保留，且 observability 不得改变 runtime outcome；
-- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = ACCEPT / CLOSED`；`ARCH-VERIFY-06 = ACCEPT / CLOSED`；`ARCH-CUTOVER-07 = ACCEPT / CLOSED`。`P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`；G11 Unified Evidence 与 G12 Requirement/Finalization Guard 保持 **ACTIVE**。Grounded Generation 的语义评估与架构整合效果尚未形成评测结论。
+- `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其历史 observability 结论保留，且 observability 不得改变 runtime outcome；
+- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = ACCEPT / CLOSED`；`ARCH-VERIFY-06 = ACCEPT / CLOSED`；`ARCH-CUTOVER-07 = ACCEPT / CLOSED`。`ARCH-EVAL-08A-R1-MICRO = BLOCKED`，因为 locator repair 不能替代 Gold semantic provenance audit；G11 Unified Evidence 与 G12 Requirement/Finalization Guard 保持 **ACTIVE**。Grounded Generation 的语义评估与架构整合效果尚未形成评测结论。
 
 ## 0.3 当前 NEXT
 
@@ -66,9 +66,9 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 `ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
 保留历史 context/fallback 语义并通过回归。
 
-**`ARCH-EVAL-08A = CURRENT / REVIEW PENDING`**：冻结 v7 Architecture Integration Evaluation Protocol、27 个全新 Dev/Holdout cases、A/B identity、metric schema、manual rubric、contamination policy 与 Holdout deny-by-default contract；不执行真实 Provider、Holdout、Formal 或 manual scoring。`ARCH-EVAL-08A-R1-MICRO = ACCEPT / CLOSED` 已修复 system-local tool coverage、effective toolset identity 与 frozen-source proof locator；R1 不是运行结果。
+**`ARCH-EVAL-08A-R2-MICRO = CURRENT / REVIEW PENDING`**：在 R1 locator/tool-contract repair 基础上，冻结 27 个 case 的 obligation-level Gold semantic provenance、exact source excerpt、historical diff/test provenance 与 independent-audit boundary；不执行真实 Provider、Holdout、Formal 或 manual scoring。R1 的 `ACCEPT / CLOSED` 不再有效，R1/R2 都不是运行结果。
 
-**NEXT = `ARCH-EVAL-08A`（CURRENT / REVIEW PENDING）**
+**NEXT = `ARCH-EVAL-08A-R2-MICRO`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后的后续唯一顺序为：
 
@@ -86,13 +86,15 @@ ARCH-RUNTIME-02
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
 `ARCH-EVAL-08A` 协议冻结，完成后立即停止，后续评测阶段须另行授权。
 
-R1 provenance note：R0 protocol SHA
+R2 provenance note：R0 protocol SHA
 `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被
-supersede，且从未用于 product run/result。R1 只修复 pre-run protocol；不重写
+supersede，且从未用于 product run/result。R1 只修复 pre-run locator/tool protocol；R2
+只补 Gold semantic provenance，不重写
 Gate 1～G12 frozen facts，不重新调参 Gate 2/3 sealed/formal，也不因 Holdout
 尚未执行而把候选修改写成 contamination。可复核的 agent_data source commit
 为 `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；此前 `...c5ff5a...` 是 R0
-元数据中的非 Git object 拼写错误，已在 R1 manifest 中显式说明并更正。
+元数据中的非 Git object 拼写错误，已在 R1/R2 manifest 中显式说明并更正。R2
+的 audit artifact 记录为 prepared review；最终 ACCEPT 不由 Agent 自行作出，必须经过独立审计。
 
 ---
 
@@ -329,17 +331,17 @@ G11 的 Unified Evidence 是当前架构整合的活动输入：Knowledge、Repo
 
 G12 的 Typed Requirement 与 Finalization Guard 是当前主链的活动控制输入：它们用于在 finalization 前检查结构化 evidence shape。G12 的 benchmark、Formal、Manual Gold、有效 FAIL 及其 frozen 事实不因架构迁移而改写；后续迁移只允许把现有 requirement/verifier/finalization 责任放入唯一 owner。
 
-### P1-OBS-03A-R1-MICRO：ACCEPT / CLOSED
+### P1-OBS-03A-R1-MICRO：ACCEPT / CLOSED（历史结论）
 
-该 observability micro gate 已 **ACCEPT / CLOSED**。其 safe/rich activity 事实继续保留；activity / observability 是旁路输出，不得回写、覆盖或改变 runtime outcome。
+该 observability micro gate 的历史结论为 **ACCEPT / CLOSED**。其 safe/rich activity 事实继续保留；activity / observability 是旁路输出，不得回写、覆盖或改变 runtime outcome。该历史结论不等于 ARCH-EVAL-08A-R1-MICRO 的 Gold provenance closure。
 
 ### Drift boundary
 
 当前不是“缺少所有能力”，而是“能力已形成组件边界，整合效果尚待协议化评测”：`ToolAgentRuntime` 仍是 Engineering 主链中的 bounded Decision → Tool → Observation execution component；G3 Planner、有限 Knowledge Retrieval、G8 Context 与 `EngineeringEvidenceVerifier` 已通过组件边界接入，且 G3/G12/Citation 只产生一个 trusted verification result。ARCH-CUTOVER-07 的严格 assembly、唯一 Facade/Runtime、唯一 logical Budget Owner 与无 silent fallback 已 CLOSED；ARCH-EVAL-08A 只冻结评测协议，不把未运行的 A/B 写成 Unified Runtime PASS。
 
-### ARCH-EVAL-08A：CURRENT / REVIEW PENDING
+### ARCH-EVAL-08A-R2-MICRO：CURRENT / REVIEW PENDING
 
-本阶段冻结 27 个全新 case（18 Dev + 9 Holdout）、A/B 系统与目标项目/corpus identity、自动指标、manual rubric、失败分类、污染规则、canonical SHA 和 Holdout deny-by-default。真实 Provider、A/B generation、Holdout、Formal、manual scoring 均未执行；协议完成后立即停止，后续评测阶段需另行授权。
+本阶段冻结 27 个全新 case（18 Dev + 9 Holdout）、A/B 系统与目标项目/corpus identity、自动指标、manual rubric、失败分类、污染规则、canonical SHA、obligation-level Gold provenance 和 Holdout deny-by-default。真实 Provider、A/B generation、Holdout、Formal、manual scoring 均未执行；independent Gold audit 尚未签署 ACCEPT，协议完成后立即停止，后续评测阶段需另行授权。
 
 ---
 

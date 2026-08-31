@@ -60,6 +60,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 MANIFEST_PATH = PACKAGE_ROOT / "protocol_manifest_v1.json"
 DEV_DATASET_PATH = PACKAGE_ROOT / "integration_dev_v1.jsonl"
 HOLDOUT_DATASET_PATH = PACKAGE_ROOT / "integration_holdout_v1.jsonl"
+GOLD_PROOF_AUDIT_PATH = PACKAGE_ROOT / "gold_proof_audit_v1.jsonl"
 HISTORICAL_G12_PATH = PACKAGE_ROOT.parent / "gate12" / "final_benchmark_v1.jsonl"
 
 CASE_SCHEMA_VERSION = "integration_v7_case_v1"
@@ -67,6 +68,7 @@ PROTOCOL_SCHEMA_VERSION = "integration_v7_protocol_manifest_v1"
 PROTOCOL_VERSION = "v7_architecture_integration_evaluation_v1"
 METRIC_SCHEMA_VERSION = "integration_v7_metrics_v1"
 MANUAL_RUBRIC_VERSION = "integration_v7_manual_rubric_v1"
+GOLD_PROOF_AUDIT_SCHEMA_VERSION = "integration_v7_gold_proof_audit_v1"
 DEV_SPLIT = "integration_dev"
 HOLDOUT_SPLIT = "integration_holdout"
 
@@ -124,6 +126,7 @@ _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _CASE_ID_RE = re.compile(r"^v7[dh][0-9]{3}$")
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _WHITESPACE_RE = re.compile(r"\s+")
+_ABSOLUTE_PATH_IN_TEXT_RE = re.compile(r"(?i)(?:\b[A-Z]:[\\/]|(?:^|[\r\n])/(?:[^/\r\n]|/))")
 _SECRET_KEYS = frozenset(
     {
         "api_key",
@@ -268,6 +271,32 @@ def _resolve_source_anchor(text: str, anchor: str, label: str) -> None:
         raise ProtocolViolation(f"{label} text anchor does not resolve")
 
 
+def _validate_source_excerpt(text: str, anchor: str, excerpt: object, label: str) -> None:
+    """Require a short, exact source excerpt located at the declared anchor."""
+
+    excerpt = _require_text(excerpt, f"{label}.source_excerpt", max_chars=300)
+    if _ABSOLUTE_PATH_IN_TEXT_RE.search(excerpt):
+        raise ProtocolViolation(f"{label}.source_excerpt must not contain an absolute path")
+    _resolve_source_anchor(text, anchor, f"{label}.anchor")
+    if excerpt not in text:
+        raise ProtocolViolation(f"{label}.source_excerpt does not exist in frozen source")
+    if anchor.startswith("line:"):
+        line_number = int(anchor.removeprefix("line:"))
+        first_excerpt_line = next(
+            (line for line in excerpt.splitlines() if line.strip()),
+            "",
+        ).strip()
+        source_line = text.splitlines()[line_number - 1]
+        if not first_excerpt_line or first_excerpt_line not in source_line:
+            raise ProtocolViolation(
+                f"{label}.source_excerpt is not located at its line anchor"
+            )
+    elif anchor not in excerpt and excerpt not in anchor:
+        raise ProtocolViolation(
+            f"{label}.source_excerpt is not located at its text anchor"
+        )
+
+
 def _proof_source_path(root: Path, relative_path: str, label: str) -> Path:
     safe_path = _safe_relative_path(relative_path, label)
     resolved_root = root.resolve()
@@ -351,6 +380,7 @@ def _validate_proofs(case: Mapping[str, Any], obligation_ids: set[str]) -> set[t
             raise ProtocolViolation(f"source_proofs[{index}].kind is not a public evidence kind")
         relative_path = _safe_relative_path(proof.get("relative_path"), f"source_proofs[{index}].relative_path")
         anchor = _require_text(proof.get("anchor"), f"source_proofs[{index}].anchor", max_chars=300)
+        _require_text(proof.get("source_excerpt"), f"source_proofs[{index}].source_excerpt", max_chars=300)
         _require_text(proof.get("bounded_proof"), f"source_proofs[{index}].bounded_proof", max_chars=1200)
         proof_ids = proof.get("obligation_ids")
         if not isinstance(proof_ids, list) or not proof_ids or any(item not in obligation_ids for item in proof_ids):
@@ -515,6 +545,8 @@ def validate_case(case: Mapping[str, Any], *, line_number: int = 0) -> set[tuple
             raise ProtocolViolation("required_evidence_groups contains an invalid group")
         if len(set(group)) != len(group):
             raise ProtocolViolation("required_evidence_groups contains a duplicate kind")
+        if tuple(group) in normalized_groups:
+            raise ProtocolViolation("required_evidence_groups contains a duplicate group")
         normalized_groups.append(tuple(group))
     if case["expected_outcome"] not in _OUTCOMES:
         raise ProtocolViolation("expected_outcome must be answerable or refusal")
@@ -755,6 +787,65 @@ def _validate_source_proof_files(
     source_label: str,
     git_checkout: Path,
 ) -> None:
+    def git_show(revision: str, repo_relative_path: str, label: str) -> str:
+        try:
+            shown = subprocess.run(
+                ["git", "show", f"{revision}:{repo_relative_path}"],
+                cwd=git_checkout,
+                check=False,
+                capture_output=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ProtocolViolation(f"{label} source provenance cannot be inspected") from exc
+        if shown.returncode != 0:
+            raise ProtocolViolation(f"{label} source file is not present in the frozen commit")
+        try:
+            return shown.stdout.decode("utf-8")
+        except UnicodeError as exc:
+            raise ProtocolViolation(f"{label} source file is unreadable") from exc
+
+    def changed_paths(base_ref: str, head_ref: str, label: str) -> set[str]:
+        _require_sha(base_ref, f"{label}.base_ref")
+        _require_sha(head_ref, f"{label}.head_ref")
+        try:
+            changed = subprocess.run(
+                ["git", "diff", "--name-only", base_ref, head_ref, "--"],
+                cwd=git_checkout,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ProtocolViolation(f"{label} change range cannot be inspected") from exc
+        if changed.returncode != 0:
+            raise ProtocolViolation(f"{label} change range is invalid")
+        return {line.strip().replace("\\", "/") for line in changed.stdout.splitlines() if line.strip()}
+
+    def added_lines(base_ref: str, head_ref: str, relative_path: str, label: str) -> set[str]:
+        try:
+            diff = subprocess.run(
+                ["git", "diff", "--unified=0", base_ref, head_ref, "--", relative_path],
+                cwd=git_checkout,
+                check=False,
+                capture_output=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ProtocolViolation(f"{label} change excerpt cannot be inspected") from exc
+        if diff.returncode != 0:
+            raise ProtocolViolation(f"{label} change range is invalid")
+        try:
+            diff_text = diff.stdout.decode("utf-8")
+        except UnicodeError as exc:
+            raise ProtocolViolation(f"{label} change diff is unreadable") from exc
+        return {
+            line[1:].rstrip("\r")
+            for line in diff_text.splitlines()
+            if line.startswith("+") and not line.startswith("+++")
+        }
+
     for case in cases:
         for index, proof in enumerate(case["source_proofs"]):
             if proof["kind"] not in proof_kinds:
@@ -767,23 +858,39 @@ def _validate_source_proof_files(
                 repo_relative_path = source_path.resolve().relative_to(git_checkout.resolve()).as_posix()
             except ValueError as exc:
                 raise ProtocolViolation(f"{label} source path escapes the checkout") from exc
-            try:
-                tracked = subprocess.run(
-                    ["git", "cat-file", "-e", f"HEAD:{repo_relative_path}"],
-                    cwd=git_checkout,
-                    check=False,
-                    capture_output=True,
-                    timeout=10,
-                )
-            except (OSError, subprocess.SubprocessError) as exc:
-                raise ProtocolViolation(f"{label} source provenance cannot be inspected") from exc
-            if tracked.returncode != 0:
-                raise ProtocolViolation(f"{label} source file is not present in the frozen commit")
-            try:
-                source_text = source_path.read_text(encoding="utf-8")
-            except (OSError, UnicodeError) as exc:
-                raise ProtocolViolation(f"{label} source file is unreadable") from exc
-            _resolve_source_anchor(source_text, proof["anchor"], f"{label}.anchor")
+            revision = "HEAD"
+            if proof["kind"] == "project_change":
+                base_ref = case.get("base_ref")
+                head_ref = case.get("head_ref")
+                if not isinstance(base_ref, str) or not isinstance(head_ref, str):
+                    raise ProtocolViolation(f"{label} requires base_ref and head_ref")
+                if repo_relative_path not in changed_paths(base_ref, head_ref, label):
+                    raise ProtocolViolation(
+                        f"{label} path is not present in git diff base_ref..head_ref"
+                    )
+                revision = head_ref
+                added = added_lines(base_ref, head_ref, repo_relative_path, label)
+                excerpt_value = proof.get("source_excerpt")
+                if not isinstance(excerpt_value, str):
+                    raise ProtocolViolation(f"{label}.source_excerpt is missing")
+                excerpt_lines = [line for line in excerpt_value.splitlines() if line.strip()]
+                if not excerpt_lines or any(line.rstrip("\r") not in added for line in excerpt_lines):
+                    raise ProtocolViolation(
+                        f"{label}.source_excerpt is not a head-side changed line"
+                    )
+            elif proof["kind"] == "project_test":
+                accepted = case.get("accepted_test_paths")
+                if not isinstance(accepted, list) or repo_relative_path not in accepted:
+                    raise ProtocolViolation(
+                        f"{label} test path is not in accepted_test_paths"
+                    )
+                head_ref = case.get("head_ref")
+                if not isinstance(head_ref, str):
+                    raise ProtocolViolation(f"{label} requires head_ref")
+                _require_sha(head_ref, f"{label}.head_ref")
+                revision = head_ref
+            source_text = git_show(revision, repo_relative_path, label)
+            _validate_source_excerpt(source_text, proof["anchor"], proof.get("source_excerpt"), label)
 
 
 def validate_project_source_proofs(
@@ -834,6 +941,115 @@ def validate_knowledge_source_proofs(
         source_label="knowledge",
         git_checkout=checkout,
     )
+
+
+_GOLD_PROOF_AUDIT_FIELDS = frozenset(
+    {
+        "case_id",
+        "obligation_id",
+        "proof_kind",
+        "relative_path",
+        "anchor",
+        "source_excerpt",
+        "review_decision",
+        "review_note",
+    }
+)
+
+
+def load_gold_proof_audit(
+    path: str | Path = GOLD_PROOF_AUDIT_PATH,
+) -> list[dict[str, Any]]:
+    """Load the human semantic-provenance review, never a result artifact."""
+
+    audit_path = Path(path)
+    if not audit_path.is_file():
+        raise ProtocolViolation(f"Gold proof audit is missing: {audit_path}")
+    records: list[dict[str, Any]] = []
+    with audit_path.open("r", encoding="utf-8", newline="") as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
+                raise ProtocolViolation(f"Gold proof audit line {line_number} is blank")
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ProtocolViolation(
+                    f"Gold proof audit line {line_number} is not valid JSON"
+                ) from exc
+            if not isinstance(record, Mapping):
+                raise ProtocolViolation(f"Gold proof audit line {line_number} must be an object")
+            if set(record) != _GOLD_PROOF_AUDIT_FIELDS:
+                raise ProtocolViolation(
+                    f"Gold proof audit line {line_number} has invalid fields"
+                )
+            _require_text(record.get("case_id"), "gold proof audit case_id", max_chars=32)
+            _require_text(record.get("obligation_id"), "gold proof audit obligation_id", max_chars=32)
+            if record.get("proof_kind") not in PUBLIC_EVIDENCE_KINDS:
+                raise ProtocolViolation("Gold proof audit proof_kind is invalid")
+            _safe_relative_path(record.get("relative_path"), "gold proof audit relative_path")
+            _require_text(record.get("anchor"), "gold proof audit anchor", max_chars=300)
+            _require_text(record.get("source_excerpt"), "gold proof audit source_excerpt", max_chars=300)
+            if record.get("review_decision") not in {"ACCEPT", "REVISE"}:
+                raise ProtocolViolation("Gold proof audit review_decision is invalid")
+            _require_text(record.get("review_note"), "gold proof audit review_note", max_chars=1200)
+            _walk_forbidden(record)
+            records.append(dict(record))
+    if not records:
+        raise ProtocolViolation("Gold proof audit must not be empty")
+    return records
+
+
+def validate_gold_proof_audit(
+    cases: list[dict[str, Any]] | None = None,
+    *,
+    audit_path: str | Path = GOLD_PROOF_AUDIT_PATH,
+) -> None:
+    """Require one independently reviewable ACCEPT record for every Gold proof."""
+
+    expected: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    for case in _proof_cases(cases):
+        for proof in case["source_proofs"]:
+            for obligation_id in proof["obligation_ids"]:
+                key = (
+                    case["case_id"],
+                    obligation_id,
+                    proof["kind"],
+                    proof["relative_path"],
+                    proof["anchor"],
+                )
+                if key in expected:
+                    raise ProtocolViolation("Gold proof audit key is duplicated by dataset proofs")
+                expected[key] = {
+                    "case_id": case["case_id"],
+                    "obligation_id": obligation_id,
+                    "proof_kind": proof["kind"],
+                    "relative_path": proof["relative_path"],
+                    "anchor": proof["anchor"],
+                    "source_excerpt": proof["source_excerpt"],
+                }
+    records = load_gold_proof_audit(audit_path)
+    seen: set[tuple[str, str, str, str, str]] = set()
+    for record in records:
+        key = (
+            record["case_id"],
+            record["obligation_id"],
+            record["proof_kind"],
+            record["relative_path"],
+            record["anchor"],
+        )
+        if key in seen:
+            raise ProtocolViolation("Gold proof audit contains a duplicate record")
+        seen.add(key)
+        if key not in expected:
+            raise ProtocolViolation("Gold proof audit does not match dataset proofs")
+        if record["source_excerpt"] != expected[key]["source_excerpt"]:
+            raise ProtocolViolation("Gold proof audit source_excerpt does not match dataset proof")
+        if record["review_decision"] != "ACCEPT":
+            raise ProtocolViolation(
+                "Gold proof audit is not closed: every record requires independent ACCEPT"
+            )
+    if seen != set(expected):
+        raise ProtocolViolation("Gold proof audit is missing a dataset proof record")
 
 
 def validate_corpus_identity(observed: Mapping[str, Any], expected: Mapping[str, Any] | None = None) -> None:
@@ -1076,6 +1292,35 @@ def validate_protocol_manifest(path: str | Path = MANIFEST_PATH) -> dict[str, An
     for split, path in ((DEV_SPLIT, dev_path), (HOLDOUT_SPLIT, holdout_path)):
         if manifest["datasets"][split]["sha256"] != canonical_jsonl_sha256(path):
             raise ProtocolViolation(f"{split} dataset SHA mismatch")
+    gold_audit = manifest.get("gold_proof_audit")
+    if not isinstance(gold_audit, Mapping):
+        raise ProtocolViolation("gold_proof_audit metadata is missing")
+    audit_filename = gold_audit.get("file")
+    if (
+        type(audit_filename) is not str
+        or Path(audit_filename).name != audit_filename
+        or not audit_filename
+    ):
+        raise ProtocolViolation("gold_proof_audit file must be a local package filename")
+    audit_path = manifest_path.parent / audit_filename
+    audit_records = load_gold_proof_audit(audit_path)
+    expected_audit_count = sum(
+        len(proof["obligation_ids"])
+        for case in dev_cases + holdout_cases
+        for proof in case["source_proofs"]
+    )
+    if gold_audit.get("record_count") != expected_audit_count or len(audit_records) != expected_audit_count:
+        raise ProtocolViolation("gold_proof_audit record count drift")
+    if gold_audit.get("review_decision") != "PREPARED_ACCEPT_PENDING_INDEPENDENT_AUDIT":
+        raise ProtocolViolation("gold_proof_audit review decision drift")
+    required_audit_flags = (
+        "agent_may_not_self_accept",
+        "independent_final_acceptance_required",
+        "semantic_entailment_is_not_automated",
+    )
+    if any(gold_audit.get(flag) is not True for flag in required_audit_flags):
+        raise ProtocolViolation("gold_proof_audit independence boundary drift")
+    validate_gold_proof_audit(cases=dev_cases + holdout_cases, audit_path=audit_path)
     historical_questions, historical_proofs = _historical_g12_questions_and_proofs()
     for case in dev_cases + holdout_cases:
         if _normalise_question(case["question"]) in historical_questions:

@@ -1,6 +1,6 @@
 # ARCH-EVAL-08A：V7 架构整合评测协议
 
-> 状态：CURRENT / REVIEW PENDING<br>
+> 状态：ARCH-EVAL-08A-R1-MICRO = BLOCKED；ARCH-EVAL-08A-R2-MICRO = CURRENT / REVIEW PENDING<br>
 > 日期：2026-08-31<br>
 > 主题：Architecture Integration Evaluation Protocol Freeze<br>
 > 权威资产：[evaluation/integration_v7/](../../evaluation/integration_v7/)
@@ -12,7 +12,8 @@ G11 的 ToolAgent-only 主链是当时合理的最小实验面，但它把 G3/G8
 ARCH-CUTOVER-07 已按 component migration 建立统一 Runtime seam；08A 先冻结
 一把可审计的尺子，回答 A/B 的架构整合是否产生真实效果。08A 是 Evaluation
 Design + Dataset Freeze + Contract/Validator + Deterministic Tests + Study Note，
-不是 Provider 运行或结果报告。
+不是 Provider 运行或结果报告。R1 的 `ACCEPT / CLOSED` 已撤回；最终 ACCEPT
+必须由独立审计作出，Agent 不得自我接受。
 
 ## 2. 当前与目标架构
 
@@ -81,7 +82,12 @@ proofs、required evidence groups、required/forbidden tools、path lower bound�
 expected outcome 和 independence note。Context case 明确保存 history、
 current_question、expected_standalone_intent；history 遵守 G8 的最多 6 条和
 1200-token bound。Change/test case 另存 base/head ref 和 accepted test paths。
-所有路径为 repo-relative POSIX path，不存绝对路径、API key、raw CoT 或 full prompt。
+所有路径为 repo-relative POSIX path；每条 proof 还必须有不超过 300 字符、位于
+冻结 source anchor 附近的精确 `source_excerpt`，不存绝对路径、API key、raw CoT 或
+full prompt。`project_change` 必须属于真实 `base_ref..head_ref` diff 且 excerpt 来自
+head 侧变更；`project_test` 必须在 head 可读、属于 `accepted_test_paths`，并以实际
+断言作为 bounded proof。`decomposed_knowledge` 的 facets 用于补充人工语义完整性，
+不得用重复的 `required_evidence_groups` 伪造 coverage。
 
 R1 将 `required_tools` 限定为两套系统共有的 dynamic ToolAgent obligations，
 并为每条 case 增加 `required_tools_by_system`。A 的 knowledge acquisition 可由
@@ -131,17 +137,27 @@ Dev 可以诊断和验证指标。Holdout candidate SHA 必须在首次 open/run
 不打开 Holdout、不做人工评分、不生成产品结果。
 
 R1 是 pre-run protocol repair：更新 Holdout Gold/source proof 不属于
-result-driven contamination，因为 Holdout 从未执行。R0 protocol SHA
+result-driven contamination，因为 Holdout 从未执行。R2 是同一 pre-run protocol
+上的 Gold semantic provenance closure，不是结果驱动修正。R0 protocol SHA
 `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被
-supersede，且从未成为 product run/result。所有 27 条 source proof 均通过
-真实 target/corpus checkout 的 file、tracked-at-commit 与 deterministic anchor
-审计；校验器不自动声称 `bounded_proof` 的语义正确。
+supersede，R1 SHA `534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`
+也由 R2 supersede；二者从未成为 product run/result。R2 将 project code/doc 固定在
+target `385b7795eafde7c114efc382e95c0d18ec273f54`，knowledge 固定在已验证的
+agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；此前 R0 的
+`...c5ff5a...` 不是有效 Git object，历史事实不改写。校验器审计 file、
+tracked-at-commit、exact excerpt、historical diff/test membership 和 safe path；
+语义 entailment 由 `gold_proof_audit_v1.jsonl` 的 review 记录承载，不由 validator
+从 class/type 名称自动推导。
 
 ## 7. Artifact 与验证边界
 
 `protocol_manifest_v1.json` 锁定 protocol/dataset SHA、case/family counts、A/B
 commit、target commit、corpus、Prompt/Planner/Policy/Toolset/Budget identity、
-metric schema、manual rubric、failure/contamination policy 和 Holdout guard。
+metric schema、manual rubric、failure/contamination policy、Gold proof audit 和
+Holdout guard。`gold_proof_audit_v1.jsonl` 对每个 case/obligation/proof 记录
+`case_id`、`obligation_id`、proof locator、exact excerpt 与 `review_decision`；它是
+Gold provenance，不是 Holdout 或任何产品结果。当前记录为 prepared ACCEPT，最终
+independent audit sign-off 仍 pending。
 SHA 对 canonical JSON 内容计算；dataset 或 manifest 发生 mutation 时 validator
 fail closed。未来结果 artifact 必须带 system/target/corpus/case/metric/rubric/
 failure provenance，且不得带绝对路径、credential、raw provider/model output、
