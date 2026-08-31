@@ -58,7 +58,11 @@ v7 的总原则：
 
 `ARCH-FREEZE-01 = ACCEPT / CLOSED`。
 
-**NEXT = `ARCH-RUNTIME-02`（CURRENT / REVIEW PENDING）**
+`ARCH-RUNTIME-02 = ACCEPT / CLOSED`：Unified Engineering Runtime、Facade、
+Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成并
+通过独立审计。
+
+**NEXT = `ARCH-CONTEXT-03`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后，后续唯一顺序为：
 
@@ -73,7 +77,8 @@ ARCH-RUNTIME-02
 → Productization
 ```
 
-顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；不得跳过 `ARCH-FREEZE-01` 直接编码。
+顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
+`ARCH-CONTEXT-03`，不得在其独立审计 ACCEPT 前推进到 `ARCH-PLAN-04`。
 
 ---
 

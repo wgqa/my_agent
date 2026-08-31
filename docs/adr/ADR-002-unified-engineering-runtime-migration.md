@@ -1,9 +1,9 @@
 # ADR-002: Unified Engineering Runtime Migration
 
-> Status: **Accepted — architecture freeze**<br>
+> Status: **Accepted — architecture freeze; ARCH-CONTEXT-03 migration active**<br>
 > Date: **2026-08-31**<br>
 > Baseline: `0eef8ef9d6decdaa10efebe04087b06611654670`<br>
-> Scope: docs-only decision；本 ADR 不改变生产 Runtime。
+> Scope: Unified Runtime architecture and bounded G8 component migration；不授权无关生产 Runtime 变更。
 
 ## Context
 
@@ -80,6 +80,30 @@ G11 阶段选择 ToolAgent-only 是合理的工程简化，原因是：
 - 在 `ARCH-EVAL-08` 才评估 cutover 后的系统能力；
 - 保留 G3 的历史事实，同时允许它以目标 component 形式重新进入产品主链。
 
+## ARCH-CONTEXT-03 implementation addendum
+
+ARCH-CONTEXT-03 applies this ADR to the first component migration without
+changing the decisions above. The new `EngineeringContextResolver` reuses the
+existing `RecentContextWindow` and
+`OpenAICompatibleConversationQueryResolver`, and returns one trusted
+`EngineeringContextSnapshot`. The Unified Runtime consumes only
+`snapshot.resolved_input`, routes that input once, and passes the same value to
+the ToolAgent execution adapter.
+
+The migrated Context component has no autonomous loop, planner, retrieval
+policy, finalization policy, or independent budget. `None`, `()`, and `[]` are
+legal no-history inputs with zero context-provider calls. Non-empty history is
+bounded to G8's six messages/1200 tokens and receives at most one standalone
+resolution. Expected resolver failures safely fall back to the original input;
+unknown programming errors propagate. The existing ToolAgentRuntime remains
+the only 5/4/2 Decision → Tool → Observation loop during migration.
+
+This addendum is a component migration, not a Gate re-evaluation: it does not
+rewrite G8's `MIXED / USEFUL BUT NOT GENERAL` conclusion, change G12's
+question-only contract, or authorize a second controller, a second logical
+budget owner, a third product Runtime, Persistence, Citation UI, or Formal
+reruns.
+
 ## Consequences
 
 ### Positive
@@ -103,7 +127,7 @@ G11 阶段选择 ToolAgent-only 是合理的工程简化，原因是：
 - legacy `/agent/query`、`/tool-agent/query`、Engineering query 及 stream endpoint 在迁移期间保持回归；
 - G12 question-only contract 保持，不向 request 注入 evaluator Gold、case 或 source metadata；
 - `P1-OBS-03A-R1-MICRO` 继续是 `ACCEPT / CLOSED`，Activity/Observability 只读投影，不改变 runtime outcome；
-- 不新增 Multi-Agent、不做 Persistence/Citation UI、不开始 Context/Planner migration coding 于本 ADR；
+- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-CONTEXT-03 只按本 ADR 做 Context component migration，Planner 仍待其后续阶段；
 - 后续必须先做 component migration，不能 big-bang rewrite、不能永久丢弃 G3、不能引入第三个产品 Runtime。
 
 ## Non-decisions

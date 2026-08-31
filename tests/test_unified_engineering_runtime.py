@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 
 import core.unified_engineering_runtime as unified_runtime_module
+from core.conversation_context import ConversationQueryResolution
 from core.engineering_agent import EngineeringAgentFacade
+from core.engineering_context import EngineeringContextResolver
 from core.engineering_requirements import route_engineering_evidence_requirement
 from core.tool_agent.actions import AgentDecisionOutcome, FinalAnswerAction, ToolCallAction
 from core.tool_agent.registry import ToolRegistry
@@ -69,8 +71,11 @@ def _completed_result(answer="synthetic"):
     )
 
 
-def _unified(runtime):
-    return UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime))
+def _unified(runtime, *, context_resolver=None):
+    return UnifiedEngineeringRuntime(
+        LegacyToolAgentExecutionAdapter(runtime),
+        context_resolver=context_resolver,
+    )
 
 
 def test_delegation_parity_preserves_the_complete_tool_agent_result():
@@ -198,16 +203,29 @@ def test_activity_sink_passthrough_and_failure_are_observational():
     assert activities
 
 
-def test_conversation_context_is_none_only_until_arch_context_03():
+def test_conversation_context_none_empty_and_nonempty_use_context_component():
     runtime, provider = _runtime(
         [FinalAnswerAction(action="final_answer", answer="ok")]
     )
     unified_runtime = _unified(runtime)
 
     assert unified_runtime.run("hello", conversation_context=None).answer == "ok"
-    with pytest.raises(NotImplementedError, match="ARCH-CONTEXT-03"):
-        unified_runtime.run("hello", conversation_context=[])
-    assert provider.calls == 1
+    assert unified_runtime.run("hello", conversation_context=()).answer == "ok"
+    assert unified_runtime.run("hello", conversation_context=[]).answer == "ok"
+
+    class Resolver:
+        def resolve(self, _history, _question):
+            return ConversationQueryResolution("resolved", True, False)
+
+    context_runtime = _unified(
+        runtime,
+        context_resolver=EngineeringContextResolver(Resolver()),
+    )
+    assert context_runtime.run(
+        "follow-up",
+        conversation_context=[{"role": "user", "content": "previous"}],
+    ).answer == "ok"
+    assert provider.calls == 4
 
 
 def test_direct_tool_agent_runtime_construction_is_not_a_supported_facade_boundary():

@@ -112,7 +112,7 @@ class _Facade:
         self.error = error
         self.calls = []
 
-    def run(self, question, *, trace_sink=None):
+    def run(self, question, *, conversation_context=None, trace_sink=None):
         self.calls.append(question)
         for event in self.events:
             if trace_sink is not None:

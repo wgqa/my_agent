@@ -15,6 +15,8 @@ from fastapi.responses import StreamingResponse
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
 from core.engineering_agent import EngineeringAgentFacade
+from core.conversation_context import OpenAICompatibleConversationQueryResolver
+from core.engineering_context import EngineeringContextResolver
 from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
     UnifiedEngineeringRuntime,
@@ -27,6 +29,8 @@ from core.engineering_knowledge import (
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
 from core.pipeline import Pipeline
 from core.tool_agent import (
+    FROZEN_TOOL_MODEL,
+    FROZEN_TOOL_PROVIDER,
     ToolAgentRunResult,
     ToolAgentRuntime,
     build_tool_agent_runtime,
@@ -83,6 +87,7 @@ agent_runtime: Optional[AgentRuntime] = None
 tool_agent_runtime: Optional[ToolAgentRuntime] = None
 engineering_tool_execution_runtime: Optional[ToolAgentRuntime] = None
 unified_engineering_runtime: Optional[UnifiedEngineeringRuntime] = None
+engineering_context_resolver: Optional[EngineeringContextResolver] = None
 engineering_agent_facade: Optional[EngineeringAgentFacade] = None
 engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
 engineering_project: Optional[EngineeringProject] = None
@@ -92,6 +97,7 @@ engineering_project: Optional[EngineeringProject] = None
 async def lifespan(app: FastAPI):
     global pipeline, agent_runtime, tool_agent_runtime
     global engineering_tool_execution_runtime, unified_engineering_runtime
+    global engineering_context_resolver
     global engineering_agent_facade, engineering_knowledge_backend, engineering_project
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
@@ -109,6 +115,7 @@ async def lifespan(app: FastAPI):
     tool_agent_runtime = None
     engineering_tool_execution_runtime = None
     unified_engineering_runtime = None
+    engineering_context_resolver = None
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     if pipeline is not None:
@@ -150,10 +157,19 @@ async def lifespan(app: FastAPI):
                     base_url=DEEPSEEK_BASE_URL,
                     prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE,
                 )
+                engineering_context_resolver = EngineeringContextResolver(
+                    OpenAICompatibleConversationQueryResolver(
+                        provider=FROZEN_TOOL_PROVIDER,
+                        model=FROZEN_TOOL_MODEL,
+                        api_key=os.getenv("DEEPSEEK_API_KEY"),
+                        base_url=DEEPSEEK_BASE_URL,
+                    )
+                )
                 unified_engineering_runtime = UnifiedEngineeringRuntime(
                     LegacyToolAgentExecutionAdapter(
                         engineering_tool_execution_runtime
-                    )
+                    ),
+                    context_resolver=engineering_context_resolver,
                 )
                 engineering_agent_facade = EngineeringAgentFacade(
                     unified_engineering_runtime
@@ -162,6 +178,7 @@ async def lifespan(app: FastAPI):
                 logger.exception("Engineering agent runtime init failed")
                 engineering_tool_execution_runtime = None
                 unified_engineering_runtime = None
+                engineering_context_resolver = None
                 engineering_agent_facade = None
     yield
     pipeline = None
@@ -169,6 +186,7 @@ async def lifespan(app: FastAPI):
     tool_agent_runtime = None
     engineering_tool_execution_runtime = None
     unified_engineering_runtime = None
+    engineering_context_resolver = None
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     engineering_project = None
@@ -579,7 +597,7 @@ def engineering_query(req: EngineeringQueryRequest):
 
     facade = _get_engineering_agent_facade()
     try:
-        result = facade.run(req.question)
+        result = facade.run(req.question, conversation_context=None)
     except Exception:
         logger.exception("Engineering agent query failed")
         raise HTTPException(
@@ -597,6 +615,7 @@ def engineering_query_stream(req: EngineeringQueryRequest) -> StreamingResponse:
         stream_engineering_query(
             facade,
             req.question,
+            conversation_context=None,
             build_response=_build_engineering_response,
         ),
         media_type="text/event-stream",
@@ -617,6 +636,7 @@ def engineering_query_stream_v2(req: EngineeringQueryRequest) -> StreamingRespon
         stream_engineering_query_v2(
             facade,
             req.question,
+            conversation_context=None,
             build_response=_build_engineering_response,
         ),
         media_type="text/event-stream",

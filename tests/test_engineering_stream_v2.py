@@ -69,7 +69,7 @@ class _Facade:
         self.error = error
         self.calls = []
 
-    def run(self, question, *, activity_sink=None):
+    def run(self, question, *, conversation_context=None, activity_sink=None):
         self.calls.append(question)
         for event in self.events:
             if activity_sink is not None:

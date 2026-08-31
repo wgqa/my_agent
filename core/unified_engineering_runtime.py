@@ -1,15 +1,16 @@
 """Unified Engineering Runtime contract.
 
-ARCH-RUNTIME-02 deliberately establishes only the product Runtime boundary.
 The existing ToolAgentRuntime remains the bounded Decision -> Tool ->
-Observation executor until later component migration stages.  This module
-must not grow a second loop, budget, finalization policy, or planner.
+Observation executor.  Context preparation is a component at the front of
+this boundary; this module must not grow a second loop, budget, finalization
+policy, or planner.
 """
 
 from __future__ import annotations
 
 from typing import Callable
 
+from core.engineering_context import EngineeringContextResolver
 from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
     route_engineering_evidence_requirement,
@@ -52,12 +53,24 @@ class LegacyToolAgentExecutionAdapter:
 class UnifiedEngineeringRuntime:
     """The single product Runtime boundary for Engineering requests."""
 
-    def __init__(self, execution_adapter: LegacyToolAgentExecutionAdapter) -> None:
+    def __init__(
+        self,
+        execution_adapter: LegacyToolAgentExecutionAdapter,
+        *,
+        context_resolver: EngineeringContextResolver | None = None,
+    ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
                 "execution_adapter 必须是 LegacyToolAgentExecutionAdapter"
             )
+        if context_resolver is not None and not isinstance(
+            context_resolver, EngineeringContextResolver
+        ):
+            raise TypeError("context_resolver 必须是 EngineeringContextResolver")
         self._execution_adapter = execution_adapter
+        # Keep the constructor compatible for no-history callers while the
+        # production wiring injects the real provider-backed component.
+        self._context_resolver = context_resolver or EngineeringContextResolver()
 
     def run(
         self,
@@ -67,21 +80,16 @@ class UnifiedEngineeringRuntime:
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
-        """Route once, then delegate to the existing bounded executor.
+        """Resolve context, route once, then delegate to the bounded executor."""
 
-        ``conversation_context`` is a reserved seam for ARCH-CONTEXT-03.  It
-        is intentionally unsupported in this behavior-preserving stage so a
-        caller cannot accidentally believe that history was consumed.
-        """
-
-        if conversation_context is not None:
-            raise NotImplementedError(
-                "conversation_context is unsupported until ARCH-CONTEXT-03"
-            )
-
-        requirement = route_engineering_evidence_requirement(user_input)
-        return self._execution_adapter.run(
+        context_snapshot = self._context_resolver.resolve(
             user_input,
+            conversation_context,
+        )
+        resolved_input = context_snapshot.resolved_input
+        requirement = route_engineering_evidence_requirement(resolved_input)
+        return self._execution_adapter.run(
+            resolved_input,
             evidence_requirement=requirement,
             trace_sink=trace_sink,
             activity_sink=activity_sink,

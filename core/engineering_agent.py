@@ -21,6 +21,7 @@ class EngineeringAgentFacade:
         self,
         question: str,
         *,
+        conversation_context=None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
@@ -33,6 +34,7 @@ class EngineeringAgentFacade:
             kwargs["activity_sink"] = activity_sink
         return self._runtime.run(
             question,
+            conversation_context=conversation_context,
             **kwargs,
         )
 

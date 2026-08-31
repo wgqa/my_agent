@@ -22,7 +22,7 @@
 
 ---
 
-## CURRENT（79 份）
+## CURRENT（80 份）
 
 | 编号 | 笔记 | 说明 |
 |---:|---|---|
@@ -105,6 +105,7 @@
 | 123 | [123-G12-System-C负结果与Finalization-Guard边界.md](123-G12-System-C负结果与Finalization-Guard边界.md) | G12 final Formal：System C Manual Gold、A/C 对照、Finalization Guard 负结果与 evidence-grounding 边界 |
 | 124 | [124-G12最终收口与核心Agent完成.md](124-G12最终收口与核心Agent完成.md) | G12 final close：negative result acceptance、Core Agent COMPLETE、future debt 与 reproducibility lesson |
 | 125 | [125-Unified Engineering Runtime Contract.md](125-Unified%20Engineering%20Runtime%20Contract.md) | ARCH-RUNTIME-02：Facade、Unified Runtime、Legacy ToolAgent execution adapter、single loop/budget/finalization、question-only seam 与 behavior-preserving migration |
+| 126 | [126-Unified Runtime Context Migration.md](126-Unified%20Runtime%20Context%20Migration.md) | ARCH-CONTEXT-03：G8 bounded context / standalone resolver 作为 Unified Runtime Context Resolver 组件迁移、single resolved input、failure 与 budget 边界 |
 
 ## FROZEN_EVIDENCE（11 份）
 
@@ -172,6 +173,6 @@
 
 ## 完整性声明
 
-- 当前索引列出 **126 份**，每份只出现一次：CURRENT 79 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 126。
+- 当前索引列出 **127 份**，每份只出现一次：CURRENT 80 + FROZEN_EVIDENCE 11 + SUPERSEDED 1 + HISTORY 35 = 127。
 - 原始笔记一律未修改。
 - 当前日期：2026-08-31。

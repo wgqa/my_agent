@@ -69,10 +69,12 @@ def _run_worker(
     facade: EngineeringAgentFacade,
     question: str,
     events: Queue,
+    conversation_context=None,
 ) -> None:
     try:
         result = facade.run(
             question,
+            conversation_context=conversation_context,
             trace_sink=lambda event: events.put(("trace", event)),
         )
         events.put(("result", result))
@@ -87,6 +89,7 @@ def stream_engineering_query(
     facade: EngineeringAgentFacade,
     question: str,
     *,
+    conversation_context=None,
     build_response: Callable[[ToolAgentRunResult], object],
 ) -> Iterator[str]:
     """Start one Runtime worker and yield product-safe SSE frames.
@@ -98,7 +101,7 @@ def stream_engineering_query(
     events: Queue = Queue()
     worker = Thread(
         target=_run_worker,
-        args=(facade, question, events),
+        args=(facade, question, events, conversation_context),
         daemon=True,
         name="engineering-sse-runtime",
     )
