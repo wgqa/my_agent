@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import inspect
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from pathlib import PurePosixPath
 from typing import Callable
@@ -97,6 +98,74 @@ def _canonical_call(tool_name: str, arguments) -> tuple[str, str]:
         ensure_ascii=False,
     )
     return (tool_name, canonical)
+
+
+def _normalize_initial_context(value: object) -> tuple[DecisionContextItem, ...]:
+    """Validate the trusted context seed without accepting arbitrary dicts."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Sequence):
+        raise TypeError("initial_context 必须是 DecisionContextItem 序列")
+    items = tuple(value)
+    if any(type(item) is not DecisionContextItem for item in items):
+        raise TypeError("initial_context 必须全部是 DecisionContextItem")
+    return items
+
+
+def _evidence_identity(
+    item: EngineeringEvidence | KnowledgeEvidence,
+) -> tuple:
+    if isinstance(item, KnowledgeEvidence):
+        return (
+            "knowledge",
+            item.source_name,
+            item.chunk_id if item.chunk_id is not None else item.snippet,
+        )
+    return (item.kind, item.path, item.start_line, item.end_line)
+
+
+def _normalize_initial_evidence(
+    value: object,
+) -> tuple[EngineeringEvidence | KnowledgeEvidence, ...]:
+    """Validate, deduplicate, and deterministically number trusted evidence."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Sequence):
+        raise TypeError("initial_evidence 必须是 EngineeringEvidence 序列")
+    normalized: list[EngineeringEvidence | KnowledgeEvidence] = []
+    seen_identities: set[tuple] = set()
+    seen_ids: set[str] = set()
+    for item in value:
+        if type(item) not in (EngineeringEvidence, KnowledgeEvidence):
+            raise TypeError(
+                "initial_evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
+            )
+        identity = _evidence_identity(item)
+        if identity in seen_identities:
+            continue
+        if item.evidence_id in seen_ids:
+            raise ValueError("initial_evidence 的 evidence_id 不得重复")
+        seen_identities.add(identity)
+        seen_ids.add(item.evidence_id)
+        normalized.append(replace(item, evidence_id=f"E{len(normalized) + 1}"))
+    return tuple(normalized)
+
+
+def _normalize_disabled_tools(
+    value: object,
+    registry: ToolRegistry,
+) -> frozenset[str]:
+    """Validate a run-scoped Tool filter and reject unknown Tool names."""
+
+    if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Collection):
+        raise TypeError("disabled_tools 必须是 Tool 名称集合")
+    names = tuple(value)
+    if any(type(name) is not str or not name.strip() for name in names):
+        raise TypeError("disabled_tools 必须全部是非空字符串")
+    if len(set(names)) != len(names):
+        raise ValueError("disabled_tools 不得包含重复 Tool")
+    unknown = sorted(set(names) - {spec.name for spec in registry.list_specs()})
+    if unknown:
+        raise ValueError(f"disabled_tools 含未注册 Tool: {unknown!r}")
+    return frozenset(names)
 
 
 def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
@@ -311,6 +380,9 @@ class ToolAgentRuntime:
         user_query: str,
         *,
         evidence_requirement: EngineeringEvidenceRequirement | None = None,
+        initial_context: Sequence[DecisionContextItem] = (),
+        initial_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = (),
+        disabled_tools: Collection[str] = (),
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
@@ -322,22 +394,35 @@ class ToolAgentRuntime:
             raise TypeError(
                 "evidence_requirement 必须是 EngineeringEvidenceRequirement 或 None"
             )
-        context: list[DecisionContextItem] = []
+        seed_context = _normalize_initial_context(initial_context)
+        seed_evidence = _normalize_initial_evidence(initial_evidence)
+        disabled = _normalize_disabled_tools(disabled_tools, self._registry)
+        run_registry = (
+            self._registry if not disabled else self._registry.without(disabled)
+        )
+        executor = self._executor if not disabled else ToolExecutor(run_registry)
+        context: list[DecisionContextItem] = list(seed_context)
         executed: set[tuple[str, str]] = set()
         iterations = 0
         tool_calls = 0
         tool_errors = 0
         trace: list[RuntimeTraceEvent] = []
-        evidence: list[EngineeringEvidence | KnowledgeEvidence] = []
-        seen_evidence: set[tuple] = set()
+        evidence: list[EngineeringEvidence | KnowledgeEvidence] = list(seed_evidence)
+        seen_evidence: set[tuple] = {
+            _evidence_identity(item) for item in seed_evidence
+        }
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
         activity_number = 0
 
         self._record_activity(
-            RunStartedActivity(available_tool_count=len(self._registry)),
+            RunStartedActivity(available_tool_count=len(run_registry)),
             activity_sink,
         )
+        for item in seed_evidence:
+            evidence_activity = EvidenceAddedActivity.try_from_public_evidence(item)
+            if evidence_activity is not None:
+                self._record_activity(evidence_activity, activity_sink)
 
         while True:
             iterations += 1
@@ -393,7 +478,10 @@ class ToolAgentRuntime:
                 ),
             )
             outcome = self._decide(
-                user_query, context=tuple(context), control_state=control_state
+                run_registry,
+                user_query,
+                context=tuple(context),
+                control_state=control_state,
             )
             if not isinstance(outcome, AgentDecisionOutcome):
                 # Provider 违反 Protocol 属于程序契约错误，fail-fast
@@ -472,7 +560,7 @@ class ToolAgentRuntime:
                                 trace_sink,
                             )
                         if not _recovery_is_feasible(
-                            self._registry,
+                            run_registry,
                             evidence_requirement,
                             state,
                             iterations=iterations,
@@ -616,7 +704,7 @@ class ToolAgentRuntime:
                 ),
                 trace_sink,
             )
-            observation = self._executor.execute(call)
+            observation = executor.execute(call)
             tool_calls += 1
             if observation.status != "ok":
                 tool_errors += 1
@@ -706,6 +794,7 @@ class ToolAgentRuntime:
 
     def _decide(
         self,
+        registry: ToolRegistry,
         user_query: str,
         *,
         context: tuple[DecisionContextItem, ...],
@@ -730,7 +819,7 @@ class ToolAgentRuntime:
         kwargs = {"context": context}
         if accepts_control_state:
             kwargs["control_state"] = control_state
-        return decide(self._registry, user_query, **kwargs)
+        return decide(registry, user_query, **kwargs)
 
     def _append_terminal(
         self,

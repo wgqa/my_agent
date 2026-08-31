@@ -70,6 +70,25 @@ class ToolRegistry:
         """deterministic：按 name 排序；只返回 ToolSpec，绝不返回 handler。"""
         return tuple(self._tools[name].spec for name in sorted(self._tools))
 
+    def without(self, disabled_tools: frozenset[str]) -> "ToolRegistry":
+        """Return a run-scoped registry with the named Tools removed.
+
+        The returned registry retains the exact registered ToolSpec/handler
+        bindings. It is therefore the same capability view for Decision and
+        execution, while the base registry used by legacy runs is untouched.
+        """
+
+        if not isinstance(disabled_tools, frozenset) or any(
+            type(name) is not str for name in disabled_tools
+        ):
+            raise TypeError("disabled_tools 必须是字符串 frozenset")
+        filtered = ToolRegistry()
+        for name in sorted(self._tools):
+            if name not in disabled_tools:
+                registered = self._tools[name]
+                filtered.register(registered.spec, registered.handler)
+        return filtered
+
     def __contains__(self, name: object) -> bool:
         return name in self._tools
 

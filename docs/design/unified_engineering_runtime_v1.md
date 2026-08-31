@@ -3,8 +3,8 @@
 > Status: **Architecture baseline and migration contract**
 > Project identity: **Evidence-Grounded AI Engineering Agent**
 > Architecture baseline: `c6ee568923babcb0dc3e040ceef1e18e162b02db`
-> Current migration baseline: `0560a7901233823b464bb767c3b1b90f24319e36`
-> Current migration: `ARCH-PLAN-04`
+> Current migration baseline: `eb9d93a821525fbccfef8fdd2c540fd81e9a1695`
+> Current migration: `ARCH-RETRIEVAL-05`
 > Historical Gate facts are immutable; this document defines the only target architecture for `ARCH-RUNTIME-02` through `ARCH-EVAL-08`.
 
 ## 1. Purpose and boundary
@@ -50,9 +50,10 @@ The important current-state facts are:
 - The Engineering main chain is practically controlled by `ToolAgentRuntime`.
 - G3 `Planner` / `QueryPlan`, Query Decomposition, Adaptive Retrieval,
   Multi-query Retrieval, and `MinimalEvidenceVerifier` are implemented or
-  historically evaluated, but are not in this Engineering main chain.
+  historically evaluated, but were not in this Engineering main chain at the
+  architecture-freeze starting point.
 - At the ARCH-CONTEXT-03 starting baseline, G8 Context / Standalone Resolver
-  is also not in the Engineering main chain. Its historical integration in
+  was also not in the Engineering main chain. Its historical integration in
   `core/agent_runtime/runtime.py` remains a legacy path and is not rewritten.
 - G11 Unified Evidence and G12 Typed Requirement / Finalization Guard are
   **ACTIVE** integration inputs. They do not imply that every historical
@@ -85,7 +86,53 @@ G12 finalization. ToolAgentRuntime still owns the execution loop during
 migration; the Context and Planner components are not Agents and do not add a
 loop, budget ledger, finalization decision, or Tool call.
 
-### 2.3 G8 context contract being migrated
+### 2.3 Migration state after ARCH-RETRIEVAL-05
+
+ARCH-RETRIEVAL-05 makes the trusted Plan executable only for the bounded Knowledge
+Retrieval component. The current migration chain is:
+
+```text
+resolved_input
+  -> Evidence Planner -> trusted PlannerOutcome / QueryPlan
+  -> Requirement Router
+  -> EngineeringRetrievalComponent
+       -> Adaptive route decision
+       -> single or exact QueryPlan subquery execution
+       -> optional one Hybrid rescue
+       -> deterministic RRF merge v2 / EvidenceBundle
+  -> planned evidence handoff
+  -> LegacyToolAgentExecutionAdapter
+  -> ToolAgentRuntime (filtered registry, existing 5/4/2 loop)
+```
+
+The retrieval component is a finite policy execution component, not an Agent and
+not a second controller. It reuses the existing G3 `DeterministicRouter`,
+`RetrievalPort`, `EvidenceBundle`, `merge_subquery_results_policy`,
+`SUBQUERY_RRF_MERGE_V2`, and `DEFAULT_MERGE_RRF_K`. The frozen contract is:
+
+- `no_retrieval`: zero retrieval-port calls and an empty G3 `EvidenceBundle`;
+- `single`: one primary call, with at most one Hybrid rescue after an empty BM25
+  result, for at most two calls total;
+- `decomposed`: exactly the existing two or three QueryPlan subqueries, primary
+  BM25 in plan order, and at most one Hybrid rescue for the first missing
+  subquery, for at most four calls total;
+- `top_k = 5`, `max_retrieval_calls = 4`, `merge_policy =
+  subquery_rrf_merge_v2`, and `merge_rrf_k = 60.0` remain frozen.
+
+The internal G3 `EvidenceBundle`, `query_id`, retrieval-call count, and query
+count remain trusted state. Only its bounded, safe `KnowledgeEvidence` conversion
+and `DecisionContextItem` projection are handed to ToolAgent. The Engineering
+run disables the second `knowledge_search` Tool; the legacy `/tool-agent/query`
+path keeps its existing registry and behavior. Retrieval calls do not inflate
+ToolAgent `iterations_used`, `tool_calls_used`, or `tool_errors_used`; unified
+budget reconciliation remains a later cutover concern.
+
+ARCH-RETRIEVAL-05 does not migrate `MinimalEvidenceVerifier`, Grounded
+Generation, Finalization Policy, or Citation Validator. ToolAgentRuntime remains
+the only LLM Decision → Tool → Observation loop, and no nested autonomous
+controller or replanning/retry loop is introduced.
+
+### 2.4 G8 context contract being migrated
 
 The migration reuses, without redesigning, the existing G8 components:
 
@@ -104,7 +151,7 @@ The migration reuses, without redesigning, the existing G8 components:
 provider. Invalid history/message values fail through the existing strict
 validation rather than being silently discarded.
 
-### 2.4 Planner component contract
+### 2.5 Planner component contract
 
 `EngineeringEvidencePlanner` accepts only an existing `BaseQueryPlanner` and
 returns the exact existing `PlannerOutcome` object after strict type and
@@ -184,21 +231,21 @@ execution adapter.
 | Capability | Source | Current state | Target owner | Migration action | Compatibility requirement |
 |---|---|---|---|---|---|
 | G1/G2 Dense / BM25 / Hybrid / Reranker | `core/retriever/`, Gate 2 frozen artifacts | Existing Knowledge RAG strategies; historical metrics frozen | Evidence Backend + Evidence Aggregator | Wrap behind a retrieval Evidence Backend port; migrate one strategy at a time | Gate 2 corpus, config identity, ranking semantics, and frozen results unchanged |
-| G3 `QueryPlan` | `core/query_planning/`, Gate 3 contracts | **ACTIVE** as trusted Planner state; not used for execution policy yet | Evidence Planner | Adapt the frozen schema through `EngineeringEvidencePlanner`; do not copy AgentRuntime | Gate 3 plan schema/IDs and sealed/formal facts unchanged |
-| Query Decomposition | G3 planner components | **ACTIVE** as a 2/3-subquery Planner output; retrieval remains deferred | Evidence Planner | Preserve the existing bounded output and store it as passive planning state | No subquery loop or new unbounded execution; G3 limits remain regression constraints |
-| Adaptive Router | `core/adaptive_retrieval/` | Existing G3 component; not current Engineering controller | Evidence Planner / Execution Policy boundary | Expose route decisions as data consumed by the single policy owner | Do not re-tune sealed Gate 3 routing facts during migration |
-| Multi-query Retrieval | G3 retrieval orchestration | Historical capability, currently isolated | Evidence Backend orchestration under Execution Policy | Move calls behind the single policy-controlled execution path | One logical retrieval budget; no backend-owned retries or loop |
-| Evidence Merge | G3 evidence components | Existing deterministic merge contract, not current ToolAgent evidence path | Evidence Aggregator | Adapt merged evidence to Unified Evidence schema | Preserve deterministic order, deduplication, and bounded output |
-| `MinimalEvidenceVerifier` | G3 verifier implementation | Existing verifier, not current Engineering verifier owner | Evidence Verifier | Adapt as a verifier component, then reconcile with G12 Guard | Historical verifier behavior remains regression-only until VERIFY stage |
+| G3 `QueryPlan` | `core/query_planning/`, Gate 3 contracts | **ACTIVE** as trusted Planner state and the input to bounded Knowledge Retrieval | Evidence Planner | Adapt the frozen schema through `EngineeringEvidencePlanner`; do not copy AgentRuntime | Gate 3 plan schema/IDs and sealed/formal facts unchanged |
+| Query Decomposition | G3 planner components | **ACTIVE** as a 2/3-subquery Planner output consumed by planned retrieval | Evidence Planner + Execution Policy boundary | Preserve the existing bounded output; execute only its exact subqueries through the retrieval component | No dynamic subquery or unbounded loop; G3 limits remain regression constraints |
+| Adaptive Router | `core/adaptive_retrieval/` | **ACTIVE in ARCH-RETRIEVAL-05** as a bounded route decision; not an autonomous controller | Execution Policy via `EngineeringRetrievalComponent` | Reuse the pure G3 route decision and execute only the frozen single/decomposed policy | Do not re-tune sealed Gate 3 routing facts; no new retrieval budget |
+| Multi-query Retrieval | G3 retrieval orchestration and `core/engineering_retrieval.py` | **ACTIVE in ARCH-RETRIEVAL-05** behind the planned retrieval handoff | Execution Policy + Knowledge Evidence Backend | Execute the exact QueryPlan subqueries, at most one rescue, and no new subquery/loop | 2–3 primary calls, at most one Hybrid rescue, total ≤4; legacy path regresses |
+| Evidence Merge | `core/agent_runtime/evidence.py`, `core/engineering_retrieval.py` | **ACTIVE in ARCH-RETRIEVAL-05** as deterministic internal G3 `EvidenceBundle` merge | Evidence Aggregator | Reuse `merge_subquery_results_policy` with frozen RRF merge v2 and convert only bounded public evidence | Preserve query IDs, provenance, deduplication, deterministic order, max 5, and RRF k=60 |
+| `MinimalEvidenceVerifier` | G3 verifier implementation | **NOT YET MIGRATED**; remains a historical/legacy capability and regression subject | Evidence Verifier | Migrate only in ARCH-VERIFY-06 under the single verifier owner | Do not invoke, duplicate, or re-tune it during Retrieval migration |
 | Grounded Generation | Agentic RAG answer path / generator ports | Existing generation path; not a separate controller | Finalization Policy | Consume verified evidence through a single finalization transition | Existing generator failure semantics and safe failure categories preserved |
 | Citation Validator | G3/G12 evidence/citation validation work | Partial/contract-specific validation exists | Evidence Verifier | Consolidate validation inputs under one verifier contract | No UI/persistence expansion; invalid citations never become trusted evidence |
-| G4 Tool loop / allowlist / budget | `core/tool_agent/runtime.py`, `integration.py` | Active bounded ToolAgent execution: 5/4/2, allowlist, duplicate/error guards | Execution Policy + Tool Execution Engine | Keep ToolAgentRuntime as an execution component through the migration adapter | 5/4/2 hard enforcement, allowlist, and terminal semantics remain frozen |
+| G4 Tool loop / allowlist / budget | `core/tool_agent/runtime.py`, `integration.py` | Active bounded ToolAgent execution: 5/4/2, allowlist, duplicate/error guards; Engineering can receive seeded evidence and a filtered registry | Execution Policy + Tool Execution Engine | Keep ToolAgentRuntime as the execution component through the migration adapter; disable duplicate Engineering knowledge search | 5/4/2 hard enforcement, allowlist, and terminal semantics remain frozen; legacy registry unchanged |
 | Safe Trace | `core/tool_agent/runtime_models.py`, `api/app.py` | Active safe projection; no raw prompt/observation/secret | Activity / Observability | Keep as an output projection of trusted events | Observability cannot change runtime outcomes or become control state |
 | G6 Repository Evidence | `core/tool_agent/tools/`, repository adapters | Active read-only code/project evidence | Evidence Backend | Expose repo tools through Tool Execution Engine and Unified Evidence | Workspace binding, bounded output, path safety, and legacy endpoint regression |
 | G8 Context / Standalone Resolver | `core/conversation_context/`, `core/engineering_context.py` | G8 result is `MIXED / USEFUL BUT NOT GENERAL`; Context component fronts Engineering Runtime | Context Resolver | Reuse bounded window/resolver; pass one resolved input downstream | None/empty no provider; max one resolver call; fallback and fail-fast semantics preserved |
 | G9 failure semantics | `core/generator/errors.py`, Agent/Tool runtime handling | Typed provider failures and programming-error propagation are active | Execution Policy + Finalization Policy | Map component failures into the single trusted run state | Provider text/key/traceback not leaked; unknown programming errors remain visible to boundary |
 | G10 `changed_files` / `git_diff` / `find_tests` | `core/tool_agent/tools/` | Active read-only tools and workflow evidence | Evidence Backend + Evidence Aggregator | Register each as typed evidence producer under one execution policy | Existing safe path, diff bounds, candidate-source and endpoint contracts regress |
-| G11 Unified Evidence | G11 Engineering response/runtime models | **ACTIVE**; current ToolAgent already emits several evidence kinds | Evidence Aggregator | Make all backend outputs conform to one evidence envelope and provenance path | G11 historical task-family outcomes and known negatives remain unchanged |
+| G11 Unified Evidence | G11 Engineering response/runtime models | **ACTIVE**; Retrieval now hands off trusted planned Knowledge evidence while ToolAgent emits other evidence kinds | Evidence Aggregator | Preserve internal G3 bundle identity and adapt backend outputs to one evidence envelope/provenance path | G11 historical task-family outcomes and known negatives remain unchanged |
 | G12 Typed Requirement / Finalization Guard | `core/engineering_requirements.py`, ToolAgent finalization guard | **ACTIVE**; requirement route and shape guard are integrated in current path | Execution Policy / Finalization Policy | Keep one requirement state and one finalization transition; later reconcile verifier | G12 question-only contract, guard schema, Formal and valid FAIL remain frozen |
 | Rich Activity | `core/tool_agent/activity.py`, stream v2 | Active safe lifecycle projection | Activity / Observability | Project Unified Runtime events without feeding them back into control | No context content, prompt, raw observation, or outcome mutation |
 
@@ -248,6 +295,24 @@ ownership of evidence and finalization.
   propagate; neither is classified as a Tool failure.
 - Context resolution does not increment ToolAgent iterations, Tool calls, Tool
   errors, or the 5/4/2 budget.
+- ARCH-RETRIEVAL-05 uses the frozen retrieval contract only:
+  `adaptive_retrieval_policy_v1`, `top_k=5`, `max_retrieval_calls=4`,
+  `subquery_rrf_merge_v2`, and `merge_rrf_k=60.0`. Single retrieval is one
+  primary plus at most one Hybrid rescue; decomposed retrieval is two or three
+  primary subqueries plus at most one rescue. There is no new
+  `RetrievalBudget` or autonomous retrieval loop.
+- The trusted internal G3 `EvidenceBundle` retains `query_id`, retrieval-call
+  count, and query count. Public conversion is fail-closed for unsafe
+  provenance and emits only bounded `KnowledgeEvidence` plus bounded
+  `DecisionContextItem` seed data.
+- Planned evidence is handed to the existing ToolAgent run before its first
+  Decision. The Engineering registry disables the duplicate `knowledge_search`
+  Tool, while the legacy `/tool-agent/query` registry and behavior remain
+  unchanged. Retrieval calls do not increment ToolAgent counters.
+- The current `ToolAgentRuntime` enforcement remains the only 5/4/2 hard
+  enforcement during migration; the future Unified Runtime still has exactly
+  one logical Budget Owner. `MinimalEvidenceVerifier`, Grounded Generation,
+  Finalization Policy, and Citation Validator are not yet migrated.
 - Migration is component-by-component with adapters and contract tests. It is
   not a big-bang rewrite and it does not permanently discard G3.
 - No Persistence, Citation UI, new Multi-Agent design, or third product
@@ -262,8 +327,10 @@ ownership of evidence and finalization.
 Client ──> Facade ──> Unified Runtime
                          │
                          ├─ Context Resolver
-                         ├─ Evidence Planner (trusted, passive Plan)
+                         ├─ Evidence Planner (trusted QueryPlan)
                          ├─ Requirement route once
+                         ├─ Planned Knowledge Retrieval
+                         │    └─ Adaptive / multi-query / RRF v2 → EvidenceBundle
                          └─ Adapter ──> ToolAgentRuntime
                                                ├─ Decision
                                                ├─ Tool allowlist
@@ -271,15 +338,16 @@ Client ──> Facade ──> Unified Runtime
                                                ├─ Observation
                                                └─ G12 finalization guard
 
-  Remaining G3 capability island (not yet Plan enforcement)
+  Remaining capability island (not yet migrated in ARCH-RETRIEVAL-05)
   ┌────────────────────────────────────────────────────────┐
-  │ Adaptive Router / Multi-query Retrieval / Evidence Merge│
-  │ RRF merge / Hybrid rescue / MinimalEvidenceVerifier     │
+  │ MinimalEvidenceVerifier / Grounded Generation           │
+  │ Finalization Policy / Citation Validator                │
   └────────────────────────────────────────────────────────┘
 
-  G8 is now a Context component; G3 Planner/Decomposition is now a planning
-  component. G11 Unified Evidence and G12 Requirement/Guard remain active
-  inputs while the Retrieval/Verification/Finalization plane is migrated.
+  G8 is now a Context component; G3 Planner/Decomposition, Adaptive Retrieval,
+  Multi-query Retrieval and deterministic Evidence Merge are now bounded
+  components. G11 Unified Evidence and G12 Requirement/Guard remain active
+  inputs; Verification/Finalization is still migrated in later stages.
 ```
 
 ### 7.2 Final unified control plane

@@ -1,17 +1,19 @@
 """Unified Engineering Runtime contract.
 
 The existing ToolAgentRuntime remains the bounded Decision -> Tool ->
-Observation executor.  Context preparation is a component at the front of
-this boundary; this module must not grow a second loop, budget, finalization
-policy, or planner.
+Observation executor. Context, planning, and finite Knowledge Retrieval are
+components at the front of this boundary; this module must not grow a second
+loop, budget, finalization policy, or autonomous controller.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection, Sequence
 from typing import Callable
 
 from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
+from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
     route_engineering_evidence_requirement,
@@ -55,6 +57,9 @@ class LegacyToolAgentExecutionAdapter:
         user_input: str,
         *,
         evidence_requirement: EngineeringEvidenceRequirement,
+        initial_context: Sequence = (),
+        initial_evidence: Sequence = (),
+        disabled_tools: Collection[str] = (),
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
     ) -> ToolAgentRunResult:
@@ -65,6 +70,12 @@ class LegacyToolAgentExecutionAdapter:
                 "evidence_requirement 必须是 EngineeringEvidenceRequirement"
             )
         kwargs = {"evidence_requirement": evidence_requirement}
+        if initial_context:
+            kwargs["initial_context"] = initial_context
+        if initial_evidence:
+            kwargs["initial_evidence"] = initial_evidence
+        if disabled_tools:
+            kwargs["disabled_tools"] = disabled_tools
         if trace_sink is not None:
             kwargs["trace_sink"] = trace_sink
         if activity_sink is not None:
@@ -81,6 +92,7 @@ class UnifiedEngineeringRuntime:
         *,
         context_resolver: EngineeringContextResolver | None = None,
         evidence_planner: EngineeringEvidencePlanner | None = None,
+        retrieval_component: EngineeringRetrievalComponent | None = None,
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
@@ -94,6 +106,12 @@ class UnifiedEngineeringRuntime:
             evidence_planner, EngineeringEvidencePlanner
         ):
             raise TypeError("evidence_planner must be EngineeringEvidencePlanner")
+        if retrieval_component is not None and not isinstance(
+            retrieval_component, EngineeringRetrievalComponent
+        ):
+            raise TypeError(
+                "retrieval_component must be EngineeringRetrievalComponent"
+            )
         self._execution_adapter = execution_adapter
         # Keep the constructor compatible for no-history callers while the
         # production wiring injects the real provider-backed component.
@@ -102,6 +120,10 @@ class UnifiedEngineeringRuntime:
         # fallback keeps older direct construction sites behavior-compatible;
         # it is not an Agent, provider, loop, or second budget owner.
         self._evidence_planner = evidence_planner or _default_evidence_planner()
+        # Production injects the planned Knowledge Retrieval component. Keeping
+        # this seam optional preserves older direct construction sites until
+        # they opt into the component, without changing their legacy behavior.
+        self._retrieval_component = retrieval_component
 
     def run(
         self,
@@ -118,13 +140,28 @@ class UnifiedEngineeringRuntime:
             conversation_context,
         )
         resolved_input = context_snapshot.resolved_input
-        # Form trusted planning state exactly once.  ARCH-PLAN-04 deliberately
-        # does not interpret this outcome to select Tools or execute subqueries.
-        _planner_outcome = self._evidence_planner.plan(resolved_input)
+        # Form trusted planning state exactly once. ARCH-PLAN-04 kept this
+        # passive; ARCH-RETRIEVAL-05 interprets it only through the finite
+        # Knowledge Retrieval component below.
+        planner_outcome = self._evidence_planner.plan(resolved_input)
         requirement = route_engineering_evidence_requirement(resolved_input)
+        if self._retrieval_component is None:
+            return self._execution_adapter.run(
+                resolved_input,
+                evidence_requirement=requirement,
+                trace_sink=trace_sink,
+                activity_sink=activity_sink,
+            )
+        retrieval_snapshot = self._retrieval_component.retrieve(
+            resolved_input,
+            planner_outcome,
+        )
         return self._execution_adapter.run(
             resolved_input,
             evidence_requirement=requirement,
+            initial_context=retrieval_snapshot.initial_context,
+            initial_evidence=retrieval_snapshot.knowledge_evidence,
+            disabled_tools=("knowledge_search",),
             trace_sink=trace_sink,
             activity_sink=activity_sink,
         )

@@ -46,13 +46,13 @@ v7 的总原则：
 
 ## 0.2 当前 Architecture Integration Drift
 
-当前仍存在明确的 **Architecture Integration Drift**：产品 Engineering 主链的执行 loop 仍由 `ToolAgentRuntime` 控制，G3 的 retrieval/verifier 能力尚未进入统一控制面；本阶段只把 G3 Planner/Query Decomposition 作为 trusted planning state 接入。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
+当前仍存在明确但已收敛的 **Architecture Integration Drift**：产品 Engineering 主链的 LLM Decision → Tool → Observation 执行 loop 仍由 `ToolAgentRuntime` 控制；ARCH-FREEZE-01 的起点事实是 G3 retrieval/verifier 与 G8 Context 尚未进入该主链，ARCH-RETRIEVAL-05 正在以 component migration 把其中的计划检索能力接入统一控制面。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
 
-- G3 Planner、Query Decomposition 已进入当前主链的 Evidence Planner 组件，但 Planner 输出暂不驱动 Tool 选择、Multi-query Retrieval、Adaptive Router、Evidence Merge 或 `MinimalEvidenceVerifier`；
-- G8 Context / Standalone Resolver 已作为 Context Resolver 组件进入当前主链；当前 Engineering endpoint 仍保持 question-only；
+- ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当前主链；当前 ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，但 `MinimalEvidenceVerifier` 仍未迁移；
+- ARCH-FREEZE-01 起点的 G8 Context / Standalone Resolver 未进入当前主链；ARCH-CONTEXT-03 已将其作为 Context Resolver 组件接入，当前 Engineering endpoint 仍保持 question-only；
 - G11 Unified Evidence 与 G12 Typed Requirement / Finalization Guard 是当前整合输入，状态为 **ACTIVE**；G12 历史评测结论仍按其原有 frozen 状态解释；
 - `P1-OBS-03A-R1-MICRO = ACCEPT / CLOSED`。其 observability 结论保留，且 observability 不得改变 runtime outcome；
-- `Planner = ACTIVE`，`Plan enforcement = DEFERRED TO ARCH-RETRIEVAL-05`；本阶段不提前迁移 retrieval。
+- `ARCH-PLAN-04 = ACCEPT / CLOSED`；`ARCH-RETRIEVAL-05 = CURRENT / REVIEW PENDING`；当前仅对 Knowledge Retrieval 做有限 Plan enforcement，`MinimalEvidenceVerifier`、Grounded Generation、Finalization 与 Citation Validator 留待后续阶段。
 
 ## 0.3 当前 NEXT
 
@@ -65,9 +65,9 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 `ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
 保留历史 context/fallback 语义并通过回归。
 
-**NEXT = `ARCH-PLAN-04`（CURRENT / REVIEW PENDING）**
+**NEXT = `ARCH-RETRIEVAL-05`（CURRENT / REVIEW PENDING）**
 
-当前任务完成后，后续唯一顺序为：
+当前任务完成后的后续唯一顺序为：
 
 ```text
 ARCH-RUNTIME-02
@@ -81,7 +81,7 @@ ARCH-RUNTIME-02
 ```
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
-`ARCH-PLAN-04`，不得在其独立审计 ACCEPT 前推进到 `ARCH-RETRIEVAL-05`。
+`ARCH-RETRIEVAL-05`，完成后不得自行开始 `ARCH-VERIFY-06`。
 
 ---
 
@@ -324,7 +324,7 @@ G12 的 Typed Requirement 与 Finalization Guard 是当前主链的活动控制�
 
 ### Drift boundary
 
-当前不是“缺少所有能力”，而是“能力存在但控制权分裂/未接线”：`ToolAgentRuntime` 仍是 Engineering 主链的唯一实际 controller；G3/G8 组件是待迁移能力，不能在迁移期被误称为已生效的统一架构。
+当前不是“缺少所有能力”，而是“能力存在但控制权仍在迁移”：`ToolAgentRuntime` 仍是 Engineering 主链中实际的 Decision → Tool → Observation controller；G3 Planner、有限 Knowledge Retrieval、G8 Context 已通过组件边界接入，`MinimalEvidenceVerifier`、Grounded Generation、Finalization 与 Citation 仍是待迁移能力，不能被误称为已完成统一架构。
 
 ---
 

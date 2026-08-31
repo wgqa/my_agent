@@ -1,21 +1,21 @@
 # ADR-002: Unified Engineering Runtime Migration
 
-> Status: **Accepted — architecture freeze; ARCH-PLAN-04 migration active**<br>
+> Status: **Accepted — architecture freeze; ARCH-RETRIEVAL-05 migration active**<br>
 > Date: **2026-08-31**<br>
 > Baseline: `0eef8ef9d6decdaa10efebe04087b06611654670`<br>
-> Scope: Unified Runtime architecture and bounded G8/G3 component migration；不授权无关生产 Runtime 变更。
+> Scope: Unified Runtime architecture and bounded G8/G3 Context, Planning, and Knowledge Retrieval component migration；不授权无关生产 Runtime 变更。
 
 ## Context
 
 项目已经从 RAG、Gate 3 Planning/Adaptive Retrieval、Gate 4 Structured Tool Agent、G6 Repository Evidence、G8 Context、G9 Reliability、G10 Change/Test Evidence 演进到 G11 Unified Evidence 和 G12 Typed Requirement / Finalization Guard。
 
-但当前 Engineering 产品入口的实际链路仍是：
+但当前 Engineering 产品入口的实际 LLM execution loop 仍是：
 
 ```text
 EngineeringAgentFacade → ToolAgentRuntime → bounded Tool loop → finalization
 ```
 
-G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，却还没有一个唯一的 Context、Plan、Budget、Evidence、Verification、Finalization、Activity ownership。这就是本 ADR 要处理的 **Architecture Integration Drift**。
+ARCH-FREEZE-01 起点时，G3 的 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval、`MinimalEvidenceVerifier` 与 G8 Context / Standalone Resolver 没有进入这条主链。ARCH-CONTEXT-03、ARCH-PLAN-04 已分别接入 Context 与 trusted Plan；ARCH-RETRIEVAL-05 再把有限的 Knowledge Retrieval 作为组件接入，但 ToolAgent 仍承载唯一的 Decision → Tool → Observation loop，Verification/Finalization 仍待迁移。G11/G12 已经形成统一 evidence 和 requirement/guard 的重要输入，却还没有完整收敛到唯一的 Context、Plan、Budget、Evidence、Verification、Finalization、Activity ownership。这就是本 ADR 要处理的 **Architecture Integration Drift**。
 
 本 ADR 与以下事实同时成立：
 
@@ -125,6 +125,36 @@ ToolAgent iterations, Tool calls, Tool errors, or a second budget ledger.
 Unknown programming errors propagate before routing or execution; known G3
 provider/output failures retain deterministic `single_retrieval` fallback.
 
+## ARCH-RETRIEVAL-05 implementation addendum
+
+ARCH-RETRIEVAL-05 migrates only the planned Knowledge Retrieval execution
+boundary. `EngineeringRetrievalComponent` reuses the existing pure G3
+`DeterministicRouter`, `RetrievalPort`, `EvidenceBundle`, and deterministic
+`merge_subquery_results_policy` with frozen `SUBQUERY_RRF_MERGE_V2` and
+`merge_rrf_k=60.0`; it does not instantiate or call the old G3 `AgentRuntime`.
+
+The component is finite and policy-bound: `no_retrieval` makes zero port calls;
+single retrieval makes one primary call and at most one Hybrid rescue; a
+decomposed plan executes its exact two or three subqueries and allows at most
+one rescue for the first missing subquery. `top_k=5` and total retrieval calls
+`<=4` remain frozen. There is no new `RetrievalBudget`, dynamic subquery, retry
+loop, or autonomous retrieval controller.
+
+The trusted internal G3 `EvidenceBundle` retains `query_id`, retrieval-call
+count, query count, deterministic ordering, and provenance. A fail-closed,
+bounded conversion produces public `KnowledgeEvidence` and bounded
+`DecisionContextItem` seed data. The Engineering run passes those seeds before
+the first ToolAgent Decision and disables the duplicate `knowledge_search`
+Tool; the legacy `/tool-agent/query` registry and behavior remain unchanged.
+Retrieval calls do not increment ToolAgent iteration/tool/error counters, and
+the future Unified Runtime still has one logical budget owner.
+
+This stage does not migrate `MinimalEvidenceVerifier`, Grounded Generation,
+Finalization Policy, or Citation Validator. It also does not change the
+Planner, ToolAgent prompt, Requirement Router, G12 Guard, public API schemas,
+or historical artifacts. Those boundaries are prerequisites for the next
+reviewed stage and do not authorize ARCH-VERIFY-06 to start automatically.
+
 ## Consequences
 
 ### Positive
@@ -138,7 +168,9 @@ provider/output failures retain deterministic `single_retrieval` fallback.
 ### Trade-offs
 
 - 迁移期会同时存在 legacy endpoint、ToolAgentRuntime execution component 和 target contracts，需要 adapter 与回归测试；
-- 当前只获得 G3/G8 的 Context/Plan 组件接入，retrieval/verification/finalization 仍必须按阶段推进；
+- 当前已获得 G3/G8 的 Context/Plan 与有限 Knowledge Retrieval 组件接入，
+  `MinimalEvidenceVerifier`/verification、generation/finalization/citation
+  仍必须按阶段推进；
 - single controller 约束限制了为了局部便利而引入 nested Agent 或独立 backend loop；
 - G12 shape-only Guard 仍不能替代完整语义 verifier，必须在 `ARCH-VERIFY-06` 明确扩展边界并单独评估。
 
@@ -148,7 +180,9 @@ provider/output failures retain deterministic `single_retrieval` fallback.
 - legacy `/agent/query`、`/tool-agent/query`、Engineering query 及 stream endpoint 在迁移期间保持回归；
 - G12 question-only contract 保持，不向 request 注入 evaluator Gold、case 或 source metadata；
 - `P1-OBS-03A-R1-MICRO` 继续是 `ACCEPT / CLOSED`，Activity/Observability 只读投影，不改变 runtime outcome；
-- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-PLAN-04 只形成 trusted Plan，Plan enforcement 仍待 ARCH-RETRIEVAL-05；
+- 不新增 Multi-Agent、不做 Persistence/Citation UI；ARCH-RETRIEVAL-05 只
+  对 Knowledge Retrieval 做有限 Plan enforcement，Verifier/Finalization
+  仍待后续阶段；
 - 后续必须先做 component migration，不能 big-bang rewrite、不能永久丢弃 G3、不能引入第三个产品 Runtime。
 
 ## Non-decisions

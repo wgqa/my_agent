@@ -18,6 +18,7 @@ from core.engineering_agent import EngineeringAgentFacade
 from core.conversation_context import OpenAICompatibleConversationQueryResolver
 from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
+from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.query_planning import OpenAICompatibleQueryPlanner
 from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
@@ -91,6 +92,7 @@ engineering_tool_execution_runtime: Optional[ToolAgentRuntime] = None
 unified_engineering_runtime: Optional[UnifiedEngineeringRuntime] = None
 engineering_context_resolver: Optional[EngineeringContextResolver] = None
 engineering_evidence_planner: Optional[EngineeringEvidencePlanner] = None
+engineering_retrieval_component: Optional[EngineeringRetrievalComponent] = None
 engineering_agent_facade: Optional[EngineeringAgentFacade] = None
 engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
 engineering_project: Optional[EngineeringProject] = None
@@ -101,6 +103,7 @@ async def lifespan(app: FastAPI):
     global pipeline, agent_runtime, tool_agent_runtime
     global engineering_tool_execution_runtime, unified_engineering_runtime
     global engineering_context_resolver, engineering_evidence_planner
+    global engineering_retrieval_component
     global engineering_agent_facade, engineering_knowledge_backend, engineering_project
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
@@ -120,6 +123,7 @@ async def lifespan(app: FastAPI):
     unified_engineering_runtime = None
     engineering_context_resolver = None
     engineering_evidence_planner = None
+    engineering_retrieval_component = None
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     if pipeline is not None:
@@ -177,12 +181,16 @@ async def lifespan(app: FastAPI):
                         base_url=DEEPSEEK_BASE_URL,
                     )
                 )
+                engineering_retrieval_component = EngineeringRetrievalComponent(
+                    engineering_knowledge_backend.retrieval_port
+                )
                 unified_engineering_runtime = UnifiedEngineeringRuntime(
                     LegacyToolAgentExecutionAdapter(
                         engineering_tool_execution_runtime
                     ),
                     context_resolver=engineering_context_resolver,
                     evidence_planner=engineering_evidence_planner,
+                    retrieval_component=engineering_retrieval_component,
                 )
                 engineering_agent_facade = EngineeringAgentFacade(
                     unified_engineering_runtime
@@ -193,6 +201,7 @@ async def lifespan(app: FastAPI):
                 unified_engineering_runtime = None
                 engineering_context_resolver = None
                 engineering_evidence_planner = None
+                engineering_retrieval_component = None
                 engineering_agent_facade = None
     yield
     pipeline = None
@@ -202,6 +211,7 @@ async def lifespan(app: FastAPI):
     unified_engineering_runtime = None
     engineering_context_resolver = None
     engineering_evidence_planner = None
+    engineering_retrieval_component = None
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     engineering_project = None
