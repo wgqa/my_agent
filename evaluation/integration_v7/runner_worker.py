@@ -20,6 +20,7 @@ from typing import Any, Mapping
 WORKER_SCHEMA_VERSION = "integration_v7_real_dev_worker_v1"
 PROVIDER = "deepseek"
 MODEL = "deepseek-chat"
+UNIFIED_DECISION_PROMPT_SELECTOR = "engineering_agent_decision_prompt_unified_v1"
 
 
 def _bootstrap_system_imports(system_root: Path) -> None:
@@ -365,12 +366,41 @@ def _classify_infrastructure(
     return None
 
 
+def _select_decision_prompt_profile(job: Mapping[str, Any]):
+    """Select a worker profile without changing the frozen default.
+
+    Existing 08B/09B jobs omit ``decision_prompt_profile_selector`` and remain
+    bound to V2.  Only the explicit B'' candidate selector may import the
+    newer profile; unknown selectors and selectors on the A path fail closed.
+    """
+
+    selector = job.get("decision_prompt_profile_selector")
+    if selector is None:
+        from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_V2_PROFILE
+
+        return ENGINEERING_DECISION_PROMPT_V2_PROFILE
+    if job.get("system") != "B" or selector != UNIFIED_DECISION_PROMPT_SELECTOR:
+        raise ValueError("unsupported decision prompt profile selector")
+    from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE
+
+    return ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE
+
+
 def _run(job: Mapping[str, Any]) -> dict[str, Any]:
     system = job["system"]
     system_root = Path(job["system_root"]).resolve()
     target_root = Path(job["target_root"]).resolve()
     corpus_root = Path(job["corpus_root"]).resolve()
     _bootstrap_system_imports(system_root)
+
+    try:
+        decision_prompt_profile = _select_decision_prompt_profile(job)
+    except (ImportError, ValueError):
+        return {
+            "worker_schema_version": WORKER_SCHEMA_VERSION,
+            "execution_validity": "INVALID",
+            "infrastructure_code": "unsupported_decision_prompt_profile",
+        }
 
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
@@ -385,7 +415,6 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
         evaluate_evidence_requirement,
         route_engineering_evidence_requirement,
     )
-    from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_V2_PROFILE
     from core.tool_agent.integration import build_tool_agent_runtime
 
     knowledge = build_verified_engineering_knowledge(
@@ -408,7 +437,7 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
             repo_root=target_root,
             retrieval_port=retrieval_port,
             api_key=api_key,
-            prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE,
+            prompt_profile=decision_prompt_profile,
         )
         runtime.latency_ms = 0.0
         original_runtime_run = runtime.run
@@ -502,7 +531,7 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
             retrieval_port=retrieval_port,
             api_key=api_key,
             base_url=DEEPSEEK_BASE_URL,
-            prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE,
+            prompt_profile=decision_prompt_profile,
         )
         execution_adapter = LegacyToolAgentExecutionAdapter(tool_runtime)
         execution_adapter.latency_ms = 0.0
