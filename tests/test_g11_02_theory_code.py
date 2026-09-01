@@ -17,7 +17,7 @@ from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_PROFILE,
     ENGINEERING_DECISION_PROMPT_SHA256,
     ENGINEERING_DECISION_PROMPT_V2_PROFILE,
-    ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE,
+    ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE,
     LEGACY_DECISION_PROMPT_PROFILE,
 )
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
@@ -144,7 +144,7 @@ def test_engineering_production_wiring_uses_unified_profile_without_clearing_leg
     asyncio.run(run_lifespan())
     assert len(calls) == 2
     assert calls[0].get("prompt_profile") is None
-    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE
+    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE
 
 
 def test_legacy_init_failure_blocks_engineering_init(monkeypatch, tmp_path):

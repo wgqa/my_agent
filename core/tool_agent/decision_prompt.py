@@ -321,6 +321,19 @@ ENGINEERING_DECISION_PROMPT_V3_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_V3_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+# Compose the already-frozen Unified-v1 recovery suffix with V3 grounding.
+# Keeping the suffix derived from the existing template makes the composition
+# auditable while leaving Unified-v1's template and identity untouched.
+ENGINEERING_DECISION_PROMPT_UNIFIED_V2_TEMPLATE = (
+    ENGINEERING_DECISION_PROMPT_V3_TEMPLATE
+    + ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE[
+        len(ENGINEERING_DECISION_PROMPT_V2_TEMPLATE) :
+    ]
+)
+ENGINEERING_DECISION_PROMPT_UNIFIED_V2_SHA256 = hashlib.sha256(
+    ENGINEERING_DECISION_PROMPT_UNIFIED_V2_TEMPLATE.encode("utf-8")
+).hexdigest()
+
 ACTION_REPAIR_PROMPT_VERSION = "engineering_action_repair_prompt_v1"
 ACTION_REPAIR_PROMPT_TEMPLATE = (
     "上一轮结构化输出未通过系统严格校验。\n"
@@ -379,6 +392,12 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE,
     render_control_state=True,
 )
+ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_unified_v2",
+    sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_V2_SHA256,
+    template=ENGINEERING_DECISION_PROMPT_UNIFIED_V2_TEMPLATE,
+    render_control_state=True,
+)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -390,6 +409,7 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
     {
         ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
 )
@@ -398,6 +418,7 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
     {
         ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
 )

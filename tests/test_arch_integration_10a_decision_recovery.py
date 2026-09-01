@@ -158,7 +158,7 @@ def test_legacy_profile_ignores_control_state_while_unified_renders_it():
 
 def test_formal_unified_assembly_uses_new_profile_and_legacy_builder_has_no_default_change():
     lifespan_source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE" in lifespan_source
+    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" in lifespan_source
     assert "prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE" not in lifespan_source
 
     from core.tool_agent.integration import build_tool_agent_runtime
