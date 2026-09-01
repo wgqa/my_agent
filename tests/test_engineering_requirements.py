@@ -227,22 +227,47 @@ class TestSyntheticRouter:
             "Diagnose failure propagation across modules"
         ).requirement_profile is DIAGNOSIS_CROSS_FILE_V1
 
-    def test_project_domain_profiles_cover_current_engineering_questions(self):
+    def test_project_domain_profiles_use_explicit_artifact_scope(self):
         assert route_engineering_evidence_requirement(
-            "Review the current project code for the runtime facade"
+            "Inspect the current repository source for the request handler"
         ).requirement_profile is PROJECT_CODE_V1
         assert route_engineering_evidence_requirement(
-            "只回答当前问题：如何把 bounded conversation context 组合成 standalone intent？"
+            "检查项目快照中的当前实现是否保留了依赖边界"
         ).requirement_profile is PROJECT_CODE_V1
         assert route_engineering_evidence_requirement(
-            "核对项目文档对 evidence-grounded engineering agent 的定位，判断文档是否把知识库误写成独立 Agent。"
+            "Compare the README with the current implementation for consistency"
         ).requirement_profile is DOCS_CODE_V1
         assert route_engineering_evidence_requirement(
             "Documentation versus implementation"
         ).requirement_profile is DOCS_CODE_V1
         assert route_engineering_evidence_requirement(
-            "当 trace 显示多个预算字段时，如何诊断是否出现了两个逻辑 Budget Owner？"
+            "Investigate validation failure propagation across modules"
         ).requirement_profile is DIAGNOSIS_CROSS_FILE_V1
+
+    def test_router_paraphrase_positives_cover_each_evidence_domain(self):
+        assert route_engineering_evidence_requirement(
+            "Review the changed commit and its regression test coverage"
+        ).requirement_profile is CHANGE_TEST_V1
+        assert route_engineering_evidence_requirement(
+            "Investigate why a validation failure follows a fallback path"
+        ).requirement_profile is DIAGNOSIS_SINGLE_V1
+        assert route_engineering_evidence_requirement(
+            "Explain the retrieval principle and map it to the current source implementation"
+        ).requirement_profile is THEORY_CODE_V1
+
+    def test_technical_concepts_without_project_scope_stay_unrouted(self):
+        for question in (
+            "Discuss conversation context as an abstract design topic",
+            "Explain an agent runtime concept without inspecting a repository",
+            "Compare RAG and agent architectures as general concepts",
+            "Describe trace and budget concepts in a monitoring design",
+            "Discuss documentation design for an agent",
+            "Explain the theory of context windows",
+        ):
+            assert (
+                route_engineering_evidence_requirement(question).requirement_profile
+                is NO_ADDITIONAL_REQUIREMENT
+            )
 
     def test_precedence_and_ambiguous_signals(self):
         assert route_engineering_evidence_requirement(
