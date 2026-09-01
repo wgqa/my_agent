@@ -10,6 +10,7 @@ from core.engineering_requirements import (
     DIAGNOSIS_SINGLE_V1,
     DOCS_CODE_V1,
     NO_ADDITIONAL_REQUIREMENT,
+    PROJECT_CODE_V1,
     THEORY_CODE_V1,
     EngineeringEvidenceRequirement,
     EngineeringRequirementProfile,
@@ -224,6 +225,23 @@ class TestSyntheticRouter:
         ).requirement_profile is DIAGNOSIS_SINGLE_V1
         assert route_engineering_evidence_requirement(
             "Diagnose failure propagation across modules"
+        ).requirement_profile is DIAGNOSIS_CROSS_FILE_V1
+
+    def test_project_domain_profiles_cover_current_engineering_questions(self):
+        assert route_engineering_evidence_requirement(
+            "Review the current project code for the runtime facade"
+        ).requirement_profile is PROJECT_CODE_V1
+        assert route_engineering_evidence_requirement(
+            "只回答当前问题：如何把 bounded conversation context 组合成 standalone intent？"
+        ).requirement_profile is PROJECT_CODE_V1
+        assert route_engineering_evidence_requirement(
+            "核对项目文档对 evidence-grounded engineering agent 的定位，判断文档是否把知识库误写成独立 Agent。"
+        ).requirement_profile is DOCS_CODE_V1
+        assert route_engineering_evidence_requirement(
+            "Documentation versus implementation"
+        ).requirement_profile is DOCS_CODE_V1
+        assert route_engineering_evidence_requirement(
+            "当 trace 显示多个预算字段时，如何诊断是否出现了两个逻辑 Budget Owner？"
         ).requirement_profile is DIAGNOSIS_CROSS_FILE_V1
 
     def test_precedence_and_ambiguous_signals(self):

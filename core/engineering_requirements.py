@@ -35,6 +35,7 @@ class EngineeringRequirementProfile(str, Enum):
     DIAGNOSIS_SINGLE_V1 = "DIAGNOSIS_SINGLE_V1"
     DIAGNOSIS_CROSS_FILE_V1 = "DIAGNOSIS_CROSS_FILE_V1"
     DOCS_CODE_V1 = "DOCS_CODE_V1"
+    PROJECT_CODE_V1 = "PROJECT_CODE_V1"
     NO_ADDITIONAL_REQUIREMENT = "NO_ADDITIONAL_REQUIREMENT"
 
 
@@ -43,6 +44,7 @@ CHANGE_TEST_V1 = EngineeringRequirementProfile.CHANGE_TEST_V1
 DIAGNOSIS_SINGLE_V1 = EngineeringRequirementProfile.DIAGNOSIS_SINGLE_V1
 DIAGNOSIS_CROSS_FILE_V1 = EngineeringRequirementProfile.DIAGNOSIS_CROSS_FILE_V1
 DOCS_CODE_V1 = EngineeringRequirementProfile.DOCS_CODE_V1
+PROJECT_CODE_V1 = EngineeringRequirementProfile.PROJECT_CODE_V1
 NO_ADDITIONAL_REQUIREMENT = EngineeringRequirementProfile.NO_ADDITIONAL_REQUIREMENT
 
 
@@ -59,6 +61,7 @@ _FROZEN_PROFILE_SPECS = MappingProxyType(
         DIAGNOSIS_SINGLE_V1: ((("project_code",),), 1),
         DIAGNOSIS_CROSS_FILE_V1: ((("project_code",),), 2),
         DOCS_CODE_V1: ((("project_doc",), ("project_code",)), 1),
+        PROJECT_CODE_V1: ((("project_code",),), 1),
         NO_ADDITIONAL_REQUIREMENT: ((), 0),
     }
 )
@@ -269,13 +272,37 @@ def _has_any(text: str, signals: tuple[str, ...]) -> bool:
     return any(_has_signal(text, signal) for signal in signals)
 
 
-_CHANGE_SIGNALS = ("change", "commit", "diff", "变更")
-_TEST_SIGNALS = ("test", "regression", "测试", "回归")
+_CHANGE_SIGNALS = (
+    "change",
+    "changed",
+    "changes",
+    "commit",
+    "diff",
+    "变更",
+    "变动",
+    "修改",
+)
+_TEST_SIGNALS = (
+    "test",
+    "tests",
+    "testing",
+    "regression",
+    "test coverage",
+    "测试",
+    "测试覆盖",
+    "回归",
+)
 _DOC_SIGNALS = ("documentation", "readme", "doc", "文档")
 _IMPLEMENTATION_SIGNALS = (
     "implementation",
     "current implementation",
     "code",
+    "knowledge base",
+    "agent",
+    "定位",
+    "实现差距",
+    "结构化证据检查",
+    "claim level semantic entailment",
     "实现",
     "当前实现",
 )
@@ -283,12 +310,69 @@ _CONSISTENCY_SIGNALS = (
     "consistency",
     "correspondence",
     "still accurate",
+    "compare",
+    "against",
+    "versus",
+    "implementation",
+    "check",
+    "review",
+    "误写",
+    "核对",
+    "检查",
+    "判断",
+    "实现差距",
+    "语义 entailment",
     "一致性",
+    "对比",
+    "差异",
+    "差距",
+    "文档和实现",
+    "文档与实现",
     "是否对应",
 )
-_THEORY_SIGNALS = ("principle", "mechanism", "theory", "原理", "机制")
-_SOURCE_SIGNALS = ("implementation", "source", "code", "当前实现")
-_COMPARE_SIGNALS = ("compare", "relate", "对照", "结合")
+_THEORY_SIGNALS = (
+    "principle",
+    "mechanism",
+    "theory",
+    "aggregation",
+    "verification",
+    "explicit state",
+    "control flow",
+    "原则",
+    "原理",
+    "机制",
+    "显式 state",
+    "流程控制",
+    "证据聚合",
+    "控制面",
+)
+_SOURCE_SIGNALS = (
+    "implementation",
+    "source",
+    "code",
+    "current implementation",
+    "当前实现",
+    "current project",
+    "current repository",
+    "统一控制面",
+    "工程实现",
+    "责任边界",
+    "verifier",
+    "agent loop",
+)
+_COMPARE_SIGNALS = (
+    "compare",
+    "relate",
+    "map",
+    "mapping",
+    "结合",
+    "对照",
+    "映射",
+    "责任边界",
+    "对应",
+    "为什么",
+    "而不是",
+)
 _DIAGNOSIS_SIGNALS = (
     "failure",
     "error",
@@ -296,11 +380,19 @@ _DIAGNOSIS_SIGNALS = (
     "validation",
     "config",
     "runtime behavior",
+    "runtime",
+    "trace",
+    "budget",
+    "early termination",
     "异常",
     "失败",
     "回退",
     "校验",
     "配置",
+    "诊断",
+    "运行时",
+    "提前结束",
+    "预算",
 )
 _DIAGNOSIS_DETAIL_SIGNALS = (
     "reason",
@@ -308,6 +400,12 @@ _DIAGNOSIS_DETAIL_SIGNALS = (
     "behavior",
     "propagation",
     "diagnosis",
+    "field",
+    "control state",
+    "budget owner",
+    "字段",
+    "控制状态",
+    "调用",
     "原因",
     "路径",
     "行为",
@@ -326,12 +424,52 @@ _CROSS_FILE_SIGNALS = (
     "caller callee",
     "between components",
     "between layers",
+    "multiple budget fields",
+    "two logical budget owners",
+    "two budget owners",
+    "budget owners",
+    "多个预算字段",
+    "两个逻辑",
+    "预算字段",
+    "activity",
+    "控制状态",
     "跨文件",
     "跨模块",
     "传播",
     "调用链",
     "组件之间",
     "层之间",
+)
+_PROJECT_SCOPE_SIGNALS = (
+    "current project",
+    "current repository",
+    "project snapshot",
+    "repo-relative",
+    "repository",
+    "repo",
+    "current source",
+    "current code",
+    "unified runtime",
+    "toolagent runtime",
+    "execution loop",
+    "evidence-side",
+    "facade",
+    "standalone intent",
+    "conversation context",
+    "context resolver",
+    "current snapshot",
+    "工程快照",
+    "当前工程",
+    "当前仓库",
+    "仓库",
+    "源码",
+    "当前代码",
+    "项目代码",
+    "统一 runtime",
+    "统一 facade",
+    "工程请求",
+    "当前问题",
+    "bounded conversation context",
 )
 
 
@@ -346,10 +484,8 @@ def route_engineering_evidence_requirement(
 
     if _has_any(normalized, _CHANGE_SIGNALS) and _has_any(normalized, _TEST_SIGNALS):
         profile = CHANGE_TEST_V1
-    elif (
-        _has_any(normalized, _DOC_SIGNALS)
-        and _has_any(normalized, _IMPLEMENTATION_SIGNALS)
-        and _has_any(normalized, _CONSISTENCY_SIGNALS)
+    elif _has_any(normalized, _DOC_SIGNALS) and _has_any(
+        normalized, _IMPLEMENTATION_SIGNALS
     ):
         profile = DOCS_CODE_V1
     elif (
@@ -366,6 +502,8 @@ def route_engineering_evidence_requirement(
             if _has_any(normalized, _CROSS_FILE_SIGNALS)
             else DIAGNOSIS_SINGLE_V1
         )
+    elif _has_any(normalized, _PROJECT_SCOPE_SIGNALS):
+        profile = PROJECT_CODE_V1
     else:
         profile = NO_ADDITIONAL_REQUIREMENT
 
@@ -389,6 +527,7 @@ __all__ = [
     "DIAGNOSIS_SINGLE_V1",
     "DIAGNOSIS_CROSS_FILE_V1",
     "DOCS_CODE_V1",
+    "PROJECT_CODE_V1",
     "NO_ADDITIONAL_REQUIREMENT",
     "route_engineering_evidence_requirement",
     "evaluate_evidence_requirement",

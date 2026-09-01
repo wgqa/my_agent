@@ -355,6 +355,20 @@ class EngineeringEvidenceVerifier:
         if proposed_answer is not None and type(proposed_answer) is not str:
             raise TypeError("proposed_answer 必须是 str 或 None")
 
+        requirement_kinds = {
+            kind
+            for group in requirement.required_evidence_groups
+            for kind in group
+        }
+        # Knowledge Planned Retrieval is a parallel backend.  For a
+        # Project-only requirement it may enrich the seed, but its coverage
+        # cannot become a second prerequisite that blocks Repo/Git/Test
+        # finalization.  The default G3 verifier behavior remains unchanged;
+        # this is the Unified Runtime composition boundary.
+        planned_knowledge_required = not (
+            any(kind.startswith("project_") for kind in requirement_kinds)
+            and "knowledge" not in requirement_kinds
+        )
         retrieval_result = MinimalEvidenceVerifier().verify(
             planner_outcome.plan,
             retrieval_snapshot.evidence_bundle,
@@ -362,6 +376,7 @@ class EngineeringEvidenceVerifier:
             covered_query_ids=retrieval_snapshot.covered_query_ids,
             upgrade_attempted=retrieval_snapshot.upgrade_attempted,
             upgrade_used=retrieval_snapshot.upgrade_used,
+            retrieval_required=planned_knowledge_required,
         )
         requirement_state = evaluate_evidence_requirement(requirement, evidence)
 

@@ -144,7 +144,19 @@ class MinimalEvidenceVerifier:
         covered_query_ids=(),
         upgrade_attempted: bool = False,
         upgrade_used: bool = False,
+        retrieval_required: bool = True,
     ) -> VerificationResult:
+        if type(retrieval_required) is not bool:
+            raise TypeError("retrieval_required 必须是严格 bool")
+        if not retrieval_required:
+            return VerificationResult(
+                schema_version="verification_result_v1",
+                status="not_required",
+                can_generate=True,
+                reason_code="NOT_REQUIRED",
+                evidence_count=len(bundle.items),
+                warnings=(),
+            )
         if plan.action == "no_retrieval":
             return VerificationResult(
                 schema_version="verification_result_v1",

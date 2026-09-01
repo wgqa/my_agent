@@ -8,6 +8,7 @@ loop, budget, finalization policy, or autonomous controller.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Collection, Sequence
 from typing import Callable
 
@@ -43,6 +44,7 @@ class LegacyToolAgentExecutionAdapter:
         finalization_verifier=None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
+        enforce_evidence_acquisition: bool = False,
     ) -> ToolAgentRunResult:
         """Delegate one run without adding control flow or policy."""
 
@@ -50,6 +52,8 @@ class LegacyToolAgentExecutionAdapter:
             raise TypeError(
                 "evidence_requirement 必须是 EngineeringEvidenceRequirement"
             )
+        if type(enforce_evidence_acquisition) is not bool:
+            raise TypeError("enforce_evidence_acquisition 必须是 bool")
         kwargs = {"evidence_requirement": evidence_requirement}
         if initial_context:
             kwargs["initial_context"] = initial_context
@@ -63,6 +67,19 @@ class LegacyToolAgentExecutionAdapter:
             kwargs["trace_sink"] = trace_sink
         if activity_sink is not None:
             kwargs["activity_sink"] = activity_sink
+        if enforce_evidence_acquisition:
+            # Keep test doubles and older execution adapters source-compatible
+            # during migration. The production ToolAgentRuntime exposes this
+            # opt-in policy; no extra loop or budget is introduced here.
+            parameters = inspect.signature(self._runtime.run).parameters
+            if (
+                "enforce_evidence_acquisition" in parameters
+                or any(
+                    parameter.kind is inspect.Parameter.VAR_KEYWORD
+                    for parameter in parameters.values()
+                )
+            ):
+                kwargs["enforce_evidence_acquisition"] = True
         return self._runtime.run(user_input, **kwargs)
 
 
@@ -117,6 +134,10 @@ class UnifiedEngineeringRuntime:
         # passive; ARCH-RETRIEVAL-05 interprets it only through the finite
         # Knowledge Retrieval component below.
         planner_outcome = self._evidence_planner.plan(resolved_input)
+        # Requirement is a domain contract, not a post-retrieval observation.
+        # Establish it before planned Knowledge Retrieval so the later
+        # finalization binding can keep Knowledge supplementary for Project-only
+        # tasks while preserving it as required for Theory-Code tasks.
         requirement = route_engineering_evidence_requirement(resolved_input)
         retrieval_snapshot = self._retrieval_component.retrieve(
             resolved_input,
@@ -136,6 +157,7 @@ class UnifiedEngineeringRuntime:
             finalization_verifier=finalization_verifier,
             trace_sink=trace_sink,
             activity_sink=activity_sink,
+            enforce_evidence_acquisition=True,
         )
 
 
