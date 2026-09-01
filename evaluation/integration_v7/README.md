@@ -293,9 +293,41 @@ The Gold audit has one record per case/obligation/proof and is prepared with
 updated only the seven repaired/replaced cases (`v7d005`, `v7d006`, `v7d008`,
 `v7d010`, `v7d014`, `v7h006`, `v7h007`); all current 61 records match the
 dataset exactly. The architecture/evaluation status is
-`ARCH-EVAL-08A = REVIEW PENDING`, `ARCH-EVAL-08A-R2-MICRO = BLOCKED`, and
-`ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING` until an independent audit
-makes the final ACCEPT decision.
+`ARCH-EVAL-08A = ACCEPT / CLOSED`, `ARCH-EVAL-08A-R2-MICRO = BLOCKED`, and
+`ARCH-EVAL-08A-R3-MICRO = ACCEPT / CLOSED` under the current task baseline.
+
+## ARCH-EVAL-08B real Dev runner
+
+`runner.py` is the only authorized 08B execution entry point. It is Dev-only
+and performs a fail-closed preflight for the frozen System A/B, target project,
+verified corpus, protocol SHA, provider/model, and the existing
+`DEEPSEEK_API_KEY` environment variable before creating any provider client.
+Each run uses detached isolated checkouts and a separate worker process; A
+receives only the current question, while B receives the frozen conversation
+context. The worker uses the existing DeepSeek `deepseek-chat` contract and
+does not change Prompt, Router, Planner, Retrieval Policy, Verifier, or the
+5/4/2 budget.
+
+The intended command is:
+
+```text
+python -m evaluation.integration_v7.runner \
+  --corpus-root <path-to-agent_data-checkout>
+```
+
+The `<path-to-agent_data-checkout>` must be the clean checkout at
+`179f18e812ad63c36c5569de8e86c5ff9a931cb5`; the runner resolves the frozen
+`agent_ai_v1/02_corpus_candidate` path from the protocol manifest. It produces
+`evaluation/integration_v7/results/dev_v1/` only after all preflight checks
+pass, with `run_manifest.json`, `raw_runs.jsonl`, `automatic_scores.jsonl`,
+`summary.json`, and `manual_review_template.jsonl`. Holdout is denied by
+default and is not an accepted argument. Infrastructure failures are marked
+INVALID, failed cases are not retried, and manual fields remain
+`REVIEW_PENDING`.
+
+At the current 08B implementation checkpoint the environment has no
+`DEEPSEEK_API_KEY`, so no provider call and no Dev result artifact has been
+started. This is a preflight blocker, not an evaluation result or PASS.
 
 The automatic metric boundary is explicit: `task_completion` reads only the
 runtime/business terminal state; Task Success and Answer Obligation remain

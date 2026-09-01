@@ -68,9 +68,13 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 
 **`ARCH-EVAL-08A-R2-MICRO = BLOCKED`**：R2 完成了 27 个 case 的 obligation-level Gold semantic provenance、exact source excerpt、historical diff/test provenance 与 independent-audit boundary，但被 R3 发现的 case-level evidence coherence 缺口阻断；R2 不构成运行结果。
 
-**`ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING`**：仅做 Evaluation Case Coherence Closure，统一 question、Gold obligations、runtime evidence kind/path、required groups、distinct code paths 与 required tools 的可执行合同；不执行真实 Provider、A/B、Holdout、Formal 或 manual scoring。
+**`ARCH-EVAL-08A-R3-MICRO = ACCEPT / CLOSED`**：Evaluation Case Coherence Closure 已完成并纳入冻结协议，统一 question、Gold obligations、runtime evidence kind/path、required groups、distinct code paths 与 required tools 的可执行合同；08A 的独立审计状态按当前任务基线关闭。
 
-**NEXT = `ARCH-EVAL-08A-R3-MICRO`（CURRENT / REVIEW PENDING）**
+**`ARCH-EVAL-08A = ACCEPT / CLOSED`**：R0 → R1 → R2 → R3 的协议与 provenance supersession 保持不变；所有旧 protocol SHA 均未产生 product run/result。
+
+**`ARCH-EVAL-08B = CURRENT / REVIEW PENDING`**：只允许使用 08A 冻结的 Dev 协议执行 System A/B 真实 Integration Dev。runner 已限定为隔离 checkout、同一 target/corpus、A/B 交替顺序、safe artifacts 与 Holdout deny-by-default；当前环境缺少 `DEEPSEEK_API_KEY`，因此真实 Provider run 尚未启动，不能形成 PASS 或产品结果。
+
+**NEXT = `ARCH-EVAL-08B`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后的后续唯一顺序为：
 
@@ -86,7 +90,8 @@ ARCH-RUNTIME-02
 ```
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
-`ARCH-EVAL-08A` 协议冻结，完成后立即停止，后续评测阶段须另行授权。
+`ARCH-EVAL-08B` 的 Integration Dev 执行，Holdout、ARCH-EVAL-08B 之外的评测与
+Productization 均未启动，后续阶段须另行授权。
 
 R2 provenance note：R0 protocol SHA
 `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被

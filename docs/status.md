@@ -19,8 +19,9 @@
 - **ARCH-CUTOVER-07 = ACCEPT / CLOSED**
 - **ARCH-EVAL-08A-R1-MICRO = BLOCKED**（locator/tool-contract repair only；agent self-accept is withdrawn）
 - **ARCH-EVAL-08A-R2-MICRO = BLOCKED**（Gold semantic provenance closure 被 R3 case-coherence repair 阻断；无 product run/result）
-- **ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING**（Evaluation Case Coherence Closure；independent final audit required）
-- **ARCH-EVAL-08A = CURRENT / REVIEW PENDING**（protocol freeze only；no real Provider/Holdout/Formal/manual scoring）
+- **ARCH-EVAL-08A-R3-MICRO = ACCEPT / CLOSED**（case/evidence coherence closure 已纳入冻结协议）
+- **ARCH-EVAL-08A = ACCEPT / CLOSED**（R0 → R1 → R2 → R3 protocol-only supersession 已关闭；无 product run/result）
+- **ARCH-EVAL-08B = CURRENT / REVIEW PENDING**（真实 Dev A/B runner 已实现并通过 provider-free contract tests；当前环境缺少 `DEEPSEEK_API_KEY`，真实 run 未启动）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
 - **ARCH-EVAL-08A dataset = 18 Dev + 9 Holdout；9 task families × (2 Dev + 1 Holdout)**
@@ -55,13 +56,13 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-EVAL-08A-R3-MICRO**（只做 case/Gold/evidence coherence closure；完成后立即停止，后续评测阶段须另行授权）
+- **NEXT = ARCH-EVAL-08B**（只执行冻结协议的 18 Dev × A/B；Holdout deny-by-default，不能写 08B PASS 或 ARCH-EVAL-08 PASS）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
 ## ARCH-EVAL-08A V7 Architecture Integration Evaluation Protocol
 
-- **状态：** CURRENT / REVIEW PENDING；权威协议资产为 `evaluation/integration_v7/`。
+- **状态：** ACCEPT / CLOSED；权威协议资产为 `evaluation/integration_v7/`。08B 只消费本节冻结输入，不修改 dataset/Gold/Runtime。
 - **冻结内容：** System A/B、目标项目与 verified corpus identity、27 个全新 case、9 个 family 的 2 Dev + 1 Holdout 矩阵、automatic metric schema、manual rubric、failure classification、contamination policy、canonical SHA 与 Holdout deny-by-default。
 - **运行边界：** 本阶段只做离线 contract/validator/deterministic tests；没有真实 Provider、A/B generation、Holdout、Formal、manual scoring 或 product result。完成后停止，不自行进入后续评测阶段。
 - **兼容边界：** G1～G12 frozen facts、Gate 2/3 sealed/formal、G12 question-only contract、legacy endpoint regression、Prompt/Router/Guard/5-4-2 budget 均不因协议冻结而重写或调参。
@@ -71,6 +72,13 @@
 - **R2 provenance closure（历史，现 BLOCKED）：** 每个 case 的每个 Gold obligation 都绑定至少一个 `source_excerpt` 与 `bounded_proof`；project code/doc 固定 target `385b7795eafde7c114efc382e95c0d18ec273f54`，project change 按真实 `base_ref..head_ref` diff，project test 按 `head_ref + accepted_test_paths`，knowledge 固定已验证的 agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5`。其 prepared audit 不是运行结果；R3 发现并修复 case-level coherence 缺口，R2 不再作为当前协议。
 - **R3 case coherence closure：** 新增 `validate_case_gold_coherence`，对 runtime evidence kind/path classification、required group Gold backing、`min_distinct_project_code_paths`、theory_code bilateral Gold、knowledge source/proof exact match 与 test-path semantics 做 deterministic fail-closed 校验。修复/复核 cases：`v7d005`、`v7d006`、`v7d008`、`v7d010`、`v7d014`、`v7h006`、`v7h007`；change_test 的 code-path floor 回归为 0，不能以 project_test 充当 project_code。Gold audit 与当前 proofs 保持 exact match，共 61 records，全部 PREPARED ACCEPT；最终 ACCEPT 仍必须由独立审计作出。
 - **R3 status：** Dev SHA=`fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9`；Holdout SHA=`3d3f12250a39c18e3b1d02292e7d73baa9ee9b96cdfc095039938968d8557688`；Protocol SHA=`281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d`。R0/R1/R2/R3 均为 protocol-only，均从未产生 product run/result；Holdout 仍 default DENY，未执行。
+
+## ARCH-EVAL-08B Real Integration Dev A/B Execution
+
+- **状态：** CURRENT / REVIEW PENDING；本阶段只运行 frozen R3 Dev dataset 的 18 cases × System A/B，共 36 system-runs。System A=`0eef8ef9d6decdaa10efebe04087b06611654670`，System B/target=`385b7795eafde7c114efc382e95c0d18ec273f54`。
+- **隔离合同：** A、B、target project 使用独立 detached checkout；两系统使用同一 verified corpus `870e5864df67` / source `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；奇数 case 为 A→B，偶数 case 为 B→A；A 仅收 current question，B 收 frozen conversation context。
+- **安全边界：** provider 仍为既有 DeepSeek `deepseek-chat`；worker 只序列化 bounded result、safe trace、evidence identity、自动指标与人工 review template，不保存 raw CoT/provider response/system prompt/API key/绝对路径；Holdout、Formal、manual self-accept 均未执行。
+- **当前 preflight：** `DEEPSEEK_API_KEY` 未配置，真实 36-run 尚未启动，未产生 `evaluation/integration_v7/results/dev_v1` 结果；这不是 08B PASS，也不是 Productization 结果。设置既有授权环境后，必须从 preflight 重新执行一次，失败 case 不重跑。
 
 ## ARCH-CUTOVER-07 Unified Runtime Main-Chain Cutover
 
