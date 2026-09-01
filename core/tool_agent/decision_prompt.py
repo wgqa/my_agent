@@ -265,6 +265,33 @@ ENGINEERING_DECISION_PROMPT_V2_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_V2_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE = ENGINEERING_DECISION_PROMPT_V2_TEMPLATE + (
+    "\nEvidence Recovery Control policy：\n"
+    "- finalization_blocked=true 是 Trusted Runtime evidence obligation，不是建议；"
+    "它表示当前 public evidence contract 尚未满足，必须认真处理。\n"
+    "- 当 finalization_blocked=true、tool_call_allowed=true 且 must_terminate=false 时，"
+    "不能仅因为当前信息不足而选择 final_answer 或 refuse；必须优先选择一个能推进"
+    "missing_evidence_groups 的可用只读 Tool。\n"
+    "- missing_evidence_groups 表示仍缺失的 public evidence kind；选择 Tool 时应让"
+    "Tool 的 producer 直接推进这些 kind，而不是重复已经满足的 evidence。\n"
+    "- project_code、project_doc、project_test 的最终 public evidence producer 是"
+    "read_project_context；必要时先用 code_search 或 find_tests 定位正确的 repo-relative path。\n"
+    "- project_change 需要 git_diff 产生 public evidence；changed_files 可用于先定位"
+    "需要检查的变更范围。\n"
+    "- 要求 project_code 时，读取 project_doc 不算满足 project_code；当"
+    "required_min_distinct_project_code_paths 大于 current_distinct_project_code_paths 时，"
+    "继续取得新的 distinct source-code path。\n"
+    "- Unified Runtime 中 knowledge_search 仍 disabled；不能为了满足 project evidence"
+    "恢复第二套 knowledge tool，也不能把 Knowledge Evidence 当作 Project Evidence。\n"
+    "- 只有 Tool 不可用、预算禁止继续，或 Runtime 的 must_terminate=true 时，才允许按"
+    "现有终止规则选择 final_answer 或 refuse；Runtime 仍是最终 hard enforcement owner。\n"
+    "- 当 finalization_blocked=false 或未提供时，本 recovery policy 不强迫普通 knowledge-only"
+    "请求调用 Repo Tool；继续遵守普通 Knowledge/Repository Evidence policy 与可用 Tool 边界。"
+)
+ENGINEERING_DECISION_PROMPT_UNIFIED_SHA256 = hashlib.sha256(
+    ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE.encode("utf-8")
+).hexdigest()
+
 ENGINEERING_DECISION_PROMPT_V3_TEMPLATE = ENGINEERING_DECISION_PROMPT_V2_TEMPLATE + (
     "\nGrounded evidence policy：\n"
     "- 当用户询问当前实现、源码行为、算法细节、调用关系、配置行为或返回字段时，"
@@ -346,6 +373,12 @@ ENGINEERING_DECISION_PROMPT_V2_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_V2_TEMPLATE,
     render_control_state=True,
 )
+ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_unified_v1",
+    sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_SHA256,
+    template=ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE,
+    render_control_state=True,
+)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -356,6 +389,7 @@ ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
 ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
     {
         ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
 )
@@ -363,6 +397,7 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
 ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
     {
         ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
 )

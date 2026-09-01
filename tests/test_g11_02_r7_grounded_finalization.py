@@ -113,6 +113,7 @@ def test_prompt_identities_and_repair_matrix_are_frozen():
     )
     assert ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS == {
         "engineering_agent_decision_prompt_v2",
+        "engineering_agent_decision_prompt_unified_v1",
         "engineering_agent_decision_prompt_v3",
     }
     assert max_parse_repairs_for_profile(None) == 0
