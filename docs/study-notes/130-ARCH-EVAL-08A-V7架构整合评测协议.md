@@ -1,7 +1,7 @@
 # ARCH-EVAL-08A：V7 架构整合评测协议
 
-> 状态：ARCH-EVAL-08A-R1-MICRO = BLOCKED；ARCH-EVAL-08A-R2-MICRO = CURRENT / REVIEW PENDING<br>
-> 日期：2026-08-31<br>
+> 状态：ARCH-EVAL-08A = REVIEW PENDING；ARCH-EVAL-08A-R2-MICRO = BLOCKED；ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING<br>
+> 日期：2026-09-01<br>
 > 主题：Architecture Integration Evaluation Protocol Freeze<br>
 > 权威资产：[evaluation/integration_v7/](../../evaluation/integration_v7/)
 
@@ -138,16 +138,20 @@ Dev 可以诊断和验证指标。Holdout candidate SHA 必须在首次 open/run
 
 R1 是 pre-run protocol repair：更新 Holdout Gold/source proof 不属于
 result-driven contamination，因为 Holdout 从未执行。R2 是同一 pre-run protocol
-上的 Gold semantic provenance closure，不是结果驱动修正。R0 protocol SHA
-`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被
-supersede，R1 SHA `534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`
-也由 R2 supersede；二者从未成为 product run/result。R2 将 project code/doc 固定在
-target `385b7795eafde7c114efc382e95c0d18ec273f54`，knowledge 固定在已验证的
-agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；此前 R0 的
-`...c5ff5a...` 不是有效 Git object，历史事实不改写。校验器审计 file、
-tracked-at-commit、exact excerpt、historical diff/test membership 和 safe path；
-语义 entailment 由 `gold_proof_audit_v1.jsonl` 的 review 记录承载，不由 validator
-从 class/type 名称自动推导。
+上的 Gold semantic provenance closure，不是结果驱动修正。R3 只修复 case-level
+coherence，也不属于结果驱动修正。R0 protocol SHA
+`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42`、R1 SHA
+`534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`、R2 SHA
+`c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5` 依次由后续
+协议 supersede；R0/R1/R2/R3 均从未成为 product run/result。当前 R3 Protocol SHA 为
+`281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d`。R2/R3 将 project
+code/doc 固定在 target `385b7795eafde7c114efc382e95c0d18ec273f54`，knowledge 固定
+在已验证的 agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；此前 R0
+的 `...c5ff5a...` 不是有效 Git object，历史事实不改写。R3 validator 进一步审计
+runtime evidence kind/path classification、Gold-backed evidence groups、distinct
+project-code path floor、theory_code bilateral Gold、knowledge source/proof exact
+match 与 test-path semantics；语义 entailment 仍由 `gold_proof_audit_v1.jsonl` 的
+review 记录承载，不由 validator 从 class/type 名称自动推导。
 
 ## 7. Artifact 与验证边界
 
@@ -157,7 +161,9 @@ metric schema、manual rubric、failure/contamination policy、Gold proof audit 
 Holdout guard。`gold_proof_audit_v1.jsonl` 对每个 case/obligation/proof 记录
 `case_id`、`obligation_id`、proof locator、exact excerpt 与 `review_decision`；它是
 Gold provenance，不是 Holdout 或任何产品结果。当前记录为 prepared ACCEPT，最终
-independent audit sign-off 仍 pending。
+independent audit sign-off 仍 pending。R3 仅对修改/替换的 `v7d005`、`v7d006`、
+`v7d008`、`v7d010`、`v7d014`、`v7h006`、`v7h007` 重新准备 provenance review；当前
+61 条 proof records 与 dataset 100% exact match，未对未修改 cases 进行第三次语义复审。
 SHA 对 canonical JSON 内容计算；dataset 或 manifest 发生 mutation 时 validator
 fail closed。未来结果 artifact 必须带 system/target/corpus/case/metric/rubric/
 failure provenance，且不得带绝对路径、credential、raw provider/model output、

@@ -28,6 +28,7 @@ from evaluation.integration_v7 import (
     load_cases,
     load_protocol_manifest,
     validate_corpus_identity,
+    validate_case_gold_coherence,
     validate_knowledge_source_proofs,
     validate_gold_proof_audit,
     validate_protocol_manifest,
@@ -353,12 +354,12 @@ def test_v7d012_project_proofs_are_visible_at_target_sha() -> None:
         assert shown.splitlines()[line_number - 1].strip()
 
 
-def test_r2_dataset_and_protocol_hashes_are_self_consistent() -> None:
+def test_r3_dataset_and_protocol_hashes_are_self_consistent() -> None:
     manifest = validate_protocol_manifest()
     assert manifest["datasets"][DEV_SPLIT]["sha256"] == canonical_jsonl_sha256(DEV_DATASET_PATH)
     assert manifest["datasets"][HOLDOUT_SPLIT]["sha256"] == canonical_jsonl_sha256(HOLDOUT_DATASET_PATH)
     assert manifest["protocol_sha256"] == _computed_protocol_sha256(manifest)
-    assert manifest["supersedes_protocol_sha256"] == "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31"
+    assert manifest["supersedes_protocol_sha256"] == "c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5"
 
 
 def test_r2_source_excerpt_must_be_exact_and_at_the_declared_anchor(tmp_path) -> None:
@@ -468,23 +469,98 @@ def test_r2_duplicate_required_evidence_groups_are_rejected() -> None:
         validate_case(case)
 
 
+def test_r3_project_test_and_project_code_path_classification_is_fail_closed() -> None:
+    case = copy.deepcopy(load_cases(DEV_DATASET_PATH)[2])
+    case["source_proofs"][0]["relative_path"] = "tests/test_fixture.py"
+    with pytest.raises(ProtocolViolation, match="must be classified as project_test"):
+        validate_case(case)
+
+    project_test = copy.deepcopy(load_cases(DEV_DATASET_PATH)[2])
+    project_test["source_proofs"][0]["kind"] = "project_test"
+    with pytest.raises(ProtocolViolation, match="not a test path"):
+        validate_case_gold_coherence(project_test)
+
+
+def test_r3_required_project_doc_group_cannot_be_backed_by_only_project_code() -> None:
+    case = copy.deepcopy(next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d008"))
+    case["required_evidence_groups"] = [["project_doc"]]
+    with pytest.raises(ProtocolViolation, match="no Gold proof support"):
+        validate_case(case)
+
+
+def test_r3_min_distinct_code_paths_must_be_backed_by_distinct_code_proofs() -> None:
+    case = copy.deepcopy(next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d003"))
+    case["source_proofs"][1]["relative_path"] = case["source_proofs"][0]["relative_path"]
+    case["min_distinct_project_code_paths"] = 2
+    with pytest.raises(ProtocolViolation, match="project_code paths"):
+        validate_case(case)
+
+
+def test_r3_theory_code_requires_bilateral_gold() -> None:
+    case = copy.deepcopy(next(case for case in load_cases(DEV_DATASET_PATH) if case["case_id"] == "v7d005"))
+    case["source_proofs"] = [
+        proof for proof in case["source_proofs"] if proof["kind"] != "knowledge"
+    ]
+    case["knowledge_gold_sources"] = []
+    case["knowledge_probe_query"] = None
+    case["required_evidence_groups"] = [["project_code"]]
+    with pytest.raises(ProtocolViolation, match="theory_code requires a knowledge"):
+        validate_case_gold_coherence(case)
+
+
+def test_r3_knowledge_sources_must_match_knowledge_proofs() -> None:
+    case = copy.deepcopy(load_cases(DEV_DATASET_PATH)[0])
+    case["knowledge_gold_sources"] = ["rag/not-the-proof.md"]
+    with pytest.raises(ProtocolViolation, match="exactly match knowledge proof paths"):
+        validate_case_gold_coherence(case)
+
+
+def test_r3_current_case_coherence_repairs_pass() -> None:
+    cases = load_cases(DEV_DATASET_PATH) + load_cases(HOLDOUT_DATASET_PATH)
+    for case_id in ("v7d008", "v7d010", "v7d014", "v7h007"):
+        case = next(case for case in cases if case["case_id"] == case_id)
+        validate_case_gold_coherence(case)
+
+    d014 = next(case for case in cases if case["case_id"] == "v7d014")
+    h007 = next(case for case in cases if case["case_id"] == "v7h007")
+    for case in (d014, h007):
+        code_paths = {
+            proof["relative_path"]
+            for proof in case["source_proofs"]
+            if proof["kind"] == "project_code"
+        }
+        assert len(code_paths) >= case["min_distinct_project_code_paths"] == 2
+
+
+def test_r3_case_matrix_and_holdout_boundary_remain_frozen() -> None:
+    manifest = validate_protocol_manifest()
+    dev = load_cases(DEV_DATASET_PATH)
+    holdout = load_cases(HOLDOUT_DATASET_PATH)
+    assert len(dev) == 18
+    assert len(holdout) == 9
+    assert manifest["family_counts"] == EXPECTED_FAMILY_COUNTS
+    with pytest.raises(HoldoutExecutionDenied):
+        assert_execution_allowed(HOLDOUT_SPLIT)
+
+
 def test_r2_every_gold_obligation_has_an_accepted_audit_record() -> None:
     cases = load_cases(DEV_DATASET_PATH) + load_cases(HOLDOUT_DATASET_PATH)
     records = load_gold_proof_audit()
-    assert len(records) == 56
+    assert len(records) == 61
     assert {record["review_decision"] for record in records} == {"ACCEPT"}
     validate_gold_proof_audit(cases=cases)
 
     expected = {
         (
             case["case_id"],
-            proof["obligation_ids"][0],
+            obligation_id,
             proof["kind"],
             proof["relative_path"],
             proof["anchor"],
         ): proof["source_excerpt"]
         for case in cases
         for proof in case["source_proofs"]
+        for obligation_id in proof["obligation_ids"]
     }
     actual = {
         (

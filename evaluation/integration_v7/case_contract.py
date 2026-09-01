@@ -53,7 +53,9 @@ from core.tool_agent.default_tools import (
     READ_PROJECT_CONTEXT_SPEC,
 )
 from core.tool_agent.integration import FROZEN_TOOL_MODEL, FROZEN_TOOL_PROVIDER
+from core.tool_agent.runtime import _PROJECT_CODE_SUFFIXES
 from core.tool_agent.runtime_models import ToolAgentBudget
+from core.tool_agent.tools.test_discovery import is_test_path
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -120,6 +122,9 @@ SYSTEM_B_DYNAMIC_TOOL_NAMES = tuple(name for name in TOOLSET_NAMES if name != "k
 KNOWLEDGE_FAMILIES = frozenset({"knowledge_only", "theory_code", "decomposed_knowledge"})
 CONTEXT_FAMILIES = frozenset({"context_followup"})
 CHANGE_TEST_FAMILIES = frozenset({"change_test"})
+PROJECT_EVIDENCE_KINDS = frozenset(
+    {"project_code", "project_doc", "project_change", "project_test"}
+)
 _DIFFICULTIES = frozenset({"basic", "intermediate", "complex", "adversarial"})
 _OUTCOMES = frozenset({"answerable", "refusal"})
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -395,6 +400,126 @@ def _validate_proofs(case: Mapping[str, Any], obligation_ids: set[str]) -> set[t
     return identities
 
 
+def _runtime_project_path_kind(relative_path: str) -> str:
+    """Mirror ToolAgentRuntime's read-project-context evidence classifier."""
+
+    if is_test_path(relative_path):
+        return "project_test"
+    if PurePosixPath(relative_path).suffix.lower() in _PROJECT_CODE_SUFFIXES:
+        return "project_code"
+    return "project_doc"
+
+
+def validate_case_gold_coherence(case: Mapping[str, Any]) -> None:
+    """Validate that Gold, evidence groups, and path contracts describe one case."""
+
+    if not isinstance(case, Mapping):
+        raise ProtocolViolation("case Gold coherence input must be an object")
+    proofs = case.get("source_proofs")
+    if not isinstance(proofs, list) or not proofs:
+        raise ProtocolViolation("case Gold coherence requires source_proofs")
+
+    proof_kinds: set[str] = set()
+    knowledge_proof_paths: set[str] = set()
+    code_paths: set[str] = set()
+    proof_obligation_ids: dict[str, set[str]] = {}
+    for index, proof in enumerate(proofs):
+        if not isinstance(proof, Mapping):
+            raise ProtocolViolation(f"source_proofs[{index}] must be an object")
+        kind = proof.get("kind")
+        if kind not in PUBLIC_EVIDENCE_KINDS:
+            raise ProtocolViolation(f"source_proofs[{index}].kind is invalid")
+        relative_path = _safe_relative_path(
+            proof.get("relative_path"),
+            f"source_proofs[{index}].relative_path",
+        )
+        runtime_kind = _runtime_project_path_kind(relative_path)
+        if runtime_kind == "project_test" and kind != "project_test":
+            raise ProtocolViolation(
+                f"source_proofs[{index}] test path must be classified as project_test"
+            )
+        if kind == "project_test" and runtime_kind != "project_test":
+            raise ProtocolViolation(
+                f"source_proofs[{index}] project_test path is not a test path"
+            )
+        if kind == "project_code" and runtime_kind != "project_code":
+            raise ProtocolViolation(
+                f"source_proofs[{index}] project_code path is not runtime project_code"
+            )
+        if kind == "project_doc" and runtime_kind != "project_doc":
+            raise ProtocolViolation(
+                f"source_proofs[{index}] project_doc path is an obvious source/test path"
+            )
+        proof_kinds.add(kind)
+        if kind == "knowledge":
+            knowledge_proof_paths.add(relative_path)
+        if kind == "project_code":
+            code_paths.add(relative_path)
+        obligation_ids = proof.get("obligation_ids")
+        if not isinstance(obligation_ids, list) or not obligation_ids:
+            raise ProtocolViolation(
+                f"source_proofs[{index}].obligation_ids must be non-empty"
+            )
+        proof_obligation_ids[kind] = proof_obligation_ids.get(kind, set()) | set(obligation_ids)
+
+    declared_knowledge_paths = case.get("knowledge_gold_sources")
+    if not isinstance(declared_knowledge_paths, list):
+        raise ProtocolViolation("knowledge_gold_sources must be a list")
+    normalized_knowledge_paths = {
+        _safe_relative_path(item, "knowledge_gold_sources")
+        for item in declared_knowledge_paths
+    }
+    if len(normalized_knowledge_paths) != len(declared_knowledge_paths):
+        raise ProtocolViolation("knowledge_gold_sources contains a duplicate path")
+    if normalized_knowledge_paths != knowledge_proof_paths:
+        raise ProtocolViolation(
+            "knowledge_gold_sources must exactly match knowledge proof paths"
+        )
+
+    groups = case.get("required_evidence_groups")
+    if not isinstance(groups, list):
+        raise ProtocolViolation("required_evidence_groups must be a list")
+    for index, group in enumerate(groups):
+        if not isinstance(group, list) or not group:
+            raise ProtocolViolation(
+                f"required_evidence_groups[{index}] must be non-empty"
+            )
+        if not any(kind in proof_kinds for kind in group):
+            raise ProtocolViolation(
+                f"required_evidence_groups[{index}] has no Gold proof support"
+            )
+
+    min_paths = case.get("min_distinct_project_code_paths")
+    if type(min_paths) is not int or min_paths < 0:
+        raise ProtocolViolation("min_distinct_project_code_paths must be a non-negative int")
+    if len(code_paths) < min_paths:
+        raise ProtocolViolation(
+            "Gold project_code paths do not satisfy min_distinct_project_code_paths"
+        )
+
+    if case.get("task_family") == "theory_code":
+        obligation_ids = {
+            item.get("id")
+            for item in case.get("gold_obligations", [])
+            if isinstance(item, Mapping)
+        }
+        if not knowledge_proof_paths:
+            raise ProtocolViolation("theory_code requires a knowledge Gold proof")
+        project_proof_ids = set().union(
+            *(proof_obligation_ids.get(kind, set()) for kind in ("project_code", "project_doc"))
+        )
+        if not project_proof_ids:
+            raise ProtocolViolation(
+                "theory_code requires a project_code or project_doc Gold proof"
+            )
+        if not proof_obligation_ids.get("knowledge"):
+            raise ProtocolViolation("theory_code knowledge proof must map to an obligation")
+        if not proof_obligation_ids.get("knowledge") & obligation_ids:
+            raise ProtocolViolation("theory_code knowledge proof maps outside Gold obligations")
+        if not project_proof_ids & obligation_ids:
+            raise ProtocolViolation("theory_code project proof must map to an obligation")
+
+
 def _validate_string_list(value: object, label: str, *, allowed: set[str] | frozenset[str]) -> list[str]:
     if not isinstance(value, list) or any(type(item) is not str for item in value):
         raise ProtocolViolation(f"{label} must be a list of strings")
@@ -569,10 +694,11 @@ def validate_case(case: Mapping[str, Any], *, line_number: int = 0) -> set[tuple
     min_paths = case["min_distinct_project_code_paths"]
     if type(min_paths) is not int or min_paths < 0 or min_paths > 5:
         raise ProtocolViolation("min_distinct_project_code_paths must be an int from 0 to 5")
-    if family in {"repo_only", "theory_code", "docs_code", "diagnosis", "change_test"} and min_paths < 1:
+    if family in {"repo_only", "theory_code", "docs_code", "diagnosis"} and min_paths < 1:
         raise ProtocolViolation("project-evidence family requires at least one project-code path")
     if family == "diagnosis" and min_paths < 2:
         raise ProtocolViolation("diagnosis requires cross-file project evidence")
+    validate_case_gold_coherence(case)
 
     change_fields = {"base_ref", "head_ref", "accepted_test_paths"}
     if family in CHANGE_TEST_FAMILIES:
@@ -880,13 +1006,18 @@ def _validate_source_proof_files(
                     )
             elif proof["kind"] == "project_test":
                 accepted = case.get("accepted_test_paths")
-                if not isinstance(accepted, list) or repo_relative_path not in accepted:
+                change_test_contract = case.get("task_family") in CHANGE_TEST_FAMILIES or any(
+                    field in case for field in ("base_ref", "head_ref", "accepted_test_paths")
+                )
+                if change_test_contract and (
+                    not isinstance(accepted, list) or repo_relative_path not in accepted
+                ):
                     raise ProtocolViolation(
                         f"{label} test path is not in accepted_test_paths"
                     )
-                head_ref = case.get("head_ref")
+                head_ref = case.get("head_ref") or case.get("project_source_commit")
                 if not isinstance(head_ref, str):
-                    raise ProtocolViolation(f"{label} requires head_ref")
+                    raise ProtocolViolation(f"{label} requires head_ref or project_source_commit")
                 _require_sha(head_ref, f"{label}.head_ref")
                 revision = head_ref
             source_text = git_show(revision, repo_relative_path, label)
@@ -1321,6 +1452,56 @@ def validate_protocol_manifest(path: str | Path = MANIFEST_PATH) -> dict[str, An
     if any(gold_audit.get(flag) is not True for flag in required_audit_flags):
         raise ProtocolViolation("gold_proof_audit independence boundary drift")
     validate_gold_proof_audit(cases=dev_cases + holdout_cases, audit_path=audit_path)
+    expected_supersession_history = [
+        {
+            "revision": "R0",
+            "protocol_sha256": "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42",
+            "superseded_by": "R1",
+            "product_run": False,
+            "product_result": False,
+        },
+        {
+            "revision": "R1",
+            "protocol_sha256": "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31",
+            "superseded_by": "R2",
+            "product_run": False,
+            "product_result": False,
+        },
+        {
+            "revision": "R2",
+            "protocol_sha256": "c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5",
+            "superseded_by": "R3",
+            "product_run": False,
+            "product_result": False,
+        },
+        {
+            "revision": "R3",
+            "supersedes": "R2",
+            "product_run": False,
+            "product_result": False,
+        },
+    ]
+    if manifest.get("supersession_history") != expected_supersession_history:
+        raise ProtocolViolation("protocol supersession history drift")
+    expected_case_coherence = {
+        "validator": "validate_case_gold_coherence",
+        "path_classification_source": "core.tool_agent.runtime",
+        "required_evidence_groups_must_be_gold_backed": True,
+        "min_distinct_project_code_paths_must_be_gold_backed": True,
+        "theory_code_requires_bilateral_gold": True,
+        "knowledge_sources_must_match_knowledge_proofs": True,
+        "r3_reviewed_cases": [
+            "v7d005",
+            "v7d006",
+            "v7d008",
+            "v7d010",
+            "v7d014",
+            "v7h006",
+            "v7h007",
+        ],
+    }
+    if manifest.get("case_coherence") != expected_case_coherence:
+        raise ProtocolViolation("case coherence contract metadata drift")
     historical_questions, historical_proofs = _historical_g12_questions_and_proofs()
     for case in dev_cases + holdout_cases:
         if _normalise_question(case["question"]) in historical_questions:

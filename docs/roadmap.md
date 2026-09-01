@@ -2,7 +2,7 @@
 
 > 项目：`wgqa/my_agent`<br>
 > 路线图版本：**v7（Evidence-Grounded AI Engineering Agent）**<br>
-> 编写日期：**2026-08-31**<br>
+> 编写日期：**2026-09-01**<br>
 > Architecture Freeze 基线：`0eef8ef9d6decdaa10efebe04087b06611654670`（`fix: isolate observability from runtime outcomes`）<br>
 > 当前 Architecture Evaluation 基线：`385b7795eafde7c114efc382e95c0d18ec273f54`（ARCH-CUTOVER-07 cutover）<br>
 > Release 1.0 冻结提交：`75ae103f3a3483ef3213fbd5520c8b06bb0157ce`<br>
@@ -66,9 +66,11 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 `ARCH-CONTEXT-03 = ACCEPT / CLOSED`：G8 bounded Context Resolver 已接入，
 保留历史 context/fallback 语义并通过回归。
 
-**`ARCH-EVAL-08A-R2-MICRO = CURRENT / REVIEW PENDING`**：在 R1 locator/tool-contract repair 基础上，冻结 27 个 case 的 obligation-level Gold semantic provenance、exact source excerpt、historical diff/test provenance 与 independent-audit boundary；不执行真实 Provider、Holdout、Formal 或 manual scoring。R1 的 `ACCEPT / CLOSED` 不再有效，R1/R2 都不是运行结果。
+**`ARCH-EVAL-08A-R2-MICRO = BLOCKED`**：R2 完成了 27 个 case 的 obligation-level Gold semantic provenance、exact source excerpt、historical diff/test provenance 与 independent-audit boundary，但被 R3 发现的 case-level evidence coherence 缺口阻断；R2 不构成运行结果。
 
-**NEXT = `ARCH-EVAL-08A-R2-MICRO`（CURRENT / REVIEW PENDING）**
+**`ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING`**：仅做 Evaluation Case Coherence Closure，统一 question、Gold obligations、runtime evidence kind/path、required groups、distinct code paths 与 required tools 的可执行合同；不执行真实 Provider、A/B、Holdout、Formal 或 manual scoring。
+
+**NEXT = `ARCH-EVAL-08A-R3-MICRO`（CURRENT / REVIEW PENDING）**
 
 当前任务完成后的后续唯一顺序为：
 
@@ -93,8 +95,11 @@ supersede，且从未用于 product run/result。R1 只修复 pre-run locator/to
 Gate 1～G12 frozen facts，不重新调参 Gate 2/3 sealed/formal，也不因 Holdout
 尚未执行而把候选修改写成 contamination。可复核的 agent_data source commit
 为 `179f18e812ad63c36c5569de8e86c5ff9a931cb5`；此前 `...c5ff5a...` 是 R0
-元数据中的非 Git object 拼写错误，已在 R1/R2 manifest 中显式说明并更正。R2
+元数据中的非 Git object 拼写错误，已在 R1/R2/R3 manifest 中显式说明并更正。R2
 的 audit artifact 记录为 prepared review；最终 ACCEPT 不由 Agent 自行作出，必须经过独立审计。
+R3 在此基础上只修复 pre-run case coherence：R0 → R1 → R2 → R3 的 protocol
+supersession provenance 保留在 manifest；所有旧 protocol SHA 与 R3 都从未产生
+product run/result。
 
 ---
 
@@ -339,9 +344,30 @@ G12 的 Typed Requirement 与 Finalization Guard 是当前主链的活动控制�
 
 当前不是“缺少所有能力”，而是“能力已形成组件边界，整合效果尚待协议化评测”：`ToolAgentRuntime` 仍是 Engineering 主链中的 bounded Decision → Tool → Observation execution component；G3 Planner、有限 Knowledge Retrieval、G8 Context 与 `EngineeringEvidenceVerifier` 已通过组件边界接入，且 G3/G12/Citation 只产生一个 trusted verification result。ARCH-CUTOVER-07 的严格 assembly、唯一 Facade/Runtime、唯一 logical Budget Owner 与无 silent fallback 已 CLOSED；ARCH-EVAL-08A 只冻结评测协议，不把未运行的 A/B 写成 Unified Runtime PASS。
 
-### ARCH-EVAL-08A-R2-MICRO：CURRENT / REVIEW PENDING
+### ARCH-EVAL-08A-R2-MICRO：BLOCKED（历史协议）
 
-本阶段冻结 27 个全新 case（18 Dev + 9 Holdout）、A/B 系统与目标项目/corpus identity、自动指标、manual rubric、失败分类、污染规则、canonical SHA、obligation-level Gold provenance 和 Holdout deny-by-default。真实 Provider、A/B generation、Holdout、Formal、manual scoring 均未执行；independent Gold audit 尚未签署 ACCEPT，协议完成后立即停止，后续评测阶段需另行授权。
+R2 冻结了 27 个全新 case（18 Dev + 9 Holdout）的 obligation-level Gold provenance、exact
+source excerpt、historical diff/test provenance 和 Holdout deny-by-default，但没有形成完整
+case coherence contract：部分 evidence kind/path、required group、distinct project-code
+path 与 question/Gold 关系仍有漂移。因此 R2 被 R3 阻断，且从未执行真实 Provider、A/B
+generation、Holdout、Formal、manual scoring 或 product run/result。
+
+### ARCH-EVAL-08A-R3-MICRO：CURRENT / REVIEW PENDING
+
+R3 只做 evaluation dataset / validator closure。`validate_case_gold_coherence` 复用
+ToolAgentRuntime 的真实 test/source classification，拒绝 tests path 冒充 `project_code`，要求
+每个 non-empty `required_evidence_group` 有 Gold proof 支撑，要求
+`min_distinct_project_code_paths` 只由 distinct `project_code` path 满足，并要求 theory_code
+具有 knowledge + project evidence 双侧 Gold、`knowledge_gold_sources` 与 knowledge proofs
+exact match。R3 修复/复核 `v7d005`、`v7d006`、`v7d008`、`v7d010`、`v7d014`、`v7h006`、
+`v7h007`；保持 18 Dev + 9 Holdout、9 family 各 2/1，decomposed knowledge 仍只有
+`[["knowledge"]]`，change_test 的 code-path floor 为 0。Gold audit 与当前 dataset 61 条
+proof records exact match，全部为 prepared ACCEPT；最终 ACCEPT 仍需独立审计。
+
+R3 Dev SHA=`fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9`；Holdout
+SHA=`3d3f12250a39c18e3b1d02292e7d73baa9ee9b96cdfc095039938968d8557688`；Protocol SHA=`281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d`。
+R3 仍不运行
+真实 Provider、A/B、Holdout、Formal 或 manual scoring；完成后立即停止，后续评测阶段须另行授权。
 
 ---
 

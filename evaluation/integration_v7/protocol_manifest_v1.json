@@ -1,9 +1,15 @@
 {
   "schema_version": "integration_v7_protocol_manifest_v1",
   "protocol_version": "v7_architecture_integration_evaluation_v1",
-  "protocol_sha256": "c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5",
-  "supersedes_protocol_sha256": "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31",
-  "supersession_note": "ARCH-EVAL-08A-R2-MICRO supersedes the R1 manifest identity after closing Gold source-excerpt and semantic-provenance contracts; R0 and R1 were protocol-only revisions and were never used for a product run or result.",
+  "protocol_sha256": "281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d",
+  "supersedes_protocol_sha256": "c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5",
+  "supersession_note": "ARCH-EVAL-08A-R3-MICRO supersedes the R2 manifest identity after closing deterministic case Gold/evidence coherence; R0, R1, and R2 were protocol-only revisions and were never used for a product run or result.",
+  "supersession_history": [
+    {"revision": "R0", "protocol_sha256": "e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42", "superseded_by": "R1", "product_run": false, "product_result": false},
+    {"revision": "R1", "protocol_sha256": "534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31", "superseded_by": "R2", "product_run": false, "product_result": false},
+    {"revision": "R2", "protocol_sha256": "c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5", "superseded_by": "R3", "product_run": false, "product_result": false},
+    {"revision": "R3", "supersedes": "R2", "product_run": false, "product_result": false}
+  ],
   "corpus_identity_note": "R0 recorded a non-existent ...c5ff5a... value; R1 uses the verified 40-character agent_data commit ...c5ff9a... from the clean public-data lock and checkout. No historical experiment or result is rewritten.",
   "case_count": 27,
   "family_counts": {
@@ -21,22 +27,31 @@
     "integration_dev": {
       "file": "integration_dev_v1.jsonl",
       "case_count": 18,
-      "sha256": "9fa6ae90fcb2fe35c0d64ca834ca694025ae90deced58651955be499bad75e82"
+      "sha256": "fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9"
     },
     "integration_holdout": {
       "file": "integration_holdout_v1.jsonl",
       "case_count": 9,
-      "sha256": "dff29368853f64d67185cf02a9b1e87be0b8ca087567153020e6c22d55e8530b"
+      "sha256": "3d3f12250a39c18e3b1d02292e7d73baa9ee9b96cdfc095039938968d8557688"
     }
   },
   "gold_proof_audit": {
     "file": "gold_proof_audit_v1.jsonl",
-    "record_count": 56,
+    "record_count": 61,
     "scope": "all 27 cases and every Gold obligation-to-proof mapping",
     "review_decision": "PREPARED_ACCEPT_PENDING_INDEPENDENT_AUDIT",
     "agent_may_not_self_accept": true,
     "independent_final_acceptance_required": true,
     "semantic_entailment_is_not_automated": true
+  },
+  "case_coherence": {
+    "validator": "validate_case_gold_coherence",
+    "path_classification_source": "core.tool_agent.runtime",
+    "required_evidence_groups_must_be_gold_backed": true,
+    "min_distinct_project_code_paths_must_be_gold_backed": true,
+    "theory_code_requires_bilateral_gold": true,
+    "knowledge_sources_must_match_knowledge_proofs": true,
+    "r3_reviewed_cases": ["v7d005", "v7d006", "v7d008", "v7d010", "v7d014", "v7h006", "v7h007"]
   },
   "system_a_commit": "0eef8ef9d6decdaa10efebe04087b06611654670",
   "system_b_commit": "385b7795eafde7c114efc382e95c0d18ec273f54",

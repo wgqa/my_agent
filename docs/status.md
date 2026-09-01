@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-08-31
+**更新日期：** 2026-09-01
 
 ## 当前状态
 
@@ -18,7 +18,8 @@
 - **ARCH-VERIFY-06 = ACCEPT / CLOSED**
 - **ARCH-CUTOVER-07 = ACCEPT / CLOSED**
 - **ARCH-EVAL-08A-R1-MICRO = BLOCKED**（locator/tool-contract repair only；agent self-accept is withdrawn）
-- **ARCH-EVAL-08A-R2-MICRO = CURRENT / REVIEW PENDING**（Gold semantic provenance closure；independent final audit required）
+- **ARCH-EVAL-08A-R2-MICRO = BLOCKED**（Gold semantic provenance closure 被 R3 case-coherence repair 阻断；无 product run/result）
+- **ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING**（Evaluation Case Coherence Closure；independent final audit required）
 - **ARCH-EVAL-08A = CURRENT / REVIEW PENDING**（protocol freeze only；no real Provider/Holdout/Formal/manual scoring）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
@@ -54,7 +55,7 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-EVAL-08A-R2-MICRO**（只做 Gold provenance closure；完成后立即停止，后续评测阶段须另行授权）
+- **NEXT = ARCH-EVAL-08A-R3-MICRO**（只做 case/Gold/evidence coherence closure；完成后立即停止，后续评测阶段须另行授权）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
@@ -67,8 +68,9 @@
 - **R1 integrity repair：** `required_tools_by_system` 将 tool coverage 限定为 system-contract-local dynamic ToolAgent obligations；A 可把 `knowledge_search` 作为 dynamic obligation，B 的 effective dynamic registry 排除它，由 planned retrieval / knowledge evidence metrics 证明知识获取。`ToolAgentRuntime` 仍只是统一 Runtime 的 execution component，只有一个 logical Budget Owner。
 - **R1 proof audit：** 27/27 cases 的 locator/tool-contract repair 已保留，但不能证明 Gold claim 被 source 语义支持；因此 `ARCH-EVAL-08A-R1-MICRO = BLOCKED`，不构成任何产品结果或能力结论。R0 protocol SHA `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 与 R1 SHA `534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31` 均为 protocol-only、从未用于 product run/result。
 - **R1 metric boundary：** `task_completion` 只读取 runtime/business terminal state；`required_evidence_coverage = satisfied required groups / total required groups`；`premature_finalization` 读取 finalization 时 typed/evidence state；`refusal_correctness` 比较 expected outcome 与 terminal answer/refusal state。Gold semantic obligations、Task Success、Answer Obligation 与拒答理由质量仍为 manual。
-- **R2 provenance closure：** 每个 case 的每个 Gold obligation 都绑定至少一个 `source_excerpt` 与 `bounded_proof`；project code/doc 固定 target `385b7795eafde7c114efc382e95c0d18ec273f54`，project change 按真实 `base_ref..head_ref` diff，project test 按 `head_ref + accepted_test_paths`，knowledge 固定已验证的 agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5`。`gold_proof_audit_v1.jsonl` 只记录 provenance review，不是运行结果；最终 ACCEPT 必须由独立审计作出，当前仍 REVIEW PENDING。
-- **R2 status：** Dev SHA=`9fa6ae90fcb2fe35c0d64ca834ca694025ae90deced58651955be499bad75e82`；Holdout SHA=`dff29368853f64d67185cf02a9b1e87be0b8ca087567153020e6c22d55e8530b`；Protocol SHA=`c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5`。Holdout 仍 default DENY，未执行。
+- **R2 provenance closure（历史，现 BLOCKED）：** 每个 case 的每个 Gold obligation 都绑定至少一个 `source_excerpt` 与 `bounded_proof`；project code/doc 固定 target `385b7795eafde7c114efc382e95c0d18ec273f54`，project change 按真实 `base_ref..head_ref` diff，project test 按 `head_ref + accepted_test_paths`，knowledge 固定已验证的 agent_data commit `179f18e812ad63c36c5569de8e86c5ff9a931cb5`。其 prepared audit 不是运行结果；R3 发现并修复 case-level coherence 缺口，R2 不再作为当前协议。
+- **R3 case coherence closure：** 新增 `validate_case_gold_coherence`，对 runtime evidence kind/path classification、required group Gold backing、`min_distinct_project_code_paths`、theory_code bilateral Gold、knowledge source/proof exact match 与 test-path semantics 做 deterministic fail-closed 校验。修复/复核 cases：`v7d005`、`v7d006`、`v7d008`、`v7d010`、`v7d014`、`v7h006`、`v7h007`；change_test 的 code-path floor 回归为 0，不能以 project_test 充当 project_code。Gold audit 与当前 proofs 保持 exact match，共 61 records，全部 PREPARED ACCEPT；最终 ACCEPT 仍必须由独立审计作出。
+- **R3 status：** Dev SHA=`fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9`；Holdout SHA=`3d3f12250a39c18e3b1d02292e7d73baa9ee9b96cdfc095039938968d8557688`；Protocol SHA=`281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d`。R0/R1/R2/R3 均为 protocol-only，均从未产生 product run/result；Holdout 仍 default DENY，未执行。
 
 ## ARCH-CUTOVER-07 Unified Runtime Main-Chain Cutover
 

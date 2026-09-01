@@ -125,6 +125,18 @@ Change/test cases additionally contain `base_ref`, `head_ref`, and
 the public cases contain no absolute path, credential, raw provider response,
 private reasoning, or full prompt.
 
+R3 adds a deterministic case-level coherence contract. The repository path
+classifier is the same `is_test_path` / project-code suffix policy used by the
+ToolAgent Runtime: conventional test paths are `project_test`, code suffixes
+are `project_code`, and other repository documentation paths are `project_doc`.
+Every non-empty required evidence group must have a Gold proof of one of its
+kinds. `min_distinct_project_code_paths` counts only distinct `project_code`
+proof paths; `project_doc` and `project_test` never count. `theory_code` must
+have bilateral knowledge plus project evidence, and `knowledge_gold_sources`
+must exactly equal the paths of knowledge proofs. `change_test` has a zero
+project-code path floor because its structural contract is
+`project_change + project_test`.
+
 ## A/B run protocol
 
 The run order is deterministic and recorded in the manifest:
@@ -223,10 +235,10 @@ or semantic correctness.
 Dev may be used to diagnose bugs and validate metric implementation. The
 Holdout candidate SHA must be frozen before the first Holdout open or run.
 After that freeze, no result-driven production, Prompt, Router, Guard, budget,
-Gold, or easy-case modification is allowed. The R1 locator repair and R2
-semantic-provenance closure happened before any Holdout execution, so their
-Holdout Gold/source-proof changes are protocol repairs, not result-driven
-contamination. If a result-driven modification
+Gold, or easy-case modification is allowed. The R1 locator repair, R2
+semantic-provenance closure, and R3 case-coherence closure happened before any
+Holdout execution, so their Holdout Gold/source-proof changes are protocol
+repairs, not result-driven contamination. If a result-driven modification
 occurs after the candidate freeze, the Holdout is no longer independent and
 must not be reported as a clean comparison.
 
@@ -258,24 +270,32 @@ automatic metrics, manual rubric result, and failure classification; it must
 exclude absolute paths, API keys, raw provider/model output, private
 reasoning, and full prompts.
 
-R2 supersedes the R1 protocol SHA
-`534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`, while R1
-superseded the R0 protocol SHA
-`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42`. R0 and
-R1 were never used for a product run or result. Each proof now carries a
-short exact `source_excerpt`; project code/doc uses target
+R3 supersedes the R2 protocol SHA
+`c15d7cb9c9a363b52dd76182225ede4641637acfe85c6b67d9870fc26a9ec1f5`, which
+superseded R1 SHA
+`534c0a69c817125c23cf2b1d75d60df1c3cd65dacf13844ee4b654206e313d31`; R1
+superseded R0 SHA
+`e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42`. The
+manifest preserves R0 → R1 → R2 → R3 supersession provenance, and none of
+these protocol revisions was used for a product run or result. Each proof
+carries a short exact `source_excerpt`; project code/doc uses target
 `385b7795eafde7c114efc382e95c0d18ec273f54`, project changes must be members of
 the declared historical diff and use head-side changed text, project tests
-must be readable at `head_ref` and listed in `accepted_test_paths`, and
-knowledge uses the verified corpus commit
+must satisfy runtime test-path classification and (for change/test cases) be
+listed in `accepted_test_paths`, and knowledge uses the verified corpus commit
 `179f18e812ad63c36c5569de8e86c5ff9a931cb5`. The offline validators enforce
-these locator contracts and the `gold_proof_audit_v1.jsonl` identity; semantic
-entailment is recorded by review, not auto-inferred from a class/type name.
+these locator and case-coherence contracts plus the
+`gold_proof_audit_v1.jsonl` identity; semantic entailment is recorded by
+review, not auto-inferred from a class/type name.
 
 The Gold audit has one record per case/obligation/proof and is prepared with
-`review_decision = ACCEPT`, but this is not an Agent self-acceptance. The
-architecture/evaluation status remains `ARCH-EVAL-08A-R2-MICRO = CURRENT /
-REVIEW PENDING` until an independent audit makes the final ACCEPT decision.
+`review_decision = ACCEPT`, but this is not an Agent self-acceptance. R3
+updated only the seven repaired/replaced cases (`v7d005`, `v7d006`, `v7d008`,
+`v7d010`, `v7d014`, `v7h006`, `v7h007`); all current 61 records match the
+dataset exactly. The architecture/evaluation status is
+`ARCH-EVAL-08A = REVIEW PENDING`, `ARCH-EVAL-08A-R2-MICRO = BLOCKED`, and
+`ARCH-EVAL-08A-R3-MICRO = CURRENT / REVIEW PENDING` until an independent audit
+makes the final ACCEPT decision.
 
 The automatic metric boundary is explicit: `task_completion` reads only the
 runtime/business terminal state; Task Success and Answer Obligation remain
@@ -337,7 +357,7 @@ There is no nested autonomous controller and no third product Runtime.
 - `integration_holdout_v1.jsonl`: 9 frozen Holdout cases;
 - `protocol_manifest_v1.json`: identity, hashes, metrics, rubric, and safety;
 - `gold_proof_audit_v1.jsonl`: obligation-level Gold provenance review records;
-- `case_contract.py`: offline case/identity/hash/checkout validator;
+- `case_contract.py`: offline case/identity/coherence/hash/checkout validator;
 - `tests/test_integration_v7_protocol.py`: deterministic contract tests.
 
 Importing the package and running its validators is offline. No command in
