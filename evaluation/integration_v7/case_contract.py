@@ -1240,16 +1240,53 @@ def _toolset_identity(names: tuple[str, ...]) -> dict[str, Any]:
     return {"names": list(names), "sha256": compute_toolset_sha256(tuple(registry_specs[name] for name in names))}
 
 
+def _validate_frozen_toolset_projection(
+    toolset: Mapping[str, Any],
+    expected_names: tuple[str, ...],
+    label: str,
+    *,
+    registry_fields: tuple[str, ...] = (
+        "base_registry",
+        "effective_dynamic_registry",
+    ),
+) -> None:
+    """Validate a frozen toolset without rejecting additive live tool fields.
+
+    Integration v7 freezes the toolset identity in its manifest.  The live
+    ``code_search`` contract may receive a backward-compatible optional
+    argument after that freeze, so re-hashing the current ToolSpec would turn
+    a compatible extension into historical protocol drift.  The manifest's
+    canonical SHA still remains protected by ``protocol_sha256``; this helper
+    checks its names and registry projections without reserializing live specs.
+    """
+
+    expected_name_list = list(expected_names)
+    if toolset.get("names") != expected_name_list:
+        raise ProtocolViolation(f"{label} tool names drift")
+    for field in registry_fields:
+        registry = toolset.get(field)
+        if not isinstance(registry, Mapping):
+            raise ProtocolViolation(f"{label} {field} must be an object")
+        if registry.get("names") != expected_name_list:
+            raise ProtocolViolation(f"{label} {field} names drift")
+        if not isinstance(registry.get("sha256"), str) or not _HEX64_RE.fullmatch(
+            registry["sha256"]
+        ):
+            raise ProtocolViolation(f"{label} {field} SHA drift")
+
+
 def _validate_system_a_toolset_identity(system_a: Mapping[str, Any]) -> None:
     toolset = system_a.get("toolset")
     if not isinstance(toolset, Mapping):
         raise ProtocolViolation("System A toolset identity must be an object")
-    expected = _toolset_identity(SYSTEM_A_DYNAMIC_TOOL_NAMES)
+    _validate_frozen_toolset_projection(
+        toolset, SYSTEM_A_DYNAMIC_TOOL_NAMES, "System A"
+    )
     base = toolset.get("base_registry")
     effective = toolset.get("effective_dynamic_registry")
-    if toolset.get("names") != expected["names"] or toolset.get("sha256") != expected["sha256"]:
-        raise ProtocolViolation("System A base toolset identity drift")
-    if base != expected or effective != expected:
+    if toolset.get("sha256") != base.get("sha256"):
+        raise ProtocolViolation("System A base toolset SHA drift")
+    if base != effective:
         raise ProtocolViolation("System A effective toolset identity drift")
 
 
@@ -1262,8 +1299,28 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
         "max_tool_calls": budget.max_tool_calls,
         "max_tool_errors": budget.max_tool_errors,
     }
-    expected_base_toolset = _toolset_identity(SYSTEM_A_DYNAMIC_TOOL_NAMES)
-    expected_effective_toolset = _toolset_identity(SYSTEM_B_DYNAMIC_TOOL_NAMES)
+    engineering_prompt = system_b.get("engineering_prompt")
+    repair_prompt = system_b.get("repair_prompt")
+    toolset = system_b.get("toolset")
+    if not all(isinstance(value, Mapping) for value in (engineering_prompt, repair_prompt, toolset)):
+        raise ProtocolViolation("System B prompt/repair/toolset identities must be objects")
+    _validate_frozen_toolset_projection(
+        toolset,
+        SYSTEM_A_DYNAMIC_TOOL_NAMES,
+        "System B base",
+        registry_fields=("base_registry",),
+    )
+    effective_toolset = toolset.get("effective_dynamic_registry")
+    if not isinstance(effective_toolset, Mapping):
+        raise ProtocolViolation("System B effective toolset identity must be an object")
+    if effective_toolset.get("names") != list(SYSTEM_B_DYNAMIC_TOOL_NAMES):
+        raise ProtocolViolation("System B effective tool names drift")
+    if not isinstance(effective_toolset.get("sha256"), str) or not _HEX64_RE.fullmatch(
+        effective_toolset["sha256"]
+    ):
+        raise ProtocolViolation("System B effective toolset SHA drift")
+    expected_base_toolset = dict(toolset["base_registry"])
+    expected_effective_toolset = dict(effective_toolset)
     checks = {
         "provider": FROZEN_TOOL_PROVIDER,
         "model": FROZEN_TOOL_MODEL,
@@ -1274,13 +1331,8 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
         "max_parse_repairs": max_parse_repairs_for_profile(ENGINEERING_DECISION_PROMPT_V2_PROFILE),
         "max_output_tokens": max_output_tokens_for_profile(ENGINEERING_DECISION_PROMPT_V2_PROFILE),
         "budget": expected_budget,
-        "toolset_sha256": expected_base_toolset["sha256"],
+        "toolset_sha256": toolset.get("sha256"),
     }
-    engineering_prompt = system_b.get("engineering_prompt")
-    repair_prompt = system_b.get("repair_prompt")
-    toolset = system_b.get("toolset")
-    if not all(isinstance(value, Mapping) for value in (engineering_prompt, repair_prompt, toolset)):
-        raise ProtocolViolation("System B prompt/repair/toolset identities must be objects")
     observed = {
         "provider": system_b.get("provider"),
         "model": system_b.get("model"),
@@ -1295,6 +1347,8 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
     }
     if observed != checks:
         raise ProtocolViolation(f"System B product identity drift: {observed!r} != {checks!r}")
+    if toolset.get("sha256") != toolset["base_registry"].get("sha256"):
+        raise ProtocolViolation("System B base toolset SHA drift")
     expected_planned_backend = {
         "component": "EngineeringRetrievalComponent",
         "capability": "knowledge_evidence",

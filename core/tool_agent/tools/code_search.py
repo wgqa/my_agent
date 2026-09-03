@@ -1,16 +1,18 @@
 """G6-VERTICAL-01：code_search —— 绑定工程项目的只读文本搜索 Tool。
 
-模型只传 query；repo_root 由系统在构造 Handler 时注入，模型不能控制。
+模型只传 query 和可选 artifact_kind；repo_root 由系统在构造 Handler 时注入，模型不能控制。
 v1 做确定性的 case-insensitive literal substring search（不执行正则）。
 从绑定根目录递归扫描允许后缀；跳过隐藏/排除目录、超大文件、secret/凭证文件、
 不可读文件。path 一律为 repo-relative POSIX 风格，绝不返回绝对路径；
-结果按 (path, line) 确定性排序。
+结果按 (path, line) 确定性排序。artifact_kind 缺省或为 any 时保持原有混合搜索；
+project_code/project_doc 使用与 Runtime public evidence classification 相同的契约，
+project_test 继续由 find_tests → read_project_context 负责。
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
 from core.tool_agent.models import ToolSpec
@@ -77,6 +79,10 @@ CODE_SEARCH_INPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "query": {"type": "string", "minLength": 1, "maxLength": 200},
+        "artifact_kind": {
+            "type": "string",
+            "enum": ["any", "project_code", "project_doc"],
+        },
     },
     "additionalProperties": False,
     "required": ["query"],
@@ -111,6 +117,10 @@ CODE_SEARCH_SPEC = ToolSpec(
         "case-insensitive literal text search。query 应是简短且可能真实存在的 literal，"
         "例如 endpoint、annotation、config key、exception 名、method/symbol、SQL identifier"
         "或关键字符串；不要传整句自然语言。它只负责定位 repo-relative path + line。"
+        "可选 artifact_kind 过滤 Evidence Backend 的 path discovery：缺省或 any 保持"
+        "兼容的混合搜索；要求 project_code 时传 project_code 只定位 Runtime 会认可的"
+        "source implementation，要求 project_doc 时传 project_doc 只定位 repo 文档；"
+        "project_test 不由本 Tool 过滤，测试发现仍使用 find_tests → read_project_context。"
         "当匹配结果需要解释实际实现、行为、调用关系或多文件关系时，随后必须调用 "
         "read_project_context 读取上下文，不要只从单个匹配行推断答案。若已有结果，"
         "读取它或换不同关键词，绝不重复相同搜索。"
@@ -159,6 +169,29 @@ def _require_bounded_int(value: object, label: str, cap: int) -> None:
         raise ValueError(f"{label} 不允许超过冻结上限 {cap}，实际 {value}")
 
 
+ARTIFACT_KINDS = frozenset({"any", "project_code", "project_doc"})
+
+
+def classify_project_evidence_path(path: str) -> str:
+    """Classify a repo-relative path using the Runtime's public-evidence rules.
+
+    Imports are intentionally lazy because ``test_discovery`` imports this
+    module for the shared filesystem constants.  The source suffix set is
+    taken from ``ToolAgentRuntime`` itself, while conventional test paths are
+    taken from the existing ``find_tests`` contract; this prevents search and
+    final evidence classification from growing separate heuristics.
+    """
+
+    from core.tool_agent.runtime import _PROJECT_CODE_SUFFIXES
+    from core.tool_agent.tools.test_discovery import is_test_path
+
+    if is_test_path(path):
+        return "project_test"
+    if PurePosixPath(path).suffix.lower() in _PROJECT_CODE_SUFFIXES:
+        return "project_code"
+    return "project_doc"
+
+
 class CodeSearchHandler:
     """ToolHandler：在注入的 repo_root 内做确定性只读文本搜索。
 
@@ -189,6 +222,9 @@ class CodeSearchHandler:
     def execute(self, arguments: Mapping[str, Any]) -> dict:
         query = arguments["query"]
         needle = query.lower()
+        artifact_kind = arguments.get("artifact_kind", "any")
+        if artifact_kind not in ARTIFACT_KINDS:
+            raise ValueError(f"artifact_kind 不支持：{artifact_kind!r}")
         root_resolved = self._root.resolve()
         candidates = self._collect_files(self._root, root_resolved)
         # 确定性：按 lexical repo-relative path 排序 → 自然顺序即 (path, line)
@@ -198,6 +234,8 @@ class CodeSearchHandler:
             if len(matches) >= self._max_matches:
                 break
             rel = fpath.relative_to(self._root).as_posix()
+            if artifact_kind != "any" and classify_project_evidence_path(rel) != artifact_kind:
+                continue
             try:
                 size = fpath.stat().st_size
             except OSError:
