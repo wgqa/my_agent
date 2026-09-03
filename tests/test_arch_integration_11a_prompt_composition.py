@@ -155,10 +155,10 @@ def test_frozen_profile_identities_remain_unchanged_and_new_identity_is_independ
     assert max_parse_repairs_for_profile(ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE) == 1
 
 
-def test_formal_unified_assembly_uses_v2_and_legacy_entry_remains_default():
+def test_formal_unified_assembly_uses_v1_and_legacy_entry_remains_default():
     source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" in source
-    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE" not in source
+    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE" in source
+    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" not in source
     assert "prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE" not in source
 
     from core.tool_agent.integration import build_tool_agent_runtime
