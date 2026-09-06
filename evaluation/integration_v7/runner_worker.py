@@ -232,6 +232,66 @@ def _safe_result(result: object) -> dict[str, Any]:
     }
 
 
+_MAX_SAFE_ACTIVITY_EVENTS = 64
+_SAFE_ACTIVITY_KEYS = frozenset(
+    {
+        "type",
+        "activity_id",
+        "iteration",
+        "tool_name",
+        "state",
+        "purpose",
+        "target",
+        "result_summary",
+        "evidence_ids_added",
+        "error_code",
+        "execution_model",
+        "available_tool_count",
+        "evidence_id",
+        "kind",
+        "path",
+        "start_line",
+        "end_line",
+        "source_name",
+        "missing_evidence_kinds",
+    }
+)
+
+
+def _safe_activity(events: list[object]) -> list[dict[str, Any]]:
+    """Serialize only bounded public Activity events, never call arguments."""
+
+    from core.tool_agent.activity import (
+        EvidenceAddedActivity,
+        RunStartedActivity,
+        ToolActivityEvent,
+        VerificationBlockedActivity,
+    )
+    from evaluation.integration_v7.runner import safe_artifact
+
+    event_types = (
+        RunStartedActivity,
+        ToolActivityEvent,
+        EvidenceAddedActivity,
+        VerificationBlockedActivity,
+    )
+    projection: list[dict[str, Any]] = []
+    for event in events[:_MAX_SAFE_ACTIVITY_EVENTS]:
+        if not isinstance(event, event_types):
+            continue
+        try:
+            public = event.to_dict()
+            bounded = {
+                key: value for key, value in public.items() if key in _SAFE_ACTIVITY_KEYS
+            }
+            sanitized = safe_artifact(bounded)
+        except Exception:
+            continue
+        if isinstance(sanitized, dict):
+            projection.append(sanitized)
+    return projection
+
+
 def _safe_planner(outcome: object, latency_ms: float) -> dict[str, Any]:
     if outcome is None:
         return {
@@ -439,6 +499,7 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
     retrieval_component = None
     verifier = None
     toolagent_latency = 0.0
+    activities: list[object] = []
 
     if system == "A":
         runtime = build_tool_agent_runtime(
@@ -461,6 +522,7 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
         result = runtime.run(
             question,
             evidence_requirement=requirement,
+            activity_sink=activities.append,
         )
         toolagent_latency = runtime.latency_ms
     else:
@@ -599,6 +661,7 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
         result = facade.run(
             question,
             conversation_context=job.get("conversation_context", []),
+            activity_sink=activities.append,
         )
         toolagent_latency = execution_adapter.latency_ms
         context_snapshot = context_component.snapshot
@@ -673,6 +736,7 @@ def _run(job: Mapping[str, Any]) -> dict[str, Any]:
         },
         "requirement_state": requirement_state.to_dict(),
         "requirement_contract_match": requirement_contract_match,
+        "activity": _safe_activity(activities),
         "llm_calls_context": context_payload["llm_calls"],
         "llm_calls_planner": planner_payload["llm_calls"],
         "llm_calls_toolagent_decision": decision_calls,

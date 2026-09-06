@@ -248,6 +248,8 @@ def _candidate_raw_record(
 ) -> dict[str, Any]:
     raw = _raw_record(case, plan_item, payload)
     raw.update(_candidate_metadata(code_search_contract))
+    activity = payload.get("activity", [])
+    raw["activity"] = activity if isinstance(activity, list) else []
     return raw
 
 

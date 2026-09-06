@@ -41,9 +41,12 @@ _SENSITIVE_TEXT = re.compile(
     r"(?:api[ _-]?key|secret|password|token)\s*[:=]|\bsk-[A-Za-z0-9_-]{8,}",
     re.IGNORECASE,
 )
+_CODE_SEARCH_ARTIFACT_KINDS = frozenset(
+    {"any", "project_code", "project_doc"}
+)
 _TARGET_KEYS_BY_TOOL = {
     "knowledge_search": frozenset({"query"}),
-    "code_search": frozenset({"query"}),
+    "code_search": frozenset({"query", "artifact_kind"}),
     "read_project_context": frozenset({"path", "line", "context_lines"}),
     "changed_files": frozenset({"mode"}),
     "git_diff": frozenset({"path", "mode"}),
@@ -160,6 +163,8 @@ def _safe_public_value(key: str, value: object) -> Any:
         return sources
     if key in {"query", "expression", "mode", "status"}:
         return _clean_text(value)
+    if key == "artifact_kind":
+        return value if type(value) is str and value in _CODE_SEARCH_ARTIFACT_KINDS else None
     if key in {"line", "context_lines", "match_count", "start_line", "end_line", "file_count", "test_file_count"}:
         return _safe_non_negative_int(value)
     if key == "truncated":
@@ -460,9 +465,20 @@ def tool_activity_purpose(tool_name: str) -> str:
 def _target_for_tool(tool_name: str, arguments: object) -> dict[str, Any]:
     if not isinstance(arguments, Mapping):
         return {}
-    if tool_name in {"knowledge_search", "code_search"}:
+    if tool_name == "knowledge_search":
         query = _clean_text(arguments.get("query"))
         return {"query": query} if query is not None else {}
+    if tool_name == "code_search":
+        query = _clean_text(arguments.get("query"))
+        result: dict[str, Any] = {}
+        if query is not None:
+            result["query"] = query
+        artifact_kind = _safe_public_value(
+            "artifact_kind", arguments.get("artifact_kind")
+        )
+        if artifact_kind is not None:
+            result["artifact_kind"] = artifact_kind
+        return result
     if tool_name == "read_project_context":
         path = _safe_repo_path(arguments.get("path"))
         result: dict[str, Any] = {}
