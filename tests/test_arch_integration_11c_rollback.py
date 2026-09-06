@@ -7,6 +7,7 @@ import inspect
 import api.app
 from core.tool_agent.decision_prompt import (
     DECISION_PROMPT_SHA256,
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE,
     ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE,
     ENGINEERING_DECISION_PROMPT_UNIFIED_SHA256,
     ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE,
@@ -18,9 +19,9 @@ from core.tool_agent.runtime_models import ToolAgentBudget
 from core.unified_engineering_runtime import UnifiedEngineeringRuntime
 
 
-def test_formal_unified_assembly_is_restored_to_real_validated_unified_v1():
+def test_formal_unified_assembly_uses_the_successor_to_real_validated_unified_v1():
     source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE" in source
+    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE" in source
     assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" not in source
 
 

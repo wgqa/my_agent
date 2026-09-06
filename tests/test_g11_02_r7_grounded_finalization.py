@@ -4,6 +4,7 @@ import scripts.run_g11_02_theory_code as runner
 from core.tool_agent import (
     ENGINEERING_DECISION_PROMPT_V2_PROFILE,
     ENGINEERING_DECISION_PROMPT_V2_SHA256,
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE,
     ENGINEERING_DECISION_PROMPT_V3_PROFILE,
     ENGINEERING_DECISION_PROMPT_V3_SHA256,
     ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS,
@@ -93,7 +94,7 @@ def test_engineering_v3_has_grounding_policy_and_no_case_specific_terms():
     assert forbidden_case_terms.isdisjoint(system)
 
 
-def test_prompt_identities_and_repair_matrix_are_frozen():
+def test_frozen_prompt_identities_and_additive_repair_matrix_are_explicit():
     assert ENGINEERING_DECISION_PROMPT_V2_PROFILE.sha256 == (
         "14a1cbbe3dec951b7723bf5a7578e5f1aabc96639ac62b984976cecb5f53a107"
     )
@@ -114,12 +115,16 @@ def test_prompt_identities_and_repair_matrix_are_frozen():
     assert ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS == {
         "engineering_agent_decision_prompt_v2",
         "engineering_agent_decision_prompt_unified_v1",
+        "engineering_agent_decision_prompt_unified_kind_aware_v1",
         "engineering_agent_decision_prompt_unified_v2",
         "engineering_agent_decision_prompt_v3",
     }
     assert max_parse_repairs_for_profile(None) == 0
     assert max_parse_repairs_for_profile(LEGACY_DECISION_PROMPT_PROFILE) == 0
     assert max_parse_repairs_for_profile(ENGINEERING_DECISION_PROMPT_V2_PROFILE) == 1
+    assert max_parse_repairs_for_profile(
+        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE
+    ) == 1
     assert max_parse_repairs_for_profile(ENGINEERING_DECISION_PROMPT_V3_PROFILE) == 1
     assert _provider()._max_parse_repairs == 0
     assert _provider(ENGINEERING_DECISION_PROMPT_V2_PROFILE)._max_parse_repairs == 1

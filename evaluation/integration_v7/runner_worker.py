@@ -21,6 +21,9 @@ WORKER_SCHEMA_VERSION = "integration_v7_real_dev_worker_v1"
 PROVIDER = "deepseek"
 MODEL = "deepseek-chat"
 UNIFIED_DECISION_PROMPT_SELECTOR = "engineering_agent_decision_prompt_unified_v1"
+UNIFIED_KIND_AWARE_DECISION_PROMPT_SELECTOR = (
+    "engineering_agent_decision_prompt_unified_kind_aware_v1"
+)
 UNIFIED_V2_DECISION_PROMPT_SELECTOR = "engineering_agent_decision_prompt_unified_v2"
 
 
@@ -431,9 +434,9 @@ def _select_decision_prompt_profile(job: Mapping[str, Any]):
     """Select a worker profile without changing the frozen default.
 
     Existing 08B/09B jobs omit ``decision_prompt_profile_selector`` and remain
-    bound to V2.  The explicit 10B and 11B candidate selectors opt into their
-    respective Unified profiles; unknown selectors and selectors on the A path
-    fail closed.
+    bound to V2.  Explicit candidate selectors opt into their respective
+    Unified profiles; unknown selectors and selectors on the A path fail
+    closed.
     """
 
     selector = job.get("decision_prompt_profile_selector")
@@ -447,6 +450,12 @@ def _select_decision_prompt_profile(job: Mapping[str, Any]):
         from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE
 
         return ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE
+    if selector == UNIFIED_KIND_AWARE_DECISION_PROMPT_SELECTOR:
+        from core.tool_agent.decision_prompt import (
+            ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE,
+        )
+
+        return ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE
     if selector == UNIFIED_V2_DECISION_PROMPT_SELECTOR:
         from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE
 

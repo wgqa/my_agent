@@ -292,6 +292,27 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_SUFFIX = (
+    "\nEvidence-Kind-Aware Acquisition policy：\n"
+    "- missing_evidence_groups 是 Trusted Runtime 的 evidence intent；它表示这次"
+    " acquisition 仍应推进的 public evidence kind。\n"
+    "- 当本次选择 code_search 为缺失的 project_code 定位 repo path 时，"
+    "code_search.arguments.artifact_kind 必须为 project_code。\n"
+    "- 当本次选择 code_search 为缺失的 project_doc 定位 repo path 时，"
+    "code_search.arguments.artifact_kind 必须为 project_doc。\n"
+    "- project_test 仍使用 find_tests → read_project_context；不要用 code_search 的"
+    " artifact_kind 模拟 project_test discovery。\n"
+    "- 不存在对应 missing evidence obligation 时，不要为了“更保险”强制增加"
+    " artifact_kind；继续按普通 code_search contract 选择参数。"
+)
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_TEMPLATE = (
+    ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE
+    + ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_SUFFIX
+)
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_SHA256 = hashlib.sha256(
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_TEMPLATE.encode("utf-8")
+).hexdigest()
+
 ENGINEERING_DECISION_PROMPT_V3_TEMPLATE = ENGINEERING_DECISION_PROMPT_V2_TEMPLATE + (
     "\nGrounded evidence policy：\n"
     "- 当用户询问当前实现、源码行为、算法细节、调用关系、配置行为或返回字段时，"
@@ -392,6 +413,12 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_UNIFIED_TEMPLATE,
     render_control_state=True,
 )
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_unified_kind_aware_v1",
+    sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_SHA256,
+    template=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_TEMPLATE,
+    render_control_state=True,
+)
 ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_unified_v2",
     sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_V2_SHA256,
@@ -409,6 +436,7 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
     {
         ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
@@ -418,6 +446,7 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
     {
         ENGINEERING_DECISION_PROMPT_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
