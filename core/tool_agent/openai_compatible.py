@@ -11,6 +11,7 @@ Observation 喂回模型。
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from typing import Optional
 
 from openai import (
@@ -26,6 +27,7 @@ from core.tool_agent.action_parser import (
     ActionParseCategory,
     diagnose_agent_action_text,
 )
+from core.provider_config import freeze_public_headers, openai_default_headers
 from core.tool_agent.actions import (
     ACTION_PROVIDER_ERROR,
     ACTION_TIMEOUT,
@@ -181,6 +183,7 @@ class OpenAICompatibleAgentDecisionProvider:
         model: str,
         api_key: str,
         base_url: Optional[str] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         client: Optional[object] = None,
         prompt_profile: Optional[DecisionPromptProfile] = None,
         max_parse_repairs: Optional[int] = None,
@@ -193,6 +196,7 @@ class OpenAICompatibleAgentDecisionProvider:
         self._provider = provider
         self._model = model
         self._base_url = base_url
+        self._extra_headers = freeze_public_headers(extra_headers)
         if prompt_profile is not None and not isinstance(
             prompt_profile, DecisionPromptProfile
         ):
@@ -224,6 +228,8 @@ class OpenAICompatibleAgentDecisionProvider:
         }
         if self._base_url is not None:
             kwargs["base_url"] = self._base_url
+        if self._extra_headers:
+            kwargs["default_headers"] = openai_default_headers(self._extra_headers)
         return OpenAI(**kwargs)
 
     def decide(

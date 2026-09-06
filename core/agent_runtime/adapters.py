@@ -10,6 +10,7 @@ CitationValidator 保证答案可溯源。
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from typing import Optional, Sequence
 
 from openai import OpenAI
@@ -24,6 +25,11 @@ from core.conversation_context import OpenAICompatibleConversationQueryResolver
 from core.context.assembler import ContextBlock
 from core.generator.citation import CitationValidator
 from core.loader.base import Document as LoaderDocument
+from core.provider_config import (
+    OpenAICompatibleProviderConfig,
+    freeze_public_headers,
+    openai_default_headers,
+)
 from core.query_planning.openai_compatible import OpenAICompatibleQueryPlanner
 from core.retriever.bm25_only import BM25OnlyRetriever
 from core.retriever.hybrid import HybridRetriever
@@ -183,12 +189,14 @@ class PipelineAnswerAdapter:
         direct_model: Optional[str] = None,
         direct_api_key: Optional[str] = None,
         direct_base_url: Optional[str] = None,
+        direct_extra_headers: Optional[Mapping[str, str]] = None,
         direct_timeout: float = DIRECT_TIMEOUT_SECONDS,
         direct_max_tokens: int = DIRECT_MAX_TOKENS,
     ) -> None:
         self._generator = generator
         self._direct_model = direct_model
         self._direct_max_tokens = direct_max_tokens
+        self._direct_extra_headers = freeze_public_headers(direct_extra_headers)
         if direct_client is not None:
             self._direct_client = direct_client
         else:
@@ -200,6 +208,10 @@ class PipelineAnswerAdapter:
             }
             if direct_base_url:
                 kwargs["base_url"] = direct_base_url
+            if self._direct_extra_headers:
+                kwargs["default_headers"] = openai_default_headers(
+                    self._direct_extra_headers
+                )
             self._direct_client = OpenAI(**kwargs)
 
     def answer(
@@ -278,38 +290,67 @@ class PipelineAnswerAdapter:
 def build_pipeline_agent_runtime(
     pipeline,
     *,
-    planner_provider: str,
+    planner_provider: Optional[str] = None,
     planner_model: Optional[str] = None,
-    api_key: str,
+    api_key: Optional[str] = None,
     base_url: Optional[str] = None,
+    extra_headers: Optional[Mapping[str, str]] = None,
+    provider_config: Optional[OpenAICompatibleProviderConfig] = None,
     planner_client=None,
     direct_answer_client=None,
     context_resolver_client=None,
 ) -> AgentRuntime:
     """用真实 Pipeline 的 Retriever / Generator 组装一个 AgentRuntime。
 
-    planner_model 解析顺序：AGENT_PLANNER_MODEL 环境变量 > 显式
-    planner_model > DeepSeek 默认 deepseek-chat。DeepSeek 默认 base_url 用
-    项目已有官方地址。api_key 只传给 SDK client / Provider，不写入任何实例
-    可见字段；planner_client / direct_answer_client 用于测试注入（不联网）。
+    默认仍使用已有的 planner_provider / AGENT_PLANNER_MODEL / DeepSeek 解析
+    顺序。provider_config 是 additive 的 transport wiring：它提供同一组
+    provider/model/base_url/extra_headers，并从 config.api_key_env 读取 key；
+    key 只传给 SDK client，不写入任何实例可见字段。所有 client 注入参数
+    仍然优先用于 provider-free tests，不联网。
     """
-    provider = str(planner_provider)
-    model = (
-        os.getenv("AGENT_PLANNER_MODEL")
-        or planner_model
-        or ("deepseek-chat" if provider.lower() == "deepseek" else None)
-    )
+    if provider_config is not None:
+        if not isinstance(provider_config, OpenAICompatibleProviderConfig):
+            raise TypeError(
+                "provider_config 必须是 OpenAICompatibleProviderConfig 或 None"
+            )
+        if planner_provider is not None and planner_provider != provider_config.provider_id:
+            raise ValueError("planner_provider 与 provider_config 不一致")
+        if planner_model is not None and planner_model != provider_config.model:
+            raise ValueError("planner_model 与 provider_config 不一致")
+        if base_url is not None and base_url != provider_config.base_url:
+            raise ValueError("base_url 与 provider_config 不一致")
+        if extra_headers is not None and dict(extra_headers) != dict(
+            provider_config.extra_headers
+        ):
+            raise ValueError("extra_headers 与 provider_config 不一致")
+        provider = provider_config.provider_id
+        model = provider_config.model
+        resolved_base_url = provider_config.base_url
+        resolved_extra_headers = provider_config.extra_headers
+        resolved_api_key = api_key or os.getenv(provider_config.api_key_env)
+    else:
+        if planner_provider is None:
+            raise ValueError("planner_provider 未提供")
+        provider = str(planner_provider)
+        model = (
+            os.getenv("AGENT_PLANNER_MODEL")
+            or planner_model
+            or ("deepseek-chat" if provider.lower() == "deepseek" else None)
+        )
+        resolved_base_url = base_url or (
+            DEEPSEEK_BASE_URL if provider.lower() == "deepseek" else None
+        )
+        resolved_extra_headers = extra_headers
+        resolved_api_key = api_key
     if not model:
         raise ValueError("planner_model 未提供（可传参或设置 AGENT_PLANNER_MODEL）")
-    resolved_base_url = base_url or (
-        DEEPSEEK_BASE_URL if provider.lower() == "deepseek" else None
-    )
 
     planner = OpenAICompatibleQueryPlanner(
         provider=provider,
         model=model,
-        api_key=api_key,
+        api_key=resolved_api_key,
         base_url=resolved_base_url,
+        extra_headers=resolved_extra_headers,
         client=planner_client,
     )
     retrieval = PipelineRetrievalAdapter(pipeline.retriever)
@@ -317,14 +358,16 @@ def build_pipeline_agent_runtime(
         pipeline.generator,
         direct_client=direct_answer_client,
         direct_model=model,
-        direct_api_key=api_key,
+        direct_api_key=resolved_api_key,
         direct_base_url=resolved_base_url,
+        direct_extra_headers=resolved_extra_headers,
     )
     resolver = OpenAICompatibleConversationQueryResolver(
         provider=provider,
         model=model,
-        api_key=api_key,
+        api_key=resolved_api_key,
         base_url=resolved_base_url,
+        extra_headers=resolved_extra_headers,
         client=context_resolver_client,
     )
     return AgentRuntime(

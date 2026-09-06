@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from collections.abc import Mapping
 from typing import Optional, Sequence
 
 from openai import (
@@ -16,6 +17,7 @@ from openai import (
 )
 
 from core.conversation_context.models import ContextMessage
+from core.provider_config import freeze_public_headers, openai_default_headers
 
 CONTEXT_RESOLUTION_FALLBACK = "CONTEXT_RESOLUTION_FALLBACK"
 RESOLVER_PROMPT_VERSION = "agentic_rag_context_resolver_v1"
@@ -109,6 +111,7 @@ class OpenAICompatibleConversationQueryResolver:
         model: str,
         api_key: str,
         base_url: Optional[str] = None,
+        extra_headers: Optional[Mapping[str, str]] = None,
         client: Optional[object] = None,
     ) -> None:
         for label, value in (("provider", provider), ("model", model), ("api_key", api_key)):
@@ -118,15 +121,17 @@ class OpenAICompatibleConversationQueryResolver:
             raise ValueError("base_url must be a non-empty string")
         self._provider = provider
         self._model = model
+        self._extra_headers = freeze_public_headers(extra_headers)
         self._client = (
             client if client is not None else self._build_default_client(api_key, base_url)
         )
 
-    @staticmethod
-    def _build_default_client(api_key: str, base_url: Optional[str]) -> OpenAI:
+    def _build_default_client(self, api_key: str, base_url: Optional[str]) -> OpenAI:
         kwargs = {"api_key": api_key, "timeout": 20.0, "max_retries": RESOLVER_MAX_RETRIES}
         if base_url is not None:
             kwargs["base_url"] = base_url
+        if self._extra_headers:
+            kwargs["default_headers"] = openai_default_headers(self._extra_headers)
         return OpenAI(**kwargs)
 
     @staticmethod
