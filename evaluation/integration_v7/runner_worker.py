@@ -390,6 +390,10 @@ def _context_payload(
         "truncated": snapshot.truncated if snapshot is not None else False,
         "resolver_used": snapshot.resolver_used if snapshot is not None else False,
         "resolver_fallback": snapshot.resolver_fallback if snapshot is not None else False,
+        # This is the resolver output already produced for this run.  The
+        # semantic-evaluation projector applies the shared artifact boundary
+        # before persisting it; this does not call the resolver again.
+        "resolved_input": snapshot.resolved_input if snapshot is not None else None,
         "resolution_correct": (
             None
             if case.get("task_family") != "context_followup"
