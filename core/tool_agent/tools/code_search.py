@@ -17,7 +17,7 @@ from typing import Any, Mapping
 
 from core.tool_agent.models import ToolSpec
 
-CODE_SEARCH_VERSION = "code_search_v4"
+CODE_SEARCH_VERSION = "code_search_v5"
 
 ALLOWED_SUFFIXES = frozenset(
     {
