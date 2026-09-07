@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from core.tool_agent.models import json_deep_copy
-from core.tool_agent.runtime_models import EVIDENCE_KINDS, DecisionControlState
+from core.tool_agent.runtime_models import DecisionControlState
 
 DECISION_PROMPT_VERSION = "tool_agent_decision_prompt_v3"
 DECISION_TEMPERATURE = 0
@@ -391,59 +391,6 @@ def build_action_repair_instruction(
         instruction += "\n本次 Decision 必须终止：repair 结果不得请求任何 Tool。"
     return instruction
 
-
-ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION = (
-    "engineering_recovery_action_repair_prompt_v1"
-)
-ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_TEMPLATE = (
-    "上一轮 Action JSON 本身合法，但违反当前 Trusted Runtime recovery control。\n"
-    "finalization_blocked=true，且仍存在可用 recovery Tool。\n"
-    "本次必须输出 tool_call。\n"
-    "tool_name 必须来自 trusted recovery_tool_names：{tool_names}\n"
-    "当前仍缺失的 evidence kind：{missing_kinds}\n"
-    "arguments 必须满足该 Tool 的 input_schema；具体 query / path / ref 等参数"
-    "由你根据用户问题与此前 Tool observations 自行选择，系统不会替你生成。\n"
-    "不要输出 final_answer。不要输出 refuse。不要输出 reasoning。"
-    "不要输出 Markdown。不要增加字段。"
-)
-ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256 = hashlib.sha256(
-    ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_TEMPLATE.encode("utf-8")
-).hexdigest()
-
-
-def build_recovery_action_repair_instruction(
-    *,
-    tool_names: Sequence[str],
-    missing_kinds: Sequence[str],
-) -> str:
-    """Build the bounded recovery repair instruction.
-
-    The instruction may name the trusted recovery Tools and the still-missing
-    evidence kinds.  It never embeds the model's previous output and never
-    generates Tool arguments on the model's behalf.
-    """
-
-    names = tuple(tool_names)
-    kinds = tuple(missing_kinds)
-    if not names:
-        raise ValueError("tool_names 不能为空")
-    if any(type(name) is not str or not name.strip() for name in names):
-        raise ValueError("tool_names 必须全部是非空字符串")
-    if len(set(names)) != len(names):
-        raise ValueError("tool_names 不得重复")
-    if not kinds:
-        raise ValueError("missing_kinds 不能为空")
-    if any(
-        type(kind) is not str or kind not in EVIDENCE_KINDS for kind in kinds
-    ):
-        raise ValueError("missing_kinds 必须是已知 evidence kind")
-    if len(set(kinds)) != len(kinds):
-        raise ValueError("missing_kinds 不得重复")
-    return ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_TEMPLATE.format(
-        tool_names=", ".join(names),
-        missing_kinds=", ".join(sorted(kinds)),
-    )
-
 LEGACY_DECISION_PROMPT_PROFILE = DecisionPromptProfile(
     version=DECISION_PROMPT_VERSION,
     sha256=DECISION_PROMPT_SHA256,
@@ -502,15 +449,6 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
-    }
-)
-
-# 16A recovery action repair is opt-in: only the current formal kind-aware
-# recovery Product profile may spend the one extra bounded repair call.
-# Legacy ToolAgent entry points keep their original single-call behavior.
-ENGINEERING_RECOVERY_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
-    {
-        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
     }
 )
 

@@ -10,6 +10,13 @@ contract, and the repair-observability projection.  The isolated candidate
 checkout at the 16A commit supplies Product ``core`` imports.  This is a new
 Product-candidate evaluation run: it is not a 15B rerun and not a repair of
 historical artifacts, and it never loads 15B results as execution input.
+
+The recovery-repair identity recorded here is historical candidate
+provenance.  Since ARCH-PROD-16C rolled the current Product back to the
+pre-16A baseline, the current tree no longer exposes the recovery symbols;
+this harness keeps its own frozen constants so the recorded 09c9274
+candidate evaluation stays reproducible and the manifest keeps distinguishing
+the historical candidate from the current production tree.
 """
 
 from __future__ import annotations
@@ -30,8 +37,6 @@ from typing import Any, Iterator, Mapping, Sequence
 
 from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE,
-    ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256,
-    ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION,
 )
 from evaluation.integration_v7.candidate_runner import _verify_candidate_corpus
 from evaluation.integration_v7.case_contract import (
@@ -80,7 +85,12 @@ RUNNER_SCHEMA_VERSION = "integration_v7_recovery_candidate_runner_v1"
 CANDIDATE_RUNTIME_COMMIT = "09c92746cea2699cb544e999c2b6feda88e43969"
 CANDIDATE_SYSTEM_LABEL = "B_kind_aware_recovery_repair_candidate"
 RUNTIME_VARIANT = "unified_kind_aware_recovery_repair_candidate"
-RECOVERY_REPAIR_PROMPT_VERSION = ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION
+# The recovery-repair mechanism identity is frozen historical candidate
+# provenance: it describes the 09c9274 candidate that was really evaluated,
+# not the current Product tree.  The current Product was later rolled back by
+# ARCH-PROD-16C and no longer carries these symbols; this harness must keep
+# importing and recording the historical identity regardless.
+RECOVERY_REPAIR_PROMPT_VERSION = "engineering_recovery_action_repair_prompt_v1"
 FROZEN_RECOVERY_REPAIR_PROMPT_SHA256 = (
     "b4890280e4ec8fa76e31865698c24b751356350c20b1d32f05cd9720124e1013"
 )
@@ -623,8 +633,6 @@ def _preflight(
         raise RunnerPreflightError("16B protocol SHA mismatch")
     if protocol["datasets"][DEV_SPLIT]["sha256"] != EXPECTED_DEV_DATASET_SHA:
         raise RunnerPreflightError("16B Dev dataset SHA mismatch")
-    if ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256 != FROZEN_RECOVERY_REPAIR_PROMPT_SHA256:
-        raise RunnerPreflightError("16B recovery repair prompt SHA mismatch")
     if not os.getenv(config.api_key_env):
         raise RunnerPreflightError(f"missing_environment: {config.api_key_env}")
     cases = load_cases(DEV_DATASET_PATH)
@@ -809,8 +817,8 @@ def run_recovery_repair_candidate_dev(
             dev_sha=protocol["datasets"][DEV_SPLIT]["sha256"],
             prompt_version=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
             prompt_sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.sha256,
-            recovery_repair_prompt_version=ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION,
-            recovery_repair_prompt_sha256=ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256,
+            recovery_repair_prompt_version=RECOVERY_REPAIR_PROMPT_VERSION,
+            recovery_repair_prompt_sha256=FROZEN_RECOVERY_REPAIR_PROMPT_SHA256,
             provider=config.provider,
             model=config.model,
             harness_head=harness_head,

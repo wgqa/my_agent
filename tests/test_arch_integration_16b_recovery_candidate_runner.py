@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import json
 from pathlib import Path
@@ -10,8 +11,6 @@ import pytest
 
 from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE,
-    ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256,
-    ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION,
 )
 from evaluation.integration_v7.case_contract import (
     CORPUS_SOURCE_COMMIT,
@@ -208,8 +207,8 @@ def test_all_frozen_identities_fail_closed_on_drift():
         "dev_sha": EXPECTED_DEV_DATASET_SHA,
         "prompt_version": ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         "prompt_sha256": ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.sha256,
-        "recovery_repair_prompt_version": ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION,
-        "recovery_repair_prompt_sha256": ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256,
+        "recovery_repair_prompt_version": RECOVERY_REPAIR_PROMPT_VERSION,
+        "recovery_repair_prompt_sha256": FROZEN_RECOVERY_REPAIR_PROMPT_SHA256,
         "provider": FROZEN_PROVIDER,
         "model": FROZEN_MODEL,
         "harness_head": "a" * 40,
@@ -242,20 +241,27 @@ def test_all_frozen_identities_fail_closed_on_drift():
         )
 
 
-def test_recovery_repair_prompt_identity_is_frozen_and_module_constant_matches():
+def test_recovery_repair_identity_is_frozen_provenance_not_current_product():
+    # The 16B candidate evaluation keeps the historical 09c9274 repair
+    # identity even though ARCH-PROD-16C rolled the current Product back.
     assert RECOVERY_REPAIR_PROMPT_VERSION == (
         "engineering_recovery_action_repair_prompt_v1"
     )
     assert FROZEN_RECOVERY_REPAIR_PROMPT_SHA256 == (
         "b4890280e4ec8fa76e31865698c24b751356350c20b1d32f05cd9720124e1013"
     )
-    assert ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256 == (
-        FROZEN_RECOVERY_REPAIR_PROMPT_SHA256
-    )
+    decision_prompt = importlib.import_module("core.tool_agent.decision_prompt")
+    for symbol in (
+        "ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_VERSION",
+        "ENGINEERING_RECOVERY_ACTION_REPAIR_PROMPT_SHA256",
+        "ENGINEERING_RECOVERY_REPAIR_ENABLED_PROFILE_VERSIONS",
+    ):
+        assert not hasattr(decision_prompt, symbol), symbol
     assert (
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.sha256
         == "de7a0eeb4beaea5ed93e0e4196f55b5253f73408c3e5216379aba0d8a7abd85f"
     )
+    assert CANDIDATE_RUNTIME_COMMIT == "09c92746cea2699cb544e999c2b6feda88e43969"
 
 
 def test_worker_is_current_harness_while_job_product_root_is_candidate_checkout():
