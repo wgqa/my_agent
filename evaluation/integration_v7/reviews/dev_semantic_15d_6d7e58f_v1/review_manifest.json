@@ -1,0 +1,18 @@
+{
+  "expected_cases": 18,
+  "frozen_cases_file": "evaluation/integration_v7/integration_dev_v1.jsonl",
+  "frozen_cases_sha256": "12bcde832b69fbd24f0b4e0e0af0f6fef9573d2b3ee3a567a598576948f6c7da",
+  "holdout": "NOT_RUN",
+  "product_candidate_commit": "6d7e58f1e8c1f2bdaab091c453855b6eee53036b",
+  "provider": "NOT_RUN",
+  "review_contract_commit": "9770bb26392b24ae3a59b2d88af5438a5c3ac7f6",
+  "review_mode": "execution_agent_first_pass_pending_independent_audit",
+  "review_schema_version": "integration_v7_semantic_review_v1",
+  "reviewed_cases": 18,
+  "rubric_version": "integration_v7_semantic_review_rubric_v1",
+  "source_evaluation_harness_commit": "046b3ddd22d7b53cc6428d9e100f7ae592bebb6a",
+  "source_run": "dev_semantic_15b_6d7e58f_v1",
+  "source_run_system_identity": "B_kind_aware_recovery_candidate",
+  "source_semantic_runs_file": "evaluation/integration_v7/results/dev_semantic_15b_6d7e58f_v1/semantic_runs.jsonl",
+  "source_semantic_runs_sha256": "08528bd465f55c35ddf9f7ae2d678886b3345299c38c13c7ac1f59b59c0c16c2"
+}

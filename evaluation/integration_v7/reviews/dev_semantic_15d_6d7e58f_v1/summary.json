@@ -1,0 +1,159 @@
+{
+  "case_lists": {
+    "all_obligations_full_case_ids": [
+      "v7d006",
+      "v7d007",
+      "v7d011",
+      "v7d013",
+      "v7d015",
+      "v7d016"
+    ],
+    "context_fail_case_ids": [],
+    "context_partial_case_ids": [
+      "v7d007"
+    ],
+    "context_pass_case_ids": [
+      "v7d008"
+    ],
+    "contradicted_obligation_case_ids": [],
+    "evidence_acquisition_case_ids": [
+      "v7d001",
+      "v7d003",
+      "v7d004",
+      "v7d005",
+      "v7d008",
+      "v7d009",
+      "v7d012",
+      "v7d014",
+      "v7d015",
+      "v7d016"
+    ],
+    "grounding_contradicted_case_ids": [],
+    "grounding_partial_case_ids": [
+      "v7d001",
+      "v7d003",
+      "v7d005",
+      "v7d013",
+      "v7d014",
+      "v7d015"
+    ],
+    "grounding_supported_case_ids": [
+      "v7d006",
+      "v7d007",
+      "v7d008",
+      "v7d011"
+    ],
+    "grounding_unsupported_case_ids": [
+      "v7d016"
+    ],
+    "over_refusal_case_ids": [
+      "v7d004",
+      "v7d009",
+      "v7d012"
+    ],
+    "partial_or_missing_obligation_case_ids": [
+      "v7d001",
+      "v7d003",
+      "v7d005",
+      "v7d008",
+      "v7d014"
+    ],
+    "terminal_fail_case_ids": [
+      "v7d004",
+      "v7d009",
+      "v7d012"
+    ],
+    "under_refusal_case_ids": [],
+    "unsupported_material_claim_case_ids": [
+      "v7d001",
+      "v7d003",
+      "v7d005",
+      "v7d013",
+      "v7d014",
+      "v7d015",
+      "v7d016"
+    ]
+  },
+  "context_assessment_counts": {
+    "NOT_APPLICABLE": 14,
+    "NOT_APPLICABLE_INVALID": 2,
+    "PARTIAL": 1,
+    "PASS": 1
+  },
+  "descriptive_cross_tabs": {
+    "all_obligations_full_but_grounding_not_supported": [
+      "v7d013",
+      "v7d015",
+      "v7d016"
+    ],
+    "router_gold_contract_match_false_without_semantic_failure": [
+      "v7d006",
+      "v7d011",
+      "v7d017",
+      "v7d018"
+    ],
+    "router_gold_contract_match_true_with_semantic_failure": [
+      "v7d003",
+      "v7d009",
+      "v7d012"
+    ],
+    "runtime_requirement_satisfied_but_obligation_incomplete": [
+      "v7d001",
+      "v7d003",
+      "v7d005",
+      "v7d008",
+      "v7d014"
+    ],
+    "terminal_pass_with_semantic_failure_labels": [
+      "v7d001",
+      "v7d003",
+      "v7d005",
+      "v7d007",
+      "v7d008",
+      "v7d013",
+      "v7d014",
+      "v7d015",
+      "v7d016"
+    ]
+  },
+  "failure_label_counts": {
+    "answer_obligation_missing": 5,
+    "context_resolution": 1,
+    "evidence_acquisition": 10,
+    "infrastructure": 2,
+    "none": 4,
+    "refusal": 3,
+    "semantic_grounding": 7,
+    "terminal_outcome": 3,
+    "unsupported_material_claim": 7
+  },
+  "grounding_counts": {
+    "NOT_APPLICABLE_INVALID": 2,
+    "NOT_APPLICABLE_NO_CLAIM": 5,
+    "PARTIAL": 6,
+    "SUPPORTED": 4,
+    "UNSUPPORTED": 1
+  },
+  "obligation_coverage_counts": {
+    "FULL": 16,
+    "MISSING": 2,
+    "NOT_APPLICABLE_NO_ANSWER": 10,
+    "PARTIAL": 5
+  },
+  "refusal_assessment_counts": {
+    "JUSTIFIED": 2,
+    "NOT_APPLICABLE": 13,
+    "OVER_REFUSAL": 3
+  },
+  "run_counts": {
+    "invalid": 2,
+    "total": 18,
+    "valid": 16
+  },
+  "summary_scope": "descriptive failure distribution only; no composite accuracy, pass rate, or weighted score is produced under the 15D contract",
+  "terminal_assessment_counts": {
+    "FAIL": 3,
+    "NOT_APPLICABLE_INVALID": 2,
+    "PASS": 13
+  }
+}
