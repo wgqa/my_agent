@@ -385,7 +385,7 @@ def test_planned_context_and_evidence_are_seeded_before_first_decision():
         supported_strategies=("bm25",),
     )
     provider = RecordingDecisionProvider(
-        [FinalAnswerAction("final_answer", "answer from planned evidence")]
+        [FinalAnswerAction("final_answer", "answer from planned evidence [E1]")]
     )
     registry = ToolRegistry()
     registry.register(CALCULATOR_SPEC, CalculatorHandler())
@@ -472,7 +472,7 @@ def test_engineering_registry_hides_knowledge_search_while_legacy_registry_stays
     registry.register(CALCULATOR_SPEC, CalculatorHandler())
     registry.register(KNOWLEDGE_SEARCH_SPEC, knowledge_handler)
     provider = RecordingDecisionProvider(
-        [FinalAnswerAction("final_answer", "planned answer")]
+        [FinalAnswerAction("final_answer", "planned answer [E1]")]
     )
     tool_runtime = ToolAgentRuntime(registry=registry, provider=provider)
     runtime = UnifiedEngineeringRuntime(

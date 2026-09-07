@@ -72,6 +72,103 @@ def _require_non_negative_int(value: object, label: str) -> None:
         raise ValueError(f"{label} 必须非负")
 
 
+def _normalize_evidence_groups(
+    value: object, label: str
+) -> tuple[tuple[str, ...], ...]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise TypeError(f"{label} 必须是 evidence group 序列")
+    groups: list[tuple[str, ...]] = []
+    for group in value:
+        if isinstance(group, (str, bytes)) or not isinstance(group, Sequence):
+            raise TypeError(f"{label} 的每一组必须是序列")
+        normalized = tuple(group)
+        if not normalized:
+            raise ValueError(f"{label} 不允许空 group")
+        if any(kind not in EVIDENCE_KINDS for kind in normalized):
+            raise ValueError(f"{label} 含未知 evidence kind")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError(f"{label} 内 kind 不得重复")
+        if normalized in groups:
+            raise ValueError(f"{label} 不得重复")
+        groups.append(normalized)
+    return tuple(groups)
+
+
+@dataclass(frozen=True)
+class DecisionEvidenceReference:
+    """Metadata-only locator for one current-run public Evidence.
+
+    The trusted catalog carries E-ID ↔ locator identity only. Snippets,
+    observation results, and document content stay untrusted Observation
+    data in the user role and must never enter this control state.
+    """
+
+    evidence_id: str
+    kind: str
+    source_name: Optional[str] = None
+    chunk_id: Optional[str] = None
+    rank: Optional[int] = None
+    path: Optional[str] = None
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.evidence_id) is not str
+            or not self.evidence_id.startswith("E")
+            or not self.evidence_id[1:].isdigit()
+            or int(self.evidence_id[1:]) < 1
+        ):
+            raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
+        if self.kind not in EVIDENCE_KINDS:
+            raise ValueError(f"kind 必须是 {'、'.join(EVIDENCE_KINDS)} 之一")
+        if self.kind == "knowledge":
+            if type(self.source_name) is not str or not self.source_name.strip():
+                raise ValueError("knowledge reference 必须携带非空 source_name")
+            if (
+                type(self.rank) is not int
+                or isinstance(self.rank, bool)
+                or self.rank < 1
+            ):
+                raise ValueError("knowledge reference 必须携带 >=1 的严格 rank")
+            if self.chunk_id is not None and (
+                type(self.chunk_id) is not str or not self.chunk_id.strip()
+            ):
+                raise ValueError("chunk_id 必须是非空字符串或 None")
+            for label in ("path", "start_line", "end_line"):
+                if getattr(self, label) is not None:
+                    raise ValueError("knowledge reference 不允许 project locator 字段")
+        else:
+            if type(self.path) is not str or not self.path.strip():
+                raise ValueError("project reference 必须携带非空 path")
+            for label in ("start_line", "end_line"):
+                value = getattr(self, label)
+                if type(value) is not int or isinstance(value, bool) or value < 1:
+                    raise ValueError("project reference 行号必须是 >=1 的严格 int")
+            if self.end_line < self.start_line:
+                raise ValueError("project reference 行号范围无效")
+            for label in ("source_name", "chunk_id", "rank"):
+                if getattr(self, label) is not None:
+                    raise ValueError("project reference 不允许 knowledge locator 字段")
+
+    def to_dict(self) -> dict:
+        if self.kind == "knowledge":
+            return {
+                "evidence_id": self.evidence_id,
+                "kind": self.kind,
+                "source_name": self.source_name,
+                "chunk_id": self.chunk_id,
+                "rank": self.rank,
+            }
+        return {
+            "evidence_id": self.evidence_id,
+            "kind": self.kind,
+            "path": self.path,
+            "start_line": self.start_line,
+            "end_line": self.end_line,
+        }
+
+
 @dataclass(frozen=True)
 class ToolAgentBudget:
     """v1 冻结硬预算；系统控制，LLM 无权查看或修改。"""
@@ -114,6 +211,9 @@ class DecisionControlState:
     missing_evidence_groups: tuple[tuple[str, ...], ...] = ()
     current_distinct_project_code_paths: Optional[int] = None
     required_min_distinct_project_code_paths: Optional[int] = None
+    available_evidence_refs: tuple[DecisionEvidenceReference, ...] = ()
+    citation_required_evidence_groups: tuple[tuple[str, ...], ...] = ()
+    citation_required_min_distinct_project_code_paths: int = 0
 
     def __post_init__(self) -> None:
         _require_non_negative_int(self.iteration, "iteration")
@@ -134,24 +234,11 @@ class DecisionControlState:
 
         if self.finalization_blocked is not None and type(self.finalization_blocked) is not bool:
             raise TypeError("finalization_blocked 必须是 bool 或 None")
-        if isinstance(self.missing_evidence_groups, (str, bytes)) or not isinstance(
-            self.missing_evidence_groups, Sequence
-        ):
-            raise TypeError("missing_evidence_groups 必须是 evidence group 序列")
-        groups: list[tuple[str, ...]] = []
-        for group in self.missing_evidence_groups:
-            if isinstance(group, (str, bytes)) or not isinstance(group, Sequence):
-                raise TypeError("missing_evidence_groups 的每一组必须是序列")
-            normalized = tuple(group)
-            if not normalized:
-                raise ValueError("missing_evidence_groups 不允许空 group")
-            if any(kind not in EVIDENCE_KINDS for kind in normalized):
-                raise ValueError("missing_evidence_groups 含未知 evidence kind")
-            if len(set(normalized)) != len(normalized):
-                raise ValueError("missing_evidence_groups 内 kind 不得重复")
-            if normalized in groups:
-                raise ValueError("missing_evidence_groups 不得重复")
-            groups.append(normalized)
+        normalized_groups = _normalize_evidence_groups(
+            self.missing_evidence_groups, "missing_evidence_groups"
+        )
+        object.__setattr__(self, "missing_evidence_groups", normalized_groups)
+        groups = list(normalized_groups)
         if not self.finalization_blocked and (
             groups
             or self.current_distinct_project_code_paths is not None
@@ -167,9 +254,30 @@ class DecisionControlState:
         ):
             if value is not None:
                 _require_non_negative_int(value, label)
-        object.__setattr__(self, "missing_evidence_groups", tuple(groups))
+        if isinstance(self.available_evidence_refs, (str, bytes)) or not isinstance(
+            self.available_evidence_refs, Sequence
+        ):
+            raise TypeError("available_evidence_refs 必须是 DecisionEvidenceReference 序列")
+        evidence_refs = tuple(self.available_evidence_refs)
+        if any(type(item) is not DecisionEvidenceReference for item in evidence_refs):
+            raise TypeError("available_evidence_refs 必须全部是 DecisionEvidenceReference")
+        if len({ref.evidence_id for ref in evidence_refs}) != len(evidence_refs):
+            raise ValueError("available_evidence_refs 的 evidence_id 不得重复")
+        object.__setattr__(self, "available_evidence_refs", evidence_refs)
+        object.__setattr__(
+            self,
+            "citation_required_evidence_groups",
+            _normalize_evidence_groups(
+                self.citation_required_evidence_groups,
+                "citation_required_evidence_groups",
+            ),
+        )
+        _require_non_negative_int(
+            self.citation_required_min_distinct_project_code_paths,
+            "citation_required_min_distinct_project_code_paths",
+        )
 
-    def to_dict(self) -> dict:
+    def to_dict(self, *, include_evidence_reference_control: bool = False) -> dict:
         result = {
             "iteration": self.iteration,
             "remaining_iterations": self.remaining_iterations,
@@ -177,6 +285,20 @@ class DecisionControlState:
             "tool_call_allowed": self.tool_call_allowed,
             "must_terminate": self.must_terminate,
         }
+        if include_evidence_reference_control:
+            result.update(
+                {
+                    "available_evidence_refs": [
+                        ref.to_dict() for ref in self.available_evidence_refs
+                    ],
+                    "citation_required_evidence_groups": [
+                        list(group) for group in self.citation_required_evidence_groups
+                    ],
+                    "citation_required_min_distinct_project_code_paths": (
+                        self.citation_required_min_distinct_project_code_paths
+                    ),
+                }
+            )
         if self.finalization_blocked is True:
             result.update(
                 {

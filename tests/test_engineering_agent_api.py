@@ -168,7 +168,9 @@ def test_knowledge_only_returns_bounded_knowledge_evidence_and_legacy_survives(
     _install(
         monkeypatch,
         [
-            _outcome(FinalAnswerAction("final_answer", "RRF uses reciprocal rank.")),
+            _outcome(
+                FinalAnswerAction("final_answer", "RRF uses reciprocal rank. [E1]")
+            ),
         ],
         docs=docs,
     )

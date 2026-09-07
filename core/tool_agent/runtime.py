@@ -45,6 +45,7 @@ from core.tool_agent.runtime_models import (
     AgentDecisionProvider,
     DecisionControlState,
     DecisionContextItem,
+    DecisionEvidenceReference,
     EngineeringEvidence,
     KnowledgeEvidence,
     MAX_EVIDENCE_SNIPPET_LENGTH,
@@ -344,6 +345,36 @@ def _recovery_is_feasible(
     return False
 
 
+def _evidence_reference_catalog(
+    evidence: list[EngineeringEvidence | KnowledgeEvidence],
+) -> tuple[DecisionEvidenceReference, ...]:
+    """Deterministic metadata-only E-ID catalog of current public evidence."""
+
+    refs: list[DecisionEvidenceReference] = []
+    for item in evidence:
+        if isinstance(item, KnowledgeEvidence):
+            refs.append(
+                DecisionEvidenceReference(
+                    evidence_id=item.evidence_id,
+                    kind=item.kind,
+                    source_name=item.source_name,
+                    chunk_id=item.chunk_id,
+                    rank=item.rank,
+                )
+            )
+        else:
+            refs.append(
+                DecisionEvidenceReference(
+                    evidence_id=item.evidence_id,
+                    kind=item.kind,
+                    path=item.path,
+                    start_line=item.start_line,
+                    end_line=item.end_line,
+                )
+            )
+    return tuple(refs)
+
+
 def _run_finalization_verifier(
     verifier,
     evidence: list[EngineeringEvidence | KnowledgeEvidence],
@@ -522,6 +553,17 @@ class ToolAgentRuntime:
                     guard_state.required_min_distinct_project_code_paths
                     if recovery_control_active and guard_state is not None
                     else None
+                ),
+                available_evidence_refs=_evidence_reference_catalog(evidence),
+                citation_required_evidence_groups=(
+                    evidence_requirement.required_evidence_groups
+                    if evidence_requirement is not None
+                    else ()
+                ),
+                citation_required_min_distinct_project_code_paths=(
+                    evidence_requirement.min_distinct_project_code_paths
+                    if evidence_requirement is not None
+                    else 0
                 ),
             )
             outcome = self._decide(

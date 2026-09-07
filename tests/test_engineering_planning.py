@@ -69,8 +69,16 @@ class _DecisionProvider:
 
     def decide(self, _registry, user_query, *, context=(), control_state=None):
         self.queries.append(user_query)
+        refs = (
+            control_state.available_evidence_refs
+            if control_state is not None
+            else ()
+        )
+        answer = "answer"
+        if refs:
+            answer += " " + " ".join(f"[{ref.evidence_id}]" for ref in refs)
         return AgentDecisionOutcome(
-            action=FinalAnswerAction("final_answer", "answer"),
+            action=FinalAnswerAction("final_answer", answer),
             failure_code=None,
             call_metadata=None,
         )

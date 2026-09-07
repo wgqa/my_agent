@@ -13,6 +13,7 @@ from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import (
+    ANSWER_BINDING_STATUS_VALID,
     CITATION_STATUS_INVALID,
     CITATION_STATUS_NOT_CHECKED,
     CITATION_STATUS_NOT_PRESENT,
@@ -343,11 +344,13 @@ def test_citation_valid_reuses_existing_citation_id_context():
     snapshot, _ = _snapshot(query, outcome, {(query, "bm25"): (_doc("source.md", "k1"),)})
     result = EngineeringEvidenceVerifier().verify(
         outcome, snapshot, route_engineering_evidence_requirement(query),
-        snapshot.knowledge_evidence, proposed_answer="answer [C1]"
+        snapshot.knowledge_evidence, proposed_answer="answer [C1] [E1]"
     )
 
     assert result.citation_status == CITATION_STATUS_VALID
     assert result.invalid_citation_ids == ()
+    assert result.answer_evidence_binding_status == ANSWER_BINDING_STATUS_VALID
+    assert result.cited_evidence_ids == ("E1",)
     assert result.can_finalize is True
 
 
@@ -409,12 +412,12 @@ def test_recoverable_requirement_shortage_recomputes_unified_result():
             tool_name="read_project_context",
             arguments={"path": "core/synthetic.py", "line": 1, "context_lines": 0},
         ),
-        FinalAnswerAction("final_answer", "grounded answer"),
+        FinalAnswerAction("final_answer", "grounded answer [E1] [E2]"),
     ])
     result = _build_unified_runtime(query, port, provider).run(query)
 
     assert result.status == "completed"
-    assert result.answer == "grounded answer"
+    assert result.answer == "grounded answer [E1] [E2]"
     assert provider.calls == 3
     assert result.iterations_used == 3
     assert result.tool_calls_used == 1
@@ -475,7 +478,7 @@ def test_verification_does_not_change_tool_counters():
         {(query, "bm25"): (_doc("source.md", "k1"),)},
         supported_strategies=("bm25",),
     )
-    provider = ScriptedProvider([FinalAnswerAction("final_answer", "answer")])
+    provider = ScriptedProvider([FinalAnswerAction("final_answer", "answer [E1]")])
     result = _build_unified_runtime(query, port, provider).run(query)
 
     assert result.status == "completed"

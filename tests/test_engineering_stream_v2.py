@@ -219,7 +219,7 @@ def test_v2_uses_real_tool_lifecycle_evidence_and_guard_events(monkeypatch):
                         "context_lines": 0,
                     },
                 ),
-                FinalAnswerAction("final_answer", "APPROVED grounded answer"),
+                FinalAnswerAction("final_answer", "APPROVED grounded answer [E1] [E2]"),
             ]
         ),
     )
@@ -266,7 +266,11 @@ def test_v2_uses_real_tool_lifecycle_evidence_and_guard_events(monkeypatch):
     } in events
     deltas = [event["delta"] for event in events if event["type"] == "answer_delta"]
     final = next(event for event in events if event["type"] == "final")
-    assert "".join(deltas) == final["result"]["answer"] == "APPROVED grounded answer"
+    assert (
+        "".join(deltas)
+        == final["result"]["answer"]
+        == "APPROVED grounded answer [E1] [E2]"
+    )
     assert events[-1] == {"type": "done"}
     for forbidden in ("prompt", "raw", "api_key", r"C:\\", "chain_of_thought"):
         assert forbidden.lower() not in response.text.lower()

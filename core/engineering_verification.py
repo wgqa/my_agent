@@ -9,6 +9,7 @@ single ToolAgent finalization point.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -41,12 +42,134 @@ RETRIEVAL_EVIDENCE_INSUFFICIENT = "RETRIEVAL_EVIDENCE_INSUFFICIENT"
 INCOMPLETE_SUBQUERY_COVERAGE = "INCOMPLETE_SUBQUERY_COVERAGE"
 REQUIRED_EVIDENCE_MISSING = "REQUIRED_EVIDENCE_MISSING"
 INVALID_CITATION_REFERENCE = "INVALID_CITATION_REFERENCE"
+ANSWER_EVIDENCE_REFERENCE_MISSING = "ANSWER_EVIDENCE_REFERENCE_MISSING"
+ANSWER_EVIDENCE_REFERENCE_INCOMPLETE = "ANSWER_EVIDENCE_REFERENCE_INCOMPLETE"
+ANSWER_EVIDENCE_REFERENCE_INVALID = "ANSWER_EVIDENCE_REFERENCE_INVALID"
 INSUFFICIENCY_REASONS = (
     RETRIEVAL_EVIDENCE_INSUFFICIENT,
     INCOMPLETE_SUBQUERY_COVERAGE,
     REQUIRED_EVIDENCE_MISSING,
     INVALID_CITATION_REFERENCE,
+    ANSWER_EVIDENCE_REFERENCE_MISSING,
+    ANSWER_EVIDENCE_REFERENCE_INCOMPLETE,
+    ANSWER_EVIDENCE_REFERENCE_INVALID,
 )
+
+# PRODUCT-GROUNDING-21: structural Answer ↔ Evidence binding statuses. The
+# binding is deterministic reference-truth + requirement-shape checking; it
+# makes no semantic entailment claim.
+ANSWER_BINDING_STATUS_NOT_CHECKED = "NOT_CHECKED"
+ANSWER_BINDING_STATUS_NOT_REQUIRED = "NOT_REQUIRED"
+ANSWER_BINDING_STATUS_MISSING = "MISSING"
+ANSWER_BINDING_STATUS_INCOMPLETE = "INCOMPLETE"
+ANSWER_BINDING_STATUS_INVALID = "INVALID"
+ANSWER_BINDING_STATUS_VALID = "VALID"
+ANSWER_BINDING_STATUSES = (
+    ANSWER_BINDING_STATUS_NOT_CHECKED,
+    ANSWER_BINDING_STATUS_NOT_REQUIRED,
+    ANSWER_BINDING_STATUS_MISSING,
+    ANSWER_BINDING_STATUS_INCOMPLETE,
+    ANSWER_BINDING_STATUS_INVALID,
+    ANSWER_BINDING_STATUS_VALID,
+)
+ANSWER_BINDING_PASS_STATUSES = (
+    ANSWER_BINDING_STATUS_NOT_CHECKED,
+    ANSWER_BINDING_STATUS_NOT_REQUIRED,
+    ANSWER_BINDING_STATUS_VALID,
+)
+
+# Exact, case-sensitive [E1]/[E2] reference syntax. [e1], [E0], [E-1] and
+# [Efoo] deliberately do not parse as references.
+_EVIDENCE_REFERENCE_PATTERN = re.compile(r"\[E([1-9][0-9]*)\]")
+
+
+def parse_answer_evidence_references(answer: str) -> tuple[str, ...]:
+    """Extract [E#] references in first-occurrence order, deduplicated."""
+
+    if type(answer) is not str:
+        raise TypeError("answer 必须是 str")
+    references: list[str] = []
+    for match in _EVIDENCE_REFERENCE_PATTERN.finditer(answer):
+        reference = f"E{match.group(1)}"
+        if reference not in references:
+            references.append(reference)
+    return tuple(references)
+
+
+def _evaluate_answer_evidence_binding(
+    requirement: EngineeringEvidenceRequirement,
+    evidence: tuple[EngineeringEvidence | KnowledgeEvidence, ...],
+    proposed_answer: str | None,
+) -> tuple[str, bool, tuple[str, ...], tuple[str, ...]]:
+    """Return (status, required, cited_evidence_ids, invalid_evidence_ids).
+
+    Reference truth comes only from current public evidence; a reference to
+    any other ID is INVALID with precedence over all other outcomes. The
+    cited evidence subset is evaluated with the one frozen G12 requirement
+    evaluator; no second requirement algorithm exists here.
+    """
+
+    evidence_ids = {item.evidence_id for item in evidence}
+    binding_required = (
+        bool(evidence)
+        or bool(requirement.required_evidence_groups)
+        or requirement.min_distinct_project_code_paths > 0
+    )
+    if proposed_answer is None:
+        # Pre-finalization verification: no answer exists to bind yet.
+        return (
+            ANSWER_BINDING_STATUS_NOT_CHECKED,
+            binding_required,
+            (),
+            (),
+        )
+    references = parse_answer_evidence_references(proposed_answer)
+    invalid_references = tuple(
+        reference for reference in references if reference not in evidence_ids
+    )
+    if invalid_references:
+        return (
+            ANSWER_BINDING_STATUS_INVALID,
+            binding_required,
+            tuple(
+                reference
+                for reference in references
+                if reference in evidence_ids
+            ),
+            invalid_references,
+        )
+    if not binding_required:
+        # Genuinely evidence-free direct answer: citations are not required
+        # and none may exist (any reference would have been INVALID above).
+        return (
+            ANSWER_BINDING_STATUS_NOT_REQUIRED,
+            False,
+            (),
+            (),
+        )
+    if not references:
+        return (
+            ANSWER_BINDING_STATUS_MISSING,
+            True,
+            (),
+            (),
+        )
+    cited_evidence = tuple(
+        item for item in evidence if item.evidence_id in references
+    )
+    if evaluate_evidence_requirement(requirement, cited_evidence).satisfied:
+        return (
+            ANSWER_BINDING_STATUS_VALID,
+            True,
+            references,
+            (),
+        )
+    return (
+        ANSWER_BINDING_STATUS_INCOMPLETE,
+        True,
+        references,
+        (),
+    )
 
 
 def _strict_evidence_sequence(
@@ -130,6 +253,10 @@ class EngineeringVerificationResult:
     retrieval_verification: VerificationResult
     evidence_requirement_state: EvidenceRequirementState
     evidence_count: int
+    answer_evidence_binding_status: str
+    answer_evidence_binding_required: bool
+    cited_evidence_ids: tuple[str, ...]
+    invalid_evidence_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
         for label in (
@@ -228,19 +355,48 @@ class EngineeringVerificationResult:
             expected_reasons.append(REQUIRED_EVIDENCE_MISSING)
         if self.citation_status == CITATION_STATUS_INVALID:
             expected_reasons.append(INVALID_CITATION_REFERENCE)
+        if self.answer_evidence_binding_status == ANSWER_BINDING_STATUS_MISSING:
+            expected_reasons.append(ANSWER_EVIDENCE_REFERENCE_MISSING)
+        if self.answer_evidence_binding_status == ANSWER_BINDING_STATUS_INCOMPLETE:
+            expected_reasons.append(ANSWER_EVIDENCE_REFERENCE_INCOMPLETE)
+        if self.answer_evidence_binding_status == ANSWER_BINDING_STATUS_INVALID:
+            expected_reasons.append(ANSWER_EVIDENCE_REFERENCE_INVALID)
         if self.insufficiency_reasons != tuple(expected_reasons):
-            raise ValueError("insufficiency_reasons 必须由三个正交 check 推导")
+            raise ValueError("insufficiency_reasons 必须由正交 check 推导")
         if self.citation_status == CITATION_STATUS_INVALID and not self.invalid_citation_ids:
             raise ValueError("INVALID citation_status 要求 invalid_citation_ids")
         if self.citation_status != CITATION_STATUS_INVALID and self.invalid_citation_ids:
             raise ValueError("只有 INVALID citation_status 可以有 invalid_citation_ids")
+        if self.answer_evidence_binding_status not in ANSWER_BINDING_STATUSES:
+            raise ValueError("answer_evidence_binding_status 不是合法内部 status")
+        if type(self.answer_evidence_binding_required) is not bool:
+            raise TypeError("answer_evidence_binding_required 必须是 bool")
+        _strict_string_tuple(self.cited_evidence_ids, "cited_evidence_ids")
+        _strict_string_tuple(self.invalid_evidence_ids, "invalid_evidence_ids")
+        if self.answer_evidence_binding_status == ANSWER_BINDING_STATUS_INVALID:
+            if not self.invalid_evidence_ids:
+                raise ValueError("INVALID binding_status 要求 invalid_evidence_ids")
+        elif self.invalid_evidence_ids:
+            raise ValueError("只有 INVALID binding_status 可以有 invalid_evidence_ids")
+        if self.answer_evidence_binding_status in {
+            ANSWER_BINDING_STATUS_NOT_CHECKED,
+            ANSWER_BINDING_STATUS_NOT_REQUIRED,
+            ANSWER_BINDING_STATUS_MISSING,
+        } and self.cited_evidence_ids:
+            raise ValueError(f"{self.answer_evidence_binding_status} binding_status 不允许 cited_evidence_ids")
+        if self.answer_evidence_binding_status in {
+            ANSWER_BINDING_STATUS_VALID,
+            ANSWER_BINDING_STATUS_INCOMPLETE,
+        } and not self.cited_evidence_ids:
+            raise ValueError(f"{self.answer_evidence_binding_status} binding_status 要求 cited_evidence_ids")
         expected_can_finalize = (
             self.retrieval_can_generate
             and self.evidence_requirement_satisfied
             and self.citation_status != CITATION_STATUS_INVALID
+            and self.answer_evidence_binding_status in ANSWER_BINDING_PASS_STATUSES
         )
         if self.can_finalize != expected_can_finalize:
-            raise ValueError("can_finalize 必须是三个正交 check 的合取")
+            raise ValueError("can_finalize 必须是四个正交 check 的合取")
         expected_recovery = (
             not self.can_finalize
             and self.retrieval_can_generate
@@ -249,7 +405,8 @@ class EngineeringVerificationResult:
         )
         if self.recovery_allowed != expected_recovery:
             raise ValueError(
-                "recovery_allowed 只允许用于 retrieval 已足够且 G12 evidence 缺失"
+                "recovery_allowed 只允许用于 retrieval 已足够且 G12 evidence 缺失；"
+                "evidence 已足够时的 binding failure 不是 acquisition failure"
             )
 
     @property
@@ -408,10 +565,21 @@ class EngineeringEvidenceVerifier:
         if citation_status == CITATION_STATUS_INVALID:
             insufficiency_reasons.append(INVALID_CITATION_REFERENCE)
 
+        binding_status, binding_required, cited_evidence_ids, invalid_evidence_ids = (
+            _evaluate_answer_evidence_binding(requirement, evidence, proposed_answer)
+        )
+        if binding_status == ANSWER_BINDING_STATUS_MISSING:
+            insufficiency_reasons.append(ANSWER_EVIDENCE_REFERENCE_MISSING)
+        elif binding_status == ANSWER_BINDING_STATUS_INCOMPLETE:
+            insufficiency_reasons.append(ANSWER_EVIDENCE_REFERENCE_INCOMPLETE)
+        elif binding_status == ANSWER_BINDING_STATUS_INVALID:
+            insufficiency_reasons.append(ANSWER_EVIDENCE_REFERENCE_INVALID)
+
         can_finalize = (
             retrieval_result.can_generate
             and requirement_state.satisfied
             and citation_status != CITATION_STATUS_INVALID
+            and binding_status in ANSWER_BINDING_PASS_STATUSES
         )
         return EngineeringVerificationResult(
             can_finalize=can_finalize,
@@ -440,6 +608,10 @@ class EngineeringEvidenceVerifier:
             retrieval_verification=retrieval_result,
             evidence_requirement_state=requirement_state,
             evidence_count=retrieval_result.evidence_count,
+            answer_evidence_binding_status=binding_status,
+            answer_evidence_binding_required=binding_required,
+            cited_evidence_ids=cited_evidence_ids,
+            invalid_evidence_ids=invalid_evidence_ids,
         )
 
 
@@ -449,11 +621,23 @@ __all__ = [
     "CITATION_STATUS_VALID",
     "CITATION_STATUS_INVALID",
     "CITATION_STATUSES",
+    "ANSWER_BINDING_STATUS_NOT_CHECKED",
+    "ANSWER_BINDING_STATUS_NOT_REQUIRED",
+    "ANSWER_BINDING_STATUS_MISSING",
+    "ANSWER_BINDING_STATUS_INCOMPLETE",
+    "ANSWER_BINDING_STATUS_INVALID",
+    "ANSWER_BINDING_STATUS_VALID",
+    "ANSWER_BINDING_STATUSES",
+    "ANSWER_BINDING_PASS_STATUSES",
+    "ANSWER_EVIDENCE_REFERENCE_MISSING",
+    "ANSWER_EVIDENCE_REFERENCE_INCOMPLETE",
+    "ANSWER_EVIDENCE_REFERENCE_INVALID",
     "RETRIEVAL_EVIDENCE_INSUFFICIENT",
     "INCOMPLETE_SUBQUERY_COVERAGE",
     "REQUIRED_EVIDENCE_MISSING",
     "INVALID_CITATION_REFERENCE",
     "INSUFFICIENCY_REASONS",
+    "parse_answer_evidence_references",
     "evidence_bundle_to_citation_blocks",
     "EngineeringVerificationResult",
     "EngineeringEvidenceVerifier",

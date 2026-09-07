@@ -116,6 +116,7 @@ def test_frozen_prompt_identities_and_additive_repair_matrix_are_explicit():
         "engineering_agent_decision_prompt_v2",
         "engineering_agent_decision_prompt_unified_v1",
         "engineering_agent_decision_prompt_unified_kind_aware_v1",
+        "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
         "engineering_agent_decision_prompt_unified_v2",
         "engineering_agent_decision_prompt_v3",
     }

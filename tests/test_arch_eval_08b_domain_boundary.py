@@ -158,8 +158,11 @@ def _diff(path: str = "src/runtime.py") -> ToolCallAction:
     )
 
 
-def _final() -> FinalAnswerAction:
-    return FinalAnswerAction(action="final_answer", answer="grounded deterministic answer")
+def _final(refs: str = "") -> FinalAnswerAction:
+    answer = "grounded deterministic answer"
+    if refs:
+        answer = f"{answer} {refs}"
+    return FinalAnswerAction(action="final_answer", answer=answer)
 
 
 def _runtime(actions, *, decomposed: bool = False, empty_knowledge: bool = False):
@@ -196,7 +199,7 @@ def test_current_project_code_cannot_be_finalized_from_knowledge_seed_or_refusal
         [
             RefuseAction(action="refuse", reason_code="INSUFFICIENT_INFORMATION"),
             _read("src/runtime.py"),
-            _final(),
+            _final("[E1] [E2]"),
         ]
     )
 
@@ -216,7 +219,7 @@ def test_current_project_code_cannot_be_finalized_from_knowledge_seed_or_refusal
 
 def test_project_only_finalization_does_not_depend_on_planned_knowledge_coverage():
     runtime, _, read_handler, _, _, retrieval_port = _runtime(
-        [_read("src/runtime.py"), _final()],
+        [_read("src/runtime.py"), _final("[E1]")],
         empty_knowledge=True,
     )
 
@@ -230,7 +233,7 @@ def test_project_only_finalization_does_not_depend_on_planned_knowledge_coverage
 
 def test_docs_implementation_requires_document_and_code_evidence():
     runtime, _, read_handler, _, _, _ = _runtime(
-        [_read("README.md"), _read("src/runtime.py"), _final()]
+        [_read("README.md"), _read("src/runtime.py"), _final("[E1] [E2] [E3]")]
     )
 
     result = runtime.run(
@@ -248,7 +251,7 @@ def test_docs_implementation_requires_document_and_code_evidence():
 
 def test_cross_file_diagnosis_keeps_two_distinct_code_path_floor():
     runtime, _, read_handler, _, _, _ = _runtime(
-        [_read("core/runtime.py"), _read("core/verification.py"), _final()]
+        [_read("core/runtime.py"), _read("core/verification.py"), _final("[E1] [E2] [E3]")]
     )
 
     result = runtime.run("Diagnose failure propagation across modules and explain behavior")
@@ -261,7 +264,7 @@ def test_cross_file_diagnosis_keeps_two_distinct_code_path_floor():
 
 def test_change_test_requires_change_and_test_evidence():
     runtime, _, read_handler, diff_handler, _, _ = _runtime(
-        [_diff(), _read("tests/test_runtime.py"), _final()]
+        [_diff(), _read("tests/test_runtime.py"), _final("[E1] [E2] [E3]")]
     )
 
     result = runtime.run("Review the commit diff and regression test coverage")
@@ -277,11 +280,11 @@ def test_change_test_requires_change_and_test_evidence():
 
 
 def test_pure_knowledge_and_decomposed_knowledge_do_not_require_repo_tools():
-    single_runtime, single_provider, single_read, _, _, single_retrieval = _runtime([_final()])
+    single_runtime, single_provider, single_read, _, _, single_retrieval = _runtime([_final("[E1]")])
     single = single_runtime.run("What is BM25?")
 
     decomposed_runtime, decomposed_provider, decomposed_read, _, _, decomposed_retrieval = _runtime(
-        [_final()], decomposed=True
+        [_final("[E1]")], decomposed=True
     )
     decomposed = decomposed_runtime.run("Compare dense and BM25 retrieval concepts")
 
