@@ -47,6 +47,14 @@ v7 的总原则：
 
 ## 0.2 当前 Architecture Integration Drift
 
+**状态（2026-09-07，ARCH-INTEGRATION-17）：RESOLVED / CLOSED。**
+本节最初描述的迁移期 drift 已经通过 09～16 系列（统一 Runtime 组件集成、
+Dev 评测、16C 回滚）消化完毕，并由
+[integration_v7_current_version_closure.md](design/integration_v7_current_version_closure.md)
+正式关闭。以下历史描述**保留原文**，仅作为 ARCH-FREEZE-01 起点的背景记录，
+不再描述当前现实；后续 09～16 系列已 supersede 早期 CURRENT 状态并形成
+current-version closure。
+
 当前仍存在明确但已收敛的 **Architecture Integration Drift**：ARCH-FREEZE-01 的历史起点是 Engineering 主链由 `ToolAgentRuntime` 控制，而 G3 retrieval/verifier 与 G8 Context 尚未进入；迁移后这些能力已有 Context/Plan/Retrieval/Verification component seam，`ToolAgentRuntime` 仍负责 bounded Decision → Tool → Observation execution。当前 drift 不再通过复制旧 AgentRuntime 解决，而是通过 ARCH-EVAL-08A 验证单一控制面、单一逻辑 Budget Owner、统一 Evidence/Verification/Finalization 与 legacy 回归是否形成可比较的系统行为。具体边界见 [unified_engineering_runtime_v1.md](design/unified_engineering_runtime_v1.md)。
 
 - ARCH-FREEZE-01 起点的 G3 Planner、Query Decomposition、Adaptive Retrieval、Multi-query Retrieval 与 `MinimalEvidenceVerifier` 均未进入当时主链；ARCH-RETRIEVAL-05 已将 Planner/QueryPlan 驱动的有限 Adaptive / Multi-query Retrieval、Evidence Merge 和 planned evidence handoff 接入，ARCH-VERIFY-06 再以 `EngineeringEvidenceVerifier` 复用 `MinimalEvidenceVerifier`，但 `ToolAgentRuntime` 仍是迁移期 bounded execution component；
@@ -72,9 +80,11 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 
 **`ARCH-EVAL-08A = ACCEPT / CLOSED`**：R0 → R1 → R2 → R3 的协议与 provenance supersession 保持不变；所有旧 protocol SHA 均未产生 product run/result。
 
-**`ARCH-EVAL-08B = CURRENT / REVIEW PENDING`**：只允许使用 08A 冻结的 Dev 协议执行 System A/B 真实 Integration Dev。runner 已限定为隔离 checkout、同一 target/corpus、A/B 交替顺序、safe artifacts 与 Holdout deny-by-default；当前环境缺少 `DEEPSEEK_API_KEY`，因此真实 Provider run 尚未启动，不能形成 PASS 或产品结果。
+**`ARCH-EVAL-08B = SUPERSEDED / HISTORICAL`**（原 `CURRENT / REVIEW PENDING` 状态已被 09～16 系列真实演进取代；其 18 Dev × System A/B 执行设计与 protocol provenance 保留原文，历史 dev_v1 结果目录保持 frozen/protected。后续 09～16 系列沿着同一冻结协议的 System B 演进线形成 current-version closure，08B 的早期 CURRENT 地位就此终止，但其设计与 protocol provenance 不得改写成"从未存在"。）
 
-**NEXT = `ARCH-EVAL-08B`（CURRENT / REVIEW PENDING）**
+**`ARCH-INTEGRATION-17 = CONDITIONAL ACCEPT / CLOSED`（2026-09-07，CURRENT）**：Integration v7 current-version closure 完成。Architecture Integration = ACCEPT / CLOSED；Current Product Semantic Quality = CONDITIONAL / KNOWN LIMITATIONS（15D：18 total / 16 valid / 2 invalid，terminal 13 PASS / 3 FAIL / 2 N/A；grounding 与 over-refusal 已知限制原样冻结）；Holdout 保持 sealed；Dev-driven Production intervention 停止。权威结论文档：[integration_v7_current_version_closure.md](design/integration_v7_current_version_closure.md)。负实验链 16A（VALID EXPERIMENT / NOT PROMOTED）→ 16B（REAL DEV NEGATIVE-NEUTRAL）→ 16C（ACCEPT / CLOSED，evidence-based rollback）保留为正式历史。
+
+**NEXT = `PRODUCTIZATION-18A`（NOT STARTED）**：Integration v7 架构施工期结束；下一阶段转向稳定用户场景、演示入口、source/citation presentation、真实 conversation product path 与校招掌握，不继续围绕 Dev cases 调参。18A 未开始、未授权，不得由 closure 任务自行启动。
 
 当前任务完成后的后续唯一顺序为：
 
@@ -89,9 +99,10 @@ ARCH-RUNTIME-02
 → Productization
 ```
 
-顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据；当前只推进
-`ARCH-EVAL-08B` 的 Integration Dev 执行，Holdout、ARCH-EVAL-08B 之外的评测与
-Productization 均未启动，后续阶段须另行授权。
+顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据。历史阶段
+02～08 已按各自冻结状态关闭或被 09～16 系列 supersede；Integration v7
+架构施工期已由 ARCH-INTEGRATION-17 关闭，当前只等待 `PRODUCTIZATION-18A`
+的另行授权；Holdout 与未授权的评测阶段均不启动。
 
 R2 provenance note：R0 protocol SHA
 `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被
@@ -357,7 +368,12 @@ case coherence contract：部分 evidence kind/path、required group、distinct 
 path 与 question/Gold 关系仍有漂移。因此 R2 被 R3 阻断，且从未执行真实 Provider、A/B
 generation、Holdout、Formal、manual scoring 或 product run/result。
 
-### ARCH-EVAL-08A-R3-MICRO：CURRENT / REVIEW PENDING
+### ARCH-EVAL-08A-R3-MICRO：SUPERSEDED / HISTORICAL（原 CURRENT / REVIEW PENDING）
+
+> 2026-09-07：R3 的 protocol-only CURRENT 地位已被后续 09～16 系列与
+> ARCH-INTEGRATION-17 current-version closure 取代；本节协议事实保留原文。
+> 历史状态说明（早期）：当时 R3 是当前协议阶段，尚未产生任何 product
+> run/result；该边界今天仍然成立——R0～R3 均未产生 product run/result。
 
 R3 只做 evaluation dataset / validator closure。`validate_case_gold_coherence` 复用
 ToolAgentRuntime 的真实 test/source classification，拒绝 tests path 冒充 `project_code`，要求

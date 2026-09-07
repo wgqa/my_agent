@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-09-01
+**更新日期：** 2026-09-07
 
 ## 当前状态
 
@@ -21,7 +21,17 @@
 - **ARCH-EVAL-08A-R2-MICRO = BLOCKED**（Gold semantic provenance closure 被 R3 case-coherence repair 阻断；无 product run/result）
 - **ARCH-EVAL-08A-R3-MICRO = ACCEPT / CLOSED**（case/evidence coherence closure 已纳入冻结协议）
 - **ARCH-EVAL-08A = ACCEPT / CLOSED**（R0 → R1 → R2 → R3 protocol-only supersession 已关闭；无 product run/result）
-- **ARCH-EVAL-08B = CURRENT / REVIEW PENDING**（真实 Dev A/B runner 已实现并通过 provider-free contract tests；当前环境缺少 `DEEPSEEK_API_KEY`，真实 run 未启动）
+- **ARCH-EVAL-08B = SUPERSEDED / HISTORICAL**（早期 `CURRENT / REVIEW PENDING` 状态被 09～16 系列真实演进取代；其历史 `results/dev_v1` raw A/B 结果目录保持 frozen/protected，不被改写）
+- **ARCH-EVAL-15A = ACCEPT / CLOSED**（semantic evaluation artifact contract 冻结）
+- **ARCH-INTEGRATION-15B = REAL DEV COMPLETE**（kind-aware candidate `6d7e58f` 真实 Dev：18 observed / 16 valid / 2 invalid；results 目录 frozen/protected）
+- **ARCH-EVAL-15C = ACCEPT / CLOSED**（semantic review contract `integration_v7_semantic_review_v1` 冻结）
+- **ARCH-EVAL-15D = ACCEPT / CLOSED**（15B Dev 逐 case 语义审查完成：terminal 13 PASS / 3 FAIL / 2 N/A；failure distribution 已冻结在 review artifact）
+- **ARCH-PROD-16A = VALID EXPERIMENT / NOT PROMOTED**（missing-evidence recovery repair；机制 8/8 触发成功但质量指标零变化、成本上升，v7d017 refusal-boundary regression signal）
+- **ARCH-INTEGRATION-16B = REAL DEV COMPLETE / NEGATIVE-NEUTRAL**（candidate `09c9274` 真实 Dev；不重跑，不作为 15B 重演）
+- **ARCH-PROD-16C = ACCEPT / CLOSED**（evidence-based rollback：四个 Production 文件逐字节恢复 `f29af6ed`；parse repair 与 Guard 保留）
+- **ARCH-INTEGRATION-17 = CONDITIONAL ACCEPT / CLOSED**（Integration v7 current-version closure；架构集成 ACCEPT，当前 Product 语义质量 CONDITIONAL / KNOWN LIMITATIONS；见 `docs/design/integration_v7_current_version_closure.md`）
+- **CURRENT PRODUCT（当前主链）= 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` 在 core/api/ui 零 diff 的 `25ff4bc` 工作树**
+- **NEXT = PRODUCTIZATION-18A / NOT STARTED**（Integration v7 架构施工期结束；下一阶段为稳定用户场景、演示入口、source/citation presentation、真实 conversation product path 与校招掌握；不继续围绕 Dev cases 调参；18A 须另行授权，不得由本任务自行开始）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
 - **ARCH-EVAL-08A dataset = 18 Dev + 9 Holdout；9 task families × (2 Dev + 1 Holdout)**
@@ -40,7 +50,7 @@
 - **G12 Engineering Evaluation 2.0 = CLOSED / FROZEN**
 - **G12 Requirement / Finalization Guard architecture integration = ACTIVE**
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
-- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**
+- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以新条目 "CURRENT PRODUCT（当前主链）" 为准）
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
 - **G12 Baseline Formal = VALID / MANUAL GOLD COMPLETE**
 - **Baseline evidence-grounded result = NEGATIVE**
@@ -56,7 +66,7 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- **NEXT = ARCH-EVAL-08B**（只执行冻结协议的 18 Dev × A/B；Holdout deny-by-default，不能写 08B PASS 或 ARCH-EVAL-08 PASS）
+- ~~**NEXT = ARCH-EVAL-08B**~~（已过期：早期 NEXT 已被 09～16 系列真实演进取代；当前 NEXT 见上方 "NEXT = PRODUCTIZATION-18A / NOT STARTED" 与 ARCH-INTEGRATION-17 条目）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
