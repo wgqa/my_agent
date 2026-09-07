@@ -30,9 +30,15 @@
 - **ARCH-INTEGRATION-16B = REAL DEV COMPLETE / NEGATIVE-NEUTRAL**（candidate `09c9274` 真实 Dev；不重跑，不作为 15B 重演）
 - **ARCH-PROD-16C = ACCEPT / CLOSED**（evidence-based rollback：四个 Production 文件逐字节恢复 `f29af6ed`；parse repair 与 Guard 保留）
 - **ARCH-INTEGRATION-17 = CONDITIONAL ACCEPT / CLOSED**（Integration v7 current-version closure；架构集成 ACCEPT，当前 Product 语义质量 CONDITIONAL / KNOWN LIMITATIONS；见 `docs/design/integration_v7_current_version_closure.md`）
-- **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化）
-- **CURRENT PRODUCT CODE IDENTITY = `core/api/ui` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（已机械验证）；`25ff4bc8573221fc55b949c5e804938b0013ff66` 是 ARCH-INTEGRATION-17 closure 前的 validation baseline**。不得把 docs closure commit（`bf8d438`）当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份
-- **NEXT = PRODUCTIZATION-18A / NOT STARTED**（Integration v7 架构施工期结束；下一阶段为稳定用户场景、演示入口、source/citation presentation、真实 conversation product path 与校招掌握；不继续围绕 Dev cases 调参；18A 须另行授权，不得由本任务自行开始）
+- **PRODUCTIZATION-18A = ACCEPT / CLOSED**（Engineering Agent 成为 primary product path；legacy 模式移入 Advanced/Demo；Evidence 呈现、Workspace 状态、conversation UX、streaming activity 与 presentation helpers/styles 分离完成）
+- **PRODUCTIZATION-18A-R1 = ACCEPT / CLOSED**（homepage density / title hierarchy / answer hierarchy / Evidence markdown 层级修复与 snippet 隔离 / execution summary 压缩 / raw-safe trace 下沉 Advanced / sidebar 收紧 / streaming chrome 规范化）
+- **STREAMLIT FRONTEND = FUNCTIONAL DEMO / INTERNAL ENGINEERING UI = FROZEN**（继续承担 local development UI / functional demo / evidence & activity inspection / legacy mode access；不是 production-grade 或作品集视觉前端；进一步 Streamlit 视觉打磨 STOP；已知限制见 `docs/design/frontend_productization_freeze.md`）
+- **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化；后续 18A/18A-R1/18B 已在其上继续演进，见下方 CURRENT REPOSITORY HEAD）
+- **CURRENT REPOSITORY HEAD = `4ec7aa7daa79d80b8349b5cc2fe5727a16214d6e`**（PRODUCTIZATION-18A-R1 commit；Production/UI 代码现状以此为准）
+- **CURRENT PRODUCT CODE IDENTITY = `core/api/ui` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（17 closure 时机械验证）；`25ff4bc8573221fc55b949c5e804938b0013ff66` 是 ARCH-INTEGRATION-17 closure 前的 validation baseline**。不得把 docs closure commit 当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份；18A/18A-R1 的 UI 变化不影响 `core/api` 主链身份
+- **Future showcase frontend = Vanilla HTML/CSS/JS，DEFERRED / NOT STARTED**（只消费现有 FastAPI REST / Engineering SSE / Project API / Knowledge status / Engineering response schema；不为换前端重写 Agent Runtime；推荐部署形态 FastAPI serves static web frontend 记录为 NOT IMPLEMENTED）
+- **Further Streamlit visual polish = STOP**（边际收益已明显下降；不为 Streamlit 布局模型限制继续调 CSS/spacing/expander）
+- **NEXT = PROJECT MASTERY / DEMO PREPARATION**（源码掌握、项目讲解、Demo 场景、README / 简历表达；未来具体任务由后续单独定义，不自行创建 19A/19B Gate）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
 - **ARCH-EVAL-08A dataset = 18 Dev + 9 Holdout；9 task families × (2 Dev + 1 Holdout)**
@@ -67,7 +73,7 @@
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
 - **CORE AGENT SYSTEM = COMPLETE**
-- ~~**NEXT = ARCH-EVAL-08B**~~（已过期：早期 NEXT 已被 09～16 系列真实演进取代；当前 NEXT 见上方 "NEXT = PRODUCTIZATION-18A / NOT STARTED" 与 ARCH-INTEGRATION-17 条目）
+- ~~**NEXT = ARCH-EVAL-08B**~~（已过期：早期 NEXT 已被 09～16 系列真实演进取代；后续 NEXT 又经 PRODUCTIZATION-18A 演进，当前见上方 "NEXT = PROJECT MASTERY / DEMO PREPARATION"）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
