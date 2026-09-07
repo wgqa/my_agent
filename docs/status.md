@@ -30,7 +30,8 @@
 - **ARCH-INTEGRATION-16B = REAL DEV COMPLETE / NEGATIVE-NEUTRAL**（candidate `09c9274` 真实 Dev；不重跑，不作为 15B 重演）
 - **ARCH-PROD-16C = ACCEPT / CLOSED**（evidence-based rollback：四个 Production 文件逐字节恢复 `f29af6ed`；parse repair 与 Guard 保留）
 - **ARCH-INTEGRATION-17 = CONDITIONAL ACCEPT / CLOSED**（Integration v7 current-version closure；架构集成 ACCEPT，当前 Product 语义质量 CONDITIONAL / KNOWN LIMITATIONS；见 `docs/design/integration_v7_current_version_closure.md`）
-- **CURRENT PRODUCT（当前主链）= 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` 在 core/api/ui 零 diff 的 `25ff4bc` 工作树**
+- **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化）
+- **CURRENT PRODUCT CODE IDENTITY = `core/api/ui` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（已机械验证）；`25ff4bc8573221fc55b949c5e804938b0013ff66` 是 ARCH-INTEGRATION-17 closure 前的 validation baseline**。不得把 docs closure commit（`bf8d438`）当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份
 - **NEXT = PRODUCTIZATION-18A / NOT STARTED**（Integration v7 架构施工期结束；下一阶段为稳定用户场景、演示入口、source/citation presentation、真实 conversation product path 与校招掌握；不继续围绕 Dev cases 调参；18A 须另行授权，不得由本任务自行开始）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
@@ -46,11 +47,11 @@
 - **G11-04 Diagnosis & Config Analysis = CLOSED / NEGATIVE**
 - **G11-05 Docs ↔ Code Consistency = CLOSED / NEGATIVE**
 - **G11-05 Post-Formal Documentation Maintenance = CLOSED**
-- **G11 Unified Evidence architecture integration = ACTIVE**
+- **G11 Unified Evidence architecture integration = INTEGRATED / CLOSED**（capability 在当前 Product 中仍然 ACTIVE；architecture integration 工作本身已随 09～13 系列完成并由 ARCH-INTEGRATION-17 关闭。G11 历史 Gate 结论不改写）
 - **G12 Engineering Evaluation 2.0 = CLOSED / FROZEN**
-- **G12 Requirement / Finalization Guard architecture integration = ACTIVE**
+- **G12 Requirement / Finalization Guard architecture integration = INTEGRATED / CLOSED**（capability 在当前 Product 中仍然 ACTIVE；architecture integration 工作本身已随 09～13 系列完成并由 ARCH-INTEGRATION-17 关闭。G12 历史 Gate 结论不改写）
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
-- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以新条目 "CURRENT PRODUCT（当前主链）" 为准）
+- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以新条目 "CURRENT PRODUCT CODE IDENTITY" 为准）
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
 - **G12 Baseline Formal = VALID / MANUAL GOLD COMPLETE**
 - **Baseline evidence-grounded result = NEGATIVE**
