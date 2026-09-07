@@ -90,7 +90,31 @@ def test_engineering_submission_uses_engineering_endpoint_only(monkeypatch):
             raise AssertionError("Engineering UI must use the SSE endpoint")
 
         def engineering_query_stream(self, question):
-            calls.append(question)
+            raise AssertionError("Engineering UI must use the server conversation stream")
+
+        def engineering_conversation_detail(self, conversation_id):
+            return {
+                "schema_version": "engineering_conversation_v1",
+                "id": conversation_id,
+                "title": "New conversation",
+                "project_name": "my_agent",
+                "project_source": "default_repo",
+                "created_at": "2026-09-08T00:00:00+00:00",
+                "updated_at": "2026-09-08T00:00:01+00:00",
+                "messages": [
+                    {"id": "m1", "role": "user", "content": "Trace config", "created_at": "2026-09-08T00:00:00+00:00", "result": None},
+                    {
+                        "id": "m2",
+                        "role": "assistant",
+                        "content": "Grounded answer",
+                        "created_at": "2026-09-08T00:00:01+00:00",
+                        "result": {"status": "completed", "answer": "Grounded answer"},
+                    },
+                ],
+            }
+
+        def engineering_conversation_message_stream(self, conversation_id, message):
+            calls.append((conversation_id, message))
             yield {"type": "status", "stage": "analysis", "state": "started"}
             yield {"type": "answer_start"}
             yield {"type": "answer_delta", "delta": "Grounded answer"}
@@ -129,7 +153,14 @@ def test_engineering_submission_uses_engineering_endpoint_only(monkeypatch):
         api_available=True,
         runtime_capabilities={"features": {"engineering_agent": True}},
         conversations={
-            "c1": {"id": "c1", "title": "New conversation", "mode": "engineering", "messages": []}
+            "c1": {
+                "id": "c1",
+                "title": "New conversation",
+                "mode": "engineering",
+                "messages": [],
+                "server": True,
+                "loaded": True,
+            }
         },
         active_conversation_id="c1",
     )
@@ -143,7 +174,7 @@ def test_engineering_submission_uses_engineering_endpoint_only(monkeypatch):
 
     app._tab_console("engineering", 9)
 
-    assert calls == ["Trace config"]
+    assert calls == [("c1", "Trace config")]
     assert state.conversations["c1"]["messages"] == [
         {"role": "user", "content": "Trace config"},
         {

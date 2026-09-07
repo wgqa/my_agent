@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import tempfile
@@ -8,7 +9,7 @@ from typing import Optional
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, Response, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -60,11 +61,16 @@ from api.schemas import (
     ToolAgentEvidence,
     ToolAgentQueryResponse,
     ProjectResponse,
+    EngineeringConversationDetail,
+    EngineeringConversationListResponse,
+    EngineeringConversationMessageRequest,
+    EngineeringConversationSummary,
     EngineeringQueryRequest,
     EngineeringQueryResponse,
     KnowledgeEvidence,
 )
 from api.project_workspace import EngineeringProject, resolve_engineering_project
+from api.conversation_store import ConversationStore
 from api.engineering_stream import STREAM_SCHEMA_VERSION, stream_engineering_query
 from api.engineering_stream_v2 import (
     STREAM_SCHEMA_VERSION as STREAM_SCHEMA_VERSION_V2,
@@ -99,6 +105,7 @@ engineering_retrieval_component: Optional[EngineeringRetrievalComponent] = None
 engineering_agent_facade: Optional[EngineeringAgentFacade] = None
 engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
 engineering_project: Optional[EngineeringProject] = None
+conversation_store: Optional[ConversationStore] = None
 
 
 @asynccontextmanager
@@ -108,9 +115,17 @@ async def lifespan(app: FastAPI):
     global engineering_context_resolver, engineering_evidence_planner
     global engineering_retrieval_component
     global engineering_agent_facade, engineering_knowledge_backend, engineering_project
+    global conversation_store
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
     engineering_project = resolve_engineering_project(REPO_ROOT)
+    # Server-owned conversation persistence for the Engineering product path.
+    # The Core Agent stays frozen; the store only remembers what happened.
+    try:
+        conversation_store = ConversationStore()
+    except Exception:
+        logger.exception("Conversation store init failed")
+        conversation_store = None
     try:
         pipeline = Pipeline(
             config_path="config.yaml",
@@ -219,6 +234,7 @@ async def lifespan(app: FastAPI):
     engineering_agent_facade = None
     engineering_knowledge_backend = None
     engineering_project = None
+    conversation_store = None
 
 
 app = FastAPI(
@@ -388,6 +404,36 @@ def _get_engineering_project() -> EngineeringProject:
         return resolve_engineering_project(REPO_ROOT)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _get_conversation_store() -> ConversationStore:
+    if conversation_store is not None:
+        return conversation_store
+    raise HTTPException(status_code=503, detail="Conversation store not initialized")
+
+
+def _conversation_project_key(project: EngineeringProject) -> str:
+    """Server-internal project binding identity; never returned to clients."""
+
+    return hashlib.sha256(str(project.root).encode("utf-8")).hexdigest()
+
+
+def _assistant_display_content(public_result: dict) -> str:
+    """Bounded deterministic display text from public fields only.
+
+    completed → the public answer; refused/failed without an answer → a safe
+    status line. Raw trace / observations / hidden reasons are never used.
+    """
+
+    answer = public_result.get("answer")
+    if isinstance(answer, str) and answer.strip():
+        return answer
+    status = public_result.get("status")
+    if status == "refused":
+        return f"Refused: {public_result.get('reason_code') or 'REFUSED'}"
+    if status == "failed":
+        return f"Failed: {public_result.get('failure_code') or 'FAILED'}"
+    return ""
 
 
 def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResponse:
@@ -685,6 +731,118 @@ def engineering_knowledge() -> EngineeringKnowledgeStatusResponse:
     """Return verified backend identity without local paths or corpus contents."""
 
     return _engineering_knowledge_status()
+
+
+@app.post(
+    "/engineering/conversations",
+    response_model=EngineeringConversationSummary,
+    status_code=201,
+)
+def create_engineering_conversation() -> EngineeringConversationSummary:
+    """Create a server-owned Engineering conversation bound to this project.
+
+    Clients never choose the conversation id or the project binding; both are
+    system-generated.
+    """
+
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    return store.create_conversation(
+        project_key=_conversation_project_key(project),
+        project_name=project.project_name,
+        project_source=project.source,
+    )
+
+
+@app.get(
+    "/engineering/conversations",
+    response_model=EngineeringConversationListResponse,
+)
+def list_engineering_conversations() -> EngineeringConversationListResponse:
+    """List this project's conversations, most recently updated first."""
+
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    return EngineeringConversationListResponse(
+        schema_version="engineering_conversation_list_v1",
+        conversations=store.list_conversations(_conversation_project_key(project)),
+    )
+
+
+@app.get(
+    "/engineering/conversations/{conversation_id}",
+    response_model=EngineeringConversationDetail,
+)
+def get_engineering_conversation(conversation_id: str) -> EngineeringConversationDetail:
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    detail = store.get_conversation(_conversation_project_key(project), conversation_id)
+    if detail is None:
+        # A conversation from another local project is deliberately not
+        # distinguishable from a missing one.
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return detail
+
+
+@app.delete("/engineering/conversations/{conversation_id}", status_code=204)
+def delete_engineering_conversation(conversation_id: str) -> Response:
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    deleted = store.delete_conversation(_conversation_project_key(project), conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return Response(status_code=204)
+
+
+@app.post(
+    "/engineering/conversations/{conversation_id}/messages/stream/v1",
+)
+def engineering_conversation_message_stream(
+    conversation_id: str,
+    req: EngineeringConversationMessageRequest,
+) -> StreamingResponse:
+    """One server-owned multi-turn Engineering conversation turn over SSE.
+
+    The store supplies the committed role/content history; which history
+    enters the Runtime remains owned by the existing
+    EngineeringContextResolver / RecentContextWindow (6 messages / 1200
+    tokens). Persistence is atomic and happens strictly before the answer is
+    presented as successful, so the server conversation can never miss a turn
+    the UI already showed as complete.
+    """
+
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    project_key = _conversation_project_key(project)
+    history = store.load_history(project_key, conversation_id)
+    if history is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    facade = _get_engineering_agent_facade()
+
+    def persist_turn(public_result: dict) -> None:
+        store.append_turn(
+            project_key,
+            conversation_id,
+            user_content=req.message,
+            assistant_content=_assistant_display_content(public_result),
+            result=public_result,
+        )
+
+    return StreamingResponse(
+        stream_engineering_query(
+            facade,
+            req.message,
+            conversation_context=history,
+            build_response=_build_engineering_response,
+            before_public_result=persist_turn,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION,
+        },
+    )
 
 
 @app.get("/stats", response_model=StatsResponse)

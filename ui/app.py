@@ -55,6 +55,11 @@ def _conversation(mode: str = DEFAULT_MODE) -> dict:
         "title": "New conversation",
         "mode": mode,
         "messages": [],
+        # Local conversations are render-only demo state. Engineering product
+        # conversations are server-backed (server == True): SQLite owns the
+        # truth, this cache only renders it.
+        "server": False,
+        "loaded": True,
     }
 
 
@@ -117,6 +122,14 @@ def _active_conversation() -> dict:
             conversations[item["id"]] = item
         st.session_state.conversations = conversations
         st.session_state.active_conversation_id = next(iter(conversations))
+    conversations = st.session_state.conversations
+    if st.session_state.active_conversation_id not in conversations:
+        # The active id can go stale after a server sync removed it; keep the
+        # invariant that an active conversation always resolves.
+        if not conversations:
+            item = _conversation()
+            conversations[item["id"]] = item
+        st.session_state.active_conversation_id = next(iter(conversations))
     return st.session_state.conversations[st.session_state.active_conversation_id]
 
 
@@ -136,11 +149,149 @@ def _switch_conversation(conversation_id: str) -> None:
 
 def _delete_conversation(conversation_id: str) -> None:
     conversations = st.session_state.conversations
+    target = conversations.get(conversation_id)
+    if target is not None and target.get("server"):
+        try:
+            st.session_state.api_client.engineering_conversations_delete(conversation_id)
+        except ApiError as err:
+            _show_error(err)
+            return
     conversations.pop(conversation_id, None)
     if not conversations:
-        item = _conversation()
-        conversations[item["id"]] = item
-    if st.session_state.active_conversation_id == conversation_id:
+        if getattr(st.session_state, "api_available", False):
+            if _create_server_conversation() is None:
+                return
+        else:
+            item = _conversation()
+            conversations[item["id"]] = item
+    if st.session_state.active_conversation_id not in conversations:
+        st.session_state.active_conversation_id = next(iter(conversations))
+
+
+def _create_server_conversation() -> dict | None:
+    """Create a server-backed Engineering conversation and activate it."""
+
+    try:
+        created = st.session_state.api_client.engineering_conversations_create()
+    except ApiError as err:
+        _show_error(err)
+        return None
+    if not isinstance(created, dict) or not isinstance(created.get("id"), str):
+        _show_error(ApiError("invalid_response", "API 返回了无效的会话数据"))
+        return None
+    item = {
+        "id": created["id"],
+        "title": created.get("title") or "New conversation",
+        "mode": DEFAULT_MODE,
+        "messages": [],
+        "server": True,
+        "loaded": False,
+    }
+    st.session_state.conversations[item["id"]] = item
+    st.session_state.active_conversation_id = item["id"]
+    return item
+
+
+def _load_server_conversation_detail(conversation_id: str) -> None:
+    """Replace the local render cache with committed server conversation state."""
+
+    conversation = st.session_state.conversations.get(conversation_id)
+    if conversation is None or not conversation.get("server"):
+        return
+    try:
+        detail = st.session_state.api_client.engineering_conversation_detail(
+            conversation_id
+        )
+    except ApiError as err:
+        conversation["loaded"] = True
+        conversation["messages"] = []
+        _show_error(err)
+        return
+    if not isinstance(detail, dict):
+        conversation["loaded"] = True
+        conversation["messages"] = []
+        return
+    conversation["title"] = (
+        detail.get("title") or conversation.get("title") or "New conversation"
+    )
+    messages = []
+    for message in detail.get("messages") or []:
+        role = message.get("role")
+        content = message.get("content", "")
+        if role == "user":
+            messages.append({"role": "user", "content": content})
+        elif role == "assistant":
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": content,
+                    "kind": "engineering",
+                    "result": message.get("result"),
+                }
+            )
+    conversation["messages"] = messages
+    conversation["loaded"] = True
+
+
+def _sync_server_conversations() -> None:
+    """Reconcile the render cache with the server conversation list.
+
+    The server list is the source of truth for which Engineering
+    conversations exist for this project; local engineering placeholders are
+    dropped (pre-existing ephemeral history is intentionally not migrated).
+    Legacy demo conversations are never synced.
+    """
+
+    conversations = st.session_state.conversations
+    try:
+        listing = st.session_state.api_client.engineering_conversations_list()
+    except ApiError:
+        return
+    server_items = (
+        listing.get("conversations") if isinstance(listing, dict) else None
+    )
+    if not isinstance(server_items, list):
+        return
+    server_ids: set[str] = set()
+    for item in server_items:
+        if not isinstance(item, dict):
+            continue
+        conversation_id = item.get("id")
+        if not isinstance(conversation_id, str) or not conversation_id:
+            continue
+        server_ids.add(conversation_id)
+        cached = conversations.get(conversation_id)
+        if cached is not None and cached.get("server"):
+            cached["title"] = item.get("title") or cached.get("title") or "New conversation"
+            continue
+        conversations[conversation_id] = {
+            "id": conversation_id,
+            "title": item.get("title") or "New conversation",
+            "mode": DEFAULT_MODE,
+            "messages": [],
+            "server": True,
+            "loaded": False,
+        }
+    for conversation_id in [
+        cid
+        for cid, item in conversations.items()
+        if item.get("server") and cid not in server_ids
+    ]:
+        conversations.pop(conversation_id, None)
+    for conversation_id in [
+        cid
+        for cid, item in conversations.items()
+        if item.get("mode") == DEFAULT_MODE
+        and not item.get("server")
+        and not item.get("messages")
+    ]:
+        conversations.pop(conversation_id, None)
+    # An empty server list creates one empty conversation so the product path
+    # always has a server-backed conversation to submit into.
+    if not any(item.get("server") for item in conversations.values()):
+        if _create_server_conversation() is None:
+            return
+    if st.session_state.active_conversation_id not in conversations:
         st.session_state.active_conversation_id = next(iter(conversations))
 
 
@@ -313,8 +464,14 @@ def _render_message(message: dict) -> None:
         _render_assistant_message(message)
 
 
-def _stream_engineering(question: str) -> dict | None:
-    """Run the Engineering Agent SSE flow without persisting partial output."""
+def _stream_engineering(question: str, *, conversation_id: str | None = None) -> dict | None:
+    """Run the Engineering Agent SSE flow without persisting partial output.
+
+    Without ``conversation_id`` this is the legacy question-only stream. With
+    one, the turn is a server-owned conversation message: the backend commits
+    user + assistant + result atomically before the final event, so the UI
+    refreshes from server state afterwards instead of appending locally.
+    """
 
     state = EngineeringStreamState()
     status_box = st.status("Analyzing request", expanded=True)
@@ -323,7 +480,13 @@ def _stream_engineering(question: str) -> dict | None:
     evidence_placeholder = st.empty()
 
     try:
-        for event in st.session_state.api_client.engineering_query_stream(question):
+        if conversation_id is None:
+            events = st.session_state.api_client.engineering_query_stream(question)
+        else:
+            events = st.session_state.api_client.engineering_conversation_message_stream(
+                conversation_id, question
+            )
+        for event in events:
             state = consume_event(state, event)
             renderers.render_engineering_stream_status(status_body, state)
             if state.evidence:
@@ -490,8 +653,24 @@ def _render_advanced_demo_selector() -> None:
         )
         selected_mode = MODE_KEY[selected_label]
         if selected_mode != conversation.get("mode"):
-            conversation["mode"] = selected_mode
-            st.rerun()
+            if selected_mode == DEFAULT_MODE:
+                # Entering the product path requires a server-backed
+                # conversation; a local uuid would never be persisted.
+                if getattr(st.session_state, "api_available", False):
+                    if _create_server_conversation() is not None:
+                        st.rerun()
+                else:
+                    st.caption("API unavailable; cannot start an Engineering conversation.")
+            elif conversation.get("server"):
+                # A server conversation keeps its engineering identity; legacy
+                # demos always run in independent local conversations.
+                item = _conversation(selected_mode)
+                st.session_state.conversations[item["id"]] = item
+                st.session_state.active_conversation_id = item["id"]
+                st.rerun()
+            else:
+                conversation["mode"] = selected_mode
+                st.rerun()
         if selected_mode != DEFAULT_MODE:
             st.caption(MODES[selected_label])
 
@@ -519,6 +698,8 @@ def _render_conversation_row(conversation_id: str, conversation: dict) -> None:
 def _sidebar() -> int:
     client = st.session_state.api_client
     _refresh_runtime(client)
+    if getattr(st.session_state, "api_available", False):
+        _sync_server_conversations()
     with st.sidebar:
         st.markdown(
             "<div class='product-mark-kicker'>Evidence-Grounded</div>"
@@ -527,8 +708,13 @@ def _sidebar() -> int:
             unsafe_allow_html=True,
         )
         if st.button("＋ New chat", use_container_width=True):
-            _new_conversation()
-            st.rerun()
+            if getattr(st.session_state, "api_available", False):
+                if _create_server_conversation() is not None:
+                    st.rerun()
+            else:
+                _show_error(
+                    ApiError("connection_error", "无法连接 API，请先启动后端")
+                )
         st.markdown("<div class='sidebar-section'>Conversations</div>", unsafe_allow_html=True)
         for conversation_id, conversation in st.session_state.conversations.items():
             _render_conversation_row(conversation_id, conversation)
@@ -579,6 +765,10 @@ def _tab_console(mode: str, top_k: int) -> None:
     if mode in MODE_KEY:
         mode = MODE_KEY[mode]
     conversation = _active_conversation()
+    if conversation.get("server") and not conversation.get("loaded"):
+        # Resume a persisted conversation: render cache comes from the server.
+        _load_server_conversation_detail(conversation["id"])
+        conversation = _active_conversation()
     for message in conversation.get("messages", []):
         _render_message(message)
     feature = MODE_FEATURE_BY_KEY.get(mode)
@@ -614,23 +804,38 @@ def _tab_console(mode: str, top_k: int) -> None:
             for item in conversation.get("messages", [])[-20:]
             if item.get("role") in ("user", "assistant") and item.get("content", "").strip()
         ]
+        if mode == DEFAULT_MODE:
+            # Engineering conversations are server-owned: a local conversation
+            # is upgraded to a server conversation before the first turn, the
+            # pending user message renders immediately but is only committed
+            # server-side, and the cache is refreshed from the server after
+            # the stream completes.
+            if not conversation.get("server"):
+                if not getattr(st.session_state, "api_available", False):
+                    st.error("API unavailable. Start the backend to begin a conversation.")
+                    return
+                created = _create_server_conversation()
+                if created is None:
+                    return
+                conversation = created
+            # Render the new user turn before the blocking stream begins.
+            _render_user_message(prompt)
+            reply = _stream_engineering(prompt, conversation_id=conversation["id"])
+            if reply is None:
+                return
+            _load_server_conversation_detail(conversation["id"])
+            st.rerun()
+            return
         conversation["messages"].append({"role": "user", "content": prompt})
         if conversation.get("title") == "New conversation":
             conversation["title"] = _title_for_question(prompt)
-        if mode == DEFAULT_MODE:
-            # Render the new user turn before the blocking stream begins.
-            _render_user_message(prompt)
-            reply = _stream_engineering(prompt)
-            if reply is None:
-                return
-        else:
-            reply = _submit(
-                prompt,
-                mode,
-                top_k,
-                history=previous_messages if mode == "agent" else None,
-                render=False,
-            )
+        reply = _submit(
+            prompt,
+            mode,
+            top_k,
+            history=previous_messages if mode == "agent" else None,
+            render=False,
+        )
         conversation["messages"].append({"role": "assistant", **reply})
         st.rerun()
 

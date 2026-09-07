@@ -59,6 +59,9 @@ class ApiClient:
         try:
             data = resp.json()
         except ValueError:
+            if resp.status_code == 204:
+                # DELETE-style endpoints legitimately return an empty body.
+                return {}
             snippet = (resp.text or "")[:200]
             raise ApiError(
                 "invalid_response",
@@ -131,6 +134,20 @@ class ApiClient:
             "POST", "/tool-agent/query", json_body={"question": question}
         )
 
+    def engineering_conversations_create(self) -> dict:
+        """Create a server-owned Engineering conversation for this project."""
+
+        return self._request("POST", "/engineering/conversations")
+
+    def engineering_conversations_list(self) -> dict:
+        return self._request("GET", "/engineering/conversations")
+
+    def engineering_conversation_detail(self, conversation_id: str) -> dict:
+        return self._request("GET", f"/engineering/conversations/{conversation_id}")
+
+    def engineering_conversations_delete(self, conversation_id: str) -> None:
+        self._request("DELETE", f"/engineering/conversations/{conversation_id}")
+
     def engineering_query(self, question: str) -> dict:
         """Submit the public Engineering Agent request boundary.
 
@@ -142,6 +159,23 @@ class ApiClient:
         )
 
     def engineering_query_stream(self, question: str):
+        """Yield decoded Engineering SSE events for the question-only endpoint."""
+        return self._engineering_stream_events(
+            "/engineering/query/stream", {"question": question}
+        )
+
+    def engineering_conversation_message_stream(self, conversation_id: str, message: str):
+        """Yield decoded Engineering SSE events for one server conversation turn.
+
+        The client submits only the message text; committed server history is
+        attached by the backend.
+        """
+        return self._engineering_stream_events(
+            f"/engineering/conversations/{conversation_id}/messages/stream/v1",
+            {"message": message},
+        )
+
+    def _engineering_stream_events(self, path: str, json_body: dict):
         """Yield decoded Engineering SSE events as they arrive.
 
         SSE intentionally bypasses ``_request`` because that helper waits for
@@ -152,8 +186,8 @@ class ApiClient:
         saw_done = False
         try:
             response = requests.post(
-                self._url("/engineering/query/stream"),
-                json={"question": question},
+                self._url(path),
+                json=json_body,
                 stream=True,
                 timeout=(5.0, 30.0),
             )

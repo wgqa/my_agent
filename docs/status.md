@@ -34,15 +34,17 @@
 - **PRODUCTIZATION-18A-R1 = ACCEPT / CLOSED**（homepage density / title hierarchy / answer hierarchy / Evidence markdown 层级修复与 snippet 隔离 / execution summary 压缩 / raw-safe trace 下沉 Advanced / sidebar 收紧 / streaming chrome 规范化）
 - **STREAMLIT FRONTEND = FUNCTIONAL DEMO / INTERNAL ENGINEERING UI = FROZEN**（继续承担 local development UI / functional demo / evidence & activity inspection / legacy mode access；不是 production-grade 或作品集视觉前端；进一步 Streamlit 视觉打磨 STOP；已知限制见 `docs/design/frontend_productization_freeze.md`）
 - **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化；后续 18A/18A-R1/18B/19 已在其上继续演进，见下方 baseline 语义）
-- **LAST VERIFIED REPOSITORY BASELINE = `50653c09fdfa773fbd8fdddb260e9292067d7041`**（PRODUCT-COMPLETE-19 冻结的基线）。停止维护自引用的 "CURRENT REPOSITORY HEAD"：status 一提交就会产生新 commit，该字段永远天然落后一版；实际当前 Git HEAD 必须通过 `git rev-parse HEAD` 查询，status 不维护包含自身提交的递归 CURRENT HEAD
-- **CURRENT BACKEND / AGENT PRODUCT CODE IDENTITY = `core/api` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（已机械验证）**。不得把 docs closure / freeze commit 当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份
-- **CURRENT STREAMLIT UI CODE IDENTITY = `4ec7aa7daa79d80b8349b5cc2fe5727a16214d6e`**（PRODUCTIZATION-18A-R1 frontend code baseline；18A/18A-R1 的 UI 变化不影响 `core/api` 主链身份，`25ff4bc8573221fc55b949c5e804938b0013ff66` 保留为 ARCH-INTEGRATION-17 closure 前 validation baseline 的历史说明）
+- **LAST VERIFIED REPOSITORY BASELINE = `b2f2777e36f4efc77d68c49c5f6c7e35fc4c29be`**（PRODUCT-CONVERSATION-20 的任务基线）。停止维护自引用的 "CURRENT REPOSITORY HEAD"：status 一提交就会产生新 commit，该字段永远天然落后一版；实际当前 Git HEAD 必须通过 `git rev-parse HEAD` 查询，status 不维护包含自身提交的递归 CURRENT HEAD
+- **UNIFIED AGENT RUNTIME BEHAVIOR = unchanged from frozen 15D Product runtime**（`core/**` 全部零 diff，本任务机械验证；5/4/2、Prompt、Router、Guard、Planner、Context window 6/1200、Tool registry、model/provider 均未改动）
+- **PRODUCT CONVERSATION / API / UI SURFACE = evolved by PRODUCT-CONVERSATION-20**（新增 server-owned SQLite conversation store、Conversation API 与 server-backed Engineering UI；旧 question-only Engineering API 契约冻结不变；设计见 `docs/design/engineering_conversation_v1.md`）
+- **CURRENT STREAMLIT UI CODE IDENTITY = `4ec7aa7daa79d80b8349b5cc2fe5727a16214d6e`（18A-R1 视觉基线）→ 已由 PRODUCT-CONVERSATION-20 演进功能层**（视觉冻结不等于功能冻结：会话/持久化/citation/product flow 允许改 Streamlit；padding/border/font/button radius/sidebar polish/expander styling 继续 STOP。`25ff4bc8573221fc55b949c5e804938b0013ff66` 保留为 ARCH-INTEGRATION-17 closure 前 validation baseline 的历史说明）
 - **Future showcase frontend = Vanilla HTML/CSS/JS，DEFERRED / NOT STARTED**（只消费现有 FastAPI REST / Engineering SSE / Project API / Knowledge status / Engineering response schema；不为换前端重写 Agent Runtime；推荐部署形态 FastAPI serves static web frontend 记录为 NOT IMPLEMENTED）
 - **Further Streamlit visual polish = STOP**（边际收益已明显下降；不为 Streamlit 布局模型限制继续调 CSS/spacing/expander）
 - **~~NEXT = PROJECT MASTERY / DEMO PREPARATION~~（三方复核后判定为 PREMATURE PRODUCT CLOSURE，不再作为唯一 NEXT）**
 - **CURRENT PHASE = RELEASE 2.0 PRODUCT COMPLETION**（把已完成的 Unified Engineering Agent Core 真正闭环成可连续使用、可验证、可展示、可复现的产品；权威路线见 `docs/design/release2_product_completion_roadmap.md`）
 - **PRODUCT-COMPLETE-19 = ACCEPT / CLOSED**（Release 2.0 Product Completion Route Freeze：Product DoD、Context/Persistence/Memory 边界、User Scenario Acceptance Contract、Fresh Validation / Contamination Rule、19→27 里程碑顺序、Advanced Feature Defer List、六问治理全部冻结）
-- **NEXT = PRODUCT-CONVERSATION-20 / NOT STARTED**（Real Conversation + SQLite Persistence + bounded Context；按任务卡另行执行，本任务不自行开始）
+- **PRODUCT-CONVERSATION-20 = ACCEPT / CLOSED**：Real Conversation product path + SQLite persistence + bounded existing G8 Context = **IMPLEMENTED / PROVIDER-FREE VERTICAL SLICE VALIDATED**（server-owned conversation store、Conversation API、atomic turn persistence、conversation/project isolation、restart recovery、persistence-failure stream boundary 均已 provider-free 验证）。**semantic multi-turn Product quality = NOT YET INDEPENDENTLY VALIDATED**（真实产品场景评价属于 PRODUCT-VALIDATION-22 / PRODUCT-ACCEPT-25）。Conversation/Memory = context，NOT grounding evidence。
+- **NEXT = PRODUCT-GROUNDING-21 / NOT STARTED**（Minimal Answer ↔ Evidence Contract；按任务卡另行执行，不得自行开始）
 - **Project Mastery / Interview Preparation = PARALLEL PERSONAL TRACK**（源码掌握、项目讲解、Demo 场景、README / 简历表达；与 Product 主线并行，不是其替代者，不阻塞 20～27 路线）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
@@ -62,7 +64,7 @@
 - **G12 Engineering Evaluation 2.0 = CLOSED / FROZEN**
 - **G12 Requirement / Finalization Guard architecture integration = INTEGRATED / CLOSED**（capability 在当前 Product 中仍然 ACTIVE；architecture integration 工作本身已随 09～13 系列完成并由 ARCH-INTEGRATION-17 关闭。G12 历史 Gate 结论不改写）
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
-- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以 "CURRENT BACKEND / AGENT PRODUCT CODE IDENTITY" 与 "CURRENT STREAMLIT UI CODE IDENTITY" 为准）
+- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以 "UNIFIED AGENT RUNTIME BEHAVIOR"、"PRODUCT CONVERSATION / API / UI SURFACE" 与 "CURRENT STREAMLIT UI CODE IDENTITY" 为准）
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
 - **G12 Baseline Formal = VALID / MANUAL GOLD COMPLETE**
 - **Baseline evidence-grounded result = NEGATIVE**

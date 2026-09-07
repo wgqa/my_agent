@@ -266,6 +266,61 @@ class EngineeringQueryResponse(BaseModel):
     evidence: List[EngineeringEvidence]
 
 
+class EngineeringConversationMessageRequest(BaseModel):
+    """One server-owned conversation turn; clients never submit history,
+    project, provider, model, budget, tools, prompt, or context window."""
+
+    model_config = {"extra": "forbid"}
+
+    message: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+
+    @field_validator("message")
+    @classmethod
+    def _reject_blank_message(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("message must not be blank")
+        return v
+
+
+class EngineeringConversationSummary(BaseModel):
+    """Public conversation metadata; never a project key, root, or local path."""
+
+    schema_version: str = "engineering_conversation_v1"
+    id: str
+    title: str
+    project_name: str
+    project_source: str
+    created_at: str
+    updated_at: str
+
+
+class EngineeringConversationMessageView(BaseModel):
+    """One stored message. ``result`` is only present on assistant turns and
+    carries the same public Engineering response contract as the live API."""
+
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: str
+    result: Optional[dict] = None
+
+
+class EngineeringConversationDetail(BaseModel):
+    schema_version: str = "engineering_conversation_v1"
+    id: str
+    title: str
+    project_name: str
+    project_source: str
+    created_at: str
+    updated_at: str
+    messages: List[EngineeringConversationMessageView]
+
+
+class EngineeringConversationListResponse(BaseModel):
+    schema_version: str = "engineering_conversation_list_v1"
+    conversations: List[EngineeringConversationSummary]
+
+
 class ToolAgentQueryResponse(BaseModel):
     """/tool-agent/query 响应 v1（冻结）。
 

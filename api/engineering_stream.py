@@ -91,11 +91,19 @@ def stream_engineering_query(
     *,
     conversation_context=None,
     build_response: Callable[[ToolAgentRunResult], object],
+    before_public_result: Callable[[dict], None] | None = None,
 ) -> Iterator[str]:
     """Start one Runtime worker and yield product-safe SSE frames.
 
     Answer deltas are guarded presentation chunks, not provider-token output:
     they are emitted only after the final Runtime result is completed.
+
+    ``before_public_result`` is an optional product seam (the Engineering
+    conversation persistence hook).  When provided, it runs on the validated
+    public result strictly before any evidence/answer/final event is emitted;
+    a callback failure therefore surfaces as ``error`` + ``done`` without the
+    stream ever claiming a successful answer.  The frozen question-only
+    endpoints pass nothing and keep their exact previous behavior.
     """
 
     events: Queue = Queue()
@@ -139,6 +147,8 @@ def stream_engineering_query(
             try:
                 response = build_response(value)
                 public_result = _result_payload(response)
+                if before_public_result is not None:
+                    before_public_result(public_result)
                 for evidence in public_result["evidence"]:
                     yield _encode_event({"type": "evidence", "evidence": evidence})
 

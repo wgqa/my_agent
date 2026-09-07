@@ -229,14 +229,34 @@ def _install_live_ui_stubs(monkeypatch):
 
 
 def test_engineering_chat_persists_only_a_complete_sse_result(monkeypatch):
-    calls = []
+    stream_calls = []
+    detail_calls = []
 
     class Client:
-        def engineering_query(self, *_args):
-            raise AssertionError("live Engineering UI must not use synchronous query")
+        def engineering_conversation_detail(self, conversation_id):
+            detail_calls.append(conversation_id)
+            return {
+                "schema_version": "engineering_conversation_v1",
+                "id": conversation_id,
+                "title": "Trace config",
+                "project_name": "my_agent",
+                "project_source": "default_repo",
+                "created_at": "2026-09-08T00:00:00+00:00",
+                "updated_at": "2026-09-08T00:00:01+00:00",
+                "messages": [
+                    {"id": "m1", "role": "user", "content": "Trace config", "created_at": "2026-09-08T00:00:00+00:00", "result": None},
+                    {
+                        "id": "m2",
+                        "role": "assistant",
+                        "content": "Final answer",
+                        "created_at": "2026-09-08T00:00:01+00:00",
+                        "result": {"status": "completed", "answer": "Final answer"},
+                    },
+                ],
+            }
 
-        def engineering_query_stream(self, question):
-            calls.append(question)
+        def engineering_conversation_message_stream(self, conversation_id, message):
+            stream_calls.append((conversation_id, message))
             yield {"type": "status", "stage": "analysis", "state": "started"}
             yield {"type": "answer_start"}
             yield {"type": "answer_delta", "delta": "Final answer"}
@@ -244,6 +264,122 @@ def test_engineering_chat_persists_only_a_complete_sse_result(monkeypatch):
                 "type": "final",
                 "result": {"status": "completed", "answer": "Final answer"},
             }
+            yield {"type": "done"}
+
+    state = SimpleNamespace(
+        api_client=Client(),
+        api_available=True,
+        runtime_capabilities={"features": {"engineering_agent": True}},
+        conversations={
+            "conv-1": {
+                "id": "conv-1",
+                "title": "New conversation",
+                "mode": "engineering",
+                "messages": [],
+                "server": True,
+                "loaded": True,
+            }
+        },
+        active_conversation_id="conv-1",
+    )
+    monkeypatch.setattr(app.st, "session_state", state)
+    monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
+    _install_live_ui_stubs(monkeypatch)
+
+    app._tab_console("engineering", 5)
+
+    assert stream_calls == [("conv-1", "Trace config")]
+    assert detail_calls == ["conv-1"]
+    assert state.conversations["conv-1"]["messages"] == [
+        {"role": "user", "content": "Trace config"},
+        {
+            "role": "assistant",
+            "content": "Final answer",
+            "kind": "engineering",
+            "result": {"status": "completed", "answer": "Final answer"},
+        },
+    ]
+    assert state.conversations["conv-1"]["title"] == "Trace config"
+
+
+def test_engineering_chat_discards_partial_answer_on_stream_error(monkeypatch):
+    detail_calls = []
+
+    class Client:
+        def engineering_conversation_detail(self, conversation_id):
+            detail_calls.append(conversation_id)
+            return {}
+
+        def engineering_conversation_message_stream(self, conversation_id, message):
+            yield {"type": "status", "stage": "analysis", "state": "started"}
+            yield {"type": "answer_start"}
+            yield {"type": "answer_delta", "delta": "partial"}
+            raise ApiError("connection_error", "offline")
+
+    state = SimpleNamespace(
+        api_client=Client(),
+        api_available=True,
+        runtime_capabilities={"features": {"engineering_agent": True}},
+        conversations={
+            "conv-1": {
+                "id": "conv-1",
+                "title": "New conversation",
+                "mode": "engineering",
+                "messages": [],
+                "server": True,
+                "loaded": True,
+            }
+        },
+        active_conversation_id="conv-1",
+    )
+    monkeypatch.setattr(app.st, "session_state", state)
+    monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
+    _install_live_ui_stubs(monkeypatch)
+
+    app._tab_console("engineering", 5)
+
+    # A failed stream never refreshes from the server and never leaves a
+    # server-absent half-turn in the render cache.
+    assert detail_calls == []
+    assert state.conversations["conv-1"]["messages"] == []
+
+
+def test_engineering_submit_upgrades_local_conversation_to_server(monkeypatch):
+    created_ids = []
+    stream_calls = []
+
+    class Client:
+        def engineering_conversations_create(self):
+            conversation_id = f"conv-{len(created_ids) + 1}"
+            created_ids.append(conversation_id)
+            return {
+                "schema_version": "engineering_conversation_v1",
+                "id": conversation_id,
+                "title": "New conversation",
+                "project_name": "my_agent",
+                "project_source": "default_repo",
+                "created_at": "2026-09-08T00:00:00+00:00",
+                "updated_at": "2026-09-08T00:00:00+00:00",
+            }
+
+        def engineering_conversation_detail(self, conversation_id):
+            return {
+                "schema_version": "engineering_conversation_v1",
+                "id": conversation_id,
+                "title": "New conversation",
+                "project_name": "my_agent",
+                "project_source": "default_repo",
+                "created_at": "2026-09-08T00:00:00+00:00",
+                "updated_at": "2026-09-08T00:00:01+00:00",
+                "messages": [
+                    {"id": "m1", "role": "user", "content": "Trace config", "created_at": "2026-09-08T00:00:00+00:00", "result": None},
+                    {"id": "m2", "role": "assistant", "content": "ok", "created_at": "2026-09-08T00:00:01+00:00", "result": {"status": "completed", "answer": "ok"}},
+                ],
+            }
+
+        def engineering_conversation_message_stream(self, conversation_id, message):
+            stream_calls.append((conversation_id, message))
+            yield {"type": "final", "result": {"status": "completed", "answer": "ok"}}
             yield {"type": "done"}
 
     state = SimpleNamespace(
@@ -261,41 +397,9 @@ def test_engineering_chat_persists_only_a_complete_sse_result(monkeypatch):
 
     app._tab_console("engineering", 5)
 
-    assert calls == ["Trace config"]
-    assert state.conversations["c1"]["messages"] == [
-        {"role": "user", "content": "Trace config"},
-        {
-            "role": "assistant",
-            "content": "Final answer",
-            "kind": "engineering",
-            "result": {"status": "completed", "answer": "Final answer"},
-        },
-    ]
-
-
-def test_engineering_chat_discards_partial_answer_on_stream_error(monkeypatch):
-    class Client:
-        def engineering_query_stream(self, _question):
-            yield {"type": "status", "stage": "analysis", "state": "started"}
-            yield {"type": "answer_start"}
-            yield {"type": "answer_delta", "delta": "partial"}
-            raise ApiError("connection_error", "offline")
-
-    state = SimpleNamespace(
-        api_client=Client(),
-        api_available=True,
-        runtime_capabilities={"features": {"engineering_agent": True}},
-        conversations={
-            "c1": {"id": "c1", "title": "New conversation", "mode": "engineering", "messages": []}
-        },
-        active_conversation_id="c1",
-    )
-    monkeypatch.setattr(app.st, "session_state", state)
-    monkeypatch.setattr(app.st, "chat_input", lambda *_args, **_kwargs: "Trace config")
-    _install_live_ui_stubs(monkeypatch)
-
-    app._tab_console("engineering", 5)
-
-    assert state.conversations["c1"]["messages"] == [
-        {"role": "user", "content": "Trace config"}
-    ]
+    # A local engineering conversation is upgraded to a server-backed one
+    # before the first turn; the local uuid never reaches the stream API.
+    assert created_ids == ["conv-1"]
+    assert stream_calls == [("conv-1", "Trace config")]
+    assert state.active_conversation_id == "conv-1"
+    assert state.conversations["conv-1"]["server"] is True
