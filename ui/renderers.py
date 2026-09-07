@@ -1,8 +1,7 @@
-"""Safe, layered Streamlit rendering for the Chat-first UI.
+"""Safe, layered Streamlit rendering for the Engineering Agent product.
 
-Answer and evidence are the default presentation. Runtime metadata remains
-available in a collapsed execution-details section and is sourced only from
-the public API response.
+Answer and evidence are the default presentation. Execution facts remain in a
+collapsed details section and come only from the public API response.
 """
 
 from __future__ import annotations
@@ -11,19 +10,16 @@ from typing import Any, Optional
 
 import streamlit as st
 
+from ui import components
 from ui.streaming import EngineeringStreamState
 
 
-EVIDENCE_KIND_LABELS = {
-    "knowledge": "KNOWLEDGE",
-    "project_code": "CODE",
-    "project_doc": "DOC",
-    "project_change": "CHANGE",
-    "project_test": "TEST",
-}
+# Public kind labels are provided by ``ui.components`` so renderers share the
+# same canonical mapping as the pure-logic model.
+EVIDENCE_KIND_LABELS = components.EVIDENCE_KIND_LABELS
 
 STATUS_MESSAGES = {
-    "refused": "I couldn't complete this safely with the available evidence.",
+    "refused": "Insufficient evidence to answer safely",
     "deferred": "This analysis needs another pass before it can be completed.",
     "failed": "The engineering analysis could not be completed.",
 }
@@ -42,7 +38,7 @@ def _status_ui(status: str) -> None:
     mapping = {
         "completed": st.success,
         "refused": st.warning,
-        "deferred": st.warning,
+        "deferred": st.info,
         "failed": st.error,
     }
     message = STATUS_MESSAGES.get(status, "The request did not complete.")
@@ -215,31 +211,20 @@ def _render_tool_evidence_body(evidence: list) -> None:
 
 
 def _render_engineering_evidence_body(evidence: list) -> None:
+    """Render one card per item, using the grouped-kind visual hierarchy."""
+
     for item in evidence:
-        evidence_id = item.get("evidence_id", "?")
-        kind = item.get("kind")
-        kind_label = EVIDENCE_KIND_LABELS.get(kind, "EVIDENCE")
-        source = item.get("source_name") or item.get("path") or "Unknown source"
-        st.markdown(f"**{evidence_id} · {kind_label}**")
-        if kind == "knowledge":
-            rank = item.get("rank")
-            score = format_score(item.get("score"))
-            metadata = [source]
-            if rank is not None:
-                metadata.append(f"rank {rank}")
-            metadata.append(f"score {score}")
-            st.caption(" · ".join(metadata))
-        else:
-            start_line = item.get("start_line", "?")
-            end_line = item.get("end_line", "?")
-            st.caption(f"{source} · lines {start_line}-{end_line}")
-        st.text(item.get("snippet", "") or "(No snippet returned)")
+        st.markdown(components.evidence_card_html(item), unsafe_allow_html=True)
 
 
 def render_engineering_evidence(evidence: list) -> None:
     if not evidence:
         st.caption("No evidence was returned.")
         return
+    st.markdown(
+        components.evidence_summary_html(components.evidence_summary(evidence)),
+        unsafe_allow_html=True,
+    )
     with st.expander(f"Evidence ({len(evidence)})", expanded=False):
         _render_engineering_evidence_body(evidence)
 
@@ -299,23 +284,26 @@ def render_tool_result(result: dict) -> None:
 
 def render_engineering_result(result: dict) -> None:
     """Render the public Engineering Agent response in a chat-friendly layout."""
+
     status = result.get("status")
     if status not in (None, "completed"):
         _status_ui(status)
     _render_answer(result.get("answer"))
-    render_engineering_evidence(result.get("evidence") or [])
+
+    evidence = result.get("evidence") or []
+    if evidence:
+        st.markdown(
+            components.evidence_summary_html(components.evidence_summary(evidence)),
+            unsafe_allow_html=True,
+        )
+        with st.expander(f"Evidence ({len(evidence)})", expanded=False):
+            _render_engineering_evidence_body(evidence)
+    else:
+        st.caption("No evidence was returned.")
 
     with st.expander("Execution details", expanded=False):
-        cols = st.columns(3)
-        cols[0].metric("Iterations", result.get("iterations_used", 0))
-        cols[1].metric("Tool calls", result.get("tool_calls_used", 0))
-        cols[2].metric("Tool errors", result.get("tool_errors_used", 0))
-        if status is not None:
-            _kv("Status", status)
-        if result.get("reason_code") is not None:
-            _kv("Reason code", result["reason_code"])
-        if result.get("failure_code") is not None:
-            _kv("Failure code", result["failure_code"])
+        for label, value in components.execution_summary(result):
+            _kv(label, value)
         render_tool_trace(result.get("trace") or [], collapsed=False)
 
 
@@ -325,28 +313,43 @@ def render_engineering_stream_status(
     *,
     final: bool = False,
 ) -> None:
-    """Render only the safe, user-facing progress summary for an SSE run."""
+    """Render the SSE progress as a compact activity timeline.
 
-    lines = ["✓ 分析任务" if state.analysis_started else "● 正在分析任务"]
-    icons = {
-        "running": "●",
-        "complete": "✓",
-        "error": "!",
-        "blocked": "↻",
-    }
-    lines.extend(
-        f"{icons.get(step.state, '●')} {step.label}" for step in state.steps
-    )
-    if state.evidence:
-        lines.append(f"Evidence · {len(state.evidence)}")
+    Only public observable facts flow into the timeline; the reducer continues
+    to reject unsafe states.
+    """
+
+    html_text = components.activity_timeline_html(state)
     if state.error_code:
-        lines.append("! 分析过程中发生了服务错误，请重试。")
+        html_text += "\n<div class='activity-line activity-error'>分析过程中发生了服务错误，请重试。</div>"
     elif final:
-        lines.append("✓ 分析完成")
-
-    text = "\n".join(lines)
+        icon, cls = components.activity_icon("complete")
+        html_text += (
+            f"\n<div class='activity-line'><span class='activity-icon {cls}'>{icon}</span>Verification complete</div>"
+        )
     renderer = getattr(container, "markdown", None)
     if callable(renderer):
-        renderer(text)
+        renderer(html_text, unsafe_allow_html=True)
     else:
-        st.markdown(text)
+        st.markdown(html_text, unsafe_allow_html=True)
+
+
+__all__ = [
+    "EVIDENCE_KIND_LABELS",
+    "STATUS_MESSAGES",
+    "format_score",
+    "render_agent_planner",
+    "render_agent_result",
+    "render_agent_route",
+    "render_agent_sources",
+    "render_agent_trace",
+    "render_agent_verification",
+    "render_basic_result",
+    "render_basic_sources",
+    "render_engineering_evidence",
+    "render_engineering_result",
+    "render_engineering_stream_status",
+    "render_tool_evidence",
+    "render_tool_result",
+    "render_tool_trace",
+]

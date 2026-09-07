@@ -1,7 +1,9 @@
-"""Post-G12 Engineering Agent product shell.
+"""PRODUCTIZATION-18A: Evidence-Grounded Engineering Agent product shell.
 
-The default conversation uses the public Engineering Agent API. Legacy RAG
-modes remain available as demos without competing with the main workflow.
+The main product is the conversation-first Engineering Agent. Legacy RAG
+modes remain available in the collapsed Advanced / Demo section. All visual
+chrome lives in ``ui.styles``; all non-Streamlit helpers live in
+``ui.components``.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from uuid import uuid4
 
 import streamlit as st
 
-from ui import renderers
+from ui import components, renderers, styles
 from ui.api_client import ApiClient, ApiError
 from ui.streaming import (
     EngineeringStreamState,
@@ -130,6 +132,16 @@ def _new_conversation(mode: str | None = None) -> str:
 def _switch_conversation(conversation_id: str) -> None:
     if conversation_id in st.session_state.conversations:
         st.session_state.active_conversation_id = conversation_id
+
+
+def _delete_conversation(conversation_id: str) -> None:
+    conversations = st.session_state.conversations
+    conversations.pop(conversation_id, None)
+    if not conversations:
+        item = _conversation()
+        conversations[item["id"]] = item
+    if st.session_state.active_conversation_id == conversation_id:
+        st.session_state.active_conversation_id = next(iter(conversations))
 
 
 def _title_for_question(question: str) -> str:
@@ -305,7 +317,7 @@ def _stream_engineering(question: str) -> dict | None:
     """Run the Engineering Agent SSE flow without persisting partial output."""
 
     state = EngineeringStreamState()
-    status_box = st.status("正在分析任务", expanded=True)
+    status_box = st.status("Analyzing request", expanded=True)
     status_body = status_box.empty()
     answer_placeholder = st.empty()
     evidence_placeholder = st.empty()
@@ -442,28 +454,26 @@ def _render_settings(client: ApiClient) -> None:
 
 def _render_compact_workspace_status() -> None:
     """Show only public API identities; no local paths or runtime internals."""
-    st.markdown("##### Workspace")
-    project = getattr(st.session_state, "project_identity", None)
-    if isinstance(project, dict) and isinstance(project.get("project_name"), str):
-        st.caption(f"Project · {project['project_name']}")
-    else:
-        st.caption("Project · unavailable")
 
-    if getattr(st.session_state, "api_available", False):
-        st.caption("API · connected")
-    else:
-        st.caption("API · unavailable")
-
-    knowledge = getattr(st.session_state, "engineering_knowledge_status", None)
-    if isinstance(knowledge, dict):
-        if knowledge.get("ready") is True and knowledge.get("verified") is True:
-            st.caption(f"Knowledge · verified · {knowledge.get('file_count', '?')} files")
-        elif knowledge.get("ready") is True:
-            st.caption("Knowledge · ready, not verified")
-        else:
-            st.caption("Knowledge · unavailable")
-    else:
-        st.caption("Knowledge · unavailable")
+    st.markdown(
+        "<div class='sidebar-section'>Workspace</div>", unsafe_allow_html=True
+    )
+    rows = components.workspace_status_model(
+        getattr(st.session_state, "project_identity", None),
+        bool(getattr(st.session_state, "api_available", False)),
+        getattr(st.session_state, "engineering_knowledge_status", None),
+    )
+    for row in rows:
+        dot_class = {"ok": "ok", "warn": "warn", "off": "off"}.get(row["state"], "off")
+        st.markdown(
+            f'<div class="workspace-row">'
+            f'<span class="status-dot {dot_class}"></span>'
+            f'<span>{html.escape(row["label"])}</span>'
+            f'<span style="color:#9aa5b4">·</span>'
+            f'<span>{html.escape(row["value"])}</span>'
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def _render_advanced_demo_selector() -> None:
@@ -486,26 +496,47 @@ def _render_advanced_demo_selector() -> None:
             st.caption(MODES[selected_label])
 
 
+def _render_conversation_row(conversation_id: str, conversation: dict) -> None:
+    label = conversation.get("title") or "New conversation"
+    if conversation_id == st.session_state.active_conversation_id:
+        col_label, col_delete = st.columns([5, 1])
+        with col_label:
+            st.markdown(
+                f"<div class='active-conversation'>{html.escape(label)}</div>",
+                unsafe_allow_html=True,
+            )
+        with col_delete:
+            if st.button("×", key=f"delete_active_{conversation_id}", help="Delete conversation"):
+                _delete_conversation(conversation_id)
+                st.rerun()
+    else:
+        col_label, col_delete = st.columns([5, 1])
+        with col_label:
+            if st.button(label, key=f"conversation_{conversation_id}", use_container_width=True):
+                _switch_conversation(conversation_id)
+                st.rerun()
+        with col_delete:
+            if st.button("×", key=f"delete_{conversation_id}", help="Delete conversation"):
+                _delete_conversation(conversation_id)
+                st.rerun()
+
+
 def _sidebar() -> int:
     client = st.session_state.api_client
     _refresh_runtime(client)
     with st.sidebar:
-        st.markdown("<div class='product-mark'>Engineering Agent</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='product-mark-kicker'>Evidence-Grounded</div>"
+            "<div class='product-mark-title'>Engineering Agent</div>"
+            "<div class='product-mark-sub'>Knowledge · Repository · Git · Tests</div>",
+            unsafe_allow_html=True,
+        )
         if st.button("＋ New chat", use_container_width=True):
             _new_conversation()
             st.rerun()
-        st.markdown("##### Conversations")
-        st.caption("Today")
+        st.markdown("<div class='sidebar-section'>Conversations</div>", unsafe_allow_html=True)
         for conversation_id, conversation in st.session_state.conversations.items():
-            label = conversation.get("title") or "New conversation"
-            if conversation_id == st.session_state.active_conversation_id:
-                st.markdown(
-                    f"<div class='active-conversation'>{html.escape(label)}</div>",
-                    unsafe_allow_html=True,
-                )
-            elif st.button(label, key=f"conversation_{conversation_id}", use_container_width=True):
-                _switch_conversation(conversation_id)
-                st.rerun()
+            _render_conversation_row(conversation_id, conversation)
         _render_compact_workspace_status()
         _render_advanced_demo_selector()
         st.markdown("<div class='sidebar-spacer'></div>", unsafe_allow_html=True)
@@ -513,16 +544,29 @@ def _sidebar() -> int:
     return int(st.session_state.top_k)
 
 
-def _render_empty_conversation() -> None:
+def _render_starter_prompt_prompts(mode: str) -> None:
+    """Show clickable prompt cards; clicking one replaces the pending input."""
+
+    if mode != DEFAULT_MODE:
+        return
+    cols = st.columns(2)
+    half = (len(components.STARTER_PROMPTS) + 1) // 2
+    for idx, (display, question) in enumerate(components.STARTER_PROMPTS):
+        with cols[idx // half]:
+            if st.button(display, key=f"starter_{idx}", use_container_width=True):
+                st.session_state["pending_starter_question"] = question
+                st.rerun()
+
+
+def _render_empty_conversation(mode: str) -> None:
     st.markdown(
-        "<div class='empty-state'><h2>What can I help with?</h2>"
-        "<p>Trace a config value from configuration to runtime behavior.</p>"
-        "<p>Assess a commit's impact and identify regression tests.</p>"
-        "<p>Compare documented API behavior with the implementation.</p>"
-        "<p>Diagnose a configuration issue using code and implementation evidence.</p>"
+        "<div class='empty-state'>"
+        "<h2>What can I help with?</h2>"
+        "<p class='empty-sub'>Ask about a config value, a change, or how the docs compare to the code.</p>"
         "</div>",
         unsafe_allow_html=True,
     )
+    _render_starter_prompt_prompts(mode)
 
 
 def _tab_console(mode: str, top_k: int) -> None:
@@ -544,13 +588,20 @@ def _tab_console(mode: str, top_k: int) -> None:
         st.error("API unavailable. Start the backend to begin a conversation.")
         return
     if not conversation.get("messages"):
-        _render_empty_conversation()
+        _render_empty_conversation(mode)
     prompt_label = (
         "Ask an engineering question"
         if mode == DEFAULT_MODE
         else "Message demo agent"
     )
+    pending = getattr(st.session_state, "pending_starter_question", None)
     prompt = st.chat_input(prompt_label)
+    if pending and not prompt:
+        prompt = pending
+        try:
+            delattr(st.session_state, "pending_starter_question")
+        except (AttributeError, TypeError):
+            pass
     if prompt:
         previous_messages = [
             {"role": item.get("role"), "content": item.get("content", "")}
@@ -585,27 +636,11 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    st.markdown(
-        """
-        <style>
-        [data-testid="stSidebar"] { border-right: 1px solid rgba(120, 130, 145, .16); }
-        [data-testid="stSidebar"] .block-container { padding-top: 2rem; }
-        .product-mark { font-size: 1.25rem; font-weight: 700; letter-spacing: .01em; margin-bottom: 1.25rem; }
-        .active-conversation { background: rgba(70, 90, 110, .11); border-radius: 7px; padding: .55rem .7rem; margin: .15rem 0; font-size: .9rem; }
-        .sidebar-spacer { min-height: 12vh; }
-        .user-bubble { background: #e8eef4; border-radius: 14px 14px 3px 14px; padding: .72rem .9rem; margin: .4rem 0 1.1rem auto; max-width: 40rem; width: fit-content; }
-        .empty-state { text-align: center; padding: 15vh 1rem 8vh; color: #536170; }
-        .empty-state h2 { color: #1d2a36; font-weight: 650; }
-        [data-testid="stChatInput"] { padding-bottom: 1rem; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    styles.apply_theme()
     _init_state()
     top_k = _sidebar()
     conversation = _active_conversation()
     st.title("Evidence-Grounded Engineering Agent")
-    _render_project_tag(st.session_state.project_identity)
     _tab_console(conversation["mode"], top_k)
 
 

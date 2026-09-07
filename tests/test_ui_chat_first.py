@@ -152,14 +152,36 @@ def test_api_unavailable_hides_chat_input(monkeypatch):
 
 def test_empty_conversation_renderer_has_no_debug_sections(monkeypatch):
     rendered = []
+    buttons = []
     monkeypatch.setattr(app.st, "markdown", lambda value, **_kwargs: rendered.append(value))
-    app._render_empty_conversation()
-    assert "What can I help with?" in rendered[0]
-    assert "Trace a config value" in rendered[0]
-    assert "Assess a commit's impact" in rendered[0]
-    assert "Compare documented API behavior" in rendered[0]
-    assert "Diagnose a configuration issue" in rendered[0]
-    assert "Planner" not in rendered[0]
+    monkeypatch.setattr(app.st, "columns", lambda n: [SimpleNamespace(__enter__=lambda s: s, __exit__=lambda s, *a: False) for _ in range(int(n))])
+
+    # Buttons need to support context manager and return False (not clicked).
+    class _Btn(SimpleNamespace):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    columns_result = [_Btn() for _ in range(2)]
+    monkeypatch.setattr(app.st, "columns", lambda n: columns_result)
+    monkeypatch.setattr(
+        app.st,
+        "button",
+        lambda label, **kwargs: buttons.append(label) or False,
+    )
+
+    app._render_empty_conversation("engineering")
+    joined = "\n".join(rendered)
+    assert "What can I help with?" in joined
+    assert "Planner" not in joined
+    assert "Execution details" not in joined
+    # Starter prompts surface as buttons.
+    assert any("Trace a configuration value" in b for b in buttons)
+    assert any("Planner → Retrieval → Verifier" in b for b in buttons)
+    assert any("recommend regression tests" in b for b in buttons)
+    assert any("documentation with the current implementation" in b for b in buttons)
 
 
 def test_product_shell_does_not_fake_streaming():
