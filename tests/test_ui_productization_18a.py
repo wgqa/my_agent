@@ -70,13 +70,11 @@ def test_evidence_card_introduces_e_identity_and_safe_snippet_html():
         "path": "core/engine.py",
         "start_line": 1,
         "end_line": 5,
-        "snippet": "def load(): <not html>",
     }
     card = components.evidence_card_html(item)
-    assert "[E1]" in card
+    assert "[E1]" in card  # header contains the evidence id
     assert "CODE" in card
     assert "core/engine.py · lines 1-5" in card
-    assert "&lt;not html&gt;" in card.replace("<not html>", "&lt;not html&gt;") or "&lt;" in card
 
 
 def test_workspace_status_model_shows_public_identity_without_paths():
@@ -100,15 +98,15 @@ def test_activity_timeline_uses_safe_icons_and_labels():
         analysis_started=True,
         steps=(
             EngineeringStreamStep((1, "code_search"), "code_search", "Search project code", "complete"),
-            EngineeringStreamStep((2, "__verification__"), "__verification__", "证据仍不充分，继续调查", "blocked"),
+            EngineeringStreamStep((2, "__verification__"), "__verification__", "still need evidence", "blocked"),
             EngineeringStreamStep((3, "git_diff"), "git_diff", "Git diff", "running"),
         ),
         evidence=({"kind": "project_code", "path": "x"},),
     )
     html_text = components.activity_timeline_html(state)
-    assert "Analyzing request" in html_text
+    assert "Analyze request" in html_text
     assert "Evidence · 1" in html_text
-    assert "证据仍不充分，继续调查" in html_text
+    assert "still need evidence" in html_text
     for cls in ("activity-complete", "activity-blocked", "activity-running", "activity-muted"):
         assert cls in html_text
 

@@ -332,13 +332,13 @@ def _stream_engineering(question: str) -> dict | None:
                 answer_placeholder.markdown(state.answer_buffer + "▌")
         state = validate_complete(state)
     except ApiError as err:
-        status_box.update(label="分析请求失败", state="error", expanded=False)
+        status_box.update(label="Analysis failed", state="error", expanded=False)
         answer_placeholder.empty()
         evidence_placeholder.empty()
         _show_error(err)
         return None
     except StreamProtocolError:
-        status_box.update(label="流式响应无效", state="error", expanded=False)
+        status_box.update(label="Malformed stream", state="error", expanded=False)
         answer_placeholder.empty()
         evidence_placeholder.empty()
         st.error("分析过程中发生了服务错误，请重试。")
@@ -346,7 +346,7 @@ def _stream_engineering(question: str) -> dict | None:
 
     if state.error_code:
         renderers.render_engineering_stream_status(status_body, state, final=True)
-        status_box.update(label="分析请求失败", state="error", expanded=False)
+        status_box.update(label="Analysis failed", state="error", expanded=False)
         answer_placeholder.empty()
         evidence_placeholder.empty()
         st.error("分析过程中发生了服务错误，请重试。")
@@ -354,14 +354,14 @@ def _stream_engineering(question: str) -> dict | None:
 
     result = state.final_result
     if not isinstance(result, dict):
-        status_box.update(label="流式响应无效", state="error", expanded=False)
+        status_box.update(label="Malformed stream", state="error", expanded=False)
         answer_placeholder.empty()
         evidence_placeholder.empty()
         st.error("分析过程中发生了服务错误，请重试。")
         return None
     renderers.render_engineering_stream_status(status_body, state, final=True)
     status_box.update(
-        label=f"已分析 {len(state.steps)} 步",
+        label=f"Activity · {len(state.steps)} steps",
         state="complete",
         expanded=False,
     )
@@ -498,27 +498,22 @@ def _render_advanced_demo_selector() -> None:
 
 def _render_conversation_row(conversation_id: str, conversation: dict) -> None:
     label = conversation.get("title") or "New conversation"
-    if conversation_id == st.session_state.active_conversation_id:
-        col_label, col_delete = st.columns([5, 1])
-        with col_label:
+    is_active = conversation_id == st.session_state.active_conversation_id
+    col_label, col_delete = st.columns([6, 1])
+    with col_label:
+        if is_active:
             st.markdown(
-                f"<div class='active-conversation'>{html.escape(label)}</div>",
+                f'<div class="conversation-label active">{html.escape(label)}</div>',
                 unsafe_allow_html=True,
             )
-        with col_delete:
-            if st.button("×", key=f"delete_active_{conversation_id}", help="Delete conversation"):
-                _delete_conversation(conversation_id)
-                st.rerun()
-    else:
-        col_label, col_delete = st.columns([5, 1])
-        with col_label:
+        else:
             if st.button(label, key=f"conversation_{conversation_id}", use_container_width=True):
                 _switch_conversation(conversation_id)
                 st.rerun()
-        with col_delete:
-            if st.button("×", key=f"delete_{conversation_id}", help="Delete conversation"):
-                _delete_conversation(conversation_id)
-                st.rerun()
+    with col_delete:
+        if st.button("×", key=f"delete_{conversation_id}", help="Delete conversation"):
+            _delete_conversation(conversation_id)
+            st.rerun()
 
 
 def _sidebar() -> int:
@@ -549,6 +544,10 @@ def _render_starter_prompt_prompts(mode: str) -> None:
 
     if mode != DEFAULT_MODE:
         return
+    st.markdown(
+        '<div class="starter-grid-header">Suggested</div>',
+        unsafe_allow_html=True,
+    )
     cols = st.columns(2)
     half = (len(components.STARTER_PROMPTS) + 1) // 2
     for idx, (display, question) in enumerate(components.STARTER_PROMPTS):
@@ -559,11 +558,18 @@ def _render_starter_prompt_prompts(mode: str) -> None:
 
 
 def _render_empty_conversation(mode: str) -> None:
+    # Capability chips sit above the hero so the page emphasizes what the
+    # Agent can access, not the empty canvas.
     st.markdown(
-        "<div class='empty-state'>"
-        "<h2>What can I help with?</h2>"
-        "<p class='empty-sub'>Ask about a config value, a change, or how the docs compare to the code.</p>"
-        "</div>",
+        '<div class="hero-sub">Repository understanding backed by verifiable project evidence.</div>'
+        f'<div class="capability-chips">{components.evidence_kind_badge_html("project_code")}'
+        f'{components.evidence_kind_badge_html("knowledge")}'
+        f'{components.evidence_kind_badge_html("project_change")}'
+        f'{components.evidence_kind_badge_html("project_test")}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="empty-heading">What do you want to investigate?</div>',
         unsafe_allow_html=True,
     )
     _render_starter_prompt_prompts(mode)

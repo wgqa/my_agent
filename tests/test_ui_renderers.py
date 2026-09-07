@@ -22,7 +22,7 @@ def test_basic_submit_renders_answer_and_sources_immediately(monkeypatch):
             return result
 
     monkeypatch.setattr(app.st, "session_state", SimpleNamespace(api_client=FakeClient()))
-    monkeypatch.setattr(renderers.st, "markdown", lambda value: rendered.append(("markdown", value)))
+    monkeypatch.setattr(renderers.st, "markdown", lambda value, **kwargs: rendered.append(("markdown", value)))
     monkeypatch.setattr(
         renderers,
         "render_basic_sources",
@@ -32,7 +32,10 @@ def test_basic_submit_renders_answer_and_sources_immediately(monkeypatch):
     reply = app._submit("问题", "basic", 5)
 
     assert reply["result"] == result
-    assert rendered == [("markdown", "即时答案"), ("sources", result["sources"])]
+    markdown_calls = [value for kind, value in rendered if kind == "markdown"]
+    assert any("Agent answer" in value for value in markdown_calls)
+    assert any("即时答案" in value for value in markdown_calls)
+    assert ("sources", result["sources"]) in rendered
 
 
 def test_planner_renderer_reads_api_contract_fields(monkeypatch):
@@ -202,10 +205,10 @@ def test_engineering_result_collapses_evidence_and_execution_details(monkeypatch
         }
     )
 
-    assert expanders == [("Evidence (2)", False), ("Execution details", False)]
+    assert expanders == [("Evidence · 2", False), ("Advanced runtime details", False)]
     assert any(context is None and "Engineering answer" == value for context, value in markdown)
-    assert any("K1" in value for context, value in markdown if context == "Evidence (2)")
-    assert any("C1" in value for context, value in markdown if context == "Evidence (2)")
+    assert any("K1" in value for context, value in markdown if context == "Evidence · 2")
+    assert any("C1" in value for context, value in markdown if context == "Evidence · 2")
     assert any("CODE 1" in value or "CODE" in value for context, value in markdown if context is None)
 
 
@@ -245,9 +248,12 @@ def test_engineering_refusal_and_failure_codes_stay_in_execution_details(monkeyp
 
     assert warnings == ["Insufficient evidence to answer safely"]
     assert errors == ["The engineering analysis could not be completed."]
-    assert all("INSUFFICIENT_EVIDENCE_TO_FINALIZE" not in value for context, value in markdown if context is None)
-    assert all("EVIDENCE_GAP" not in value for context, value in markdown if context is None)
-    details = [value for context, value in markdown if context == "Execution details"]
+    # Reason/failure codes stay below the compressed execution line, only
+    # reachable via the advanced expander.
+    top_level = [value for context, value in markdown if context is None]
+    assert all("INSUFFICIENT_EVIDENCE_TO_FINALIZE" not in value for value in top_level)
+    assert all("EVIDENCE_GAP" not in value for value in top_level)
+    details = [value for context, value in markdown if context == "Advanced runtime details"]
     assert "**Reason code:** INSUFFICIENT_EVIDENCE_TO_FINALIZE" in details
     assert "**Failure code:** EVIDENCE_GAP" in details
 
@@ -265,13 +271,13 @@ def test_engineering_stream_status_uses_safe_progress_labels():
             EngineeringStreamStep(
                 identity=(1, "code_search"),
                 tool_name="code_search",
-                label="正在搜索项目代码",
+                label="Search project code",
                 state="complete",
             ),
             EngineeringStreamStep(
                 identity=(2, "__verification__"),
                 tool_name="__verification__",
-                label="证据仍不充分，继续调查",
+                label="need more evidence",
                 state="blocked",
             ),
         ),
@@ -283,8 +289,8 @@ def test_engineering_stream_status_uses_safe_progress_labels():
     renderers.render_engineering_stream_status(Container(), state, final=True)
 
     text = rendered[0]
-    assert "Analyzing request" in text
-    assert "正在搜索项目代码" in text
-    assert "证据仍不充分，继续调查" in text
+    assert "Analyze request" in text
+    assert "Search project code" in text
+    assert "need more evidence" in text
     assert "Evidence · 1" in text
-    assert "Verification complete" in text
+    assert "Verify evidence" in text

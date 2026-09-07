@@ -174,9 +174,10 @@ def test_empty_conversation_renderer_has_no_debug_sections(monkeypatch):
 
     app._render_empty_conversation("engineering")
     joined = "\n".join(rendered)
-    assert "What can I help with?" in joined
+    assert "What do you want to investigate?" in joined
+    assert "Repository understanding" in joined
     assert "Planner" not in joined
-    assert "Execution details" not in joined
+    assert "Suggested" in joined
     # Starter prompts surface as buttons.
     assert any("Trace a configuration value" in b for b in buttons)
     assert any("Planner → Retrieval → Verifier" in b for b in buttons)

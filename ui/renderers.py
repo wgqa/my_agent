@@ -45,10 +45,26 @@ def _status_ui(status: str) -> None:
     mapping.get(status, st.info)(message)
 
 
-def _render_answer(answer: Any) -> None:
+def _render_answer(answer: Any, *, label: bool = True) -> None:
+    """Render the agent answer under a quiet section label.
+
+    R1: a thin header + rule establishes the answer region without a heavy
+    card. When the assistant's answer is empty we fall back to a caption.
+    """
+
     if isinstance(answer, str) and answer.strip():
+        if label:
+            st.markdown(
+                '<div class="answer-label">Agent answer</div><div class="answer-rule"></div>',
+                unsafe_allow_html=True,
+            )
         st.markdown(answer)
     else:
+        if label:
+            st.markdown(
+                '<div class="answer-label">Agent answer</div><div class="answer-rule"></div>',
+                unsafe_allow_html=True,
+            )
         st.caption("No answer returned")
 
 
@@ -211,10 +227,18 @@ def _render_tool_evidence_body(evidence: list) -> None:
 
 
 def _render_engineering_evidence_body(evidence: list) -> None:
-    """Render one card per item, using the grouped-kind visual hierarchy."""
+    """Render one card per item, using the grouped-kind visual hierarchy.
+
+    R1: the snippet body uses ``st.text`` so that literal hashes, tables or
+    blockquotes from project evidence cannot escape into Streamlit's
+    markdown layer and hijack the page hierarchy.
+    """
 
     for item in evidence:
         st.markdown(components.evidence_card_html(item), unsafe_allow_html=True)
+        snippet = item.get("snippet")
+        if isinstance(snippet, str) and snippet.strip():
+            st.text(snippet)
 
 
 def render_engineering_evidence(evidence: list) -> None:
@@ -283,7 +307,12 @@ def render_tool_result(result: dict) -> None:
 
 
 def render_engineering_result(result: dict) -> None:
-    """Render the public Engineering Agent response in a chat-friendly layout."""
+    """Render the public Engineering Agent response in a chat-friendly layout.
+
+    R1: one-line status banner for non-completed (refused ≠ failed ≠ deferred),
+    then the answer, then Evidence, then Execution as a compressed line.
+    A second collapsed layer holds the safe runtime trace if present.
+    """
 
     status = result.get("status")
     if status not in (None, "completed"):
@@ -296,12 +325,18 @@ def render_engineering_result(result: dict) -> None:
             components.evidence_summary_html(components.evidence_summary(evidence)),
             unsafe_allow_html=True,
         )
-        with st.expander(f"Evidence ({len(evidence)})", expanded=False):
+        with st.expander(f"Evidence · {len(evidence)}", expanded=False):
             _render_engineering_evidence_body(evidence)
     else:
         st.caption("No evidence was returned.")
 
-    with st.expander("Execution details", expanded=False):
+    # Compressed execution line — plain-text, not debug cards.
+    st.markdown(
+        f'<div class="execution-summary-line">{components.execution_headline(result)}</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("Advanced runtime details", expanded=False):
         for label, value in components.execution_summary(result):
             _kv(label, value)
         render_tool_trace(result.get("trace") or [], collapsed=False)
@@ -325,7 +360,7 @@ def render_engineering_stream_status(
     elif final:
         icon, cls = components.activity_icon("complete")
         html_text += (
-            f"\n<div class='activity-line'><span class='activity-icon {cls}'>{icon}</span>Verification complete</div>"
+            f"\n<div class='activity-line'><span class='activity-icon {cls}'>{icon}</span>Verify evidence</div>"
         )
     renderer = getattr(container, "markdown", None)
     if callable(renderer):

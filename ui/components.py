@@ -62,6 +62,13 @@ def evidence_kind_label(kind: Any) -> str:
     return EVIDENCE_KIND_LABELS.get(kind, "EVIDENCE")
 
 
+def evidence_kind_badge_html(kind: Any) -> str:
+    """A small capability chip used above the landing-state hero."""
+
+    label = evidence_kind_label(kind)
+    return f'<span class="capability-chip">{html.escape(label)}</span>'
+
+
 def evidence_meta_text(item: dict) -> str:
     """Location metadata line that never reveals local absolute paths."""
 
@@ -77,24 +84,24 @@ def evidence_meta_text(item: dict) -> str:
 
 
 def evidence_card_html(item: dict) -> str:
-    """Build the escaped HTML for one evidence card."""
+    """Build the escaped HTML for one evidence card header + meta.
+
+    The snippet body is rendered separately so its raw text is never passed
+    through Streamlit's markdown pre-processor.
+    """
 
     evidence_id = html.escape(str(item.get("evidence_id", "?")))
     kind_label = html.escape(evidence_kind_label(item.get("kind")))
     meta = html.escape(evidence_meta_text(item))
-    snippet = item.get("snippet")
-    body = (
-        f'<div class="evidence-card">'
-        f'<div class="evidence-card-head">'
+    return (
+        '<div class="evidence-card">'
+        '<div class="evidence-card-head">'
         f'<span class="evidence-id">[{evidence_id}]</span>'
         f'<span class="evidence-kind">{kind_label}</span>'
-        f"</div>"
+        "</div>"
         f'<div class="evidence-meta">{meta}</div>'
+        "</div>"
     )
-    if isinstance(snippet, str) and snippet.strip():
-        body += f'<div class="evidence-snippet">{html.escape(snippet)}</div>'
-    body += "</div>"
-    return body
 
 
 def evidence_summary_html(summary: dict[str, int]) -> str:
@@ -125,12 +132,12 @@ def activity_timeline_html(state) -> str:
     if getattr(state, "analysis_started", False):
         icon, cls = activity_icon("complete")
         lines.append(
-            f'<div class="activity-line"><span class="activity-icon {cls}">{icon}</span>Analyzing request</div>'
+            f'<div class="activity-line"><span class="activity-icon {cls}">{icon}</span>Analyze request</div>'
         )
     else:
         icon, cls = activity_icon("running")
         lines.append(
-            f'<div class="activity-line"><span class="activity-icon {cls}">{icon}</span>Analyzing request</div>'
+            f'<div class="activity-line"><span class="activity-icon {cls}">{icon}</span>Analyze request</div>'
         )
     for step in getattr(state, "steps", ()):
         icon, cls = activity_icon(step.state)
@@ -205,6 +212,27 @@ def execution_summary(result: dict) -> list[tuple[str, Any]]:
     return pairs
 
 
+def execution_headline(result: dict) -> str:
+    """One-line compressed execution summary.
+
+    R1: lead with status. Iterations / tool calls / tool errors are pulled
+    into a single line; errors are only surfaced when non-zero.
+    """
+
+    status = result.get("status") or "run"
+    parts: list[str] = [str(status)]
+    iterations = result.get("iterations_used", 0)
+    if iterations:
+        parts.append(f"{iterations} iteration" + ("s" if iterations != 1 else ""))
+    tool_calls = result.get("tool_calls_used", 0)
+    if tool_calls:
+        parts.append(f"{tool_calls} tool call" + ("s" if tool_calls != 1 else ""))
+    tool_errors = result.get("tool_errors_used", 0)
+    if tool_errors:
+        parts.append(f"{tool_errors} tool error" + ("s" if tool_errors != 1 else ""))
+    return " · ".join(parts)
+
+
 def status_banner_kind(status: Any) -> str:
     """Classify a public status into a banner variant (refused ≠ failed ≠ deferred)."""
 
@@ -222,10 +250,12 @@ __all__ = [
     "activity_icon",
     "activity_timeline_html",
     "evidence_card_html",
+    "evidence_kind_badge_html",
     "evidence_kind_label",
     "evidence_meta_text",
     "evidence_summary",
     "evidence_summary_html",
+    "execution_headline",
     "execution_summary",
     "group_evidence_by_kind",
     "status_banner_kind",
