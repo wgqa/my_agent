@@ -88,6 +88,19 @@ _EVIDENCE_PRODUCER_TOOLS = {
     "project_test": ("read_project_context",),
 }
 
+# Canonical recovery-tool mapping: read-only Tools that can advance
+# acquisition for a missing evidence kind, including discovery Tools that
+# locate the path before the final producer reads it.  Feasibility keeps
+# using the producer-only mapping above because discovery Tools cannot
+# satisfy a requirement by themselves.
+_EVIDENCE_RECOVERY_TOOLS = {
+    "knowledge": ("knowledge_search",),
+    "project_change": ("changed_files", "git_diff"),
+    "project_code": ("code_search", "read_project_context"),
+    "project_doc": ("code_search", "read_project_context"),
+    "project_test": ("find_tests", "read_project_context"),
+}
+
 
 def _canonical_call(tool_name: str, arguments) -> tuple[str, str]:
     """tool_name + canonical JSON(arguments) 作为逻辑 ToolCall 身份（不含 call_id）。"""
@@ -320,6 +333,35 @@ def _missing_evidence_kinds(
     return frozenset(kinds)
 
 
+def _available_recovery_tool_names(
+    registry: ToolRegistry,
+    requirement: EngineeringEvidenceRequirement | None,
+    state: EvidenceRequirementState,
+) -> tuple[str, ...]:
+    """Derive trusted recovery Tool names from missing kinds and this run's registry.
+
+    OR-groups contribute the union of their kinds' recovery Tools; a distinct
+    project_code path shortfall counts as a missing project_code kind (that
+    rule needs the requirement, so an absent requirement conservatively keeps
+    only the state's own groups).  The result is the deterministic canonical
+    order intersected with the Tools this run can actually execute, so a
+    disabled Tool is never resurrected.
+    """
+
+    if requirement is None:
+        kinds = {
+            kind for group in state.missing_evidence_groups for kind in group
+        }
+    else:
+        kinds = set(_missing_evidence_kinds(requirement, state))
+    available: list[str] = []
+    for kind in sorted(kinds):
+        for tool_name in _EVIDENCE_RECOVERY_TOOLS[kind]:
+            if tool_name in registry and tool_name not in available:
+                available.append(tool_name)
+    return tuple(available)
+
+
 def _recovery_is_feasible(
     registry: ToolRegistry,
     requirement: EngineeringEvidenceRequirement,
@@ -522,6 +564,13 @@ class ToolAgentRuntime:
                     guard_state.required_min_distinct_project_code_paths
                     if recovery_control_active and guard_state is not None
                     else None
+                ),
+                recovery_tool_names=(
+                    _available_recovery_tool_names(
+                        run_registry, evidence_requirement, guard_state
+                    )
+                    if recovery_control_active and guard_state is not None
+                    else ()
                 ),
             )
             outcome = self._decide(

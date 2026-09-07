@@ -114,6 +114,7 @@ class DecisionControlState:
     missing_evidence_groups: tuple[tuple[str, ...], ...] = ()
     current_distinct_project_code_paths: Optional[int] = None
     required_min_distinct_project_code_paths: Optional[int] = None
+    recovery_tool_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_non_negative_int(self.iteration, "iteration")
@@ -167,6 +168,18 @@ class DecisionControlState:
         ):
             if value is not None:
                 _require_non_negative_int(value, label)
+        if isinstance(self.recovery_tool_names, (str, bytes)) or not isinstance(
+            self.recovery_tool_names, Sequence
+        ):
+            raise TypeError("recovery_tool_names 必须是 Tool 名称序列")
+        recovery_names = tuple(self.recovery_tool_names)
+        if any(type(name) is not str or not name.strip() for name in recovery_names):
+            raise ValueError("recovery_tool_names 必须全部是非空字符串")
+        if len(set(recovery_names)) != len(recovery_names):
+            raise ValueError("recovery_tool_names 不得重复")
+        if not self.finalization_blocked and recovery_names:
+            raise ValueError("recovery_tool_names 只能在 finalization_blocked=True 时非空")
+        object.__setattr__(self, "recovery_tool_names", recovery_names)
         object.__setattr__(self, "missing_evidence_groups", tuple(groups))
 
     def to_dict(self) -> dict:
@@ -190,6 +203,7 @@ class DecisionControlState:
                     "required_min_distinct_project_code_paths": (
                         self.required_min_distinct_project_code_paths
                     ),
+                    "recovery_tool_names": list(self.recovery_tool_names),
                 }
             )
         return result

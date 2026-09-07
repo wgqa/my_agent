@@ -6,6 +6,13 @@ api_key 只用于构造 SDK client，不保存在实例；Fake Client 通过 cli
 已知 Provider/超时异常映射为 ACTION_PROVIDER_ERROR / ACTION_TIMEOUT，未知
 编程异常向上传播。本 Provider 只做单步 Decision，不执行 Tool、不把
 Observation 喂回模型。
+
+每个 Decision 至多一次 repair model call，两类 repair 互斥：
+- parse repair（既有）：首次输出严格解析失败时发生；
+- recovery action repair（16A）：首次输出合法但为 premature terminal action，
+  且 Trusted control state 显示 recovery blocked-but-feasible 时发生，仅对
+  kind-aware recovery Product profile 启用。模型原始输出永不进入 repair
+  prompt，Runtime 不替模型生成 Tool arguments。
 """
 
 from __future__ import annotations
@@ -33,9 +40,14 @@ from core.tool_agent.actions import (
     ACTION_TIMEOUT,
     AgentDecisionCallMetadata,
     AgentDecisionOutcome,
+    FinalAnswerAction,
+    RefuseAction,
+    ToolCallAction,
 )
 from core.tool_agent.decision_prompt import (
+    ENGINEERING_RECOVERY_REPAIR_ENABLED_PROFILE_VERSIONS,
     build_action_repair_instruction,
+    build_recovery_action_repair_instruction,
     DECISION_MAX_RETRIES,
     DECISION_TEMPERATURE,
     DECISION_TIMEOUT_SECONDS,
@@ -149,6 +161,29 @@ def _sum_optional_tokens(
     return first + second
 
 
+def _missing_evidence_kinds_from_control_state(
+    control_state: DecisionControlState,
+) -> tuple[str, ...]:
+    """Mirror the Runtime's missing-kind rule from trusted control fields alone.
+
+    OR-groups contribute their kinds; an unmet distinct project_code path floor
+    counts as a missing project_code kind.  Only used to describe the still
+    missing kinds inside the recovery repair instruction.
+    """
+
+    kinds: list[str] = []
+    for group in control_state.missing_evidence_groups:
+        for kind in group:
+            if kind not in kinds:
+                kinds.append(kind)
+    if not kinds:
+        current = control_state.current_distinct_project_code_paths
+        required = control_state.required_min_distinct_project_code_paths
+        if current is not None and required is not None and required > current:
+            kinds.append("project_code")
+    return tuple(sorted(kinds))
+
+
 def _extract_usage(response: object) -> tuple[Optional[int], Optional[int]]:
     usage = getattr(response, "usage", None)
     if usage is None:
@@ -210,6 +245,10 @@ class OpenAICompatibleAgentDecisionProvider:
         if max_parse_repairs not in (0, 1):
             raise ValueError("max_parse_repairs 只允许 0 或 1")
         self._max_parse_repairs = max_parse_repairs
+        self._recovery_repair_enabled = (
+            self._prompt_profile.version
+            in ENGINEERING_RECOVERY_REPAIR_ENABLED_PROFILE_VERSIONS
+        )
         self._client = (
             client if client is not None else self._build_default_client(api_key)
         )
@@ -290,6 +329,19 @@ class OpenAICompatibleAgentDecisionProvider:
         initial_result = diagnose_agent_action_text(content, registry)
         initial_category = initial_result.category
         if initial_result.failure_code is None:
+            repaired = self._recovery_repair(
+                messages,
+                registry,
+                initial_result.action,
+                control_state=control_state,
+                toolset_sha256=toolset_sha256,
+                start=start,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                initial_finish_reason=finish_reason,
+            )
+            if repaired is not None:
+                return repaired
             return AgentDecisionOutcome(
                 action=initial_result.action,
                 failure_code=None,
@@ -386,6 +438,139 @@ class OpenAICompatibleAgentDecisionProvider:
                 repair_succeeded=repair_result.failure_code is None,
                 initial_parse_category=initial_category.value,
                 initial_finish_reason=finish_reason,
+            ),
+        )
+
+    def _recovery_repair(
+        self,
+        messages: list[dict],
+        registry: ToolRegistry,
+        initial_action,
+        *,
+        control_state: DecisionControlState | None,
+        toolset_sha256: str,
+        start: float,
+        input_tokens: Optional[int],
+        output_tokens: Optional[int],
+        initial_finish_reason: Optional[str],
+    ) -> Optional[AgentDecisionOutcome]:
+        """One bounded recovery repair for a parse-valid premature terminal action.
+
+        Triggered only when the Trusted Runtime control state says recovery is
+        blocked-but-feasible and the model's first parse-valid action is
+        final_answer or refuse.  Mutually exclusive with the parse repair: the
+        initial response must have parsed strictly, so at most one extra model
+        call is ever spent per decide().  The repaired outcome is used only
+        when the model itself returns a ToolCallAction whose tool_name is in
+        the trusted recovery_tool_names; on any other second response the
+        initial terminal action is returned unchanged and the existing Runtime
+        hard enforcement continues (no third call, no synthetic ToolCall).
+        """
+
+        if not self._recovery_repair_enabled or control_state is None:
+            return None
+        if (
+            control_state.finalization_blocked is not True
+            or not control_state.tool_call_allowed
+            or control_state.must_terminate
+            or not control_state.recovery_tool_names
+        ):
+            return None
+        if not isinstance(initial_action, (FinalAnswerAction, RefuseAction)):
+            return None
+        recovery_tool_names = tuple(control_state.recovery_tool_names)
+        repair_messages = list(messages)
+        repair_messages.append(
+            {
+                "role": "system",
+                "content": build_recovery_action_repair_instruction(
+                    tool_names=recovery_tool_names,
+                    missing_kinds=_missing_evidence_kinds_from_control_state(
+                        control_state
+                    ),
+                ),
+            }
+        )
+        try:
+            repair_response = self._client.chat.completions.create(
+                model=self._model,
+                messages=repair_messages,
+                temperature=DECISION_TEMPERATURE,
+                max_tokens=self._max_output_tokens,
+                response_format={"type": "json_object"},
+            )
+        except _KNOWN_PROVIDER_EXCEPTIONS:
+            return AgentDecisionOutcome(
+                action=initial_action,
+                failure_code=None,
+                call_metadata=self._build_metadata(
+                    (time.perf_counter() - start) * 1000.0,
+                    toolset_sha256,
+                    input_tokens,
+                    output_tokens,
+                    call_count=2,
+                    repair_attempted=True,
+                    repair_succeeded=False,
+                    initial_finish_reason=initial_finish_reason,
+                ),
+            )
+        try:
+            repair_content = _extract_content(repair_response)
+            repair_input_tokens, repair_output_tokens = _extract_usage(
+                repair_response
+            )
+        except _ProviderResponseError:
+            return AgentDecisionOutcome(
+                action=initial_action,
+                failure_code=None,
+                call_metadata=self._build_metadata(
+                    (time.perf_counter() - start) * 1000.0,
+                    toolset_sha256,
+                    input_tokens,
+                    output_tokens,
+                    call_count=2,
+                    repair_attempted=True,
+                    repair_succeeded=False,
+                    initial_finish_reason=initial_finish_reason,
+                ),
+            )
+        repair_result = diagnose_agent_action_text(repair_content, registry)
+        repair_succeeded = (
+            repair_result.failure_code is None
+            and isinstance(repair_result.action, ToolCallAction)
+            and repair_result.action.tool_name in recovery_tool_names
+        )
+        final_input_tokens = _sum_optional_tokens(input_tokens, repair_input_tokens)
+        final_output_tokens = _sum_optional_tokens(
+            output_tokens, repair_output_tokens
+        )
+        if repair_succeeded:
+            return AgentDecisionOutcome(
+                action=repair_result.action,
+                failure_code=None,
+                call_metadata=self._build_metadata(
+                    (time.perf_counter() - start) * 1000.0,
+                    toolset_sha256,
+                    final_input_tokens,
+                    final_output_tokens,
+                    call_count=2,
+                    repair_attempted=True,
+                    repair_succeeded=True,
+                    initial_finish_reason=initial_finish_reason,
+                ),
+            )
+        return AgentDecisionOutcome(
+            action=initial_action,
+            failure_code=None,
+            call_metadata=self._build_metadata(
+                (time.perf_counter() - start) * 1000.0,
+                toolset_sha256,
+                final_input_tokens,
+                final_output_tokens,
+                call_count=2,
+                repair_attempted=True,
+                repair_succeeded=False,
+                initial_finish_reason=initial_finish_reason,
             ),
         )
 
