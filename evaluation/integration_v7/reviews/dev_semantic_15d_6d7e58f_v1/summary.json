@@ -2,7 +2,6 @@
   "case_lists": {
     "all_obligations_full_case_ids": [
       "v7d006",
-      "v7d007",
       "v7d011",
       "v7d013",
       "v7d015",
@@ -21,6 +20,8 @@
       "v7d003",
       "v7d004",
       "v7d005",
+      "v7d006",
+      "v7d007",
       "v7d008",
       "v7d009",
       "v7d012",
@@ -33,12 +34,12 @@
       "v7d001",
       "v7d003",
       "v7d005",
+      "v7d006",
       "v7d013",
       "v7d014",
       "v7d015"
     ],
     "grounding_supported_case_ids": [
-      "v7d006",
       "v7d007",
       "v7d008",
       "v7d011"
@@ -55,6 +56,7 @@
       "v7d001",
       "v7d003",
       "v7d005",
+      "v7d007",
       "v7d008",
       "v7d014"
     ],
@@ -68,6 +70,7 @@
       "v7d001",
       "v7d003",
       "v7d005",
+      "v7d006",
       "v7d013",
       "v7d014",
       "v7d015",
@@ -82,12 +85,12 @@
   },
   "descriptive_cross_tabs": {
     "all_obligations_full_but_grounding_not_supported": [
+      "v7d006",
       "v7d013",
       "v7d015",
       "v7d016"
     ],
     "router_gold_contract_match_false_without_semantic_failure": [
-      "v7d006",
       "v7d011",
       "v7d017",
       "v7d018"
@@ -101,6 +104,7 @@
       "v7d001",
       "v7d003",
       "v7d005",
+      "v7d007",
       "v7d008",
       "v7d014"
     ],
@@ -108,6 +112,7 @@
       "v7d001",
       "v7d003",
       "v7d005",
+      "v7d006",
       "v7d007",
       "v7d008",
       "v7d013",
@@ -117,26 +122,26 @@
     ]
   },
   "failure_label_counts": {
-    "answer_obligation_missing": 5,
+    "answer_obligation_missing": 6,
     "context_resolution": 1,
-    "evidence_acquisition": 10,
+    "evidence_acquisition": 12,
     "infrastructure": 2,
-    "none": 4,
+    "none": 3,
     "refusal": 3,
-    "semantic_grounding": 7,
+    "semantic_grounding": 8,
     "terminal_outcome": 3,
-    "unsupported_material_claim": 7
+    "unsupported_material_claim": 8
   },
   "grounding_counts": {
     "NOT_APPLICABLE_INVALID": 2,
     "NOT_APPLICABLE_NO_CLAIM": 5,
-    "PARTIAL": 6,
-    "SUPPORTED": 4,
+    "PARTIAL": 7,
+    "SUPPORTED": 3,
     "UNSUPPORTED": 1
   },
   "obligation_coverage_counts": {
-    "FULL": 16,
-    "MISSING": 2,
+    "FULL": 15,
+    "MISSING": 3,
     "NOT_APPLICABLE_NO_ANSWER": 10,
     "PARTIAL": 5
   },
