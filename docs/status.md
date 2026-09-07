@@ -34,8 +34,9 @@
 - **PRODUCTIZATION-18A-R1 = ACCEPT / CLOSED**（homepage density / title hierarchy / answer hierarchy / Evidence markdown 层级修复与 snippet 隔离 / execution summary 压缩 / raw-safe trace 下沉 Advanced / sidebar 收紧 / streaming chrome 规范化）
 - **STREAMLIT FRONTEND = FUNCTIONAL DEMO / INTERNAL ENGINEERING UI = FROZEN**（继续承担 local development UI / functional demo / evidence & activity inspection / legacy mode access；不是 production-grade 或作品集视觉前端；进一步 Streamlit 视觉打磨 STOP；已知限制见 `docs/design/frontend_productization_freeze.md`）
 - **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化；后续 18A/18A-R1/18B 已在其上继续演进，见下方 CURRENT REPOSITORY HEAD）
-- **CURRENT REPOSITORY HEAD = `4ec7aa7daa79d80b8349b5cc2fe5727a16214d6e`**（PRODUCTIZATION-18A-R1 commit；Production/UI 代码现状以此为准）
-- **CURRENT PRODUCT CODE IDENTITY = `core/api/ui` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（17 closure 时机械验证）；`25ff4bc8573221fc55b949c5e804938b0013ff66` 是 ARCH-INTEGRATION-17 closure 前的 validation baseline**。不得把 docs closure commit 当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份；18A/18A-R1 的 UI 变化不影响 `core/api` 主链身份
+- **CURRENT REPOSITORY HEAD = `b80a958ef9d3d3182cebca4a5076d060a0b10f78`**（PRODUCTIZATION-18B frontend freeze 文档 commit；repository 现状以此为准）
+- **CURRENT BACKEND / AGENT PRODUCT CODE IDENTITY = `core/api` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（已机械验证）**。不得把 docs closure / freeze commit 当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份
+- **CURRENT STREAMLIT UI CODE IDENTITY = `4ec7aa7daa79d80b8349b5cc2fe5727a16214d6e`**（PRODUCTIZATION-18A-R1 frontend code baseline；18A/18A-R1 的 UI 变化不影响 `core/api` 主链身份，`25ff4bc8573221fc55b949c5e804938b0013ff66` 保留为 ARCH-INTEGRATION-17 closure 前 validation baseline 的历史说明）
 - **Future showcase frontend = Vanilla HTML/CSS/JS，DEFERRED / NOT STARTED**（只消费现有 FastAPI REST / Engineering SSE / Project API / Knowledge status / Engineering response schema；不为换前端重写 Agent Runtime；推荐部署形态 FastAPI serves static web frontend 记录为 NOT IMPLEMENTED）
 - **Further Streamlit visual polish = STOP**（边际收益已明显下降；不为 Streamlit 布局模型限制继续调 CSS/spacing/expander）
 - **NEXT = PROJECT MASTERY / DEMO PREPARATION**（源码掌握、项目讲解、Demo 场景、README / 简历表达；未来具体任务由后续单独定义，不自行创建 19A/19B Gate）
@@ -57,7 +58,7 @@
 - **G12 Engineering Evaluation 2.0 = CLOSED / FROZEN**
 - **G12 Requirement / Finalization Guard architecture integration = INTEGRATED / CLOSED**（capability 在当前 Product 中仍然 ACTIVE；architecture integration 工作本身已随 09～13 系列完成并由 ARCH-INTEGRATION-17 关闭。G12 历史 Gate 结论不改写）
 - **G12-01 Evidence Sufficiency Contract = CLOSED / DESIGN FROZEN**
-- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以新条目 "CURRENT PRODUCT CODE IDENTITY" 为准）
+- **CURRENT PRODUCT BASELINE = 0a1f42e8ee0320486dbd0ddc01400e1e19150501**（历史 G12 期基线；当前主链以 "CURRENT BACKEND / AGENT PRODUCT CODE IDENTITY" 与 "CURRENT STREAMLIT UI CODE IDENTITY" 为准）
 - **G12-03 Baseline A = CLOSED / BASELINE A FROZEN**
 - **G12 Baseline Formal = VALID / MANUAL GOLD COMPLETE**
 - **Baseline evidence-grounded result = NEGATIVE**
