@@ -84,7 +84,36 @@ Legacy ToolAgent execution adapter、single-loop/single-budget 边界已完成�
 
 **`ARCH-INTEGRATION-17 = CONDITIONAL ACCEPT / CLOSED`（2026-09-07，CURRENT）**：Integration v7 current-version closure 完成。Architecture Integration = ACCEPT / CLOSED；Current Product Semantic Quality = CONDITIONAL / KNOWN LIMITATIONS（15D：18 total / 16 valid / 2 invalid，terminal 13 PASS / 3 FAIL / 2 N/A；grounding 与 over-refusal 已知限制原样冻结）；Holdout 保持 sealed；Dev-driven Production intervention 停止。权威结论文档：[integration_v7_current_version_closure.md](design/integration_v7_current_version_closure.md)。负实验链 16A（VALID EXPERIMENT / NOT PROMOTED）→ 16B（REAL DEV NEGATIVE-NEUTRAL）→ 16C（ACCEPT / CLOSED，evidence-based rollback）保留为正式历史。
 
-**NEXT = `PRODUCTIZATION-18A`（NOT STARTED）**：Integration v7 架构施工期结束；下一阶段转向稳定用户场景、演示入口、source/citation presentation、真实 conversation product path 与校招掌握，不继续围绕 Dev cases 调参。18A 未开始、未授权，不得由 closure 任务自行启动。
+**`PRODUCTIZATION-18A / 18A-R1 = ACCEPT / CLOSED（HISTORICAL NEXT，已被后续演进取代）`**：早期 NEXT `PRODUCTIZATION-18A（NOT STARTED）` 已按其后真实历史完成——Engineering Agent 成为 primary product path、legacy 模式移入 Advanced/Demo、Evidence/Workspace/conversation/streaming 呈现与 R1 视觉层级修复；其后 PRODUCTIZATION-18B 将 Streamlit 前端冻结为 `FUNCTIONAL DEMO / INTERNAL ENGINEERING UI`（视觉打磨 STOP，未来 showcase 前端 DEFERRED）。历史记录见 [frontend_productization_freeze.md](design/frontend_productization_freeze.md)。本行仅标注 supersession，不重写当时历史。
+
+**`PRODUCT-COMPLETE-19 = ACCEPT / CLOSED`（2026-09-07，CURRENT）**：Release 2.0 Product Completion Route Freeze 完成。三方复核确认此前的 `NEXT = PROJECT MASTERY / DEMO PREPARATION` 属于 **PREMATURE PRODUCT CLOSURE**（把 Architecture Complete 当成了 Product Complete）。当前 Phase 固定为 **RELEASE 2.0 PRODUCT COMPLETION**；权威路线文档：[release2_product_completion_roadmap.md](design/release2_product_completion_roadmap.md)。
+
+**NEXT = `PRODUCT-CONVERSATION-20`**（Real Conversation + SQLite Persistence + bounded Context；未开始，须按任务卡执行）。
+
+Release 2.0 剩余 Product Completion Route（权威顺序，冻结）：
+
+```text
+PRODUCT-COMPLETE-19      Route / Product Contract Freeze（本卡，已关闭）
+    ↓
+PRODUCT-CONVERSATION-20  Real Conversation + SQLite Persistence + bounded Context
+    ↓
+PRODUCT-GROUNDING-21     Minimal Answer ↔ Evidence Contract
+    ↓
+PRODUCT-VALIDATION-22    Fresh User Scenario Baseline
+    ↓
+    ├─ 无重复 Product blocker → SKIP 23
+    └─ 重复 blocker 被新场景证明 → PRODUCT-REPAIR-23（One General Product Repair）
+    ↓
+PRODUCT-ENGINEERING-24   Minimal Engineering Closure
+    ↓
+PRODUCT-ACCEPT-25        Fresh Independent Acceptance
+    ↓
+RELEASE-2-FREEZE-26      Release 2.0 Freeze
+    ↓
+DELIVERY-27              README / Demo / Resume / Project Mastery / Interview
+```
+
+边界约束：PRODUCT-REPAIR-23 是条件任务（只有 Fresh Product Scenarios 重复证明同一 failure pattern 才进入，禁止默认 Recovery v2 / 更多 ToolCalls / Multi-Agent / GraphRAG / Vector Retrieval）；Release 2.0 Freeze 前高级能力默认 DEFER；Project Mastery / Interview Preparation 是 PARALLEL PERSONAL TRACK，不是 Product 主线替代者；Holdout 保持 sealed。
 
 当前任务完成后的后续唯一顺序为：
 
@@ -101,8 +130,9 @@ ARCH-RUNTIME-02
 
 顺序中的每一项都必须以本 v7 架构冻结文档为唯一架构依据。历史阶段
 02～08 已按各自冻结状态关闭或被 09～16 系列 supersede；Integration v7
-架构施工期已由 ARCH-INTEGRATION-17 关闭，当前只等待 `PRODUCTIZATION-18A`
-的另行授权；Holdout 与未授权的评测阶段均不启动。
+架构施工期已由 ARCH-INTEGRATION-17 关闭；Productization 的 Streamlit 冻结
+由 18A/18A-R1/18B 完成，Release 2.0 剩余路线以上方 PRODUCT-COMPLETE-19
+冻结的 19→27 顺序为准；Holdout 与未授权的评测阶段均不启动。
 
 R2 provenance note：R0 protocol SHA
 `e440ed8c32b366e99980b3b3fbd01f4325978547b929fbd6e94adec48b791f42` 已被

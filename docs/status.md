@@ -33,13 +33,17 @@
 - **PRODUCTIZATION-18A = ACCEPT / CLOSED**（Engineering Agent 成为 primary product path；legacy 模式移入 Advanced/Demo；Evidence 呈现、Workspace 状态、conversation UX、streaming activity 与 presentation helpers/styles 分离完成）
 - **PRODUCTIZATION-18A-R1 = ACCEPT / CLOSED**（homepage density / title hierarchy / answer hierarchy / Evidence markdown 层级修复与 snippet 隔离 / execution summary 压缩 / raw-safe trace 下沉 Advanced / sidebar 收紧 / streaming chrome 规范化）
 - **STREAMLIT FRONTEND = FUNCTIONAL DEMO / INTERNAL ENGINEERING UI = FROZEN**（继续承担 local development UI / functional demo / evidence & activity inspection / legacy mode access；不是 production-grade 或作品集视觉前端；进一步 Streamlit 视觉打磨 STOP；已知限制见 `docs/design/frontend_productization_freeze.md`）
-- **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化；后续 18A/18A-R1/18B 已在其上继续演进，见下方 CURRENT REPOSITORY HEAD）
-- **CURRENT REPOSITORY HEAD = `b80a958ef9d3d3182cebca4a5076d060a0b10f78`**（PRODUCTIZATION-18B frontend freeze 文档 commit；repository 现状以此为准）
+- **CURRENT REPOSITORY CLOSURE HEAD = `bf8d4384f5aa0df441d0d4477903c81364473db6`**（ARCH-INTEGRATION-17 closure commit；仅 docs 变化；后续 18A/18A-R1/18B/19 已在其上继续演进，见下方 baseline 语义）
+- **LAST VERIFIED REPOSITORY BASELINE = `50653c09fdfa773fbd8fdddb260e9292067d7041`**（PRODUCT-COMPLETE-19 冻结的基线）。停止维护自引用的 "CURRENT REPOSITORY HEAD"：status 一提交就会产生新 commit，该字段永远天然落后一版；实际当前 Git HEAD 必须通过 `git rev-parse HEAD` 查询，status 不维护包含自身提交的递归 CURRENT HEAD
 - **CURRENT BACKEND / AGENT PRODUCT CODE IDENTITY = `core/api` 与 15D candidate `6d7e58f1e8c1f2bdaab091c453855b6eee53036b` zero diff（已机械验证）**。不得把 docs closure / freeze commit 当作 "当前 Product commit"——它是 repository 状态，不是 Production 代码身份
 - **CURRENT STREAMLIT UI CODE IDENTITY = `4ec7aa7daa79d80b8349b5cc2fe5727a16214d6e`**（PRODUCTIZATION-18A-R1 frontend code baseline；18A/18A-R1 的 UI 变化不影响 `core/api` 主链身份，`25ff4bc8573221fc55b949c5e804938b0013ff66` 保留为 ARCH-INTEGRATION-17 closure 前 validation baseline 的历史说明）
 - **Future showcase frontend = Vanilla HTML/CSS/JS，DEFERRED / NOT STARTED**（只消费现有 FastAPI REST / Engineering SSE / Project API / Knowledge status / Engineering response schema；不为换前端重写 Agent Runtime；推荐部署形态 FastAPI serves static web frontend 记录为 NOT IMPLEMENTED）
 - **Further Streamlit visual polish = STOP**（边际收益已明显下降；不为 Streamlit 布局模型限制继续调 CSS/spacing/expander）
-- **NEXT = PROJECT MASTERY / DEMO PREPARATION**（源码掌握、项目讲解、Demo 场景、README / 简历表达；未来具体任务由后续单独定义，不自行创建 19A/19B Gate）
+- **~~NEXT = PROJECT MASTERY / DEMO PREPARATION~~（三方复核后判定为 PREMATURE PRODUCT CLOSURE，不再作为唯一 NEXT）**
+- **CURRENT PHASE = RELEASE 2.0 PRODUCT COMPLETION**（把已完成的 Unified Engineering Agent Core 真正闭环成可连续使用、可验证、可展示、可复现的产品；权威路线见 `docs/design/release2_product_completion_roadmap.md`）
+- **PRODUCT-COMPLETE-19 = ACCEPT / CLOSED**（Release 2.0 Product Completion Route Freeze：Product DoD、Context/Persistence/Memory 边界、User Scenario Acceptance Contract、Fresh Validation / Contamination Rule、19→27 里程碑顺序、Advanced Feature Defer List、六问治理全部冻结）
+- **NEXT = PRODUCT-CONVERSATION-20 / NOT STARTED**（Real Conversation + SQLite Persistence + bounded Context；按任务卡另行执行，本任务不自行开始）
+- **Project Mastery / Interview Preparation = PARALLEL PERSONAL TRACK**（源码掌握、项目讲解、Demo 场景、README / 简历表达；与 Product 主线并行，不是其替代者，不阻塞 20～27 路线）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**
 - **ARCH-EVAL-08A dataset = 18 Dev + 9 Holdout；9 task families × (2 Dev + 1 Holdout)**
@@ -73,8 +77,8 @@
 - **Manual Gold = FROZEN / 16 CASES**
 - **G12-05B = System C Formal valid / Manual Gold frozen / Final classification = FAIL**
 - **No rerun**（有效 FAIL 不挑结果重跑）
-- **CORE AGENT SYSTEM = COMPLETE**
-- ~~**NEXT = ARCH-EVAL-08B**~~（已过期：早期 NEXT 已被 09～16 系列真实演进取代；后续 NEXT 又经 PRODUCTIZATION-18A 演进，当前见上方 "NEXT = PROJECT MASTERY / DEMO PREPARATION"）
+- **CORE AGENT SYSTEM = COMPLETE**（指 Core / **Architecture** Complete：Unified Runtime、Evidence Backends、评测协议与负实验闭环已完成；**不意味着 Product Release Complete**——Release 2.0 剩余 Product DoD 见 `docs/design/release2_product_completion_roadmap.md`）
+- ~~**NEXT = ARCH-EVAL-08B**~~（已过期：早期 NEXT 已被 09～16 系列真实演进取代；后续又经 PRODUCTIZATION-18A/18B 与 PRODUCT-COMPLETE-19 演进，当前见上方 "CURRENT PHASE = RELEASE 2.0 PRODUCT COMPLETION" 与 "NEXT = PRODUCT-CONVERSATION-20"）
 - **G12-02A = CLOSED / CANDIDATE POOL ACCEPTED**
 - **G12-02B = CLOSED / DATASET FROZEN**
 
