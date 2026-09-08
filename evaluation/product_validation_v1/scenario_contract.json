@@ -1,0 +1,175 @@
+{
+  "schema_version": "product_validation_scenario_contract_v1",
+  "task": "PRODUCT-VALIDATION-22",
+  "frozen_at_utc": "2026-09-08T05:20:00Z",
+  "purpose": "First fresh-repo, real-provider, human-reviewable Product validation for Release 2.0. Set A of the contamination rule: if any Product modification is later guided by these scenarios, this set becomes Dev/Diagnostic and PRODUCT-ACCEPT-25 must use a fresh Set B.",
+  "product": {
+    "repository": "D:/学习/rag实战项目/rag-knowledge-base",
+    "commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+    "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+    "prompt_sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf",
+    "tool_budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "api_entries": {
+      "single_turn": "POST /engineering/query (question only)",
+      "multi_turn": "POST /engineering/conversations + POST /engineering/conversations/{id}/messages/stream/v1 (SSE)"
+    },
+    "client_control_of_grounding": "NONE (Product policy; request contract stays question/message only)"
+  },
+  "provider": {
+    "name": "deepseek",
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key_source": "repo .env DEEPSEEK_API_KEY (loaded by api/app.py load_dotenv)",
+    "planner_provider": "deepseek (same frozen provider/model)",
+    "decision_temperature": "product frozen DECISION_TEMPERATURE=0",
+    "token_accounting": "input/output tokens not exposed by public Product contract; recorded as UNKNOWN"
+  },
+  "knowledge_corpus": {
+    "repository": "wgqa/agent_data",
+    "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "corpus_path": "agent_ai_v1/02_corpus_candidate",
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "chunk_count": 215,
+    "retrieval_strategy": "bm25",
+    "authority_manifest_experiment": "dbc497c796d5",
+    "note": "same frozen verified corpus as all prior v7 integration runs; NOT retuned for these fresh repos"
+  },
+  "fresh_repos": [
+    {
+      "name": "vanna",
+      "url": "https://github.com/vanna-ai/vanna",
+      "pinned_commit": "365d0617c1a4567ffee1b19b40c27feb4206bfcf",
+      "worktree_relative": "vanna",
+      "prior_exposure": "none: Product never ran against this repo before this validation"
+    },
+    {
+      "name": "instructor",
+      "url": "https://github.com/instructor-ai/instructor",
+      "pinned_commit": "5ea35cdb1860842622a670360d690d603cc04f36",
+      "worktree_relative": "instructor",
+      "prior_exposure": "none"
+    },
+    {
+      "name": "instructor_change",
+      "url": "https://github.com/instructor-ai/instructor",
+      "base_commit": "2b64e4978d66266e924248c784f16e7b8f8ef333",
+      "applied_change_commit": "5ea35cdb1860842622a670360d690d603cc04f36",
+      "applied_as": "git apply of the pinned change commit's diff as UNCOMMITTED working-tree changes (13 modified files; new test file tests/v2/test_security_regressions.py stays untracked, matching a realistic user state)",
+      "worktree_relative": "instructor_change",
+      "prior_exposure": "none"
+    }
+  ],
+  "repo_groups": {
+    "vanna": {
+      "worktree_relative": "vanna",
+      "tasks": ["A1", "A2", "B", "D"]
+    },
+    "instructor": {
+      "worktree_relative": "instructor",
+      "tasks": ["A3", "E"]
+    },
+    "instructor_change": {
+      "worktree_relative": "instructor_change",
+      "tasks": ["C"]
+    }
+  },
+  "run_discipline": {
+    "freeze_before_first_formal_run": true,
+    "mid_run_product_changes": "FORBIDDEN (no prompt/router/search/ranking/tool changes between scenarios)",
+    "production_modification": "NONE for the whole task",
+    "retries": 0,
+    "timeout_rule": "each Product LLM call carries the frozen 20s provider timeout; the runner imposes no extra timeout and never re-sends a request",
+    "infra_failure_policy": "record the task as INFRA with the observed error and continue with the remaining scenarios; no rerun",
+    "analysis_after_all_runs": "unified analysis only after the full suite finishes"
+  },
+  "scenario_questions": {
+    "A1": {
+      "category": "repository_implementation_understanding",
+      "repo": "vanna",
+      "question": "vanna Agent 的 temperature 配置默认值在哪里定义？用户修改 AgentConfig 的 temperature 后，这个值沿着哪些代码路径传递，最终在哪里传给底层 LLM 请求生效？请读取实际源码回答。"
+    },
+    "A2": {
+      "category": "repository_implementation_understanding",
+      "repo": "vanna",
+      "question": "vanna 的 ToolRegistry 是如何注册和查找工具的？Agent 执行时如何解析并校验模型输出的工具调用？请结合 registry 与工具调用处理源码说明。"
+    },
+    "A3": {
+      "category": "repository_implementation_understanding",
+      "repo": "instructor",
+      "question": "instructor.from_openai 是怎么把普通 openai 客户端变成结构化输出客户端的？请说明涉及的文件与关键函数，以及默认 Mode 和 patch 核心逻辑的位置。"
+    },
+    "B": {
+      "category": "theory_code",
+      "repo": "vanna",
+      "question": "请先解释 RAG 中检索增强 prompt 组装的原理：相似问答、DDL、文档这些检索结果如何注入 prompt 再生成。然后对照说明这个仓库 generate_sql 的实现链路：每一步检索什么、如何拼 prompt、最后谁把 prompt 提交给 LLM？它和通用 RAG 流程有什么差异？"
+    },
+    "C": {
+      "category": "change_impact_test_recommendation",
+      "repo": "instructor_change",
+      "question": "我当前工作区有一组未提交的修改。请分析这组修改影响了哪些模块和边界，并推荐我应该重点跑哪些现有测试来验证这次修改。"
+    },
+    "D": {
+      "category": "evidence_insufficient",
+      "repo": "vanna",
+      "question": "vanna 的 HyDE 查询改写模块是在哪里实现的？改写出的假设文档是如何用于相似问题检索的？请指出具体模块和函数。",
+      "ground_truth_note": "pinned vanna has NO HyDE / query-rewriting module (verified by grep at freeze time); acceptable outcomes: justified refusal, or completed answer that explicitly states the module does not exist with real evidence"
+    },
+    "E": {
+      "category": "multi_turn_investigation",
+      "repo": "instructor",
+      "turns": [
+        {
+          "turn": 1,
+          "question": "instructor 把 LLM 原始响应转换成结构化对象的核心逻辑在哪里实现？"
+        },
+        {
+          "turn": 2,
+          "question": "那这个转换逻辑是谁调用的？它在 create 请求主流程的哪一步？"
+        },
+        {
+          "turn": 3,
+          "question": "如果校验失败，重试是怎么接入的？max_retries 如何控制总尝试次数？"
+        },
+        {
+          "turn": 4,
+          "question": "README 或 docs 对这个重试/再请求行为的描述和代码实现一致吗？请对照说明。"
+        }
+      ],
+      "conversation_policy": "one server-owned Engineering conversation; server-side history + bounded context window (6 messages / 1200 tokens) as frozen in PRODUCT-CONVERSATION-20"
+    }
+  },
+  "review_contract_per_task": {
+    "strict_task_success": "PASS | PARTIAL | FAIL | INFRA",
+    "answer_obligation_coverage": "coverage of the question's real obligations",
+    "evidence_support": "SUPPORTED | PARTIAL | UNSUPPORTED | NO_CLAIM",
+    "correct_code_path": "YES | PARTIAL | NO",
+    "correct_span_read": "YES | PARTIAL | NO",
+    "refusal": "NONE | JUSTIFIED | OVER_REFUSAL | UNDER_REFUSAL",
+    "context_resolution": "PASS | PARTIAL | FAIL | N/A",
+    "citation_binding": "VALID | INCOMPLETE | MISSING | INVALID | N/A",
+    "infrastructure": "PASS | FAIL",
+    "metrics": ["llm_decision_calls", "tool_calls", "input_output_tokens(UNKNOWN)", "latency", "terminal_status"],
+    "warnings": [
+      "terminal completed != task PASS",
+      "[E1] valid != E1 semantically supports the claim",
+      "finding a file != reading the correct implementation span"
+    ]
+  },
+  "failure_categories": [
+    "context_resolution",
+    "planning/routing",
+    "evidence_acquisition",
+    "evidence_sufficiency",
+    "answer_obligation_missing",
+    "semantic_grounding",
+    "unsupported_material_claim",
+    "refusal",
+    "terminal_outcome",
+    "infrastructure"
+  ]
+}
