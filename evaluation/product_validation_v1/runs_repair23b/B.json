@@ -1,0 +1,356 @@
+{
+ "task_id": "B",
+ "category": "theory_code",
+ "repo": "vanna",
+ "project_root_name": "vanna",
+ "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+ "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+ "started_at": "2026-09-08T06:05:51.924742+00:00",
+ "finished_at": "2026-09-08T06:06:05.631467+00:00",
+ "knowledge_status": {
+  "schema_version": "engineering_knowledge_status_v1",
+  "ready": true,
+  "verified": true,
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "chunk_count": 215,
+  "retrieval_strategy": "bm25",
+  "manifest_experiment_id": "dbc497c796d5"
+ },
+ "turns": [
+  {
+   "turn": 1,
+   "question": "请先解释 RAG 中检索增强 prompt 组装的原理：相似问答、DDL、文档这些检索结果如何注入 prompt 再生成。然后对照说明这个仓库 generate_sql 的实现链路：每一步检索什么、如何拼 prompt、最后谁把 prompt 提交给 LLM？它和通用 RAG 流程有什么差异？",
+   "started_at": "2026-09-08T06:05:51.924754+00:00",
+   "latency_seconds": 13.71,
+   "http_status": 200,
+   "terminal_status": "refused",
+   "answer": null,
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "rag/高级RAG.md",
+     "chunk_id": "054348262daeebc58f2c825f61774330",
+     "score": 17.6093,
+     "rank": 1,
+     "snippet": "BM25 能改善精确术语问题的召回\n- 基线版本：commit / index / model / prompt\n- 唯一变量：retrieval strategy\n- 数据集：rag-eval-v1\n- 指标：Recall@5、MRR、P95\n- 结果：\n- 失败样本：\n- 结论：保留 / 回滚 / 继续实验\n```\n\n### 3. 回归门槛\n\n发布前可设置：\n\n```text\n核心类别 Recall@5 不下降\n整体正确率不低于基线\n权限测试 100% 通过\nP95 不超过预算\n无答案误答率不超过阈值\n```\n\n阈值应根据业务风险和当前基线确定，不照抄他人数字。\n\n---\n\n## 八、什么时候使用高级 RAG\n\n### 1. Parent-Child / Small-to-Big\n\n适合：小块更容易精确命中，但回答需要完整章节上下文。  \n代价：索引和父子映射更复杂，返回父块可能引入噪声。\n\n### 2. Contextual Retrieval\n\n为 Chunk 增加文档级背景，例如标题和简短上下文。  \n适合：原 Chunk 脱离全文后指代不清。  \n风险：生成的背景可能错误；"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "rag/检索与生成.md",
+     "chunk_id": "cdbd03833010ea630e9e9203677305b6",
+     "score": 13.9596,
+     "rank": 3,
+     "snippet": "# RAG 检索与生成：在线请求完整链路\n\n> 定位：RAG 的在线链路。目标是在权限、延迟和上下文预算内找到证据，并让模型基于证据回答且可引用。  \n> 前置：[`01-文档处理.md`](01-文档处理.md)\n\n## 一、在线链路\n\n```text\n用户问题\n  → 鉴权与安全检查\n  → 会话问题改写（可选）\n  → 查询分类/路由\n  → 元数据权限过滤\n  → Dense / BM25 检索\n  → 融合、去重\n  → Rerank\n  → 上下文选择与压缩\n  → 构造带引用的 Prompt\n  → LLM 生成\n  → 引用校验、输出过滤\n  → 记录 Trace 和评测字段\n```\n\n不要把整条链路封装成一个无法观测的 `chain.invoke()`。至少要能看到每阶段输入、候选结果、耗时和失败原因。\n\n---\n\n## 二、查询理解\n\n### 1. 规范化\n\n可做的轻量处理：\n\n- 去除无意义首尾空白；\n- 统一明显的别名，如 `redis` / `Redis`；\n- 保留原问题用于生成和审计；\n- 不要做会改变语义的激进分词或同义改写。\n\n### 2. 多轮对话改"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "finetuning/训练与评估.md",
+     "chunk_id": "d6d9ba9b44b2362ae76eb915afb16056",
+     "score": 10.1199,
+     "rank": 1,
+     "snippet": " 通用能力回归\n\n微调后同时检查：\n\n- 通用问答；\n- 原基座擅长的任务；\n- 多语言；\n- 长短输入；\n- 安全与拒答；\n- 不应调用工具的场景；\n- 超出领域时是否承认不确定。\n\n只在领域任务上提高、其他能力明显下降，不一定是可接受结果。\n\n### 5. 工程评测\n\n- 首 Token 延迟；\n- 输出 Token 延迟；\n- 吞吐和并发；\n- 峰值显存；\n- Adapter 切换/加载耗时；\n- Token 使用和费用；\n- 错误率、超时率；\n- 合并前后输出差异。\n\n---\n\n## 八、Base、SFT 与 RAG 的公平对比\n\n至少保留：\n\n~~~text\nA：Base + 固定 Prompt\nB：Base + RAG（若任务需要动态知识）\nC：SFT + 固定 Prompt\nD：SFT + RAG（可选）\n~~~\n\n公平条件：\n\n- 同一评测集；\n- 同一系统提示或明确记录差异；\n- 相同生成参数；\n- 相同最大上下文和输出长度；\n- 不把测试答案放进某一组的 few-shot；\n- 记录模型与检索版本；\n- 盲测时随机答案顺序。\n\n这样才能回答“收益来自微调、RAG还是"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+     "chunk_id": "62646f38e5d6a68c11b764dbe44877be",
+     "score": 15.9278,
+     "rank": 1,
+     "snippet": "# 后训练与强化学习\n## 五、Reward Model 奖励模型\n\nRLHF 里通常会先训练一个 Reward Model。\n\n### Reward Model 是什么？\n\n```text\nReward Model = 一个给回答打分的模型。\n\n输入：prompt + response\n输出：一个分数 reward\n\n分数越高，表示这个回答越符合人类偏好。\n```\n\n例子：\n\n```text\nprompt：解释 MySQL MVCC\nresponse A：结构清楚、准确、有例子 → reward = 8.7\nresponse B：概念混乱、缺关键点 → reward = 2.1\n```\n\n### Reward Model 怎么训练？\n\n用偏好数据训练：\n\n```text\n同一个 prompt 下：\n  chosen 应该比 rejected 分数高。\n\n训练目标：\n  reward(chosen) > reward(rejected)\n```\n\n不用死记公式，面试说清楚这个思想就够：\n\n```text\nReward Model 不一定要预测一个绝对分数，它核心是学会比较两个回答哪个更"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "deployment/部署架构.md",
+     "chunk_id": "df74432e8a3b63fd88871ceb8880da97",
+     "score": 14.8678,
+     "rank": 2,
+     "snippet": "|\n|---|---|\n| Reranker不可用 | 返回基础检索结果并标记 |\n| 向量库不可用 | BM25或明确告知资料不可用 |\n| 强模型过载 | 小模型，仅限合适任务 |\n| 外部工具超时 | 跳过并说明，或任务失败 |\n| Checkpoint不可用 | 禁止有副作用的长任务 |\n| 观测系统异常 | 不应阻塞核心请求，但本地缓冲有界 |\n\n降级不能：\n\n- 绕过权限；\n- 用旧数据假装实时；\n- 在安全模型不可用时切到无安全策略模型；\n- 吞掉错误让答案看似完整。\n\n---\n\n## 十二、数据、安全与审计\n\n### 1. 数据流\n\n明确每类数据是否会进入：\n\n- Prompt；\n- 外部模型；\n- 日志；\n- Trace；\n- 缓存；\n- 训练反馈；\n- 备份。\n\n敏感字段在进入模型前最小化，在日志中默认脱敏。\n\n### 2. 密钥\n\n- 使用Secret Manager或受控环境变量；\n- 不写入仓库、镜像和Prompt；\n- 区分开发/测试/生产；\n- 定期轮换；\n- 给每个服务最小scope；\n- 错误与Trace不打印Authorization头。\n\n### "
+    },
+    {
+     "evidence_id": "E6",
+     "kind": "project_code",
+     "path": "src/vanna/legacy/base/base.py",
+     "start_line": 63,
+     "end_line": 123,
+     "snippet": "import plotly.graph_objects as go\nimport requests\nimport sqlparse\n\nfrom ..exceptions import DependencyError, ImproperlyConfigured, ValidationError\nfrom ..types import TrainingPlan, TrainingPlanItem\nfrom ..utils import validate_config_path\n\n\nclass VannaBase(ABC):\n    def __init__(self, config=None):\n        if config is None:\n            config = {}\n\n        self.config = config\n        self.run_sql_is_set = False\n        self.static_documentation = \"\"\n        self.dialect = self.config.get(\"dialect\", \"SQL\")\n        self.language = self.config.get(\"language\", None)\n        self.max_tokens = self.config.get(\"max_tokens\", 14000)\n\n    def log(self, message: str, title: str = \"Info\"):\n        print(f\"{title}: {message}\")\n\n    def _response_language(self) -> str:\n        if self.language is None:\n            return \"\"\n\n        return f\"Respond in the {self.language} language.\"\n\n    def generate_sql(self, question: str, allow_llm_to_see_data=False, **kwargs) -> str:\n        \"\"\"\n        Example:\n        ```python\n        vn.generate_sql(\"What are the top 10 customers by sales?\")\n        ```\n\n        Uses the LLM to generate a SQL query that answers a question. It runs the following methods:\n\n        - [`get_similar_question_sql`][vanna.base.base.VannaBase.get_similar_question_sql]\n\n        - [`get_related_ddl`][vanna.base.base.VannaBase.get_related_ddl]\n\n        - [`get_related_documentation`][vanna.base.base.VannaBase.get_related_documentation]\n\n        - [`get_sql_prompt`][vanna.base.base.VannaBase.get_sql_prompt]\n\n        - [`submit_prompt`][vanna.base.base.VannaBase.submit_prompt]\n\n\n        Args:\n            question (str): The question to generate a SQL query for.\n            allow_llm_to_see_data (bool): Whether to allow the LLM to see the data (for the purposes of introspecting the data to generate the final SQL).\n\n        Returns:\n            str: The SQL query that answers the question.\n        \"\"\"\n        if self.config is not None:\n            initial_prompt = se"
+    },
+    {
+     "evidence_id": "E7",
+     "kind": "project_code",
+     "path": "src/vanna/legacy/base/base.py",
+     "start_line": 93,
+     "end_line": 153,
+     "snippet": "    def generate_sql(self, question: str, allow_llm_to_see_data=False, **kwargs) -> str:\n        \"\"\"\n        Example:\n        ```python\n        vn.generate_sql(\"What are the top 10 customers by sales?\")\n        ```\n\n        Uses the LLM to generate a SQL query that answers a question. It runs the following methods:\n\n        - [`get_similar_question_sql`][vanna.base.base.VannaBase.get_similar_question_sql]\n\n        - [`get_related_ddl`][vanna.base.base.VannaBase.get_related_ddl]\n\n        - [`get_related_documentation`][vanna.base.base.VannaBase.get_related_documentation]\n\n        - [`get_sql_prompt`][vanna.base.base.VannaBase.get_sql_prompt]\n\n        - [`submit_prompt`][vanna.base.base.VannaBase.submit_prompt]\n\n\n        Args:\n            question (str): The question to generate a SQL query for.\n            allow_llm_to_see_data (bool): Whether to allow the LLM to see the data (for the purposes of introspecting the data to generate the final SQL).\n\n        Returns:\n            str: The SQL query that answers the question.\n        \"\"\"\n        if self.config is not None:\n            initial_prompt = self.config.get(\"initial_prompt\", None)\n        else:\n            initial_prompt = None\n        question_sql_list = self.get_similar_question_sql(question, **kwargs)\n        ddl_list = self.get_related_ddl(question, **kwargs)\n        doc_list = self.get_related_documentation(question, **kwargs)\n        prompt = self.get_sql_prompt(\n            initial_prompt=initial_prompt,\n            question=question,\n            question_sql_list=question_sql_list,\n            ddl_list=ddl_list,\n            doc_list=doc_list,\n            **kwargs,\n        )\n        self.log(title=\"SQL Prompt\", message=prompt)\n        llm_response = self.submit_prompt(prompt, **kwargs)\n        self.log(title=\"LLM Response\", message=llm_response)\n\n        if \"intermediate_sql\" in llm_response:\n            if not allow_llm_to_see_data:\n                return \"The LLM is not allowed to see the data in your d"
+    }
+   ],
+   "tool_calls_used": 4,
+   "iterations_used": 5,
+   "decision_llm_calls": 5,
+   "input_output_tokens": "UNKNOWN",
+   "response": {
+    "schema_version": "engineering_query_response_v1",
+    "status": "refused",
+    "answer": null,
+    "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+    "failure_code": null,
+    "iterations_used": 5,
+    "tool_calls_used": 4,
+    "tool_errors_used": 0,
+    "trace": [
+     {
+      "call_id": null,
+      "iterations_used": 1,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 1,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 0,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_2f6cb31dd0434dacb6b9ace96caf9786",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 0,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_2f6cb31dd0434dacb6b9ace96caf9786",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 1,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 2,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 2,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 1,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_1ae02532435848e89725ab311b6301f4",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 1,
+      "tool_status": null,
+      "tool_name": "read_project_context",
+      "error_code": null
+     },
+     {
+      "call_id": "call_1ae02532435848e89725ab311b6301f4",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 2,
+      "tool_status": "ok",
+      "tool_name": "read_project_context",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 3,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 3,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 2,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_fd33dbf6e3e443918d0b53201190726c",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 2,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_fd33dbf6e3e443918d0b53201190726c",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 3,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 4,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 4,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 3,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_842ff7c450c94c71af7b69e714ebfd64",
+      "iterations_used": 4,
+      "action_type": "tool_call",
+      "iteration": 4,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 3,
+      "tool_status": null,
+      "tool_name": "read_project_context",
+      "error_code": null
+     },
+     {
+      "call_id": "call_842ff7c450c94c71af7b69e714ebfd64",
+      "iterations_used": 4,
+      "action_type": "tool_call",
+      "iteration": 4,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 4,
+      "tool_status": "ok",
+      "tool_name": "read_project_context",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 5,
+      "provider_call_count": 1,
+      "action_type": "final_answer",
+      "repair_attempted": false,
+      "iteration": 5,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 4,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 5,
+      "action_type": null,
+      "iteration": 5,
+      "event_type": "runtime_stopped",
+      "tool_errors_used": 0,
+      "tool_calls_used": 4,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE"
+     }
+    ],
+    "evidence": [
+     {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "rag/高级RAG.md",
+      "chunk_id": "054348262daeebc58f2c825f61774330",
+      "score": 17.6093,
+      "rank": 1,
+      "snippet": "BM25 能改善精确术语问题的召回\n- 基线版本：commit / index / model / prompt\n- 唯一变量：retrieval strategy\n- 数据集：rag-eval-v1\n- 指标：Recall@5、MRR、P95\n- 结果：\n- 失败样本：\n- 结论：保留 / 回滚 / 继续实验\n```\n\n### 3. 回归门槛\n\n发布前可设置：\n\n```text\n核心类别 Recall@5 不下降\n整体正确率不低于基线\n权限测试 100% 通过\nP95 不超过预算\n无答案误答率不超过阈值\n```\n\n阈值应根据业务风险和当前基线确定，不照抄他人数字。\n\n---\n\n## 八、什么时候使用高级 RAG\n\n### 1. Parent-Child / Small-to-Big\n\n适合：小块更容易精确命中，但回答需要完整章节上下文。  \n代价：索引和父子映射更复杂，返回父块可能引入噪声。\n\n### 2. Contextual Retrieval\n\n为 Chunk 增加文档级背景，例如标题和简短上下文。  \n适合：原 Chunk 脱离全文后指代不清。  \n风险：生成的背景可能错误；"
+     },
+     {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "rag/检索与生成.md",
+      "chunk_id": "cdbd03833010ea630e9e9203677305b6",
+      "score": 13.9596,
+      "rank": 3,
+      "snippet": "# RAG 检索与生成：在线请求完整链路\n\n> 定位：RAG 的在线链路。目标是在权限、延迟和上下文预算内找到证据，并让模型基于证据回答且可引用。  \n> 前置：[`01-文档处理.md`](01-文档处理.md)\n\n## 一、在线链路\n\n```text\n用户问题\n  → 鉴权与安全检查\n  → 会话问题改写（可选）\n  → 查询分类/路由\n  → 元数据权限过滤\n  → Dense / BM25 检索\n  → 融合、去重\n  → Rerank\n  → 上下文选择与压缩\n  → 构造带引用的 Prompt\n  → LLM 生成\n  → 引用校验、输出过滤\n  → 记录 Trace 和评测字段\n```\n\n不要把整条链路封装成一个无法观测的 `chain.invoke()`。至少要能看到每阶段输入、候选结果、耗时和失败原因。\n\n---\n\n## 二、查询理解\n\n### 1. 规范化\n\n可做的轻量处理：\n\n- 去除无意义首尾空白；\n- 统一明显的别名，如 `redis` / `Redis`；\n- 保留原问题用于生成和审计；\n- 不要做会改变语义的激进分词或同义改写。\n\n### 2. 多轮对话改"
+     },
+     {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "finetuning/训练与评估.md",
+      "chunk_id": "d6d9ba9b44b2362ae76eb915afb16056",
+      "score": 10.1199,
+      "rank": 1,
+      "snippet": " 通用能力回归\n\n微调后同时检查：\n\n- 通用问答；\n- 原基座擅长的任务；\n- 多语言；\n- 长短输入；\n- 安全与拒答；\n- 不应调用工具的场景；\n- 超出领域时是否承认不确定。\n\n只在领域任务上提高、其他能力明显下降，不一定是可接受结果。\n\n### 5. 工程评测\n\n- 首 Token 延迟；\n- 输出 Token 延迟；\n- 吞吐和并发；\n- 峰值显存；\n- Adapter 切换/加载耗时；\n- Token 使用和费用；\n- 错误率、超时率；\n- 合并前后输出差异。\n\n---\n\n## 八、Base、SFT 与 RAG 的公平对比\n\n至少保留：\n\n~~~text\nA：Base + 固定 Prompt\nB：Base + RAG（若任务需要动态知识）\nC：SFT + 固定 Prompt\nD：SFT + RAG（可选）\n~~~\n\n公平条件：\n\n- 同一评测集；\n- 同一系统提示或明确记录差异；\n- 相同生成参数；\n- 相同最大上下文和输出长度；\n- 不把测试答案放进某一组的 few-shot；\n- 记录模型与检索版本；\n- 盲测时随机答案顺序。\n\n这样才能回答“收益来自微调、RAG还是"
+     },
+     {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+      "chunk_id": "62646f38e5d6a68c11b764dbe44877be",
+      "score": 15.9278,
+      "rank": 1,
+      "snippet": "# 后训练与强化学习\n## 五、Reward Model 奖励模型\n\nRLHF 里通常会先训练一个 Reward Model。\n\n### Reward Model 是什么？\n\n```text\nReward Model = 一个给回答打分的模型。\n\n输入：prompt + response\n输出：一个分数 reward\n\n分数越高，表示这个回答越符合人类偏好。\n```\n\n例子：\n\n```text\nprompt：解释 MySQL MVCC\nresponse A：结构清楚、准确、有例子 → reward = 8.7\nresponse B：概念混乱、缺关键点 → reward = 2.1\n```\n\n### Reward Model 怎么训练？\n\n用偏好数据训练：\n\n```text\n同一个 prompt 下：\n  chosen 应该比 rejected 分数高。\n\n训练目标：\n  reward(chosen) > reward(rejected)\n```\n\n不用死记公式，面试说清楚这个思想就够：\n\n```text\nReward Model 不一定要预测一个绝对分数，它核心是学会比较两个回答哪个更"
+     },
+     {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "deployment/部署架构.md",
+      "chunk_id": "df74432e8a3b63fd88871ceb8880da97",
+      "score": 14.8678,
+      "rank": 2,
+      "snippet": "|\n|---|---|\n| Reranker不可用 | 返回基础检索结果并标记 |\n| 向量库不可用 | BM25或明确告知资料不可用 |\n| 强模型过载 | 小模型，仅限合适任务 |\n| 外部工具超时 | 跳过并说明，或任务失败 |\n| Checkpoint不可用 | 禁止有副作用的长任务 |\n| 观测系统异常 | 不应阻塞核心请求，但本地缓冲有界 |\n\n降级不能：\n\n- 绕过权限；\n- 用旧数据假装实时；\n- 在安全模型不可用时切到无安全策略模型；\n- 吞掉错误让答案看似完整。\n\n---\n\n## 十二、数据、安全与审计\n\n### 1. 数据流\n\n明确每类数据是否会进入：\n\n- Prompt；\n- 外部模型；\n- 日志；\n- Trace；\n- 缓存；\n- 训练反馈；\n- 备份。\n\n敏感字段在进入模型前最小化，在日志中默认脱敏。\n\n### 2. 密钥\n\n- 使用Secret Manager或受控环境变量；\n- 不写入仓库、镜像和Prompt；\n- 区分开发/测试/生产；\n- 定期轮换；\n- 给每个服务最小scope；\n- 错误与Trace不打印Authorization头。\n\n### "
+     },
+     {
+      "evidence_id": "E6",
+      "kind": "project_code",
+      "path": "src/vanna/legacy/base/base.py",
+      "start_line": 63,
+      "end_line": 123,
+      "snippet": "import plotly.graph_objects as go\nimport requests\nimport sqlparse\n\nfrom ..exceptions import DependencyError, ImproperlyConfigured, ValidationError\nfrom ..types import TrainingPlan, TrainingPlanItem\nfrom ..utils import validate_config_path\n\n\nclass VannaBase(ABC):\n    def __init__(self, config=None):\n        if config is None:\n            config = {}\n\n        self.config = config\n        self.run_sql_is_set = False\n        self.static_documentation = \"\"\n        self.dialect = self.config.get(\"dialect\", \"SQL\")\n        self.language = self.config.get(\"language\", None)\n        self.max_tokens = self.config.get(\"max_tokens\", 14000)\n\n    def log(self, message: str, title: str = \"Info\"):\n        print(f\"{title}: {message}\")\n\n    def _response_language(self) -> str:\n        if self.language is None:\n            return \"\"\n\n        return f\"Respond in the {self.language} language.\"\n\n    def generate_sql(self, question: str, allow_llm_to_see_data=False, **kwargs) -> str:\n        \"\"\"\n        Example:\n        ```python\n        vn.generate_sql(\"What are the top 10 customers by sales?\")\n        ```\n\n        Uses the LLM to generate a SQL query that answers a question. It runs the following methods:\n\n        - [`get_similar_question_sql`][vanna.base.base.VannaBase.get_similar_question_sql]\n\n        - [`get_related_ddl`][vanna.base.base.VannaBase.get_related_ddl]\n\n        - [`get_related_documentation`][vanna.base.base.VannaBase.get_related_documentation]\n\n        - [`get_sql_prompt`][vanna.base.base.VannaBase.get_sql_prompt]\n\n        - [`submit_prompt`][vanna.base.base.VannaBase.submit_prompt]\n\n\n        Args:\n            question (str): The question to generate a SQL query for.\n            allow_llm_to_see_data (bool): Whether to allow the LLM to see the data (for the purposes of introspecting the data to generate the final SQL).\n\n        Returns:\n            str: The SQL query that answers the question.\n        \"\"\"\n        if self.config is not None:\n            initial_prompt = se"
+     },
+     {
+      "evidence_id": "E7",
+      "kind": "project_code",
+      "path": "src/vanna/legacy/base/base.py",
+      "start_line": 93,
+      "end_line": 153,
+      "snippet": "    def generate_sql(self, question: str, allow_llm_to_see_data=False, **kwargs) -> str:\n        \"\"\"\n        Example:\n        ```python\n        vn.generate_sql(\"What are the top 10 customers by sales?\")\n        ```\n\n        Uses the LLM to generate a SQL query that answers a question. It runs the following methods:\n\n        - [`get_similar_question_sql`][vanna.base.base.VannaBase.get_similar_question_sql]\n\n        - [`get_related_ddl`][vanna.base.base.VannaBase.get_related_ddl]\n\n        - [`get_related_documentation`][vanna.base.base.VannaBase.get_related_documentation]\n\n        - [`get_sql_prompt`][vanna.base.base.VannaBase.get_sql_prompt]\n\n        - [`submit_prompt`][vanna.base.base.VannaBase.submit_prompt]\n\n\n        Args:\n            question (str): The question to generate a SQL query for.\n            allow_llm_to_see_data (bool): Whether to allow the LLM to see the data (for the purposes of introspecting the data to generate the final SQL).\n\n        Returns:\n            str: The SQL query that answers the question.\n        \"\"\"\n        if self.config is not None:\n            initial_prompt = self.config.get(\"initial_prompt\", None)\n        else:\n            initial_prompt = None\n        question_sql_list = self.get_similar_question_sql(question, **kwargs)\n        ddl_list = self.get_related_ddl(question, **kwargs)\n        doc_list = self.get_related_documentation(question, **kwargs)\n        prompt = self.get_sql_prompt(\n            initial_prompt=initial_prompt,\n            question=question,\n            question_sql_list=question_sql_list,\n            ddl_list=ddl_list,\n            doc_list=doc_list,\n            **kwargs,\n        )\n        self.log(title=\"SQL Prompt\", message=prompt)\n        llm_response = self.submit_prompt(prompt, **kwargs)\n        self.log(title=\"LLM Response\", message=llm_response)\n\n        if \"intermediate_sql\" in llm_response:\n            if not allow_llm_to_see_data:\n                return \"The LLM is not allowed to see the data in your d"
+     }
+    ]
+   }
+  }
+ ]
+}

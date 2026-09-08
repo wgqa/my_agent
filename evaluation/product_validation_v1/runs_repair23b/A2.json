@@ -1,0 +1,301 @@
+{
+ "task_id": "A2",
+ "category": "repository_implementation_understanding",
+ "repo": "vanna",
+ "project_root_name": "vanna",
+ "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+ "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+ "started_at": "2026-09-08T06:05:41.331703+00:00",
+ "finished_at": "2026-09-08T06:05:51.923935+00:00",
+ "knowledge_status": {
+  "schema_version": "engineering_knowledge_status_v1",
+  "ready": true,
+  "verified": true,
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "chunk_count": 215,
+  "retrieval_strategy": "bm25",
+  "manifest_experiment_id": "dbc497c796d5"
+ },
+ "turns": [
+  {
+   "turn": 1,
+   "question": "vanna 的 ToolRegistry 是如何注册和查找工具的？Agent 执行时如何解析并校验模型输出的工具调用？请结合 registry 与工具调用处理源码说明。",
+   "started_at": "2026-09-08T06:05:41.331725+00:00",
+   "latency_seconds": 10.59,
+   "http_status": 200,
+   "terminal_status": "completed",
+   "answer": "vanna 的 ToolRegistry 位于 `src/vanna/core/registry.py`，负责工具的注册与查找；工具调用的解析与校验发生在 Agent 执行循环中。\n\n## 1. ToolRegistry 的注册与查找\n\n`ToolRegistry` 内部用 `self._tools: Dict[str, Tool[Any]]` 以工具名为键保存工具 [E6]。\n\n**注册**：`register_local_tool(tool, access_groups)` 先检查 `tool.name in self._tools`，若已存在同名工具则抛出 `ValueError(f\"Tool '{tool.name}' already registered\")`，避免重复注册 [E6]。若传入非空 `access_groups`，则用 `_LocalToolWrapper` 包装原工具，把访问组限制附加到包装器上；否则直接注册原工具 [E6]。`_LocalToolWrapper` 透传 `name`、`description`、`get_args_schema()`，并委托 `execute()` 给被包装工具，同时暴露 `access_groups` 属性用于后续权限判断 [E6]。\n\n**查找**：注册表以 `Dict[str, Tool]` 组织，因此查找本质上是按工具名做字典键查询（`self._tools[name]`），由注册表结构保证 O(1) 定位。\n\n## 2. Agent 执行时如何解析并校验工具调用\n\n结合工具调用处理的一般机制（见知识库 [E1]）：\n\n- **解析**：模型输出可能以流式分片到达，应用需按 `call_id` 累积工具名与参数片段，等结构完整后再解析执行；执行前不要把半截 JSON 当合法参数 [E1]。\n- **校验**：每个工具调用需用其 `get_args_schema()` 返回的 Pydantic Schema 做参数校验；同时每个结果必须携带原始 `call_id`，不能依赖异步完成顺序与请求顺序一致 [E1]。\n- **权限边界**：JSON Schema 校验不能代替权限校验 [E1]；`ToolRegistry` 通过 `_LocalToolWrapper.access_groups` 提供资源级访问组限制，供执行层在调用前做授权判断。\n\n## 3. 对照与工程取舍\n\n- **注册期去重**：`register_local_tool` 在注册阶段就拒绝重名工具，把冲突提前暴露，避免运行期歧义。\n- **装饰器式包装**：用 `_LocalToolWrapper` 而非修改原工具，使访问控制与工具实现解耦，便于复用同一工具在不同租户/组下配置不同权限。\n- **Schema 与权限分离**：参数合法性（Schema）与调用资格（access_groups）是两个独立校验维度，前者保证格式正确，后者保证业务安全，二者缺一不可。\n\n**结论**：注册与查找由 `ToolRegistry` 的字典结构完成，注册时做重名校验并可选包装访问组；执行时按 `call_id` 累积解析模型输出、用 Schema 校验参数、再叠加 access_groups 做授权，最后按 call_id 回传结果。\n\n引用：[E1] [E6]",
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "tool_calling/Function-Calling原理.md",
+     "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+     "score": 31.202,
+     "rank": 1,
+     "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "tool_calling/工具设计.md",
+     "chunk_id": "6aede6b754c00642fdcd0124993eb724",
+     "score": 27.0163,
+     "rank": 2,
+     "snippet": "Agent 而把确定性业务流程全部交给模型编排。\n\n---\n\n## 十五、面试自检\n\n1. 如何判断工具粒度太粗或太细？\n2. 工具描述应该说明哪些边界？\n3. 为什么 `additionalProperties=false` 仍不能保证业务安全？\n4. 哪些参数不能由模型提供？\n5. 如何区分只读、可逆写和不可逆工具？\n6. 用户确认为什么不能由模型代替？\n7. 写操作超时后如何避免重复副作用？\n8. 如何做资源级授权和租户隔离？\n9. URL、文件、SQL、代码工具分别有哪些主要风险？\n10. 工具的契约测试与 Agent 评测有什么区别？\n\n---\n"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "prompt/提示工程基础.md",
+     "chunk_id": "98ee008a3aba23e42bfd96dd62aac640",
+     "score": 25.8758,
+     "rank": 3,
+     "snippet": "- 格式边界；\n- 注入文本；\n- 中文/英文；\n- 不应回答或不应调用工具的情况。\n\n指标：\n\n- 任务正确率；\n- Schema合法率；\n- 引用正确率；\n- 拒绝猜测率；\n- 过度拒答率；\n- 注入攻击成功率；\n- Token和延迟；\n- 失败分类。\n\n---\n\n## 十六、面试自检\n\n1. 一个可靠Prompt通常包含哪些部分？\n2. 角色设定为什么不能替代任务规则和验证？\n3. 指令与不可信数据如何分离？\n4. 为什么分隔符不是安全边界？\n5. 何时使用Few-shot？\n6. 结构化输出为什么还需要应用侧校验？\n7. Prompt如何处理信息缺失和资料冲突？\n8. 温度0为什么不能保证事实正确？\n9. Prompt变量需要哪些类型和长度约束？\n10. Prompt版本为什么要与模型和评测结果绑定？\n11. 如何测试Prompt Injection？\n12. 为什么不能只看几个成功案例？\n\n能回答10/12，并为项目建立固定回归集，才算掌握Prompt基础。\n\n---\n"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+     "chunk_id": "6e1bf61796f93085ed6899a4f6a6cb67",
+     "score": 25.0098,
+     "rank": 4,
+     "snippet": " Checkpoint 恢复为什么不能保证副作用 exactly-once？\n10. 如何防止模型反复调用同一工具？\n11. 短期状态、长期记忆和知识库有什么区别？\n12. 如何测试一个 Agent 可以在崩溃后正确恢复？\n\n能回答 10/12，并完成 V2，才达到可写进简历的 LangGraph 基线。\n\n---\n"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "tool_calling/Function-Calling原理.md",
+     "chunk_id": "3ac83f0e4c591ebd169f1e6424272f8d",
+     "score": 23.5711,
+     "rank": 5,
+     "snippet": "对无法幂等的高风险操作要求明确确认，并禁止自动重试。\n\n模型生成的自然语言参数不能直接充当可靠幂等键。\n\n---\n\n## 九、多工具调用\n\n### 1. 并行条件\n\n只有互不依赖、无冲突且资源允许的只读调用才适合并行：\n\n```text\n可以并行：分别检索 Redis 和 MySQL 笔记\n不能并行：先创建订单，再用订单 ID 支付\n谨慎并行：两个工具同时修改同一学习记录\n```\n\n### 2. 结果顺序\n\n每个结果必须带原始 `call_id`，不能依赖异步完成顺序与请求顺序相同。\n\n### 3. 部分失败\n\n```text\n3 个工具：2 成功，1 超时\n```\n\n应用应把每个调用的状态分别回传，允许模型使用已有结果或说明缺失，而不是把整个批次伪装成成功。\n\n---\n\n## 十、流式输出\n\n工具调用与普通文本可能在流中分片到达。应用需要：\n\n- 按 call ID 累积工具名和参数片段；\n- 等结构完整后再解析执行；\n- 执行工具前不要把半截 JSON 当合法参数；\n- 客户端断开时取消模型与工具调用；\n- 不把模型内部工具 JSON 原样展示成最终答案；\n- 记录首 Token、"
+    },
+    {
+     "evidence_id": "E6",
+     "kind": "project_code",
+     "path": "src/vanna/core/registry.py",
+     "start_line": 16,
+     "end_line": 76,
+     "snippet": "\nT = TypeVar(\"T\")\n\n\nclass _LocalToolWrapper(Tool[T]):\n    \"\"\"Wrapper for tools with configurable access groups.\"\"\"\n\n    def __init__(self, wrapped_tool: Tool[T], access_groups: List[str]):\n        self._wrapped_tool = wrapped_tool\n        self._access_groups = access_groups\n\n    @property\n    def name(self) -> str:\n        return self._wrapped_tool.name\n\n    @property\n    def description(self) -> str:\n        return self._wrapped_tool.description\n\n    @property\n    def access_groups(self) -> List[str]:\n        return self._access_groups\n\n    def get_args_schema(self) -> Type[T]:\n        return self._wrapped_tool.get_args_schema()\n\n    async def execute(self, context: ToolContext, args: T) -> ToolResult:\n        return await self._wrapped_tool.execute(context, args)\n\n\nclass ToolRegistry:\n    \"\"\"Registry for managing tools.\"\"\"\n\n    def __init__(\n        self,\n        audit_logger: Optional[\"AuditLogger\"] = None,\n        audit_config: Optional[\"AuditConfig\"] = None,\n    ) -> None:\n        self._tools: Dict[str, Tool[Any]] = {}\n        self.audit_logger = audit_logger\n        if audit_config is not None:\n            self.audit_config = audit_config\n        else:\n            from .agent.config import AuditConfig\n\n            self.audit_config = AuditConfig()\n\n    def register_local_tool(self, tool: Tool[Any], access_groups: List[str]) -> None:\n        \"\"\"Register a local tool with optional access group restrictions.\n\n        Args:\n            tool: The tool to register\n            access_groups: List of groups that can access this tool.\n                          If None or empty, tool is accessible to all users.\n        \"\"\"\n        if tool.name in self._tools:\n            raise ValueError(f\"Tool '{tool.name}' already registered\")\n\n        if access_groups:\n            # Wrap the tool with access groups\n            wrapped_tool = _LocalToolWrapper(tool, access_groups)"
+    }
+   ],
+   "tool_calls_used": 3,
+   "iterations_used": 4,
+   "decision_llm_calls": 4,
+   "input_output_tokens": "UNKNOWN",
+   "response": {
+    "schema_version": "engineering_query_response_v1",
+    "status": "completed",
+    "answer": "vanna 的 ToolRegistry 位于 `src/vanna/core/registry.py`，负责工具的注册与查找；工具调用的解析与校验发生在 Agent 执行循环中。\n\n## 1. ToolRegistry 的注册与查找\n\n`ToolRegistry` 内部用 `self._tools: Dict[str, Tool[Any]]` 以工具名为键保存工具 [E6]。\n\n**注册**：`register_local_tool(tool, access_groups)` 先检查 `tool.name in self._tools`，若已存在同名工具则抛出 `ValueError(f\"Tool '{tool.name}' already registered\")`，避免重复注册 [E6]。若传入非空 `access_groups`，则用 `_LocalToolWrapper` 包装原工具，把访问组限制附加到包装器上；否则直接注册原工具 [E6]。`_LocalToolWrapper` 透传 `name`、`description`、`get_args_schema()`，并委托 `execute()` 给被包装工具，同时暴露 `access_groups` 属性用于后续权限判断 [E6]。\n\n**查找**：注册表以 `Dict[str, Tool]` 组织，因此查找本质上是按工具名做字典键查询（`self._tools[name]`），由注册表结构保证 O(1) 定位。\n\n## 2. Agent 执行时如何解析并校验工具调用\n\n结合工具调用处理的一般机制（见知识库 [E1]）：\n\n- **解析**：模型输出可能以流式分片到达，应用需按 `call_id` 累积工具名与参数片段，等结构完整后再解析执行；执行前不要把半截 JSON 当合法参数 [E1]。\n- **校验**：每个工具调用需用其 `get_args_schema()` 返回的 Pydantic Schema 做参数校验；同时每个结果必须携带原始 `call_id`，不能依赖异步完成顺序与请求顺序一致 [E1]。\n- **权限边界**：JSON Schema 校验不能代替权限校验 [E1]；`ToolRegistry` 通过 `_LocalToolWrapper.access_groups` 提供资源级访问组限制，供执行层在调用前做授权判断。\n\n## 3. 对照与工程取舍\n\n- **注册期去重**：`register_local_tool` 在注册阶段就拒绝重名工具，把冲突提前暴露，避免运行期歧义。\n- **装饰器式包装**：用 `_LocalToolWrapper` 而非修改原工具，使访问控制与工具实现解耦，便于复用同一工具在不同租户/组下配置不同权限。\n- **Schema 与权限分离**：参数合法性（Schema）与调用资格（access_groups）是两个独立校验维度，前者保证格式正确，后者保证业务安全，二者缺一不可。\n\n**结论**：注册与查找由 `ToolRegistry` 的字典结构完成，注册时做重名校验并可选包装访问组；执行时按 `call_id` 累积解析模型输出、用 Schema 校验参数、再叠加 access_groups 做授权，最后按 call_id 回传结果。\n\n引用：[E1] [E6]",
+    "reason_code": null,
+    "failure_code": null,
+    "iterations_used": 4,
+    "tool_calls_used": 3,
+    "tool_errors_used": 0,
+    "trace": [
+     {
+      "call_id": null,
+      "iterations_used": 1,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 1,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 0,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_d16e5dacebb34c34a3e7fc7cb38dc6a7",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 0,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_d16e5dacebb34c34a3e7fc7cb38dc6a7",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 1,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 2,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 2,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 1,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_9feb246baef24e0b8886b3856ea46e06",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 1,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_9feb246baef24e0b8886b3856ea46e06",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 2,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 3,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 3,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 2,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_15088871facd406ebf10381b7826ae4f",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 2,
+      "tool_status": null,
+      "tool_name": "read_project_context",
+      "error_code": null
+     },
+     {
+      "call_id": "call_15088871facd406ebf10381b7826ae4f",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 3,
+      "tool_status": "ok",
+      "tool_name": "read_project_context",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 4,
+      "provider_call_count": 1,
+      "action_type": "final_answer",
+      "repair_attempted": false,
+      "iteration": 4,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 3,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 4,
+      "action_type": null,
+      "iteration": 4,
+      "event_type": "runtime_stopped",
+      "tool_errors_used": 0,
+      "tool_calls_used": 3,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     }
+    ],
+    "evidence": [
+     {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "tool_calling/Function-Calling原理.md",
+      "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+      "score": 31.202,
+      "rank": 1,
+      "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+     },
+     {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "tool_calling/工具设计.md",
+      "chunk_id": "6aede6b754c00642fdcd0124993eb724",
+      "score": 27.0163,
+      "rank": 2,
+      "snippet": "Agent 而把确定性业务流程全部交给模型编排。\n\n---\n\n## 十五、面试自检\n\n1. 如何判断工具粒度太粗或太细？\n2. 工具描述应该说明哪些边界？\n3. 为什么 `additionalProperties=false` 仍不能保证业务安全？\n4. 哪些参数不能由模型提供？\n5. 如何区分只读、可逆写和不可逆工具？\n6. 用户确认为什么不能由模型代替？\n7. 写操作超时后如何避免重复副作用？\n8. 如何做资源级授权和租户隔离？\n9. URL、文件、SQL、代码工具分别有哪些主要风险？\n10. 工具的契约测试与 Agent 评测有什么区别？\n\n---\n"
+     },
+     {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "prompt/提示工程基础.md",
+      "chunk_id": "98ee008a3aba23e42bfd96dd62aac640",
+      "score": 25.8758,
+      "rank": 3,
+      "snippet": "- 格式边界；\n- 注入文本；\n- 中文/英文；\n- 不应回答或不应调用工具的情况。\n\n指标：\n\n- 任务正确率；\n- Schema合法率；\n- 引用正确率；\n- 拒绝猜测率；\n- 过度拒答率；\n- 注入攻击成功率；\n- Token和延迟；\n- 失败分类。\n\n---\n\n## 十六、面试自检\n\n1. 一个可靠Prompt通常包含哪些部分？\n2. 角色设定为什么不能替代任务规则和验证？\n3. 指令与不可信数据如何分离？\n4. 为什么分隔符不是安全边界？\n5. 何时使用Few-shot？\n6. 结构化输出为什么还需要应用侧校验？\n7. Prompt如何处理信息缺失和资料冲突？\n8. 温度0为什么不能保证事实正确？\n9. Prompt变量需要哪些类型和长度约束？\n10. Prompt版本为什么要与模型和评测结果绑定？\n11. 如何测试Prompt Injection？\n12. 为什么不能只看几个成功案例？\n\n能回答10/12，并为项目建立固定回归集，才算掌握Prompt基础。\n\n---\n"
+     },
+     {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+      "chunk_id": "6e1bf61796f93085ed6899a4f6a6cb67",
+      "score": 25.0098,
+      "rank": 4,
+      "snippet": " Checkpoint 恢复为什么不能保证副作用 exactly-once？\n10. 如何防止模型反复调用同一工具？\n11. 短期状态、长期记忆和知识库有什么区别？\n12. 如何测试一个 Agent 可以在崩溃后正确恢复？\n\n能回答 10/12，并完成 V2，才达到可写进简历的 LangGraph 基线。\n\n---\n"
+     },
+     {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "tool_calling/Function-Calling原理.md",
+      "chunk_id": "3ac83f0e4c591ebd169f1e6424272f8d",
+      "score": 23.5711,
+      "rank": 5,
+      "snippet": "对无法幂等的高风险操作要求明确确认，并禁止自动重试。\n\n模型生成的自然语言参数不能直接充当可靠幂等键。\n\n---\n\n## 九、多工具调用\n\n### 1. 并行条件\n\n只有互不依赖、无冲突且资源允许的只读调用才适合并行：\n\n```text\n可以并行：分别检索 Redis 和 MySQL 笔记\n不能并行：先创建订单，再用订单 ID 支付\n谨慎并行：两个工具同时修改同一学习记录\n```\n\n### 2. 结果顺序\n\n每个结果必须带原始 `call_id`，不能依赖异步完成顺序与请求顺序相同。\n\n### 3. 部分失败\n\n```text\n3 个工具：2 成功，1 超时\n```\n\n应用应把每个调用的状态分别回传，允许模型使用已有结果或说明缺失，而不是把整个批次伪装成成功。\n\n---\n\n## 十、流式输出\n\n工具调用与普通文本可能在流中分片到达。应用需要：\n\n- 按 call ID 累积工具名和参数片段；\n- 等结构完整后再解析执行；\n- 执行工具前不要把半截 JSON 当合法参数；\n- 客户端断开时取消模型与工具调用；\n- 不把模型内部工具 JSON 原样展示成最终答案；\n- 记录首 Token、"
+     },
+     {
+      "evidence_id": "E6",
+      "kind": "project_code",
+      "path": "src/vanna/core/registry.py",
+      "start_line": 16,
+      "end_line": 76,
+      "snippet": "\nT = TypeVar(\"T\")\n\n\nclass _LocalToolWrapper(Tool[T]):\n    \"\"\"Wrapper for tools with configurable access groups.\"\"\"\n\n    def __init__(self, wrapped_tool: Tool[T], access_groups: List[str]):\n        self._wrapped_tool = wrapped_tool\n        self._access_groups = access_groups\n\n    @property\n    def name(self) -> str:\n        return self._wrapped_tool.name\n\n    @property\n    def description(self) -> str:\n        return self._wrapped_tool.description\n\n    @property\n    def access_groups(self) -> List[str]:\n        return self._access_groups\n\n    def get_args_schema(self) -> Type[T]:\n        return self._wrapped_tool.get_args_schema()\n\n    async def execute(self, context: ToolContext, args: T) -> ToolResult:\n        return await self._wrapped_tool.execute(context, args)\n\n\nclass ToolRegistry:\n    \"\"\"Registry for managing tools.\"\"\"\n\n    def __init__(\n        self,\n        audit_logger: Optional[\"AuditLogger\"] = None,\n        audit_config: Optional[\"AuditConfig\"] = None,\n    ) -> None:\n        self._tools: Dict[str, Tool[Any]] = {}\n        self.audit_logger = audit_logger\n        if audit_config is not None:\n            self.audit_config = audit_config\n        else:\n            from .agent.config import AuditConfig\n\n            self.audit_config = AuditConfig()\n\n    def register_local_tool(self, tool: Tool[Any], access_groups: List[str]) -> None:\n        \"\"\"Register a local tool with optional access group restrictions.\n\n        Args:\n            tool: The tool to register\n            access_groups: List of groups that can access this tool.\n                          If None or empty, tool is accessible to all users.\n        \"\"\"\n        if tool.name in self._tools:\n            raise ValueError(f\"Tool '{tool.name}' already registered\")\n\n        if access_groups:\n            # Wrap the tool with access groups\n            wrapped_tool = _LocalToolWrapper(tool, access_groups)"
+     }
+    ]
+   }
+  }
+ ]
+}

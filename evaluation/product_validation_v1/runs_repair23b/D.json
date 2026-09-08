@@ -1,0 +1,285 @@
+{
+ "task_id": "D",
+ "category": "evidence_insufficient",
+ "repo": "vanna",
+ "project_root_name": "vanna",
+ "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+ "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+ "started_at": "2026-09-08T06:06:05.632280+00:00",
+ "finished_at": "2026-09-08T06:06:13.716553+00:00",
+ "knowledge_status": {
+  "schema_version": "engineering_knowledge_status_v1",
+  "ready": true,
+  "verified": true,
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "chunk_count": 215,
+  "retrieval_strategy": "bm25",
+  "manifest_experiment_id": "dbc497c796d5"
+ },
+ "turns": [
+  {
+   "turn": 1,
+   "question": "vanna 的 HyDE 查询改写模块是在哪里实现的？改写出的假设文档是如何用于相似问题检索的？请指出具体模块和函数。",
+   "started_at": "2026-09-08T06:06:05.632291+00:00",
+   "latency_seconds": 8.08,
+   "http_status": 200,
+   "terminal_status": "refused",
+   "answer": null,
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "rag/检索与生成.md",
+     "chunk_id": "cdbd03833010ea630e9e9203677305b6",
+     "score": 29.4958,
+     "rank": 1,
+     "snippet": "# RAG 检索与生成：在线请求完整链路\n\n> 定位：RAG 的在线链路。目标是在权限、延迟和上下文预算内找到证据，并让模型基于证据回答且可引用。  \n> 前置：[`01-文档处理.md`](01-文档处理.md)\n\n## 一、在线链路\n\n```text\n用户问题\n  → 鉴权与安全检查\n  → 会话问题改写（可选）\n  → 查询分类/路由\n  → 元数据权限过滤\n  → Dense / BM25 检索\n  → 融合、去重\n  → Rerank\n  → 上下文选择与压缩\n  → 构造带引用的 Prompt\n  → LLM 生成\n  → 引用校验、输出过滤\n  → 记录 Trace 和评测字段\n```\n\n不要把整条链路封装成一个无法观测的 `chain.invoke()`。至少要能看到每阶段输入、候选结果、耗时和失败原因。\n\n---\n\n## 二、查询理解\n\n### 1. 规范化\n\n可做的轻量处理：\n\n- 去除无意义首尾空白；\n- 统一明显的别名，如 `redis` / `Redis`；\n- 保留原问题用于生成和审计；\n- 不要做会改变语义的激进分词或同义改写。\n\n### 2. 多轮对话改"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "rag/检索与生成.md",
+     "chunk_id": "fa20cf6fc0fceb25fd021b78fb302f6b",
+     "score": 21.3549,
+     "rank": 2,
+     "snippet": "- 改写不能擅自补充用户没说的条件；\n- 同时保存原问题和改写问题；\n- 对含糊问题可直接澄清，而不是强行猜测；\n- 改写结果也要评测，否则可能把正确问题改错。\n\n### 3. 查询路由\n\n不是所有请求都需要检索：\n\n| 请求 | 处理 |\n|---|---|\n| “总结当前笔记里的 Redis 持久化” | 检索 |\n| “把刚才回答改成表格” | 优先使用会话上下文，不必重新检索 |\n| “今天星期几” | 工具或系统时间，不查知识库 |\n| “删除我的学习记录” | 走有权限和确认的业务工具 |\n\n路由错误会造成额外延迟、错误证据或越权。\n\n---\n\n## 三、三种检索方式\n\n### 1. 关键词检索（BM25）\n\n优势：\n\n- 精确术语、类名、错误码、版本号和代码符号表现好；\n- 可解释；\n- 不需要 Embedding 调用。\n\n弱点：\n\n- 同义表达、自然语言改写的召回较弱；\n- 中文分词和领域词典会影响效果。\n\n### 2. 向量检索（Dense Retrieval）\n\n优势：\n\n- 能召回语义相近但词面不同的内容；\n- 适合自然语言问题。\n\n弱点：\n\n- 对精确 ID、"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "rag/文档处理.md",
+     "chunk_id": "e3be99da2864c74a55bcdd680b06275c",
+     "score": 21.0149,
+     "rank": 3,
+     "snippet": "形成可复现报告，而非只截图。\n\n---\n\n## 十二、面试自检\n\n1. 为什么 RAG 文档必须保存元数据和稳定 ID？\n2. 如何保证重复导入幂等？\n3. Markdown、PDF 和表格的解析难点分别是什么？\n4. Chunk 大小和 Overlap 如何影响召回与成本？\n5. Parent-Child Retrieval 解决什么问题？\n6. 为什么 Embedding 模型升级通常要重建索引？\n7. 余弦相似度和内积什么时候排序等价？\n8. 如何处理文档更新和删除？\n9. 文档中的 Prompt Injection 为什么不能只靠提示词解决？\n10. 如何证明一种分块策略比另一种更好？\n\n---\n"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "finetuning/微调方法.md",
+     "chunk_id": "c8991d68890879879c639af1dda58357",
+     "score": 19.94,
+     "rank": 4,
+     "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "vector_db/产品对比.md",
+     "chunk_id": "f8c8564482adec781518339c4fbccce9",
+     "score": 19.8447,
+     "rank": 5,
+     "snippet": "] 支持蓝绿索引和快速回滚；\n- [ ] 记录数据库和 SDK 版本；\n- [ ] 对外部托管服务完成数据边界评估。\n\n---\n\n## 八、面试自检\n\n1. FAISS 为什么不等同于完整向量数据库？\n2. 已有 PostgreSQL 时选择 pgvector 的收益和边界是什么？\n3. 什么条件下值得引入 Milvus 这类分布式系统？\n4. 已有 Elasticsearch 时如何设计混合检索？\n5. 为什么产品对比必须固定 metric、过滤和并发？\n6. 向量库的权限过滤应放在哪里？\n7. 如何比较写入可见性和删除语义？\n8. 为什么要记录无过滤与高选择性过滤两组 P95？\n9. 数据库抽象层能解决什么，不能解决什么？\n10. 你的项目为什么选当前方案，而不是另外两种？\n\n能基于项目约束回答全部问题，并拿出 PoC 数据，才算完成选型。\n\n---\n"
+    }
+   ],
+   "tool_calls_used": 3,
+   "iterations_used": 4,
+   "decision_llm_calls": 4,
+   "input_output_tokens": "UNKNOWN",
+   "response": {
+    "schema_version": "engineering_query_response_v1",
+    "status": "refused",
+    "answer": null,
+    "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+    "failure_code": null,
+    "iterations_used": 4,
+    "tool_calls_used": 3,
+    "tool_errors_used": 0,
+    "trace": [
+     {
+      "call_id": null,
+      "iterations_used": 1,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 1,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 0,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_38404714fc8b46299ccaa1435e8f8881",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 0,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_38404714fc8b46299ccaa1435e8f8881",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 1,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 2,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 2,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 1,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_19f7961ecc144ad589e8a7dd78f13fa2",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 1,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_19f7961ecc144ad589e8a7dd78f13fa2",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 2,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 3,
+      "provider_call_count": 1,
+      "action_type": "tool_call",
+      "repair_attempted": false,
+      "iteration": 3,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 2,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": "call_e7cc958b8f544236929fd3b32a636e14",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "event_type": "tool_call_created",
+      "tool_errors_used": 0,
+      "tool_calls_used": 2,
+      "tool_status": null,
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": "call_e7cc958b8f544236929fd3b32a636e14",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "event_type": "tool_observation",
+      "tool_errors_used": 0,
+      "tool_calls_used": 3,
+      "tool_status": "ok",
+      "tool_name": "code_search",
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 4,
+      "provider_call_count": 1,
+      "action_type": "final_answer",
+      "repair_attempted": false,
+      "iteration": 4,
+      "event_type": "decision_completed",
+      "tool_errors_used": 0,
+      "repair_succeeded": false,
+      "tool_calls_used": 3,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": null
+     },
+     {
+      "call_id": null,
+      "iterations_used": 4,
+      "action_type": null,
+      "iteration": 4,
+      "event_type": "runtime_stopped",
+      "tool_errors_used": 0,
+      "tool_calls_used": 3,
+      "tool_status": null,
+      "tool_name": null,
+      "error_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE"
+     }
+    ],
+    "evidence": [
+     {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "rag/检索与生成.md",
+      "chunk_id": "cdbd03833010ea630e9e9203677305b6",
+      "score": 29.4958,
+      "rank": 1,
+      "snippet": "# RAG 检索与生成：在线请求完整链路\n\n> 定位：RAG 的在线链路。目标是在权限、延迟和上下文预算内找到证据，并让模型基于证据回答且可引用。  \n> 前置：[`01-文档处理.md`](01-文档处理.md)\n\n## 一、在线链路\n\n```text\n用户问题\n  → 鉴权与安全检查\n  → 会话问题改写（可选）\n  → 查询分类/路由\n  → 元数据权限过滤\n  → Dense / BM25 检索\n  → 融合、去重\n  → Rerank\n  → 上下文选择与压缩\n  → 构造带引用的 Prompt\n  → LLM 生成\n  → 引用校验、输出过滤\n  → 记录 Trace 和评测字段\n```\n\n不要把整条链路封装成一个无法观测的 `chain.invoke()`。至少要能看到每阶段输入、候选结果、耗时和失败原因。\n\n---\n\n## 二、查询理解\n\n### 1. 规范化\n\n可做的轻量处理：\n\n- 去除无意义首尾空白；\n- 统一明显的别名，如 `redis` / `Redis`；\n- 保留原问题用于生成和审计；\n- 不要做会改变语义的激进分词或同义改写。\n\n### 2. 多轮对话改"
+     },
+     {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "rag/检索与生成.md",
+      "chunk_id": "fa20cf6fc0fceb25fd021b78fb302f6b",
+      "score": 21.3549,
+      "rank": 2,
+      "snippet": "- 改写不能擅自补充用户没说的条件；\n- 同时保存原问题和改写问题；\n- 对含糊问题可直接澄清，而不是强行猜测；\n- 改写结果也要评测，否则可能把正确问题改错。\n\n### 3. 查询路由\n\n不是所有请求都需要检索：\n\n| 请求 | 处理 |\n|---|---|\n| “总结当前笔记里的 Redis 持久化” | 检索 |\n| “把刚才回答改成表格” | 优先使用会话上下文，不必重新检索 |\n| “今天星期几” | 工具或系统时间，不查知识库 |\n| “删除我的学习记录” | 走有权限和确认的业务工具 |\n\n路由错误会造成额外延迟、错误证据或越权。\n\n---\n\n## 三、三种检索方式\n\n### 1. 关键词检索（BM25）\n\n优势：\n\n- 精确术语、类名、错误码、版本号和代码符号表现好；\n- 可解释；\n- 不需要 Embedding 调用。\n\n弱点：\n\n- 同义表达、自然语言改写的召回较弱；\n- 中文分词和领域词典会影响效果。\n\n### 2. 向量检索（Dense Retrieval）\n\n优势：\n\n- 能召回语义相近但词面不同的内容；\n- 适合自然语言问题。\n\n弱点：\n\n- 对精确 ID、"
+     },
+     {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "rag/文档处理.md",
+      "chunk_id": "e3be99da2864c74a55bcdd680b06275c",
+      "score": 21.0149,
+      "rank": 3,
+      "snippet": "形成可复现报告，而非只截图。\n\n---\n\n## 十二、面试自检\n\n1. 为什么 RAG 文档必须保存元数据和稳定 ID？\n2. 如何保证重复导入幂等？\n3. Markdown、PDF 和表格的解析难点分别是什么？\n4. Chunk 大小和 Overlap 如何影响召回与成本？\n5. Parent-Child Retrieval 解决什么问题？\n6. 为什么 Embedding 模型升级通常要重建索引？\n7. 余弦相似度和内积什么时候排序等价？\n8. 如何处理文档更新和删除？\n9. 文档中的 Prompt Injection 为什么不能只靠提示词解决？\n10. 如何证明一种分块策略比另一种更好？\n\n---\n"
+     },
+     {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "finetuning/微调方法.md",
+      "chunk_id": "c8991d68890879879c639af1dda58357",
+      "score": 19.94,
+      "rank": 4,
+      "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+     },
+     {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "vector_db/产品对比.md",
+      "chunk_id": "f8c8564482adec781518339c4fbccce9",
+      "score": 19.8447,
+      "rank": 5,
+      "snippet": "] 支持蓝绿索引和快速回滚；\n- [ ] 记录数据库和 SDK 版本；\n- [ ] 对外部托管服务完成数据边界评估。\n\n---\n\n## 八、面试自检\n\n1. FAISS 为什么不等同于完整向量数据库？\n2. 已有 PostgreSQL 时选择 pgvector 的收益和边界是什么？\n3. 什么条件下值得引入 Milvus 这类分布式系统？\n4. 已有 Elasticsearch 时如何设计混合检索？\n5. 为什么产品对比必须固定 metric、过滤和并发？\n6. 向量库的权限过滤应放在哪里？\n7. 如何比较写入可见性和删除语义？\n8. 为什么要记录无过滤与高选择性过滤两组 P95？\n9. 数据库抽象层能解决什么，不能解决什么？\n10. 你的项目为什么选当前方案，而不是另外两种？\n\n能基于项目约束回答全部问题，并拿出 PoC 数据，才算完成选型。\n\n---\n"
+     }
+    ]
+   }
+  }
+ ]
+}
