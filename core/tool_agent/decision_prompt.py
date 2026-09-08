@@ -383,40 +383,6 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
-# PRODUCT-REPAIR-23B: requirement-guided next-hop acquisition. When the
-# trusted control state names a missing evidence kind, the next Tool hop
-# must produce that kind's evidence instead of spending the remaining
-# budget on unrelated artifacts. Pure prompt guidance; the missing kinds
-# themselves keep flowing through the existing missing_evidence_groups
-# control field, and no loop, budget, or second LLM call is introduced.
-ENGINEERING_DECISION_PROMPT_NEXT_HOP_SUFFIX = (
-    "\nMissing-Evidence Next-Hop Acquisition policy：\n"
-    "- 当 finalization_blocked=true 且 missing_evidence_groups 仍包含某个 kind 时，"
-    "下一个 Tool 的优先目标是为该 missing kind 产出 public evidence；不要把剩余的 "
-    "Tool call 花在与 missing kind 无关的搜索或读取上。\n"
-    "- missing_evidence_groups 含 project_test 时：若此前 find_tests 已返回候选"
-    "测试文件路径，下一步必须优先 read_project_context 其中一个候选测试路径；"
-    "若 find_tests 还没有运行，则先 find_tests 再读取其中一个候选路径。\n"
-    "- missing_evidence_groups 含 project_doc 时：先用 code_search"
-    "（artifact_kind=project_doc）定位文档命中，再 read_project_context 读取"
-    "对应路径，完成 doc 证据链；不要用与 project_doc 无关的读取替代。\n"
-    "- missing_evidence_groups 含 project_code 时：继续为该 kind 取得"
-    "read_project_context 的 project_code 证据；已有足够 distinct code path 时"
-    "不要再重复读取。\n"
-    "- 当前 required evidence 已经满足时，不要为它再调用 Tool；按现有规则"
-    "final_answer 或处理其余义务。\n"
-    "- 下一跳读取的路径必须来自系统 Tool 的真实输出；不要编造路径。"
-)
-ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE = (
-    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_TEMPLATE
-    + ENGINEERING_DECISION_PROMPT_NEXT_HOP_SUFFIX
-)
-ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_SHA256 = hashlib.sha256(
-    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE.encode(
-        "utf-8"
-    )
-).hexdigest()
-
 ENGINEERING_DECISION_PROMPT_V3_TEMPLATE = ENGINEERING_DECISION_PROMPT_V2_TEMPLATE + (
     "\nGrounded evidence policy：\n"
     "- 当用户询问当前实现、源码行为、算法细节、调用关系、配置行为或返回字段时，"
@@ -536,13 +502,6 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE = DecisionPrompt
     render_control_state=True,
     render_evidence_reference_control=True,
 )
-ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE = DecisionPromptProfile(
-    version="engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
-    sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_SHA256,
-    template=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE,
-    render_control_state=True,
-    render_evidence_reference_control=True,
-)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -556,7 +515,6 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE.version,
-        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
@@ -568,7 +526,6 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE.version,
-        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
