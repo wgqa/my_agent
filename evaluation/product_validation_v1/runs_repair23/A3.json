@@ -1,0 +1,168 @@
+{
+ "task_id": "A3",
+ "category": "repository_implementation_understanding",
+ "repo": "instructor",
+ "project_root_name": "instructor",
+ "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+ "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+ "started_at": "2026-09-08T05:47:28.836412+00:00",
+ "finished_at": "2026-09-08T05:47:30.490264+00:00",
+ "knowledge_status": {
+  "schema_version": "engineering_knowledge_status_v1",
+  "ready": true,
+  "verified": true,
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "chunk_count": 215,
+  "retrieval_strategy": "bm25",
+  "manifest_experiment_id": "dbc497c796d5"
+ },
+ "turns": [
+  {
+   "turn": 1,
+   "question": "instructor.from_openai 是怎么把普通 openai 客户端变成结构化输出客户端的？请说明涉及的文件与关键函数，以及默认 Mode 和 patch 核心逻辑的位置。",
+   "started_at": "2026-09-08T05:47:28.836427+00:00",
+   "latency_seconds": 1.65,
+   "http_status": 200,
+   "terminal_status": "refused",
+   "answer": null,
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "deployment/推理框架.md",
+     "chunk_id": "e1c9164a52b35ce8f4979320d52f90d8",
+     "score": 19.5851,
+     "rank": 1,
+     "snippet": "| 已有Hugging Face生产链路 | TGI，先核对版本支持 |\n| NVIDIA硬件、追求极致优化 | TensorRT-LLM |\n| CPU/边缘/本地隐私 | llama.cpp |\n| 最快本地体验 | Ollama |\n| 调试模型和模板 | Transformers |\n\n个人项目选一种主框架部署并压测，再选择一种作小范围对比即可。\n\n---\n\n## 七、OpenAI兼容接口\n\n兼容接口通常包括：\n\n- models；\n- chat completions；\n- completions；\n- embeddings（取决于服务）；\n- streaming；\n- tool calls / structured output（取决于模型、模板与框架）。\n\n兼容不代表完全等价。需要测试：\n\n- system/user/assistant消息；\n- Chat Template；\n- stop/EOS；\n- max_tokens；\n- temperature/top_p/seed；\n- stream事件格式；\n- usage统计；\n- Tool Call字段；\n- 错误码和取"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "rag/高级RAG.md",
+     "chunk_id": "8f658cb9b5c13ae8441a691b9e0ef717",
+     "score": 18.6926,
+     "rank": 2,
+     "snippet": "RAG\n\n根据问题难度选择：不检索、单次检索、多跳检索。  \n需要可靠分类器或路由规则，否则“自适应”只是不可控分支。\n\n### 5. GraphRAG\n\n适合：\n\n- 问题需要跨多个实体和关系做多跳推理；\n- 需要全局主题、社区和关系摘要；\n- 数据具有稳定实体和边。\n\n不适合：\n\n- 几十篇技术笔记的普通问答；\n- 主要问题是关键词/语义召回；\n- 没有可靠实体消歧和关系抽取；\n- 团队还没有基础评测。\n\n当前学习 Agent 不把 GraphRAG 作为首版目标。\n\n---\n\n## 九、多模态和表格 RAG\n\n### 表格\n\n- 简单表格可转为带表头的行文本；\n- 聚合、过滤和计算型问题更适合结构化查询工具，而不是纯向量检索；\n- 回答应引用单元格、行或表名。\n\n### 图片/图表\n\n- 保存图片与原文位置；\n- 使用 OCR、图像描述或多模态 Embedding；\n- 关键数值应尽量从结构化数据读取，避免只靠视觉描述猜测。\n\n### 代码\n\n- 保留仓库、文件、符号、语言和行范围；\n- 按函数/类和语法结构切分通常优于固定字符；\n- 代码问题可结合符号搜索、调用图和测试工具。\n"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "prompt/评估与优化.md",
+     "chunk_id": "177fcd2773523adab06345ee8617aba3",
+     "score": 18.3356,
+     "rank": 3,
+     "snippet": "# LLM / Prompt / Agent 评估与优化\n\n> 目标：把“感觉回答更好了”变成可复现的测试。Prompt、模型、检索、工具和数据任何一项变化，都应在固定任务集上比较质量、延迟与成本。\n\n## 一、先定义成功，不要先改 Prompt\n\n每个任务写清：\n\n```text\n输入是什么？\n正确结果必须包含什么？\n绝对不能出现什么？\n是否允许拒答或澄清？\n输出格式是什么？\n延迟和成本预算是多少？\n失败会造成什么风险？\n```\n\n示例：学习问答任务\n\n```text\n必须：回答 Redis RDB/AOF 的核心区别，并引用当前笔记\n禁止：编造笔记中不存在的配置值\n允许：证据不足时说明不足\n格式：Markdown + [SOURCE n]\n质量：关键事实覆盖率、引用正确率\n工程：P95、Token、错误率\n```\n\n没有验收标准时，Prompt 会陷入无休止的措辞修改。\n\n---\n\n## 二、评测分层\n\n| 层级 | 方法 | 优点 | 局限 |\n|---|---|---|---|\n| 确定性测试 | JSON Schema、关键词、正则、单元测试、工具结果 | 快、便宜、稳定 |"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "tool_calling/Function-Calling原理.md",
+     "chunk_id": "3ac83f0e4c591ebd169f1e6424272f8d",
+     "score": 17.3348,
+     "rank": 4,
+     "snippet": "对无法幂等的高风险操作要求明确确认，并禁止自动重试。\n\n模型生成的自然语言参数不能直接充当可靠幂等键。\n\n---\n\n## 九、多工具调用\n\n### 1. 并行条件\n\n只有互不依赖、无冲突且资源允许的只读调用才适合并行：\n\n```text\n可以并行：分别检索 Redis 和 MySQL 笔记\n不能并行：先创建订单，再用订单 ID 支付\n谨慎并行：两个工具同时修改同一学习记录\n```\n\n### 2. 结果顺序\n\n每个结果必须带原始 `call_id`，不能依赖异步完成顺序与请求顺序相同。\n\n### 3. 部分失败\n\n```text\n3 个工具：2 成功，1 超时\n```\n\n应用应把每个调用的状态分别回传，允许模型使用已有结果或说明缺失，而不是把整个批次伪装成成功。\n\n---\n\n## 十、流式输出\n\n工具调用与普通文本可能在流中分片到达。应用需要：\n\n- 按 call ID 累积工具名和参数片段；\n- 等结构完整后再解析执行；\n- 执行工具前不要把半截 JSON 当合法参数；\n- 客户端断开时取消模型与工具调用；\n- 不把模型内部工具 JSON 原样展示成最终答案；\n- 记录首 Token、"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "mcp/MCP协议-01-基础与原语.md",
+     "chunk_id": "c09242d48ab792bd6fbdf0e0bfcf34f1",
+     "score": 14.7996,
+     "rank": 5,
+     "snippet": "Server 建立会话；\n- 完成初始化和能力协商；\n- 发现工具、资源和提示；\n- 发送请求、接收结果和通知；\n- 把协议对象适配给 Host。\n\n### Server\n\n- 暴露一个边界清晰的能力域；\n- 声明支持的能力；\n- 校验参数并执行业务逻辑；\n- 返回结构化结果和错误；\n- 不应假设所有 Client 都可信。\n\n通常一个 Client 对应一个 Server 会话。Host 可以同时连接多个 Server。\n\n---\n\n## 三、核心原语\n\n### 1. Tools\n\nTool 表示可执行操作：\n\n~~~text\nsearch_notes(query, top_k)\nget_review_queue(date)\nrecord_weak_point(topic, evidence, idempotency_key)\n~~~\n\n每个 Tool 应提供：\n\n- 稳定名称；\n- 清晰描述和适用边界；\n- 输入 JSON Schema；\n- 可预测输出；\n- 错误语义；\n- 是否只读、是否有副作用；\n- 必要的权限和确认。\n\n模型可能决定调用 Tool，但真正执行前仍由 Host"
+    }
+   ],
+   "tool_calls_used": 0,
+   "iterations_used": 1,
+   "decision_llm_calls": 1,
+   "input_output_tokens": "UNKNOWN",
+   "response": {
+    "schema_version": "engineering_query_response_v1",
+    "status": "refused",
+    "answer": null,
+    "reason_code": "INSUFFICIENT_INFORMATION",
+    "failure_code": null,
+    "iterations_used": 1,
+    "tool_calls_used": 0,
+    "tool_errors_used": 0,
+    "trace": [
+     {
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_name": null,
+      "repair_attempted": false,
+      "event_type": "decision_completed",
+      "action_type": "refuse",
+      "provider_call_count": 1,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "error_code": null,
+      "repair_succeeded": false,
+      "tool_status": null,
+      "iteration": 1
+     },
+     {
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_name": null,
+      "event_type": "runtime_stopped",
+      "action_type": null,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "error_code": "INSUFFICIENT_INFORMATION",
+      "tool_status": null,
+      "iteration": 1
+     }
+    ],
+    "evidence": [
+     {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "deployment/推理框架.md",
+      "chunk_id": "e1c9164a52b35ce8f4979320d52f90d8",
+      "score": 19.5851,
+      "rank": 1,
+      "snippet": "| 已有Hugging Face生产链路 | TGI，先核对版本支持 |\n| NVIDIA硬件、追求极致优化 | TensorRT-LLM |\n| CPU/边缘/本地隐私 | llama.cpp |\n| 最快本地体验 | Ollama |\n| 调试模型和模板 | Transformers |\n\n个人项目选一种主框架部署并压测，再选择一种作小范围对比即可。\n\n---\n\n## 七、OpenAI兼容接口\n\n兼容接口通常包括：\n\n- models；\n- chat completions；\n- completions；\n- embeddings（取决于服务）；\n- streaming；\n- tool calls / structured output（取决于模型、模板与框架）。\n\n兼容不代表完全等价。需要测试：\n\n- system/user/assistant消息；\n- Chat Template；\n- stop/EOS；\n- max_tokens；\n- temperature/top_p/seed；\n- stream事件格式；\n- usage统计；\n- Tool Call字段；\n- 错误码和取"
+     },
+     {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "rag/高级RAG.md",
+      "chunk_id": "8f658cb9b5c13ae8441a691b9e0ef717",
+      "score": 18.6926,
+      "rank": 2,
+      "snippet": "RAG\n\n根据问题难度选择：不检索、单次检索、多跳检索。  \n需要可靠分类器或路由规则，否则“自适应”只是不可控分支。\n\n### 5. GraphRAG\n\n适合：\n\n- 问题需要跨多个实体和关系做多跳推理；\n- 需要全局主题、社区和关系摘要；\n- 数据具有稳定实体和边。\n\n不适合：\n\n- 几十篇技术笔记的普通问答；\n- 主要问题是关键词/语义召回；\n- 没有可靠实体消歧和关系抽取；\n- 团队还没有基础评测。\n\n当前学习 Agent 不把 GraphRAG 作为首版目标。\n\n---\n\n## 九、多模态和表格 RAG\n\n### 表格\n\n- 简单表格可转为带表头的行文本；\n- 聚合、过滤和计算型问题更适合结构化查询工具，而不是纯向量检索；\n- 回答应引用单元格、行或表名。\n\n### 图片/图表\n\n- 保存图片与原文位置；\n- 使用 OCR、图像描述或多模态 Embedding；\n- 关键数值应尽量从结构化数据读取，避免只靠视觉描述猜测。\n\n### 代码\n\n- 保留仓库、文件、符号、语言和行范围；\n- 按函数/类和语法结构切分通常优于固定字符；\n- 代码问题可结合符号搜索、调用图和测试工具。\n"
+     },
+     {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "prompt/评估与优化.md",
+      "chunk_id": "177fcd2773523adab06345ee8617aba3",
+      "score": 18.3356,
+      "rank": 3,
+      "snippet": "# LLM / Prompt / Agent 评估与优化\n\n> 目标：把“感觉回答更好了”变成可复现的测试。Prompt、模型、检索、工具和数据任何一项变化，都应在固定任务集上比较质量、延迟与成本。\n\n## 一、先定义成功，不要先改 Prompt\n\n每个任务写清：\n\n```text\n输入是什么？\n正确结果必须包含什么？\n绝对不能出现什么？\n是否允许拒答或澄清？\n输出格式是什么？\n延迟和成本预算是多少？\n失败会造成什么风险？\n```\n\n示例：学习问答任务\n\n```text\n必须：回答 Redis RDB/AOF 的核心区别，并引用当前笔记\n禁止：编造笔记中不存在的配置值\n允许：证据不足时说明不足\n格式：Markdown + [SOURCE n]\n质量：关键事实覆盖率、引用正确率\n工程：P95、Token、错误率\n```\n\n没有验收标准时，Prompt 会陷入无休止的措辞修改。\n\n---\n\n## 二、评测分层\n\n| 层级 | 方法 | 优点 | 局限 |\n|---|---|---|---|\n| 确定性测试 | JSON Schema、关键词、正则、单元测试、工具结果 | 快、便宜、稳定 |"
+     },
+     {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "tool_calling/Function-Calling原理.md",
+      "chunk_id": "3ac83f0e4c591ebd169f1e6424272f8d",
+      "score": 17.3348,
+      "rank": 4,
+      "snippet": "对无法幂等的高风险操作要求明确确认，并禁止自动重试。\n\n模型生成的自然语言参数不能直接充当可靠幂等键。\n\n---\n\n## 九、多工具调用\n\n### 1. 并行条件\n\n只有互不依赖、无冲突且资源允许的只读调用才适合并行：\n\n```text\n可以并行：分别检索 Redis 和 MySQL 笔记\n不能并行：先创建订单，再用订单 ID 支付\n谨慎并行：两个工具同时修改同一学习记录\n```\n\n### 2. 结果顺序\n\n每个结果必须带原始 `call_id`，不能依赖异步完成顺序与请求顺序相同。\n\n### 3. 部分失败\n\n```text\n3 个工具：2 成功，1 超时\n```\n\n应用应把每个调用的状态分别回传，允许模型使用已有结果或说明缺失，而不是把整个批次伪装成成功。\n\n---\n\n## 十、流式输出\n\n工具调用与普通文本可能在流中分片到达。应用需要：\n\n- 按 call ID 累积工具名和参数片段；\n- 等结构完整后再解析执行；\n- 执行工具前不要把半截 JSON 当合法参数；\n- 客户端断开时取消模型与工具调用；\n- 不把模型内部工具 JSON 原样展示成最终答案；\n- 记录首 Token、"
+     },
+     {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "mcp/MCP协议-01-基础与原语.md",
+      "chunk_id": "c09242d48ab792bd6fbdf0e0bfcf34f1",
+      "score": 14.7996,
+      "rank": 5,
+      "snippet": "Server 建立会话；\n- 完成初始化和能力协商；\n- 发现工具、资源和提示；\n- 发送请求、接收结果和通知；\n- 把协议对象适配给 Host。\n\n### Server\n\n- 暴露一个边界清晰的能力域；\n- 声明支持的能力；\n- 校验参数并执行业务逻辑；\n- 返回结构化结果和错误；\n- 不应假设所有 Client 都可信。\n\n通常一个 Client 对应一个 Server 会话。Host 可以同时连接多个 Server。\n\n---\n\n## 三、核心原语\n\n### 1. Tools\n\nTool 表示可执行操作：\n\n~~~text\nsearch_notes(query, top_k)\nget_review_queue(date)\nrecord_weak_point(topic, evidence, idempotency_key)\n~~~\n\n每个 Tool 应提供：\n\n- 稳定名称；\n- 清晰描述和适用边界；\n- 输入 JSON Schema；\n- 可预测输出；\n- 错误语义；\n- 是否只读、是否有副作用；\n- 必要的权限和确认。\n\n模型可能决定调用 Tool，但真正执行前仍由 Host"
+     }
+    ]
+   }
+  }
+ ]
+}
