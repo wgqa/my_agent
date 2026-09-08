@@ -441,6 +441,86 @@ _PROJECT_SCOPE_SIGNALS = (
     "仓库源码",
     "仓库代码",
 )
+# PRODUCT-REPAIR-23: repository/source-navigation intent. Users ask about the
+# bound repository's source, module/function/file locations, or call
+# relationships without saying "当前项目/当前仓库". These bounded lexical
+# patterns activate the Repository Evidence requirement instead of silently
+# falling through to NO_ADDITIONAL_REQUIREMENT. Generic technology-knowledge
+# phrasings (原理/怎么实现 without a location or call token) must NOT match.
+_REPO_SOURCE_SIGNALS = (
+    "源码",
+    "源代码",
+    "source code",
+    "codebase",
+    "代码库",
+)
+_REPO_LOCATION_SIGNALS = (
+    "哪个文件",
+    "在哪个文件",
+    "哪个模块",
+    "哪个函数",
+    "哪个方法",
+    "哪里实现",
+    "在哪里实现",
+    "在哪实现",
+    "哪里定义",
+    "在哪里定义",
+    "实现位置",
+    "模块在哪里",
+    "函数在哪里",
+    "where implemented",
+    "which file",
+    "which module",
+    "which function",
+    "where defined",
+    "where is",
+    "where are",
+)
+_REPO_CODE_ARTIFACT_SIGNALS = (
+    "函数",
+    "模块",
+    "方法",
+    "逻辑",
+    "实现",
+    "代码",
+    "function",
+    "module",
+    "method",
+    "logic",
+    "implementation",
+    "code",
+)
+_REPO_CALL_RELATION_SIGNALS = (
+    "谁调用",
+    "谁调用了",
+    "被谁调用",
+    "调用者",
+    "调用链",
+    "调用关系",
+    "调用点",
+    "who calls",
+    "call chain",
+    "caller",
+    "callee",
+)
+
+
+def _repo_navigation_intent(normalized: str) -> bool:
+    """True when the question names the bound repository's code directly.
+
+    Three bounded tiers: an explicit source reference alone is a repository
+    question; a call-relationship question always targets concrete code; a
+    location question only counts when it co-occurs with a code artifact,
+    which keeps "原理/怎么实现" style knowledge questions unrouted.
+    """
+
+    if _has_any(normalized, _REPO_SOURCE_SIGNALS):
+        return True
+    if _has_any(normalized, _REPO_CALL_RELATION_SIGNALS):
+        return True
+    return _has_any(normalized, _REPO_LOCATION_SIGNALS) and _has_any(
+        normalized, _REPO_CODE_ARTIFACT_SIGNALS
+    )
 
 
 def route_engineering_evidence_requirement(
@@ -475,6 +555,11 @@ def route_engineering_evidence_requirement(
             else DIAGNOSIS_SINGLE_V1
         )
     elif _has_any(normalized, _PROJECT_SCOPE_SIGNALS):
+        profile = PROJECT_CODE_V1
+    elif _repo_navigation_intent(normalized):
+        # PRODUCT-REPAIR-23 fallback: explicit source references, module or
+        # function location questions, and call-relationship questions name
+        # the bound repository even without a project-scope qualifier.
         profile = PROJECT_CODE_V1
     else:
         profile = NO_ADDITIONAL_REQUIREMENT
