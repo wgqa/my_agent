@@ -157,7 +157,7 @@ def test_worker_selector_is_additive_and_all_prior_identities_remain_stable():
 
 def test_formal_assembly_uses_grounded_kind_aware_profile_while_legacy_stays_default():
     lifespan_source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE" in lifespan_source
+    assert "ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE" in lifespan_source
     assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" not in lifespan_source
 
     class RetrievalPort:
