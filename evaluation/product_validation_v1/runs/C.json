@@ -1,0 +1,356 @@
+{
+ "task_id": "C",
+ "category": "change_impact_test_recommendation",
+ "repo": "instructor_change",
+ "project_root_name": "instructor_change",
+ "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+ "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+ "started_at": "2026-09-08T05:10:40.810634+00:00",
+ "finished_at": "2026-09-08T05:10:50.167765+00:00",
+ "knowledge_status": {
+  "schema_version": "engineering_knowledge_status_v1",
+  "ready": true,
+  "verified": true,
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "chunk_count": 215,
+  "retrieval_strategy": "bm25",
+  "manifest_experiment_id": "dbc497c796d5"
+ },
+ "turns": [
+  {
+   "turn": 1,
+   "question": "我当前工作区有一组未提交的修改。请分析这组修改影响了哪些模块和边界，并推荐我应该重点跑哪些现有测试来验证这次修改。",
+   "started_at": "2026-09-08T05:10:40.810649+00:00",
+   "latency_seconds": 9.36,
+   "http_status": 200,
+   "terminal_status": "refused",
+   "answer": null,
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "prompt/评估与优化.md",
+     "chunk_id": "dffe89d324049b8d13d6609bf4cdd782",
+     "score": 11.4061,
+     "rank": 1,
+     "snippet": "具体数值由项目基线和风险决定。门槛应在实验前写下，避免看到结果后临时修改标准。\n\n---\n\n## 十三、当前项目的评测落地\n\n### W05：首版\n\n- [ ] 30 道问题；\n- [ ] 每题标注标准来源和必要事实；\n- [ ] 至少 5 道无答案题；\n- [ ] 记录 Dense Recall@5、最终正确率和引用正确率。\n\n### W08：MVP\n\n- [ ] 扩展到不同模块和难度；\n- [ ] 比较 Dense / Hybrid / Rerank；\n- [ ] 增加 P50/P95、Token 和缓存指标；\n- [ ] 保存 10 个失败样本及根因。\n\n### W21：后训练对比\n\n- [ ] 固定 Base/SFT/DPO 的相同测试集；\n- [ ] 分开评测领域能力、通用能力和安全性；\n- [ ] 人工抽检 Judge 结果；\n- [ ] 记录能力提升与退化，不只报告最好分数。\n\n---\n\n## 十四、面试自检\n\n1. 为什么评测前要先定义成功标准？\n2. 确定性测试、LLM Judge 和人工评测如何组合？\n3. Pointwise 与 Pairwise 有什么区别？\n4"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "tool_calling/工具设计.md",
+     "chunk_id": "6aede6b754c00642fdcd0124993eb724",
+     "score": 12.3932,
+     "rank": 1,
+     "snippet": "Agent 而把确定性业务流程全部交给模型编排。\n\n---\n\n## 十五、面试自检\n\n1. 如何判断工具粒度太粗或太细？\n2. 工具描述应该说明哪些边界？\n3. 为什么 `additionalProperties=false` 仍不能保证业务安全？\n4. 哪些参数不能由模型提供？\n5. 如何区分只读、可逆写和不可逆工具？\n6. 用户确认为什么不能由模型代替？\n7. 写操作超时后如何避免重复副作用？\n8. 如何做资源级授权和租户隔离？\n9. URL、文件、SQL、代码工具分别有哪些主要风险？\n10. 工具的契约测试与 Agent 评测有什么区别？\n\n---\n"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "finetuning/微调方法.md",
+     "chunk_id": "c8991d68890879879c639af1dda58357",
+     "score": 10.2446,
+     "rank": 3,
+     "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "llm/预训练.md",
+     "chunk_id": "0a1d463ce16aa401e89464d8522c1621",
+     "score": 14.8957,
+     "rank": 1,
+     "snippet": "] 判断三个任务应使用持续预训练、SFT还是RAG。\n\n不要求个人真正做大规模预训练；能完成这些并跑一个极小语言模型实验即可。\n\n---\n\n## 十五、面试自检\n\n1. Causal LM目标公式如何解释？\n2. Decoder-only训练为什么可以并行，推理为什么逐Token？\n3. CLM、MLM和Denoising分别适合什么架构？\n4. 为什么训练规模要用Token而不是文档数衡量？\n5. 数据去重对预训练有什么作用？\n6. 数据配比为什么不能只按原始样本数？\n7. BPE、WordPiece和SentencePiece是什么关系？\n8. 词表变大有什么收益和成本？\n9. Sequence Packing需要处理哪些边界？\n10. DP、TP、PP和ZeRO分别切什么？\n11. Perplexity为什么不能跨不同Tokenizer简单比较？\n12. 持续预训练、SFT和RAG如何选择？\n\n能回答10/12，已达到应用/后训练岗位所需的预训练基础。\n\n---\n"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "tool_calling/Function-Calling原理.md",
+     "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+     "score": 9.0107,
+     "rank": 4,
+     "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+    },
+    {
+     "evidence_id": "E6",
+     "kind": "project_change",
+     "path": "instructor/v2/core/function_calls.py",
+     "start_line": 168,
+     "end_line": 176,
+     "snippet": "diff --git a/instructor/v2/core/function_calls.py b/instructor/v2/core/function_calls.py\nindex 1a19d3b5..c6177145 100644\n--- a/instructor/v2/core/function_calls.py\n+++ b/instructor/v2/core/function_calls.py\n@@ -168,6 +168,9 @@ class ResponseSchema(BaseModel):\n             cls (ResponseSchema): An instance of the class\n         \"\"\"\n \n+        from instructor.v2.validation.async_validators import reject_async_validators\n+\n+        reject_async_validators(cls)\n         import importlib\n \n         from instructor.v2.core.registry import mode_registry\n"
+    },
+    {
+     "evidence_id": "E7",
+     "kind": "project_code",
+     "path": "instructor/v2/core/function_calls.py",
+     "start_line": 148,
+     "end_line": 188,
+     "snippet": "        return generate_gemini_schema(cls)\n\n    @classmethod\n    def from_response(\n        cls: type[Self],\n        completion: ChatCompletion,\n        validation_context: dict[str, Any] | None = None,\n        strict: bool | None = None,\n        mode: Mode = Mode.TOOLS,\n        provider: Provider = Provider.OPENAI,\n    ) -> Self:\n        \"\"\"Execute the function from the response of an openai chat completion\n\n        Parameters:\n            completion (openai.ChatCompletion): The response from an openai chat completion\n            strict (bool): Whether to use strict json parsing\n            mode (Mode): The completion mode\n            provider (Provider): The provider for handler lookup\n\n        Returns:\n            cls (ResponseSchema): An instance of the class\n        \"\"\"\n\n        from instructor.v2.validation.async_validators import reject_async_validators\n\n        reject_async_validators(cls)\n        import importlib\n\n        from instructor.v2.core.registry import mode_registry\n\n        importlib.import_module(\"instructor.v2\")\n\n        provider = provider_from_mode(mode, provider)\n        mode = normalize_mode_for_provider(mode, provider)\n        handlers = mode_registry.get_handlers(provider, mode)\n        return handlers.response_parser(\n            response=completion,\n            response_model=cls,\n            validation_context=validation_context,\n            strict=strict,\n            stream=False,"
+    }
+   ],
+   "tool_calls_used": 4,
+   "iterations_used": 5,
+   "decision_llm_calls": 5,
+   "input_output_tokens": "UNKNOWN",
+   "response": {
+    "schema_version": "engineering_query_response_v1",
+    "status": "refused",
+    "answer": null,
+    "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+    "failure_code": null,
+    "iterations_used": 5,
+    "tool_calls_used": 4,
+    "tool_errors_used": 0,
+    "trace": [
+     {
+      "error_code": null,
+      "repair_attempted": false,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "decision_completed",
+      "tool_name": null,
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "provider_call_count": 1,
+      "repair_succeeded": false,
+      "iteration": 1,
+      "tool_calls_used": 0
+     },
+     {
+      "error_code": null,
+      "call_id": "call_4811ee25c28a4a93a2f9b1e39e66de05",
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "tool_call_created",
+      "tool_name": "changed_files",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "tool_calls_used": 0
+     },
+     {
+      "error_code": null,
+      "call_id": "call_4811ee25c28a4a93a2f9b1e39e66de05",
+      "tool_errors_used": 0,
+      "tool_status": "ok",
+      "event_type": "tool_observation",
+      "tool_name": "changed_files",
+      "iterations_used": 1,
+      "action_type": "tool_call",
+      "iteration": 1,
+      "tool_calls_used": 1
+     },
+     {
+      "error_code": null,
+      "repair_attempted": false,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "decision_completed",
+      "tool_name": null,
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "provider_call_count": 1,
+      "repair_succeeded": false,
+      "iteration": 2,
+      "tool_calls_used": 1
+     },
+     {
+      "error_code": null,
+      "call_id": "call_e14807f3315c47bb91d0defe30ab09ca",
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "tool_call_created",
+      "tool_name": "git_diff",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "tool_calls_used": 1
+     },
+     {
+      "error_code": null,
+      "call_id": "call_e14807f3315c47bb91d0defe30ab09ca",
+      "tool_errors_used": 0,
+      "tool_status": "ok",
+      "event_type": "tool_observation",
+      "tool_name": "git_diff",
+      "iterations_used": 2,
+      "action_type": "tool_call",
+      "iteration": 2,
+      "tool_calls_used": 2
+     },
+     {
+      "error_code": null,
+      "repair_attempted": false,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "decision_completed",
+      "tool_name": null,
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "provider_call_count": 1,
+      "repair_succeeded": false,
+      "iteration": 3,
+      "tool_calls_used": 2
+     },
+     {
+      "error_code": null,
+      "call_id": "call_11ef9c663763482fab3e4b59f1490c6b",
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "tool_call_created",
+      "tool_name": "find_tests",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "tool_calls_used": 2
+     },
+     {
+      "error_code": null,
+      "call_id": "call_11ef9c663763482fab3e4b59f1490c6b",
+      "tool_errors_used": 0,
+      "tool_status": "ok",
+      "event_type": "tool_observation",
+      "tool_name": "find_tests",
+      "iterations_used": 3,
+      "action_type": "tool_call",
+      "iteration": 3,
+      "tool_calls_used": 3
+     },
+     {
+      "error_code": null,
+      "repair_attempted": false,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "decision_completed",
+      "tool_name": null,
+      "iterations_used": 4,
+      "action_type": "tool_call",
+      "provider_call_count": 1,
+      "repair_succeeded": false,
+      "iteration": 4,
+      "tool_calls_used": 3
+     },
+     {
+      "error_code": null,
+      "call_id": "call_69a7edd705d5450faf3471b0c87377e6",
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "tool_call_created",
+      "tool_name": "read_project_context",
+      "iterations_used": 4,
+      "action_type": "tool_call",
+      "iteration": 4,
+      "tool_calls_used": 3
+     },
+     {
+      "error_code": null,
+      "call_id": "call_69a7edd705d5450faf3471b0c87377e6",
+      "tool_errors_used": 0,
+      "tool_status": "ok",
+      "event_type": "tool_observation",
+      "tool_name": "read_project_context",
+      "iterations_used": 4,
+      "action_type": "tool_call",
+      "iteration": 4,
+      "tool_calls_used": 4
+     },
+     {
+      "error_code": null,
+      "repair_attempted": false,
+      "call_id": null,
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "decision_completed",
+      "tool_name": null,
+      "iterations_used": 5,
+      "action_type": "final_answer",
+      "provider_call_count": 1,
+      "repair_succeeded": false,
+      "iteration": 5,
+      "tool_calls_used": 4
+     },
+     {
+      "error_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "call_id": null,
+      "tool_errors_used": 0,
+      "tool_status": null,
+      "event_type": "runtime_stopped",
+      "tool_name": null,
+      "iterations_used": 5,
+      "action_type": null,
+      "iteration": 5,
+      "tool_calls_used": 4
+     }
+    ],
+    "evidence": [
+     {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "prompt/评估与优化.md",
+      "chunk_id": "dffe89d324049b8d13d6609bf4cdd782",
+      "score": 11.4061,
+      "rank": 1,
+      "snippet": "具体数值由项目基线和风险决定。门槛应在实验前写下，避免看到结果后临时修改标准。\n\n---\n\n## 十三、当前项目的评测落地\n\n### W05：首版\n\n- [ ] 30 道问题；\n- [ ] 每题标注标准来源和必要事实；\n- [ ] 至少 5 道无答案题；\n- [ ] 记录 Dense Recall@5、最终正确率和引用正确率。\n\n### W08：MVP\n\n- [ ] 扩展到不同模块和难度；\n- [ ] 比较 Dense / Hybrid / Rerank；\n- [ ] 增加 P50/P95、Token 和缓存指标；\n- [ ] 保存 10 个失败样本及根因。\n\n### W21：后训练对比\n\n- [ ] 固定 Base/SFT/DPO 的相同测试集；\n- [ ] 分开评测领域能力、通用能力和安全性；\n- [ ] 人工抽检 Judge 结果；\n- [ ] 记录能力提升与退化，不只报告最好分数。\n\n---\n\n## 十四、面试自检\n\n1. 为什么评测前要先定义成功标准？\n2. 确定性测试、LLM Judge 和人工评测如何组合？\n3. Pointwise 与 Pairwise 有什么区别？\n4"
+     },
+     {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "tool_calling/工具设计.md",
+      "chunk_id": "6aede6b754c00642fdcd0124993eb724",
+      "score": 12.3932,
+      "rank": 1,
+      "snippet": "Agent 而把确定性业务流程全部交给模型编排。\n\n---\n\n## 十五、面试自检\n\n1. 如何判断工具粒度太粗或太细？\n2. 工具描述应该说明哪些边界？\n3. 为什么 `additionalProperties=false` 仍不能保证业务安全？\n4. 哪些参数不能由模型提供？\n5. 如何区分只读、可逆写和不可逆工具？\n6. 用户确认为什么不能由模型代替？\n7. 写操作超时后如何避免重复副作用？\n8. 如何做资源级授权和租户隔离？\n9. URL、文件、SQL、代码工具分别有哪些主要风险？\n10. 工具的契约测试与 Agent 评测有什么区别？\n\n---\n"
+     },
+     {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "finetuning/微调方法.md",
+      "chunk_id": "c8991d68890879879c639af1dda58357",
+      "score": 10.2446,
+      "rank": 3,
+      "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+     },
+     {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "llm/预训练.md",
+      "chunk_id": "0a1d463ce16aa401e89464d8522c1621",
+      "score": 14.8957,
+      "rank": 1,
+      "snippet": "] 判断三个任务应使用持续预训练、SFT还是RAG。\n\n不要求个人真正做大规模预训练；能完成这些并跑一个极小语言模型实验即可。\n\n---\n\n## 十五、面试自检\n\n1. Causal LM目标公式如何解释？\n2. Decoder-only训练为什么可以并行，推理为什么逐Token？\n3. CLM、MLM和Denoising分别适合什么架构？\n4. 为什么训练规模要用Token而不是文档数衡量？\n5. 数据去重对预训练有什么作用？\n6. 数据配比为什么不能只按原始样本数？\n7. BPE、WordPiece和SentencePiece是什么关系？\n8. 词表变大有什么收益和成本？\n9. Sequence Packing需要处理哪些边界？\n10. DP、TP、PP和ZeRO分别切什么？\n11. Perplexity为什么不能跨不同Tokenizer简单比较？\n12. 持续预训练、SFT和RAG如何选择？\n\n能回答10/12，已达到应用/后训练岗位所需的预训练基础。\n\n---\n"
+     },
+     {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "tool_calling/Function-Calling原理.md",
+      "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+      "score": 9.0107,
+      "rank": 4,
+      "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+     },
+     {
+      "evidence_id": "E6",
+      "kind": "project_change",
+      "path": "instructor/v2/core/function_calls.py",
+      "start_line": 168,
+      "end_line": 176,
+      "snippet": "diff --git a/instructor/v2/core/function_calls.py b/instructor/v2/core/function_calls.py\nindex 1a19d3b5..c6177145 100644\n--- a/instructor/v2/core/function_calls.py\n+++ b/instructor/v2/core/function_calls.py\n@@ -168,6 +168,9 @@ class ResponseSchema(BaseModel):\n             cls (ResponseSchema): An instance of the class\n         \"\"\"\n \n+        from instructor.v2.validation.async_validators import reject_async_validators\n+\n+        reject_async_validators(cls)\n         import importlib\n \n         from instructor.v2.core.registry import mode_registry\n"
+     },
+     {
+      "evidence_id": "E7",
+      "kind": "project_code",
+      "path": "instructor/v2/core/function_calls.py",
+      "start_line": 148,
+      "end_line": 188,
+      "snippet": "        return generate_gemini_schema(cls)\n\n    @classmethod\n    def from_response(\n        cls: type[Self],\n        completion: ChatCompletion,\n        validation_context: dict[str, Any] | None = None,\n        strict: bool | None = None,\n        mode: Mode = Mode.TOOLS,\n        provider: Provider = Provider.OPENAI,\n    ) -> Self:\n        \"\"\"Execute the function from the response of an openai chat completion\n\n        Parameters:\n            completion (openai.ChatCompletion): The response from an openai chat completion\n            strict (bool): Whether to use strict json parsing\n            mode (Mode): The completion mode\n            provider (Provider): The provider for handler lookup\n\n        Returns:\n            cls (ResponseSchema): An instance of the class\n        \"\"\"\n\n        from instructor.v2.validation.async_validators import reject_async_validators\n\n        reject_async_validators(cls)\n        import importlib\n\n        from instructor.v2.core.registry import mode_registry\n\n        importlib.import_module(\"instructor.v2\")\n\n        provider = provider_from_mode(mode, provider)\n        mode = normalize_mode_for_provider(mode, provider)\n        handlers = mode_registry.get_handlers(provider, mode)\n        return handlers.response_parser(\n            response=completion,\n            response_model=cls,\n            validation_context=validation_context,\n            strict=strict,\n            stream=False,"
+     }
+    ]
+   }
+  }
+ ]
+}

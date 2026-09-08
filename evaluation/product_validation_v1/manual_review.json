@@ -1,0 +1,260 @@
+{
+  "schema_version": "product_validation_manual_review_v1",
+  "task": "PRODUCT-VALIDATION-22",
+  "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+  "reviewed_runs": "runs/*.json (7 tasks / 10 questions, real DeepSeek provider)",
+  "reviewer": "manual review against pinned repo sources (vanna@365d061, instructor@5ea35cd, instructor_change@2b64e497+applied diff); every YES/NO judgment below was checked against the actual repository files, not against the agent's own claims",
+  "evidence_quality_notes": {
+    "observed_vs_judged": "terminal_status/tool_calls/latency/evidence lists are OBSERVED facts from Product responses; success/support/refusal classifications are MANUAL JUDGMENTS verified against repo source; ground-truth routing facts were reproduced locally with the frozen router for attribution (INFERRED mechanism)",
+    "blocked_proposal_observability": "when finalization hard-stops (INSUFFICIENT_EVIDENCE_TO_FINALIZE), the discarded proposed answer text and its exact binding status (MISSING/INCOMPLETE/INVALID) are NOT exposed by the public Product contract; per-question binding verdicts are therefore N/A where the run was blocked, and the blocked-answer cause is recorded as not-observable"
+  },
+  "tasks": [
+    {
+      "task_id": "A1",
+      "repo": "vanna",
+      "question": "AgentConfig temperature 默认值定义位置 + 传递链路 + 最终生效位置",
+      "observed": {
+        "terminal_status": "completed",
+        "tool_calls_used": 3,
+        "iterations_used": 4,
+        "decision_llm_calls": 4,
+        "latency_seconds": 6.62,
+        "router_profile": "DIAGNOSIS_SINGLE_V1 (reproduced locally; 配置 signal)",
+        "evidence_kinds": ["knowledge x5", "project_code x2 (src/vanna/core/agent/config.py L100-123; src/vanna/core/agent/agent.py L1215-1255)"],
+        "citations_in_answer": ["[E6]", "[E7]"]
+      },
+      "manual_judgment": {
+        "strict_task_success": "PASS",
+        "answer_obligation_coverage": "all three obligations covered (default location, propagation path, final effect into provider payload)",
+        "evidence_support": "PARTIAL",
+        "correct_code_path": "YES",
+        "correct_span_read": "YES",
+        "refusal": "NONE",
+        "context_resolution": "PASS",
+        "citation_binding": "VALID",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "config.py:120 temperature default 0.7 inside E6 span L100-123: VERIFIED",
+          "agent.py:1235 temperature=self.config.temperature inside E7 span L1215-1255: VERIFIED",
+          "agent.py:1243-1252 before_llm_request middleware claim: VERIFIED in source",
+          "integrations/anthropic/llm.py:214 request.temperature into provider payload: VERIFIED in source, but this file has NO evidence card and the answer cites it without binding -> the one unsupported-by-evidence clause"
+        ]
+      },
+      "attribution": [],
+      "notes": "Best run of the suite: full chain planner->code_search->read_project_context->cited final answer worked end to end on a fresh repo."
+    },
+    {
+      "task_id": "A2",
+      "repo": "vanna",
+      "question": "ToolRegistry 注册/查找 + Agent 如何解析并校验工具调用（要求结合源码）",
+      "observed": {
+        "terminal_status": "completed",
+        "tool_calls_used": 0,
+        "iterations_used": 1,
+        "decision_llm_calls": 1,
+        "latency_seconds": 3.67,
+        "router_profile": "NO_ADDITIONAL_REQUIREMENT (reproduced locally; 源码 without 当前/项目 qualifier does not trigger project scope)",
+        "evidence_kinds": ["knowledge x5 only"],
+        "citations_in_answer": ["[E1]", "[E2]", "[E5]"]
+      },
+      "manual_judgment": {
+        "strict_task_success": "FAIL",
+        "answer_obligation_coverage": "repo-specific obligations NOT covered; answer contains only generic function-calling principles and explicitly states it cannot confirm vanna's implementation",
+        "evidence_support": "PARTIAL",
+        "correct_code_path": "NO",
+        "correct_span_read": "NO",
+        "refusal": "UNDER_REFUSAL",
+        "context_resolution": "PASS",
+        "citation_binding": "VALID",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "vanna src/vanna/core/registry.py:46 class ToolRegistry, register_local_tool L63, get_tool L82: exists and was never read (0 tool calls)",
+          "answer answered nothing repo-specific while 4 tool calls were available"
+        ]
+      },
+      "attribution": ["evidence_acquisition"],
+      "notes": "Knowledge-only completion for a repo-specific question. The model did not attempt any repo tool, then half-refused inside a completed answer ('无法确认其具体实现'). User receives a non-answer presented as a completed result."
+    },
+    {
+      "task_id": "A3",
+      "repo": "instructor",
+      "question": "from_openai 如何把 openai 客户端变成结构化输出客户端（文件/关键函数/默认 Mode/patch 位置）",
+      "observed": {
+        "terminal_status": "refused",
+        "reason_code": "INSUFFICIENT_INFORMATION",
+        "tool_calls_used": 0,
+        "iterations_used": 1,
+        "decision_llm_calls": 1,
+        "latency_seconds": 2.47,
+        "router_profile": "NO_ADDITIONAL_REQUIREMENT (reproduced locally)",
+        "evidence_kinds": ["knowledge x5 only"]
+      },
+      "manual_judgment": {
+        "strict_task_success": "FAIL",
+        "answer_obligation_coverage": "none (no answer)",
+        "evidence_support": "NO_CLAIM",
+        "correct_code_path": "NO",
+        "correct_span_read": "NO",
+        "refusal": "OVER_REFUSAL",
+        "context_resolution": "PASS",
+        "citation_binding": "N/A",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "instructor/v2/core/client.py:941-976 from_openai wrapper delegating to v2/providers/openai/client.py exists and is directly answerable after one code_search + one read; the agent refused without a single tool call"
+        ]
+      },
+      "attribution": ["refusal"],
+      "notes": "Premature INSUFFICIENT_INFORMATION on a fully answerable repo question with zero acquisition attempts."
+    },
+    {
+      "task_id": "B",
+      "repo": "vanna",
+      "question": "RAG 检索增强 prompt 组装原理 + generate_sql 实现链路对照 + 与通用 RAG 差异",
+      "observed": {
+        "terminal_status": "refused",
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "tool_calls_used": 3,
+        "iterations_used": 4,
+        "decision_llm_calls": 4,
+        "latency_seconds": 7.34,
+        "router_profile": "DOCS_CODE_V1 (reproduced locally: 文档+实现+对照/差异)",
+        "tool_sequence": ["code_search", "read_project_context(src/vanna/legacy/base/base.py)", "code_search"],
+        "evidence_kinds": ["knowledge x5", "project_code x1 (base.py L63-123)"],
+        "blocked_final_answer": "discarded by finalization; text and binding status not observable"
+      },
+      "manual_judgment": {
+        "strict_task_success": "FAIL",
+        "answer_obligation_coverage": "none delivered (terminal refusal)",
+        "evidence_support": "NO_CLAIM",
+        "correct_code_path": "PARTIAL",
+        "correct_span_read": "PARTIAL",
+        "refusal": "NONE",
+        "context_resolution": "PASS",
+        "citation_binding": "N/A",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "generate_sql lives at src/vanna/legacy/base/base.py:93; read span L63-123 covers the class init and generate_sql docstring but stops before the actual retrieval calls at L124+ -> right file, truncated span",
+          "routed requirement is DOCS_CODE_V1 = project_doc + project_code; the agent read only project_code and never read README/project docs; its 3rd tool call was a redundant second code_search instead of a doc read",
+          "at decision 4 the budget made recovery infeasible (iterations 4+1 >= 5) -> hard stop"
+        ]
+      },
+      "attribution": ["evidence_acquisition", "evidence_sufficiency", "terminal_outcome"],
+      "notes": "Acquisition targeting failure: correct code file found and read, but the doc side of the routed requirement was never attempted and a redundant search burned the last tool slot. Final answer was then blocked. Theory-side knowledge evidence was seeded fine."
+    },
+    {
+      "task_id": "C",
+      "repo": "instructor_change",
+      "question": "分析当前未提交修改的影响范围并推荐应重点跑的现有测试",
+      "observed": {
+        "terminal_status": "refused",
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "tool_calls_used": 4,
+        "iterations_used": 5,
+        "decision_llm_calls": 5,
+        "latency_seconds": 9.36,
+        "router_profile": "CHANGE_TEST_V1 (reproduced locally)",
+        "tool_sequence": ["changed_files", "git_diff", "find_tests", "read_project_context(instructor/v2/core/function_calls.py)"],
+        "evidence_kinds": ["knowledge x5", "project_change x1 (function_calls.py diff hunk L168-176)", "project_code x1 (function_calls.py L148-188)"],
+        "blocked_final_answer": "discarded by finalization; text and binding status not observable"
+      },
+      "manual_judgment": {
+        "strict_task_success": "FAIL",
+        "answer_obligation_coverage": "none delivered (terminal refusal)",
+        "evidence_support": "NO_CLAIM",
+        "correct_code_path": "PARTIAL",
+        "correct_span_read": "YES",
+        "refusal": "NONE",
+        "context_resolution": "PASS",
+        "citation_binding": "N/A",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "the applied change touches 13 modified files + 1 new untracked test file; git_diff evidence covers only ONE file's hunk -> impact coverage of the diff was materially incomplete",
+          "tests/v2/test_security_regressions.py exists on disk (untracked) and was never read; the agent called find_tests but produced zero project_test evidence, then used its last read slot on another code file",
+          "CHANGE_TEST_V1 requires project_change + project_test; project_test never acquired -> requirement unsatisfied at every finalization; recovery infeasible at decision 5 -> hard stop"
+        ]
+      },
+      "attribution": ["evidence_acquisition", "evidence_sufficiency", "terminal_outcome"],
+      "notes": "The change-impact workflow did start (changed_files -> git_diff -> find_tests) but the model never read a test file despite find_tests being available, so the routed test-evidence obligation was never satisfied before the budget ran out."
+    },
+    {
+      "task_id": "D",
+      "repo": "vanna",
+      "question": "HyDE 查询改写模块在哪里实现（ground truth: 不存在该模块）",
+      "observed": {
+        "terminal_status": "refused",
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "tool_calls_used": 0,
+        "iterations_used": 1,
+        "decision_llm_calls": 1,
+        "latency_seconds": 2.85,
+        "router_profile": "NO_ADDITIONAL_REQUIREMENT (reproduced locally)",
+        "evidence_kinds": ["knowledge x5 only"]
+      },
+      "manual_judgment": {
+        "strict_task_success": "PARTIAL",
+        "answer_obligation_coverage": "user received a refusal, which matches ground truth (module does not exist); but the refusal was produced by the finalization citation block on a discarded proposed answer, not by an evidence-seeking check",
+        "evidence_support": "NO_CLAIM",
+        "correct_code_path": "N/A",
+        "correct_span_read": "N/A",
+        "refusal": "JUSTIFIED",
+        "context_resolution": "PASS",
+        "citation_binding": "N/A",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "grep at freeze time confirms no HyDE/query-rewriting/rerank module in pinned vanna",
+          "0 tool calls: the non-existence was never verified by the agent; had the module existed the same 0-tool behavior would likely have produced an unsupported completion"
+        ]
+      },
+      "attribution": [],
+      "notes": "Outcome-safe but mechanism-accidental: the user-visible refusal is correct, yet it came from the citation contract blocking an unverifiable answer, not from the agent checking the repo."
+    },
+    {
+      "task_id": "E",
+      "repo": "instructor",
+      "question": "4-turn investigation: response conversion -> caller -> retry chain -> docs consistency",
+      "observed": {
+        "turn_terminals": ["refused", "refused", "completed", "completed"],
+        "turn_reasons": [
+          "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "INSUFFICIENT_INFORMATION",
+          "completed",
+          "completed"
+        ],
+        "tool_calls_used_per_turn": [0, 0, 0, 0],
+        "decision_llm_calls_per_turn": [1, 1, 2, 1],
+        "latency_seconds_per_turn": [2.01, 2.08, 15.06, 4.82],
+        "evidence_kinds_per_turn": "knowledge x5 only in every turn; zero repository evidence across the entire conversation",
+        "turn3_note": "decision_llm_calls=2 indicates one parse repair occurred"
+      },
+      "manual_judgment": {
+        "strict_task_success": "FAIL",
+        "answer_obligation_coverage": "T1/T2 delivered nothing (refusals); T3 answered a DIFFERENT subject (generic MCP/tool-calling retry semantics instead of instructor's re-ask chain); T4 honestly reported that no code was found but did not perform the docs-vs-code comparison",
+        "evidence_support": "PARTIAL",
+        "correct_code_path": "NO",
+        "correct_span_read": "NO",
+        "refusal": "OVER_REFUSAL",
+        "context_resolution": "PARTIAL",
+        "citation_binding": "VALID",
+        "infrastructure": "PASS",
+        "ground_truth_checks": [
+          "T1 target exists: instructor/v2/core/function_calls.py + v2/core/response.py conversion chain; never searched (0 tools)",
+          "T3 target exists: v2/core/retry.py _max_attempts (max_retries + 1 total attempts) and stop_after_attempt wiring; answer instead described MCP/host-layer retry semantics -> wrong-subject completion",
+          "T4 routed NO_ADDITIONAL_REQUIREMENT (reproduced locally): the frozen consistency lexicon does not contain 对照, so the docs-vs-code guard did not force project_doc/project_code evidence; T4 cited only knowledge corpus docs",
+          "turn 2 over-refused a direct follow-up about its own turn-1 subject"
+        ]
+      },
+      "attribution": ["refusal", "semantic_grounding", "context_resolution", "planning/routing"],
+      "notes": "Multi-turn UI/persistence worked (server conversation, bounded context, turn 3 completed after one repair), but the investigation never touched the repository: all 4 turns answered from the generic knowledge corpus. T3's wrong-subject completion is the most dangerous observed behavior: fluent, cited, and about the wrong thing."
+    }
+  ],
+  "suite_summary": {
+    "questions": 10,
+    "strict_counts": {"PASS": 1, "PARTIAL": 1, "FAIL": 8, "INFRA": 0},
+    "terminal_counts": {"completed": 4, "refused": 6},
+    "zero_project_evidence_questions": 7,
+    "questions_that_acquired_repo_evidence": 3,
+    "citation_binding_valid_when_completed": true,
+    "binding_blocked_runs": 4,
+    "model_refusals": 2
+  }
+}

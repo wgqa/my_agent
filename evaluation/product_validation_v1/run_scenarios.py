@@ -170,6 +170,8 @@ def _worker(group: str, contract_path: Path, out_dir: Path, work_root: Path) -> 
     conversation_db = out_dir / f"conversations_{group}.sqlite3"
     os.environ["ENGINEERING_CONVERSATION_DB"] = str(conversation_db)
 
+    sys.path.insert(0, str(REPO_ROOT))
+
     from fastapi.testclient import TestClient
 
     import api.app as app_module

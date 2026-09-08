@@ -1,0 +1,1488 @@
+{
+ "task_id": "E",
+ "category": "multi_turn_investigation",
+ "repo": "instructor",
+ "project_root_name": "instructor",
+ "product_commit": "f73f267ccf2300199e0c5183490fa63aeb962ae3",
+ "prompt_profile": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+ "started_at": "2026-09-08T05:10:10.022433+00:00",
+ "finished_at": "2026-09-08T05:10:34.044961+00:00",
+ "knowledge_status": {
+  "schema_version": "engineering_knowledge_status_v1",
+  "ready": true,
+  "verified": true,
+  "corpus_id": "870e5864df67",
+  "file_count": 37,
+  "chunk_count": 215,
+  "retrieval_strategy": "bm25",
+  "manifest_experiment_id": "dbc497c796d5"
+ },
+ "conversation_id": "01669e20f53c43d7a797a9afdb79a4ab",
+ "conversation_db": "conversations_instructor.sqlite3",
+ "turns": [
+  {
+   "turn": 1,
+   "question": "instructor 把 LLM 原始响应转换成结构化对象的核心逻辑在哪里实现？",
+   "started_at": "2026-09-08T05:10:10.070049+00:00",
+   "latency_seconds": 2.01,
+   "http_status": 200,
+   "terminal_status": "refused",
+   "answer": null,
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "mcp/MCP协议-01-基础与原语.md",
+     "chunk_id": "c09242d48ab792bd6fbdf0e0bfcf34f1",
+     "score": 12.8888,
+     "rank": 1,
+     "snippet": "Server 建立会话；\n- 完成初始化和能力协商；\n- 发现工具、资源和提示；\n- 发送请求、接收结果和通知；\n- 把协议对象适配给 Host。\n\n### Server\n\n- 暴露一个边界清晰的能力域；\n- 声明支持的能力；\n- 校验参数并执行业务逻辑；\n- 返回结构化结果和错误；\n- 不应假设所有 Client 都可信。\n\n通常一个 Client 对应一个 Server 会话。Host 可以同时连接多个 Server。\n\n---\n\n## 三、核心原语\n\n### 1. Tools\n\nTool 表示可执行操作：\n\n~~~text\nsearch_notes(query, top_k)\nget_review_queue(date)\nrecord_weak_point(topic, evidence, idempotency_key)\n~~~\n\n每个 Tool 应提供：\n\n- 稳定名称；\n- 清晰描述和适用边界；\n- 输入 JSON Schema；\n- 可预测输出；\n- 错误语义；\n- 是否只读、是否有副作用；\n- 必要的权限和确认。\n\n模型可能决定调用 Tool，但真正执行前仍由 Host"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "vector_db/核心概念.md",
+     "chunk_id": "2e1f56cccc3705297d403d30f79745cf",
+     "score": 12.053,
+     "rank": 2,
+     "snippet": "ID，同时对上述字段建立唯一约束。\n\n不要用“正文文本”本身做唯一 ID；轻微清洗变化会导致难以追踪。\n\n### 2. 文档与 Chunk 分离\n\n文档级字段：\n\n- 文档标题、来源、所有者；\n- 当前版本、状态；\n- 权限策略；\n- 更新时间。\n\nChunk 级字段：\n\n- 文本、位置、章节路径；\n- 向量；\n- content_hash；\n- embedding version；\n- 可回溯引用。\n\n若数据库不支持关系连接，可冗余必要字段，但要设计更新一致性。\n\n### 3. 原文放哪里\n\n选择：\n\n- 向量库中直接保存 text；\n- 向量库只存 ID，正文放对象存储/数据库；\n- 同时保存用于检索的短文本和原始文档 URI。\n\n需要权衡返回延迟、存储成本、事务一致性和删除合规。\n\n---\n\n## 九、增量更新、删除与版本切换\n\nEmbedding 模型或分块策略改变时，旧向量和新向量通常不能混用。\n\n推荐蓝绿索引：\n\n~~~text\nindex_v1 正在服务\n  → 离线构建 index_v2\n  → 完整性与离线评测\n  → 小流量影子/灰度\n  → 原子切换 alias\n"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "prompt/评估与优化.md",
+     "chunk_id": "177fcd2773523adab06345ee8617aba3",
+     "score": 9.8905,
+     "rank": 3,
+     "snippet": "# LLM / Prompt / Agent 评估与优化\n\n> 目标：把“感觉回答更好了”变成可复现的测试。Prompt、模型、检索、工具和数据任何一项变化，都应在固定任务集上比较质量、延迟与成本。\n\n## 一、先定义成功，不要先改 Prompt\n\n每个任务写清：\n\n```text\n输入是什么？\n正确结果必须包含什么？\n绝对不能出现什么？\n是否允许拒答或澄清？\n输出格式是什么？\n延迟和成本预算是多少？\n失败会造成什么风险？\n```\n\n示例：学习问答任务\n\n```text\n必须：回答 Redis RDB/AOF 的核心区别，并引用当前笔记\n禁止：编造笔记中不存在的配置值\n允许：证据不足时说明不足\n格式：Markdown + [SOURCE n]\n质量：关键事实覆盖率、引用正确率\n工程：P95、Token、错误率\n```\n\n没有验收标准时，Prompt 会陷入无休止的措辞修改。\n\n---\n\n## 二、评测分层\n\n| 层级 | 方法 | 优点 | 局限 |\n|---|---|---|---|\n| 确定性测试 | JSON Schema、关键词、正则、单元测试、工具结果 | 快、便宜、稳定 |"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "rag/高级RAG.md",
+     "chunk_id": "0975d5bcc932a89171b54d0dc2fc8fa7",
+     "score": 9.7665,
+     "rank": 4,
+     "snippet": "# RAG 评测、故障分析与高级策略\n\n> 核心观点：高级 RAG 的起点不是 GraphRAG 或复杂 Agent，而是可重复的评测集和故障分类。没有基线与对照实验，增加模块只会让系统更难解释。\n\n## 一、先拆开评测对象\n\nRAG 至少包含三个可独立失败的部分：\n\n```text\n数据/索引：正确证据是否被解析和入库？\n检索：正确证据是否进入候选和最终上下文？\n生成：模型是否忠实利用证据并正确回答？\n```\n\n如果最终回答错误，不能直接归因于“模型不行”。先判断：\n\n1. 标准证据在索引里吗？\n2. Top-K 召回了吗？\n3. Rerank 是否把它排掉？\n4. 最终 Prompt 是否包含它？\n5. 模型是否忽略、误读或错误综合？\n6. 引用是否正确？\n\n---\n\n## 二、构建评测集\n\n### 1. 每条样本至少包含\n\n```json\n{\n  \"question\": \"Redis AOF 重写会阻塞主进程吗？\",\n  \"reference_answer\": \"...\",\n  \"relevant_chunk_ids\": [\"chunk_a\", \"chunk_b\"],\n  \"an"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "rag/检索与生成.md",
+     "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+     "score": 9.3932,
+     "rank": 5,
+     "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+    }
+   ],
+   "tool_calls_used": 0,
+   "iterations_used": 1,
+   "decision_llm_calls": 1,
+   "input_output_tokens": "UNKNOWN",
+   "error_body": null,
+   "sse_event_types": [
+    "status",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "final",
+    "done"
+   ],
+   "events": [
+    {
+     "type": "status",
+     "stage": "analysis",
+     "state": "started"
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "mcp/MCP协议-01-基础与原语.md",
+      "chunk_id": "c09242d48ab792bd6fbdf0e0bfcf34f1",
+      "score": 12.8888,
+      "rank": 1,
+      "snippet": "Server 建立会话；\n- 完成初始化和能力协商；\n- 发现工具、资源和提示；\n- 发送请求、接收结果和通知；\n- 把协议对象适配给 Host。\n\n### Server\n\n- 暴露一个边界清晰的能力域；\n- 声明支持的能力；\n- 校验参数并执行业务逻辑；\n- 返回结构化结果和错误；\n- 不应假设所有 Client 都可信。\n\n通常一个 Client 对应一个 Server 会话。Host 可以同时连接多个 Server。\n\n---\n\n## 三、核心原语\n\n### 1. Tools\n\nTool 表示可执行操作：\n\n~~~text\nsearch_notes(query, top_k)\nget_review_queue(date)\nrecord_weak_point(topic, evidence, idempotency_key)\n~~~\n\n每个 Tool 应提供：\n\n- 稳定名称；\n- 清晰描述和适用边界；\n- 输入 JSON Schema；\n- 可预测输出；\n- 错误语义；\n- 是否只读、是否有副作用；\n- 必要的权限和确认。\n\n模型可能决定调用 Tool，但真正执行前仍由 Host"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "vector_db/核心概念.md",
+      "chunk_id": "2e1f56cccc3705297d403d30f79745cf",
+      "score": 12.053,
+      "rank": 2,
+      "snippet": "ID，同时对上述字段建立唯一约束。\n\n不要用“正文文本”本身做唯一 ID；轻微清洗变化会导致难以追踪。\n\n### 2. 文档与 Chunk 分离\n\n文档级字段：\n\n- 文档标题、来源、所有者；\n- 当前版本、状态；\n- 权限策略；\n- 更新时间。\n\nChunk 级字段：\n\n- 文本、位置、章节路径；\n- 向量；\n- content_hash；\n- embedding version；\n- 可回溯引用。\n\n若数据库不支持关系连接，可冗余必要字段，但要设计更新一致性。\n\n### 3. 原文放哪里\n\n选择：\n\n- 向量库中直接保存 text；\n- 向量库只存 ID，正文放对象存储/数据库；\n- 同时保存用于检索的短文本和原始文档 URI。\n\n需要权衡返回延迟、存储成本、事务一致性和删除合规。\n\n---\n\n## 九、增量更新、删除与版本切换\n\nEmbedding 模型或分块策略改变时，旧向量和新向量通常不能混用。\n\n推荐蓝绿索引：\n\n~~~text\nindex_v1 正在服务\n  → 离线构建 index_v2\n  → 完整性与离线评测\n  → 小流量影子/灰度\n  → 原子切换 alias\n"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "prompt/评估与优化.md",
+      "chunk_id": "177fcd2773523adab06345ee8617aba3",
+      "score": 9.8905,
+      "rank": 3,
+      "snippet": "# LLM / Prompt / Agent 评估与优化\n\n> 目标：把“感觉回答更好了”变成可复现的测试。Prompt、模型、检索、工具和数据任何一项变化，都应在固定任务集上比较质量、延迟与成本。\n\n## 一、先定义成功，不要先改 Prompt\n\n每个任务写清：\n\n```text\n输入是什么？\n正确结果必须包含什么？\n绝对不能出现什么？\n是否允许拒答或澄清？\n输出格式是什么？\n延迟和成本预算是多少？\n失败会造成什么风险？\n```\n\n示例：学习问答任务\n\n```text\n必须：回答 Redis RDB/AOF 的核心区别，并引用当前笔记\n禁止：编造笔记中不存在的配置值\n允许：证据不足时说明不足\n格式：Markdown + [SOURCE n]\n质量：关键事实覆盖率、引用正确率\n工程：P95、Token、错误率\n```\n\n没有验收标准时，Prompt 会陷入无休止的措辞修改。\n\n---\n\n## 二、评测分层\n\n| 层级 | 方法 | 优点 | 局限 |\n|---|---|---|---|\n| 确定性测试 | JSON Schema、关键词、正则、单元测试、工具结果 | 快、便宜、稳定 |"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "rag/高级RAG.md",
+      "chunk_id": "0975d5bcc932a89171b54d0dc2fc8fa7",
+      "score": 9.7665,
+      "rank": 4,
+      "snippet": "# RAG 评测、故障分析与高级策略\n\n> 核心观点：高级 RAG 的起点不是 GraphRAG 或复杂 Agent，而是可重复的评测集和故障分类。没有基线与对照实验，增加模块只会让系统更难解释。\n\n## 一、先拆开评测对象\n\nRAG 至少包含三个可独立失败的部分：\n\n```text\n数据/索引：正确证据是否被解析和入库？\n检索：正确证据是否进入候选和最终上下文？\n生成：模型是否忠实利用证据并正确回答？\n```\n\n如果最终回答错误，不能直接归因于“模型不行”。先判断：\n\n1. 标准证据在索引里吗？\n2. Top-K 召回了吗？\n3. Rerank 是否把它排掉？\n4. 最终 Prompt 是否包含它？\n5. 模型是否忽略、误读或错误综合？\n6. 引用是否正确？\n\n---\n\n## 二、构建评测集\n\n### 1. 每条样本至少包含\n\n```json\n{\n  \"question\": \"Redis AOF 重写会阻塞主进程吗？\",\n  \"reference_answer\": \"...\",\n  \"relevant_chunk_ids\": [\"chunk_a\", \"chunk_b\"],\n  \"an"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "rag/检索与生成.md",
+      "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+      "score": 9.3932,
+      "rank": 5,
+      "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+     }
+    },
+    {
+     "type": "final",
+     "result": {
+      "schema_version": "engineering_query_response_v1",
+      "status": "refused",
+      "answer": null,
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_errors_used": 0,
+      "trace": [
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": "final_answer",
+        "provider_call_count": 1,
+        "event_type": "decision_completed",
+        "tool_status": null,
+        "repair_attempted": false,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "repair_succeeded": false,
+        "error_code": null,
+        "tool_calls_used": 0
+       },
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": null,
+        "event_type": "runtime_stopped",
+        "tool_status": null,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "error_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "tool_calls_used": 0
+       }
+      ],
+      "evidence": [
+       {
+        "evidence_id": "E1",
+        "kind": "knowledge",
+        "source_name": "mcp/MCP协议-01-基础与原语.md",
+        "chunk_id": "c09242d48ab792bd6fbdf0e0bfcf34f1",
+        "score": 12.8888,
+        "rank": 1,
+        "snippet": "Server 建立会话；\n- 完成初始化和能力协商；\n- 发现工具、资源和提示；\n- 发送请求、接收结果和通知；\n- 把协议对象适配给 Host。\n\n### Server\n\n- 暴露一个边界清晰的能力域；\n- 声明支持的能力；\n- 校验参数并执行业务逻辑；\n- 返回结构化结果和错误；\n- 不应假设所有 Client 都可信。\n\n通常一个 Client 对应一个 Server 会话。Host 可以同时连接多个 Server。\n\n---\n\n## 三、核心原语\n\n### 1. Tools\n\nTool 表示可执行操作：\n\n~~~text\nsearch_notes(query, top_k)\nget_review_queue(date)\nrecord_weak_point(topic, evidence, idempotency_key)\n~~~\n\n每个 Tool 应提供：\n\n- 稳定名称；\n- 清晰描述和适用边界；\n- 输入 JSON Schema；\n- 可预测输出；\n- 错误语义；\n- 是否只读、是否有副作用；\n- 必要的权限和确认。\n\n模型可能决定调用 Tool，但真正执行前仍由 Host"
+       },
+       {
+        "evidence_id": "E2",
+        "kind": "knowledge",
+        "source_name": "vector_db/核心概念.md",
+        "chunk_id": "2e1f56cccc3705297d403d30f79745cf",
+        "score": 12.053,
+        "rank": 2,
+        "snippet": "ID，同时对上述字段建立唯一约束。\n\n不要用“正文文本”本身做唯一 ID；轻微清洗变化会导致难以追踪。\n\n### 2. 文档与 Chunk 分离\n\n文档级字段：\n\n- 文档标题、来源、所有者；\n- 当前版本、状态；\n- 权限策略；\n- 更新时间。\n\nChunk 级字段：\n\n- 文本、位置、章节路径；\n- 向量；\n- content_hash；\n- embedding version；\n- 可回溯引用。\n\n若数据库不支持关系连接，可冗余必要字段，但要设计更新一致性。\n\n### 3. 原文放哪里\n\n选择：\n\n- 向量库中直接保存 text；\n- 向量库只存 ID，正文放对象存储/数据库；\n- 同时保存用于检索的短文本和原始文档 URI。\n\n需要权衡返回延迟、存储成本、事务一致性和删除合规。\n\n---\n\n## 九、增量更新、删除与版本切换\n\nEmbedding 模型或分块策略改变时，旧向量和新向量通常不能混用。\n\n推荐蓝绿索引：\n\n~~~text\nindex_v1 正在服务\n  → 离线构建 index_v2\n  → 完整性与离线评测\n  → 小流量影子/灰度\n  → 原子切换 alias\n"
+       },
+       {
+        "evidence_id": "E3",
+        "kind": "knowledge",
+        "source_name": "prompt/评估与优化.md",
+        "chunk_id": "177fcd2773523adab06345ee8617aba3",
+        "score": 9.8905,
+        "rank": 3,
+        "snippet": "# LLM / Prompt / Agent 评估与优化\n\n> 目标：把“感觉回答更好了”变成可复现的测试。Prompt、模型、检索、工具和数据任何一项变化，都应在固定任务集上比较质量、延迟与成本。\n\n## 一、先定义成功，不要先改 Prompt\n\n每个任务写清：\n\n```text\n输入是什么？\n正确结果必须包含什么？\n绝对不能出现什么？\n是否允许拒答或澄清？\n输出格式是什么？\n延迟和成本预算是多少？\n失败会造成什么风险？\n```\n\n示例：学习问答任务\n\n```text\n必须：回答 Redis RDB/AOF 的核心区别，并引用当前笔记\n禁止：编造笔记中不存在的配置值\n允许：证据不足时说明不足\n格式：Markdown + [SOURCE n]\n质量：关键事实覆盖率、引用正确率\n工程：P95、Token、错误率\n```\n\n没有验收标准时，Prompt 会陷入无休止的措辞修改。\n\n---\n\n## 二、评测分层\n\n| 层级 | 方法 | 优点 | 局限 |\n|---|---|---|---|\n| 确定性测试 | JSON Schema、关键词、正则、单元测试、工具结果 | 快、便宜、稳定 |"
+       },
+       {
+        "evidence_id": "E4",
+        "kind": "knowledge",
+        "source_name": "rag/高级RAG.md",
+        "chunk_id": "0975d5bcc932a89171b54d0dc2fc8fa7",
+        "score": 9.7665,
+        "rank": 4,
+        "snippet": "# RAG 评测、故障分析与高级策略\n\n> 核心观点：高级 RAG 的起点不是 GraphRAG 或复杂 Agent，而是可重复的评测集和故障分类。没有基线与对照实验，增加模块只会让系统更难解释。\n\n## 一、先拆开评测对象\n\nRAG 至少包含三个可独立失败的部分：\n\n```text\n数据/索引：正确证据是否被解析和入库？\n检索：正确证据是否进入候选和最终上下文？\n生成：模型是否忠实利用证据并正确回答？\n```\n\n如果最终回答错误，不能直接归因于“模型不行”。先判断：\n\n1. 标准证据在索引里吗？\n2. Top-K 召回了吗？\n3. Rerank 是否把它排掉？\n4. 最终 Prompt 是否包含它？\n5. 模型是否忽略、误读或错误综合？\n6. 引用是否正确？\n\n---\n\n## 二、构建评测集\n\n### 1. 每条样本至少包含\n\n```json\n{\n  \"question\": \"Redis AOF 重写会阻塞主进程吗？\",\n  \"reference_answer\": \"...\",\n  \"relevant_chunk_ids\": [\"chunk_a\", \"chunk_b\"],\n  \"an"
+       },
+       {
+        "evidence_id": "E5",
+        "kind": "knowledge",
+        "source_name": "rag/检索与生成.md",
+        "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+        "score": 9.3932,
+        "rank": 5,
+        "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+       }
+      ]
+     }
+    },
+    {
+     "type": "done"
+    }
+   ]
+  },
+  {
+   "turn": 2,
+   "question": "那这个转换逻辑是谁调用的？它在 create 请求主流程的哪一步？",
+   "started_at": "2026-09-08T05:10:12.084549+00:00",
+   "latency_seconds": 2.08,
+   "http_status": 200,
+   "terminal_status": "refused",
+   "answer": null,
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "vector_db/产品对比.md",
+     "chunk_id": "338fef2c0fbea91fbcd021e606d24c66",
+     "score": 13.459,
+     "rank": 1,
+     "snippet": "|\n\n不要使用“某产品一定最快”作为结论。性能由：\n\n- 数据规模与维度；\n- 索引和参数；\n- Filter 选择性；\n- Top-K；\n- 并发；\n- 硬件和网络；\n- 副本与一致性；\n- 客户端实现\n\n共同决定。\n\n---\n\n## 三、选型前必须回答的问题\n\n### 1. 数据与流量\n\n- 现在和一年后的向量数量？\n- 向量维度、精度、原文大小？\n- 每日新增、更新、删除多少？\n- 查询 QPS、峰值并发和延迟目标？\n- Top-K 与过滤条件？\n- 是否需要多地域或跨机房？\n\n### 2. 检索能力\n\n- Dense、Sparse、BM25 是否都需要？\n- 是否支持高选择性 metadata 过滤？\n- 需要 HNSW、IVF-PQ 还是 Exact 即可？\n- 是否需要多向量字段？\n- 是否需要按租户分区？\n- 混合检索在哪一层融合？\n\n### 3. 数据与安全\n\n- 权限能否在服务端强制过滤？\n- 多租户如何隔离？\n- 删除是否能覆盖索引、缓存和备份？\n- 数据是否允许进入第三方托管服务？\n- 审计日志和加密要求是什么？\n\n### 4. 运维\n\n- 团队现有 Postgr"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "post_training/后训练-03-DPO与GRPO.md",
+     "chunk_id": "a3300e68fed478eb99d9ec73111d2e83",
+     "score": 12.3192,
+     "rank": 2,
+     "snippet": "3. 不一定适合所有复杂推理增强场景\n4. 如果 chosen/rejected 构造很差，模型会学偏\n```\n\n---\n\n## 九、GRPO：面向推理任务的强化学习方法\n\nGRPO = Group Relative Policy Optimization。\n\n它在大模型推理增强中经常被提到，尤其是数学、代码、复杂推理任务。\n\n### 为什么需要 GRPO？\n\nPPO 通常需要一个 value model / critic 来估计价值。\n\n问题：\n\n```text\n大模型太大了，再维护一个 critic/value model 成本很高。\n训练复杂，显存压力大。\n```\n\nGRPO 的思路：\n\n```text\n对同一个 prompt，一次生成一组回答。\n根据这一组回答的相对好坏来计算优势 advantage。\n不单独训练 critic model。\n```\n\n### 人话理解 GRPO\n\n```text\n同一道数学题，让模型生成 8 个答案。\n\n答案 A：正确，过程清楚 → 高分\n答案 B：正确，但过程啰嗦 → 中高分\n答案 C：错误 → 低分\n...\n\n不看绝对分数，只看这一组里面谁"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+     "chunk_id": "62646f38e5d6a68c11b764dbe44877be",
+     "score": 12.2017,
+     "rank": 3,
+     "snippet": "# 后训练与强化学习\n## 五、Reward Model 奖励模型\n\nRLHF 里通常会先训练一个 Reward Model。\n\n### Reward Model 是什么？\n\n```text\nReward Model = 一个给回答打分的模型。\n\n输入：prompt + response\n输出：一个分数 reward\n\n分数越高，表示这个回答越符合人类偏好。\n```\n\n例子：\n\n```text\nprompt：解释 MySQL MVCC\nresponse A：结构清楚、准确、有例子 → reward = 8.7\nresponse B：概念混乱、缺关键点 → reward = 2.1\n```\n\n### Reward Model 怎么训练？\n\n用偏好数据训练：\n\n```text\n同一个 prompt 下：\n  chosen 应该比 rejected 分数高。\n\n训练目标：\n  reward(chosen) > reward(rejected)\n```\n\n不用死记公式，面试说清楚这个思想就够：\n\n```text\nReward Model 不一定要预测一个绝对分数，它核心是学会比较两个回答哪个更"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "deployment/推理框架.md",
+     "chunk_id": "f92b50716250d43e385765433d02f920",
+     "score": 11.5218,
+     "rank": 4,
+     "snippet": "- 长输出同样持续增加 KV；\n- 请求结束或取消后必须及时释放；\n- 分页管理能减少连续大块分配和碎片。\n\n---\n\n## 四、关键优化\n\n### 1. Continuous Batching\n\n传统静态 batch 要等所有请求结束。连续批处理可以在每个调度步：\n\n- 移除已完成请求；\n- 加入新请求；\n- 让不同长度请求共同运行。\n\n提高 GPU 利用率，但调度策略会影响：\n\n- TTFT 与 TPOT；\n- 长短请求公平性；\n- 高优先级请求；\n- KV Cache 水位。\n\n### 2. Paged KV Cache / PagedAttention\n\n把 KV Cache 切成固定大小块，按需分配并通过逻辑映射访问：\n\n- 减少外部碎片；\n- 支持非连续物理存储；\n- 提高可容纳并发；\n- 便于共享和回收。\n\nPagedAttention解决的是推理 KV 内存管理，不是训练中的 FlashAttention。\n\n### 3. FlashAttention\n\n通过分块和重计算减少 Attention 中间矩阵的显存读写，提升训练/Prefill效率。\n它不等于降低精度，也不"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "post_training/后训练-04-常见问题与DPO落地.md",
+     "chunk_id": "5a61f952a5ae4be57d25979e1977b0ef",
+     "score": 10.7452,
+     "rank": 5,
+     "snippet": "安全偏好数据\n拒答数据\n红队测试\n安全评测集\n```\n\n---\n\n## 十二、DPO 训练到底在训练什么\n\n### DPO 的输入格式\n\nDPO 不是普通问答数据，而是偏好对数据。\n\n常见 JSONL 格式：\n\n```json\n{\"prompt\":\"解释 Redis 缓存击穿\",\"chosen\":\"缓存击穿是热点 key 过期后...\",\"rejected\":\"缓存击穿就是 Redis 坏了。\"}\n```\n\n也可能是 ChatML / messages 格式：\n\n```json\n{\n  \"prompt\": [\n    {\"role\": \"user\", \"content\": \"解释 MySQL MVCC\"}\n  ],\n  \"chosen\": [\n    {\"role\": \"assistant\", \"content\": \"MVCC 是多版本并发控制...\"}\n  ],\n  \"rejected\": [\n    {\"role\": \"assistant\", \"content\": \"MVCC 就是加锁。\"}\n  ]\n}\n```\n\n核心不是格式，而是：\n\n```text\n同一个 prompt 下，c"
+    }
+   ],
+   "tool_calls_used": 0,
+   "iterations_used": 1,
+   "decision_llm_calls": 1,
+   "input_output_tokens": "UNKNOWN",
+   "error_body": null,
+   "sse_event_types": [
+    "status",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "final",
+    "done"
+   ],
+   "events": [
+    {
+     "type": "status",
+     "stage": "analysis",
+     "state": "started"
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "vector_db/产品对比.md",
+      "chunk_id": "338fef2c0fbea91fbcd021e606d24c66",
+      "score": 13.459,
+      "rank": 1,
+      "snippet": "|\n\n不要使用“某产品一定最快”作为结论。性能由：\n\n- 数据规模与维度；\n- 索引和参数；\n- Filter 选择性；\n- Top-K；\n- 并发；\n- 硬件和网络；\n- 副本与一致性；\n- 客户端实现\n\n共同决定。\n\n---\n\n## 三、选型前必须回答的问题\n\n### 1. 数据与流量\n\n- 现在和一年后的向量数量？\n- 向量维度、精度、原文大小？\n- 每日新增、更新、删除多少？\n- 查询 QPS、峰值并发和延迟目标？\n- Top-K 与过滤条件？\n- 是否需要多地域或跨机房？\n\n### 2. 检索能力\n\n- Dense、Sparse、BM25 是否都需要？\n- 是否支持高选择性 metadata 过滤？\n- 需要 HNSW、IVF-PQ 还是 Exact 即可？\n- 是否需要多向量字段？\n- 是否需要按租户分区？\n- 混合检索在哪一层融合？\n\n### 3. 数据与安全\n\n- 权限能否在服务端强制过滤？\n- 多租户如何隔离？\n- 删除是否能覆盖索引、缓存和备份？\n- 数据是否允许进入第三方托管服务？\n- 审计日志和加密要求是什么？\n\n### 4. 运维\n\n- 团队现有 Postgr"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "post_training/后训练-03-DPO与GRPO.md",
+      "chunk_id": "a3300e68fed478eb99d9ec73111d2e83",
+      "score": 12.3192,
+      "rank": 2,
+      "snippet": "3. 不一定适合所有复杂推理增强场景\n4. 如果 chosen/rejected 构造很差，模型会学偏\n```\n\n---\n\n## 九、GRPO：面向推理任务的强化学习方法\n\nGRPO = Group Relative Policy Optimization。\n\n它在大模型推理增强中经常被提到，尤其是数学、代码、复杂推理任务。\n\n### 为什么需要 GRPO？\n\nPPO 通常需要一个 value model / critic 来估计价值。\n\n问题：\n\n```text\n大模型太大了，再维护一个 critic/value model 成本很高。\n训练复杂，显存压力大。\n```\n\nGRPO 的思路：\n\n```text\n对同一个 prompt，一次生成一组回答。\n根据这一组回答的相对好坏来计算优势 advantage。\n不单独训练 critic model。\n```\n\n### 人话理解 GRPO\n\n```text\n同一道数学题，让模型生成 8 个答案。\n\n答案 A：正确，过程清楚 → 高分\n答案 B：正确，但过程啰嗦 → 中高分\n答案 C：错误 → 低分\n...\n\n不看绝对分数，只看这一组里面谁"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+      "chunk_id": "62646f38e5d6a68c11b764dbe44877be",
+      "score": 12.2017,
+      "rank": 3,
+      "snippet": "# 后训练与强化学习\n## 五、Reward Model 奖励模型\n\nRLHF 里通常会先训练一个 Reward Model。\n\n### Reward Model 是什么？\n\n```text\nReward Model = 一个给回答打分的模型。\n\n输入：prompt + response\n输出：一个分数 reward\n\n分数越高，表示这个回答越符合人类偏好。\n```\n\n例子：\n\n```text\nprompt：解释 MySQL MVCC\nresponse A：结构清楚、准确、有例子 → reward = 8.7\nresponse B：概念混乱、缺关键点 → reward = 2.1\n```\n\n### Reward Model 怎么训练？\n\n用偏好数据训练：\n\n```text\n同一个 prompt 下：\n  chosen 应该比 rejected 分数高。\n\n训练目标：\n  reward(chosen) > reward(rejected)\n```\n\n不用死记公式，面试说清楚这个思想就够：\n\n```text\nReward Model 不一定要预测一个绝对分数，它核心是学会比较两个回答哪个更"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "deployment/推理框架.md",
+      "chunk_id": "f92b50716250d43e385765433d02f920",
+      "score": 11.5218,
+      "rank": 4,
+      "snippet": "- 长输出同样持续增加 KV；\n- 请求结束或取消后必须及时释放；\n- 分页管理能减少连续大块分配和碎片。\n\n---\n\n## 四、关键优化\n\n### 1. Continuous Batching\n\n传统静态 batch 要等所有请求结束。连续批处理可以在每个调度步：\n\n- 移除已完成请求；\n- 加入新请求；\n- 让不同长度请求共同运行。\n\n提高 GPU 利用率，但调度策略会影响：\n\n- TTFT 与 TPOT；\n- 长短请求公平性；\n- 高优先级请求；\n- KV Cache 水位。\n\n### 2. Paged KV Cache / PagedAttention\n\n把 KV Cache 切成固定大小块，按需分配并通过逻辑映射访问：\n\n- 减少外部碎片；\n- 支持非连续物理存储；\n- 提高可容纳并发；\n- 便于共享和回收。\n\nPagedAttention解决的是推理 KV 内存管理，不是训练中的 FlashAttention。\n\n### 3. FlashAttention\n\n通过分块和重计算减少 Attention 中间矩阵的显存读写，提升训练/Prefill效率。\n它不等于降低精度，也不"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "post_training/后训练-04-常见问题与DPO落地.md",
+      "chunk_id": "5a61f952a5ae4be57d25979e1977b0ef",
+      "score": 10.7452,
+      "rank": 5,
+      "snippet": "安全偏好数据\n拒答数据\n红队测试\n安全评测集\n```\n\n---\n\n## 十二、DPO 训练到底在训练什么\n\n### DPO 的输入格式\n\nDPO 不是普通问答数据，而是偏好对数据。\n\n常见 JSONL 格式：\n\n```json\n{\"prompt\":\"解释 Redis 缓存击穿\",\"chosen\":\"缓存击穿是热点 key 过期后...\",\"rejected\":\"缓存击穿就是 Redis 坏了。\"}\n```\n\n也可能是 ChatML / messages 格式：\n\n```json\n{\n  \"prompt\": [\n    {\"role\": \"user\", \"content\": \"解释 MySQL MVCC\"}\n  ],\n  \"chosen\": [\n    {\"role\": \"assistant\", \"content\": \"MVCC 是多版本并发控制...\"}\n  ],\n  \"rejected\": [\n    {\"role\": \"assistant\", \"content\": \"MVCC 就是加锁。\"}\n  ]\n}\n```\n\n核心不是格式，而是：\n\n```text\n同一个 prompt 下，c"
+     }
+    },
+    {
+     "type": "final",
+     "result": {
+      "schema_version": "engineering_query_response_v1",
+      "status": "refused",
+      "answer": null,
+      "reason_code": "INSUFFICIENT_INFORMATION",
+      "failure_code": null,
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_errors_used": 0,
+      "trace": [
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": "refuse",
+        "provider_call_count": 1,
+        "event_type": "decision_completed",
+        "tool_status": null,
+        "repair_attempted": false,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "repair_succeeded": false,
+        "error_code": null,
+        "tool_calls_used": 0
+       },
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": null,
+        "event_type": "runtime_stopped",
+        "tool_status": null,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "error_code": "INSUFFICIENT_INFORMATION",
+        "tool_calls_used": 0
+       }
+      ],
+      "evidence": [
+       {
+        "evidence_id": "E1",
+        "kind": "knowledge",
+        "source_name": "vector_db/产品对比.md",
+        "chunk_id": "338fef2c0fbea91fbcd021e606d24c66",
+        "score": 13.459,
+        "rank": 1,
+        "snippet": "|\n\n不要使用“某产品一定最快”作为结论。性能由：\n\n- 数据规模与维度；\n- 索引和参数；\n- Filter 选择性；\n- Top-K；\n- 并发；\n- 硬件和网络；\n- 副本与一致性；\n- 客户端实现\n\n共同决定。\n\n---\n\n## 三、选型前必须回答的问题\n\n### 1. 数据与流量\n\n- 现在和一年后的向量数量？\n- 向量维度、精度、原文大小？\n- 每日新增、更新、删除多少？\n- 查询 QPS、峰值并发和延迟目标？\n- Top-K 与过滤条件？\n- 是否需要多地域或跨机房？\n\n### 2. 检索能力\n\n- Dense、Sparse、BM25 是否都需要？\n- 是否支持高选择性 metadata 过滤？\n- 需要 HNSW、IVF-PQ 还是 Exact 即可？\n- 是否需要多向量字段？\n- 是否需要按租户分区？\n- 混合检索在哪一层融合？\n\n### 3. 数据与安全\n\n- 权限能否在服务端强制过滤？\n- 多租户如何隔离？\n- 删除是否能覆盖索引、缓存和备份？\n- 数据是否允许进入第三方托管服务？\n- 审计日志和加密要求是什么？\n\n### 4. 运维\n\n- 团队现有 Postgr"
+       },
+       {
+        "evidence_id": "E2",
+        "kind": "knowledge",
+        "source_name": "post_training/后训练-03-DPO与GRPO.md",
+        "chunk_id": "a3300e68fed478eb99d9ec73111d2e83",
+        "score": 12.3192,
+        "rank": 2,
+        "snippet": "3. 不一定适合所有复杂推理增强场景\n4. 如果 chosen/rejected 构造很差，模型会学偏\n```\n\n---\n\n## 九、GRPO：面向推理任务的强化学习方法\n\nGRPO = Group Relative Policy Optimization。\n\n它在大模型推理增强中经常被提到，尤其是数学、代码、复杂推理任务。\n\n### 为什么需要 GRPO？\n\nPPO 通常需要一个 value model / critic 来估计价值。\n\n问题：\n\n```text\n大模型太大了，再维护一个 critic/value model 成本很高。\n训练复杂，显存压力大。\n```\n\nGRPO 的思路：\n\n```text\n对同一个 prompt，一次生成一组回答。\n根据这一组回答的相对好坏来计算优势 advantage。\n不单独训练 critic model。\n```\n\n### 人话理解 GRPO\n\n```text\n同一道数学题，让模型生成 8 个答案。\n\n答案 A：正确，过程清楚 → 高分\n答案 B：正确，但过程啰嗦 → 中高分\n答案 C：错误 → 低分\n...\n\n不看绝对分数，只看这一组里面谁"
+       },
+       {
+        "evidence_id": "E3",
+        "kind": "knowledge",
+        "source_name": "post_training/后训练-02-RewardModel与RLHF-PPO.md",
+        "chunk_id": "62646f38e5d6a68c11b764dbe44877be",
+        "score": 12.2017,
+        "rank": 3,
+        "snippet": "# 后训练与强化学习\n## 五、Reward Model 奖励模型\n\nRLHF 里通常会先训练一个 Reward Model。\n\n### Reward Model 是什么？\n\n```text\nReward Model = 一个给回答打分的模型。\n\n输入：prompt + response\n输出：一个分数 reward\n\n分数越高，表示这个回答越符合人类偏好。\n```\n\n例子：\n\n```text\nprompt：解释 MySQL MVCC\nresponse A：结构清楚、准确、有例子 → reward = 8.7\nresponse B：概念混乱、缺关键点 → reward = 2.1\n```\n\n### Reward Model 怎么训练？\n\n用偏好数据训练：\n\n```text\n同一个 prompt 下：\n  chosen 应该比 rejected 分数高。\n\n训练目标：\n  reward(chosen) > reward(rejected)\n```\n\n不用死记公式，面试说清楚这个思想就够：\n\n```text\nReward Model 不一定要预测一个绝对分数，它核心是学会比较两个回答哪个更"
+       },
+       {
+        "evidence_id": "E4",
+        "kind": "knowledge",
+        "source_name": "deployment/推理框架.md",
+        "chunk_id": "f92b50716250d43e385765433d02f920",
+        "score": 11.5218,
+        "rank": 4,
+        "snippet": "- 长输出同样持续增加 KV；\n- 请求结束或取消后必须及时释放；\n- 分页管理能减少连续大块分配和碎片。\n\n---\n\n## 四、关键优化\n\n### 1. Continuous Batching\n\n传统静态 batch 要等所有请求结束。连续批处理可以在每个调度步：\n\n- 移除已完成请求；\n- 加入新请求；\n- 让不同长度请求共同运行。\n\n提高 GPU 利用率，但调度策略会影响：\n\n- TTFT 与 TPOT；\n- 长短请求公平性；\n- 高优先级请求；\n- KV Cache 水位。\n\n### 2. Paged KV Cache / PagedAttention\n\n把 KV Cache 切成固定大小块，按需分配并通过逻辑映射访问：\n\n- 减少外部碎片；\n- 支持非连续物理存储；\n- 提高可容纳并发；\n- 便于共享和回收。\n\nPagedAttention解决的是推理 KV 内存管理，不是训练中的 FlashAttention。\n\n### 3. FlashAttention\n\n通过分块和重计算减少 Attention 中间矩阵的显存读写，提升训练/Prefill效率。\n它不等于降低精度，也不"
+       },
+       {
+        "evidence_id": "E5",
+        "kind": "knowledge",
+        "source_name": "post_training/后训练-04-常见问题与DPO落地.md",
+        "chunk_id": "5a61f952a5ae4be57d25979e1977b0ef",
+        "score": 10.7452,
+        "rank": 5,
+        "snippet": "安全偏好数据\n拒答数据\n红队测试\n安全评测集\n```\n\n---\n\n## 十二、DPO 训练到底在训练什么\n\n### DPO 的输入格式\n\nDPO 不是普通问答数据，而是偏好对数据。\n\n常见 JSONL 格式：\n\n```json\n{\"prompt\":\"解释 Redis 缓存击穿\",\"chosen\":\"缓存击穿是热点 key 过期后...\",\"rejected\":\"缓存击穿就是 Redis 坏了。\"}\n```\n\n也可能是 ChatML / messages 格式：\n\n```json\n{\n  \"prompt\": [\n    {\"role\": \"user\", \"content\": \"解释 MySQL MVCC\"}\n  ],\n  \"chosen\": [\n    {\"role\": \"assistant\", \"content\": \"MVCC 是多版本并发控制...\"}\n  ],\n  \"rejected\": [\n    {\"role\": \"assistant\", \"content\": \"MVCC 就是加锁。\"}\n  ]\n}\n```\n\n核心不是格式，而是：\n\n```text\n同一个 prompt 下，c"
+       }
+      ]
+     }
+    },
+    {
+     "type": "done"
+    }
+   ]
+  },
+  {
+   "turn": 3,
+   "question": "如果校验失败，重试是怎么接入的？max_retries 如何控制总尝试次数？",
+   "started_at": "2026-09-08T05:10:14.163219+00:00",
+   "latency_seconds": 15.06,
+   "http_status": 200,
+   "terminal_status": "completed",
+   "answer": "校验失败时的重试接入与 max_retries 的总尝试次数控制，需要区分“执行层重试”与“校验层重试”两个层面，且两者语义不同。\n\n## 1. 校验失败的重试如何接入执行流程\n\n在 Function Calling / MCP 的典型 Tool 调用流程中，校验发生在“模型生成 tool call”之后、真正执行工具之前，由 Host 层负责参数/权限/风险校验，Server 层再对真实资源做二次校验（[E3]）。\n\n- 校验失败（如参数 Schema 不匹配、字段级错误、权限不足）时，重试的接入点不是“重新执行工具”，而是“把失败信息回传给模型，让模型修正后再生成一次 tool call”。\n- 也就是说，重试接入的是 Agent Loop 的迭代循环：模型输出 → 校验 → 失败则把错误作为新的上下文反馈给模型 → 模型重新生成 → 再次校验，直到通过或达到终止条件。\n- 校验失败不应直接触发工具执行层的重试，因为工具本身没有副作用问题；真正需要幂等键和重试语义的是“写工具执行失败后重放”的场景（[E1] 提到写工具重试需要幂等键，[E4] 强调 task_id + action_id 幂等键与执行状态机）。\n\n因此：\n- 参数/权限校验失败 → 走“模型修正重试”路径（反馈式重试）；\n- 工具执行失败（副作用场景）→ 走“带幂等键的执行重试”路径。\n\n## 2. max_retries 如何控制总尝试次数\n\nmax_retries 通常表示“额外重试次数”，而不是“总尝试次数”。\n\n- 若 max_retries = N，则总尝试次数 = 1（首次）+ N（重试）= N+1。\n- 例如 max_retries=3 表示首次尝试失败后最多再重试 3 次，总尝试次数上限为 4。\n- 重试次数耗尽后，应进入明确的终止路径（拒绝或超时终止），而不是无限循环（[E4] 强调“拒绝和超时有明确终止路径”）。\n\n## 3. 工程上的关键约束\n\n- 重试必须配合幂等键，避免“执行成功但响应丢失”导致的重放副作用（[E1][E4]）。\n- 校验失败的重试与执行失败的重试应分开计数，因为前者不产生副作用、后者可能产生副作用。\n- 恢复/重试时需重新校验参数与权限，批准内容必须绑定具体 action hash，防止“批准 A 被替换成 B”（[E4]）。\n- 总尝试次数应受 Agent Loop 的最大轮次、超时与取消等终止条件约束（[E1]）。\n\n## 小结\n\n- 校验失败重试接入在“模型生成→校验→反馈→再生成”的循环中，属于反馈式修正，不直接重放工具。\n- max_retries 控制的是“额外重试次数”，总尝试次数 = max_retries + 1；耗尽后进入明确终止路径。\n- 副作用型执行重试必须配幂等键，且恢复时重新校验，防止重复或替换副作用。",
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "tool_calling/Function-Calling原理.md",
+     "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+     "score": 11.6423,
+     "rank": 2,
+     "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "finetuning/训练与评估.md",
+     "chunk_id": "5ade7d89f4628aa5d71f353639e01c95",
+     "score": 11.8856,
+     "rank": 1,
+     "snippet": "- 很快下降后验证恶化：可能过大或过拟合；\n- 突然 NaN：先查学习率、异常样本和混合精度。\n\n### 3. Epoch 与 Max Steps\n\n小数据按 epoch 训练时，同一数据可能被反复记忆。大数据或混合数据更适合按总 step\n控制。必须记录“有效训练 Token 总量”，仅记录 epoch 不足以跨数据版本比较。\n\n### 4. Warmup 与调度\n\n- Warmup 可按总 optimizer steps 的比例或固定步数设置；\n- Linear/Cosine Decay 都可作为基线；\n- 梯度累积时调度器应按参数更新步推进；\n- 训练总步数变化时，warmup 也要重新计算。\n\n### 5. 序列长度\n\n序列越长，激活和计算通常越贵。最大长度应来自数据分布和任务需要。\n若 95% 样本小于 1K Token，盲目用 8K 训练可能浪费大量资源。\n\n### 6. LoRA 参数\n\n重点记录：\n\n- r、alpha、dropout；\n- target_modules；\n- 是否训练 bias、embedding、lm_head；\n- 是否使用 QLoRA；\n- 量化"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "mcp/MCP协议-02-能力发现与传输.md",
+     "chunk_id": "d5c3fd3e23d9e1020222c547b417ca36",
+     "score": 11.6875,
+     "rank": 1,
+     "snippet": "# MCP 协议：把工具与上下文标准化接入 Agent\n## 五、能力发现与调用\n\n典型 Tool 流程：\n\n~~~text\nClient: list tools\nServer: 返回名称、描述、input schema\nHost: 选择允许暴露给模型的工具\nModel: 生成 tool call\nHost: 参数/权限/风险校验\nClient: call tool\nServer: 再次校验并执行\nServer: 返回内容、结构化结果或错误\nHost: 将安全、限长后的结果交给模型\n~~~\n\n为什么要两次校验：\n\n- Host 负责用户上下文和全局策略；\n- Server 负责真实资源和业务权限；\n- 任何一层都不能盲信模型或另一端。\n\n工具列表可能变化时，Client 要处理能力变化通知或重新发现，不能永久缓存旧 Schema。\n\n---\n\n## 六、传输方式\n\n### 1. stdio\n\nHost 启动本地 Server 子进程，通过标准输入/输出传输协议消息。\n\n优点：\n\n- 本地集成简单；\n- 不需要开放网络端口；\n- 进程生命周期由 Host 管理。\n\n注意：\n\n- stdo"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+     "chunk_id": "5a50db9f9f5083641ea5bb947ec2b2c4",
+     "score": 10.8733,
+     "rank": 3,
+     "snippet": "        \"type\": \"approval_required\",\n        \"action\": state[\"pending_action\"],\n        \"message\": \"是否执行该写操作？\",\n    })\n    return {\"approval\": decision}\n~~~\n\n外部系统拿到中断信息后展示给用户，再以相同 thread_id 恢复并提交决定。\n\n关键原则：\n\n1. 先持久化，再中断；\n2. 副作用节点放在批准之后；\n3. 恢复时重新校验权限和参数；\n4. 批准内容必须绑定具体 action hash；\n5. 批准过 A 不能被替换成 B；\n6. 拒绝和超时有明确终止路径。\n\n框架恢复 API 可能随版本变化，项目中应做集成测试。\n\n---\n\n## 九、副作用、幂等与恢复\n\n如果节点执行“写记录”后进程崩溃，但 Checkpoint 尚未保存，恢复时可能再次执行。\n\n必须设计：\n\n- task_id + action_id 幂等键；\n- 业务库唯一约束；\n- 执行状态：prepared/running/succeeded/failed/"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "finetuning/微调方法.md",
+     "chunk_id": "c8991d68890879879c639af1dda58357",
+     "score": 9.6092,
+     "rank": 3,
+     "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+    }
+   ],
+   "tool_calls_used": 0,
+   "iterations_used": 1,
+   "decision_llm_calls": 2,
+   "input_output_tokens": "UNKNOWN",
+   "error_body": null,
+   "sse_event_types": [
+    "status",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "answer_start",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "final",
+    "done"
+   ],
+   "events": [
+    {
+     "type": "status",
+     "stage": "analysis",
+     "state": "started"
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "tool_calling/Function-Calling原理.md",
+      "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+      "score": 11.6423,
+      "rank": 2,
+      "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "finetuning/训练与评估.md",
+      "chunk_id": "5ade7d89f4628aa5d71f353639e01c95",
+      "score": 11.8856,
+      "rank": 1,
+      "snippet": "- 很快下降后验证恶化：可能过大或过拟合；\n- 突然 NaN：先查学习率、异常样本和混合精度。\n\n### 3. Epoch 与 Max Steps\n\n小数据按 epoch 训练时，同一数据可能被反复记忆。大数据或混合数据更适合按总 step\n控制。必须记录“有效训练 Token 总量”，仅记录 epoch 不足以跨数据版本比较。\n\n### 4. Warmup 与调度\n\n- Warmup 可按总 optimizer steps 的比例或固定步数设置；\n- Linear/Cosine Decay 都可作为基线；\n- 梯度累积时调度器应按参数更新步推进；\n- 训练总步数变化时，warmup 也要重新计算。\n\n### 5. 序列长度\n\n序列越长，激活和计算通常越贵。最大长度应来自数据分布和任务需要。\n若 95% 样本小于 1K Token，盲目用 8K 训练可能浪费大量资源。\n\n### 6. LoRA 参数\n\n重点记录：\n\n- r、alpha、dropout；\n- target_modules；\n- 是否训练 bias、embedding、lm_head；\n- 是否使用 QLoRA；\n- 量化"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "mcp/MCP协议-02-能力发现与传输.md",
+      "chunk_id": "d5c3fd3e23d9e1020222c547b417ca36",
+      "score": 11.6875,
+      "rank": 1,
+      "snippet": "# MCP 协议：把工具与上下文标准化接入 Agent\n## 五、能力发现与调用\n\n典型 Tool 流程：\n\n~~~text\nClient: list tools\nServer: 返回名称、描述、input schema\nHost: 选择允许暴露给模型的工具\nModel: 生成 tool call\nHost: 参数/权限/风险校验\nClient: call tool\nServer: 再次校验并执行\nServer: 返回内容、结构化结果或错误\nHost: 将安全、限长后的结果交给模型\n~~~\n\n为什么要两次校验：\n\n- Host 负责用户上下文和全局策略；\n- Server 负责真实资源和业务权限；\n- 任何一层都不能盲信模型或另一端。\n\n工具列表可能变化时，Client 要处理能力变化通知或重新发现，不能永久缓存旧 Schema。\n\n---\n\n## 六、传输方式\n\n### 1. stdio\n\nHost 启动本地 Server 子进程，通过标准输入/输出传输协议消息。\n\n优点：\n\n- 本地集成简单；\n- 不需要开放网络端口；\n- 进程生命周期由 Host 管理。\n\n注意：\n\n- stdo"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+      "chunk_id": "5a50db9f9f5083641ea5bb947ec2b2c4",
+      "score": 10.8733,
+      "rank": 3,
+      "snippet": "        \"type\": \"approval_required\",\n        \"action\": state[\"pending_action\"],\n        \"message\": \"是否执行该写操作？\",\n    })\n    return {\"approval\": decision}\n~~~\n\n外部系统拿到中断信息后展示给用户，再以相同 thread_id 恢复并提交决定。\n\n关键原则：\n\n1. 先持久化，再中断；\n2. 副作用节点放在批准之后；\n3. 恢复时重新校验权限和参数；\n4. 批准内容必须绑定具体 action hash；\n5. 批准过 A 不能被替换成 B；\n6. 拒绝和超时有明确终止路径。\n\n框架恢复 API 可能随版本变化，项目中应做集成测试。\n\n---\n\n## 九、副作用、幂等与恢复\n\n如果节点执行“写记录”后进程崩溃，但 Checkpoint 尚未保存，恢复时可能再次执行。\n\n必须设计：\n\n- task_id + action_id 幂等键；\n- 业务库唯一约束；\n- 执行状态：prepared/running/succeeded/failed/"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "finetuning/微调方法.md",
+      "chunk_id": "c8991d68890879879c639af1dda58357",
+      "score": 9.6092,
+      "rank": 3,
+      "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+     }
+    },
+    {
+     "type": "answer_start"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "校验失败时的重试接入与 max_"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "retries 的总尝试次数控制"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "，需要区分“执行层重试”与“校验"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "层重试”两个层面，且两者语义不同"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "。\n\n## 1. 校验失败的重试"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "如何接入执行流程\n\n在 Func"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "tion Calling / M"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "CP 的典型 Tool 调用流程"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "中，校验发生在“模型生成 too"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "l call”之后、真正执行工具"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "之前，由 Host 层负责参数/"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "权限/风险校验，Server 层"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "再对真实资源做二次校验（[E3]"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "）。\n\n- 校验失败（如参数 S"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "chema 不匹配、字段级错误、"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "权限不足）时，重试的接入点不是“"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "重新执行工具”，而是“把失败信息"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "回传给模型，让模型修正后再生成一"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "次 tool call”。\n- "
+    },
+    {
+     "type": "answer_delta",
+     "delta": "也就是说，重试接入的是 Agen"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "t Loop 的迭代循环：模型输"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "出 → 校验 → 失败则把错误作"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "为新的上下文反馈给模型 → 模型"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "重新生成 → 再次校验，直到通过"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "或达到终止条件。\n- 校验失败不"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "应直接触发工具执行层的重试，因为"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "工具本身没有副作用问题；真正需要"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "幂等键和重试语义的是“写工具执行"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "失败后重放”的场景（[E1] 提"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "到写工具重试需要幂等键，[E4]"
+    },
+    {
+     "type": "answer_delta",
+     "delta": " 强调 task_id + ac"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "tion_id 幂等键与执行状态"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "机）。\n\n因此：\n- 参数/权限"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "校验失败 → 走“模型修正重试”"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "路径（反馈式重试）；\n- 工具执"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "行失败（副作用场景）→ 走“带幂"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "等键的执行重试”路径。\n\n## "
+    },
+    {
+     "type": "answer_delta",
+     "delta": "2. max_retries 如"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "何控制总尝试次数\n\nmax_re"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "tries 通常表示“额外重试次"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "数”，而不是“总尝试次数”。\n\n"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "- 若 max_retries "
+    },
+    {
+     "type": "answer_delta",
+     "delta": "= N，则总尝试次数 = 1（首"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "次）+ N（重试）= N+1。\n"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "- 例如 max_retries"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "=3 表示首次尝试失败后最多再重"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "试 3 次，总尝试次数上限为 4"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "。\n- 重试次数耗尽后，应进入明"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "确的终止路径（拒绝或超时终止），"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "而不是无限循环（[E4] 强调“"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "拒绝和超时有明确终止路径”）。\n"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "\n## 3. 工程上的关键约束\n"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "\n- 重试必须配合幂等键，避免“"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "执行成功但响应丢失”导致的重放副"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "作用（[E1][E4]）。\n- "
+    },
+    {
+     "type": "answer_delta",
+     "delta": "校验失败的重试与执行失败的重试应"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "分开计数，因为前者不产生副作用、"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "后者可能产生副作用。\n- 恢复/"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "重试时需重新校验参数与权限，批准"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "内容必须绑定具体 action "
+    },
+    {
+     "type": "answer_delta",
+     "delta": "hash，防止“批准 A 被替换"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "成 B”（[E4]）。\n- 总尝"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "试次数应受 Agent Loop"
+    },
+    {
+     "type": "answer_delta",
+     "delta": " 的最大轮次、超时与取消等终止条"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "件约束（[E1]）。\n\n## 小"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "结\n\n- 校验失败重试接入在“模"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "型生成→校验→反馈→再生成”的循"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "环中，属于反馈式修正，不直接重放"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "工具。\n- max_retrie"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "s 控制的是“额外重试次数”，总"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "尝试次数 = max_retri"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "es + 1；耗尽后进入明确终止"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "路径。\n- 副作用型执行重试必须"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "配幂等键，且恢复时重新校验，防止"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "重复或替换副作用。"
+    },
+    {
+     "type": "final",
+     "result": {
+      "schema_version": "engineering_query_response_v1",
+      "status": "completed",
+      "answer": "校验失败时的重试接入与 max_retries 的总尝试次数控制，需要区分“执行层重试”与“校验层重试”两个层面，且两者语义不同。\n\n## 1. 校验失败的重试如何接入执行流程\n\n在 Function Calling / MCP 的典型 Tool 调用流程中，校验发生在“模型生成 tool call”之后、真正执行工具之前，由 Host 层负责参数/权限/风险校验，Server 层再对真实资源做二次校验（[E3]）。\n\n- 校验失败（如参数 Schema 不匹配、字段级错误、权限不足）时，重试的接入点不是“重新执行工具”，而是“把失败信息回传给模型，让模型修正后再生成一次 tool call”。\n- 也就是说，重试接入的是 Agent Loop 的迭代循环：模型输出 → 校验 → 失败则把错误作为新的上下文反馈给模型 → 模型重新生成 → 再次校验，直到通过或达到终止条件。\n- 校验失败不应直接触发工具执行层的重试，因为工具本身没有副作用问题；真正需要幂等键和重试语义的是“写工具执行失败后重放”的场景（[E1] 提到写工具重试需要幂等键，[E4] 强调 task_id + action_id 幂等键与执行状态机）。\n\n因此：\n- 参数/权限校验失败 → 走“模型修正重试”路径（反馈式重试）；\n- 工具执行失败（副作用场景）→ 走“带幂等键的执行重试”路径。\n\n## 2. max_retries 如何控制总尝试次数\n\nmax_retries 通常表示“额外重试次数”，而不是“总尝试次数”。\n\n- 若 max_retries = N，则总尝试次数 = 1（首次）+ N（重试）= N+1。\n- 例如 max_retries=3 表示首次尝试失败后最多再重试 3 次，总尝试次数上限为 4。\n- 重试次数耗尽后，应进入明确的终止路径（拒绝或超时终止），而不是无限循环（[E4] 强调“拒绝和超时有明确终止路径”）。\n\n## 3. 工程上的关键约束\n\n- 重试必须配合幂等键，避免“执行成功但响应丢失”导致的重放副作用（[E1][E4]）。\n- 校验失败的重试与执行失败的重试应分开计数，因为前者不产生副作用、后者可能产生副作用。\n- 恢复/重试时需重新校验参数与权限，批准内容必须绑定具体 action hash，防止“批准 A 被替换成 B”（[E4]）。\n- 总尝试次数应受 Agent Loop 的最大轮次、超时与取消等终止条件约束（[E1]）。\n\n## 小结\n\n- 校验失败重试接入在“模型生成→校验→反馈→再生成”的循环中，属于反馈式修正，不直接重放工具。\n- max_retries 控制的是“额外重试次数”，总尝试次数 = max_retries + 1；耗尽后进入明确终止路径。\n- 副作用型执行重试必须配幂等键，且恢复时重新校验，防止重复或替换副作用。",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_errors_used": 0,
+      "trace": [
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": "final_answer",
+        "provider_call_count": 2,
+        "event_type": "decision_completed",
+        "tool_status": null,
+        "repair_attempted": true,
+        "iteration": 1,
+        "parse_failure_category": "ACTION_SCHEMA_INVALID",
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "repair_succeeded": true,
+        "error_code": null,
+        "tool_calls_used": 0
+       },
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": null,
+        "event_type": "runtime_stopped",
+        "tool_status": null,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "error_code": null,
+        "tool_calls_used": 0
+       }
+      ],
+      "evidence": [
+       {
+        "evidence_id": "E1",
+        "kind": "knowledge",
+        "source_name": "tool_calling/Function-Calling原理.md",
+        "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+        "score": 11.6423,
+        "rank": 2,
+        "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+       },
+       {
+        "evidence_id": "E2",
+        "kind": "knowledge",
+        "source_name": "finetuning/训练与评估.md",
+        "chunk_id": "5ade7d89f4628aa5d71f353639e01c95",
+        "score": 11.8856,
+        "rank": 1,
+        "snippet": "- 很快下降后验证恶化：可能过大或过拟合；\n- 突然 NaN：先查学习率、异常样本和混合精度。\n\n### 3. Epoch 与 Max Steps\n\n小数据按 epoch 训练时，同一数据可能被反复记忆。大数据或混合数据更适合按总 step\n控制。必须记录“有效训练 Token 总量”，仅记录 epoch 不足以跨数据版本比较。\n\n### 4. Warmup 与调度\n\n- Warmup 可按总 optimizer steps 的比例或固定步数设置；\n- Linear/Cosine Decay 都可作为基线；\n- 梯度累积时调度器应按参数更新步推进；\n- 训练总步数变化时，warmup 也要重新计算。\n\n### 5. 序列长度\n\n序列越长，激活和计算通常越贵。最大长度应来自数据分布和任务需要。\n若 95% 样本小于 1K Token，盲目用 8K 训练可能浪费大量资源。\n\n### 6. LoRA 参数\n\n重点记录：\n\n- r、alpha、dropout；\n- target_modules；\n- 是否训练 bias、embedding、lm_head；\n- 是否使用 QLoRA；\n- 量化"
+       },
+       {
+        "evidence_id": "E3",
+        "kind": "knowledge",
+        "source_name": "mcp/MCP协议-02-能力发现与传输.md",
+        "chunk_id": "d5c3fd3e23d9e1020222c547b417ca36",
+        "score": 11.6875,
+        "rank": 1,
+        "snippet": "# MCP 协议：把工具与上下文标准化接入 Agent\n## 五、能力发现与调用\n\n典型 Tool 流程：\n\n~~~text\nClient: list tools\nServer: 返回名称、描述、input schema\nHost: 选择允许暴露给模型的工具\nModel: 生成 tool call\nHost: 参数/权限/风险校验\nClient: call tool\nServer: 再次校验并执行\nServer: 返回内容、结构化结果或错误\nHost: 将安全、限长后的结果交给模型\n~~~\n\n为什么要两次校验：\n\n- Host 负责用户上下文和全局策略；\n- Server 负责真实资源和业务权限；\n- 任何一层都不能盲信模型或另一端。\n\n工具列表可能变化时，Client 要处理能力变化通知或重新发现，不能永久缓存旧 Schema。\n\n---\n\n## 六、传输方式\n\n### 1. stdio\n\nHost 启动本地 Server 子进程，通过标准输入/输出传输协议消息。\n\n优点：\n\n- 本地集成简单；\n- 不需要开放网络端口；\n- 进程生命周期由 Host 管理。\n\n注意：\n\n- stdo"
+       },
+       {
+        "evidence_id": "E4",
+        "kind": "knowledge",
+        "source_name": "agent_frameworks/LangChain-LangGraph-03-Checkpoint与人工介入.md",
+        "chunk_id": "5a50db9f9f5083641ea5bb947ec2b2c4",
+        "score": 10.8733,
+        "rank": 3,
+        "snippet": "        \"type\": \"approval_required\",\n        \"action\": state[\"pending_action\"],\n        \"message\": \"是否执行该写操作？\",\n    })\n    return {\"approval\": decision}\n~~~\n\n外部系统拿到中断信息后展示给用户，再以相同 thread_id 恢复并提交决定。\n\n关键原则：\n\n1. 先持久化，再中断；\n2. 副作用节点放在批准之后；\n3. 恢复时重新校验权限和参数；\n4. 批准内容必须绑定具体 action hash；\n5. 批准过 A 不能被替换成 B；\n6. 拒绝和超时有明确终止路径。\n\n框架恢复 API 可能随版本变化，项目中应做集成测试。\n\n---\n\n## 九、副作用、幂等与恢复\n\n如果节点执行“写记录”后进程崩溃，但 Checkpoint 尚未保存，恢复时可能再次执行。\n\n必须设计：\n\n- task_id + action_id 幂等键；\n- 业务库唯一约束；\n- 执行状态：prepared/running/succeeded/failed/"
+       },
+       {
+        "evidence_id": "E5",
+        "kind": "knowledge",
+        "source_name": "finetuning/微调方法.md",
+        "chunk_id": "c8991d68890879879c639af1dda58357",
+        "score": 9.6092,
+        "rank": 3,
+        "snippet": "] 说明为什么该任务需要微调而不是只用 RAG；\n- [ ] 打印模型模块并选择 target_modules；\n- [ ] 统计总参数和可训练参数；\n- [ ] 跑通 LoRA 或 QLoRA SFT；\n- [ ] 保存 Adapter、tokenizer、配置和数据版本；\n- [ ] 比较 Base 与 SFT 的目标能力、通用能力、延迟和显存；\n- [ ] 做 r、target_modules 或数据量中的至少一个消融；\n- [ ] 记录失败样本，而不是只截图 Loss；\n- [ ] 合并/未合并模型做一致性回归；\n- [ ] 能复现最佳 checkpoint。\n\n---\n\n## 十二、面试自检\n\n1. 什么问题适合 RAG，什么问题适合微调？\n2. SFT、LoRA 和 DPO 为什么不在同一个分类维度？\n3. 写出 LoRA 的更新公式和矩阵形状。\n4. r、alpha、dropout、target_modules分别控制什么？\n5. LoRA 减少哪些显存，不减少哪些？\n6. QLoRA 中哪些参数被量化，哪些参数在训练？\n7. 4-bit 存储为什么不等于所有计算都是 I"
+       }
+      ]
+     }
+    },
+    {
+     "type": "done"
+    }
+   ]
+  },
+  {
+   "turn": 4,
+   "question": "README 或 docs 对这个重试/再请求行为的描述和代码实现一致吗？请对照说明。",
+   "started_at": "2026-09-08T05:10:29.227857+00:00",
+   "latency_seconds": 4.82,
+   "http_status": 200,
+   "terminal_status": "completed",
+   "answer": "对照说明：\n\n**文档描述**：\n- [E3]（rag/检索与生成.md）明确说明“LLM 超时 → 支持取消、超时和可控重试”，并强调“重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试”。\n- [E1]（tool_calling/Function-Calling原理.md）在 Agent 循环实现顺序中列出“最大轮次、超时和取消”，并提示“写工具重试为什么需要幂等键”。\n- [E2]（deployment/部署架构.md）面试自检中提及“Streaming 开始后为什么不适合透明重试”，暗示流式场景下重试有额外限制。\n\n**代码实现**：\n- 当前绑定工程中未检索到与“重试/再请求”直接对应的实现代码或文档片段。上述文档均为通用技术说明，未发现可对照的源码实现。\n\n**结论**：\n- 文档层面一致地表达了“重试需满足幂等性、仅限瞬时故障、流式/参数错误等场景不应重试”的原则；但当前工程代码中未找到对应实现，无法确认文档描述与代码实现是否一致。若需进一步核对，应先在仓库中定位实际的重试逻辑（如 retry、backoff、max_retries 等实现）再作判断。",
+   "evidence": [
+    {
+     "evidence_id": "E1",
+     "kind": "knowledge",
+     "source_name": "tool_calling/Function-Calling原理.md",
+     "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+     "score": 12.0637,
+     "rank": 1,
+     "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+    },
+    {
+     "evidence_id": "E2",
+     "kind": "knowledge",
+     "source_name": "deployment/部署架构.md",
+     "chunk_id": "8cc946239eb44cfe42a73f38b89641c1",
+     "score": 11.3913,
+     "rank": 2,
+     "snippet": "] 灰度与回滚；\n- [ ] 备份恢复；\n- [ ] 故障注入；\n- [ ] SLO和告警；\n- [ ] 版本兼容矩阵。\n\n---\n\n## 十七、面试自检\n\n1. 小流量项目为什么不一定需要拆很多微服务？\n2. tenant/user上下文为什么不能信任请求体？\n3. Model Gateway的职责是什么？\n4. 模型单卡能放下时，多个副本与Tensor Parallel如何选择？\n5. 如何用Little定律粗估并发？\n6. 为什么只按请求数限流不够？\n7. 背压如何从推理服务传到网关？\n8. Streaming开始后为什么不适合透明重试？\n9. 用户取消后要释放哪些资源？\n10. RAG/模型缓存键为什么必须包含权限和版本？\n11. 一次模型发布要关联哪些组件版本？\n12. 如何设计灰度、SLO和快速回滚？\n\n能回答10/12，并完成V2，才达到大模型应用工程部署基线。\n\n---\n"
+    },
+    {
+     "evidence_id": "E3",
+     "kind": "knowledge",
+     "source_name": "rag/检索与生成.md",
+     "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+     "score": 11.4834,
+     "rank": 2,
+     "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+    },
+    {
+     "evidence_id": "E4",
+     "kind": "knowledge",
+     "source_name": "post_training/后训练-01-概念与偏好数据.md",
+     "chunk_id": "12e5724c49615bdbdba8f6041dfb58c0",
+     "score": 10.7125,
+     "rank": 4,
+     "snippet": "让模型知道：\n  哪个回答更好？\n  哪个回答更安全？\n  哪个回答更符合人类偏好？\n  哪个推理过程更可靠？\n```\n\n---\n\n## 四、偏好数据 Preference Data\n\n偏好数据通常长这样：\n\n```json\n{\n  \"prompt\": \"请解释 Redis 缓存击穿\",\n  \"chosen\": \"缓存击穿是热点 key 过期后大量请求打到数据库...\",\n  \"rejected\": \"缓存击穿就是 Redis 坏了。\"\n}\n```\n\n含义：\n\n```text\nprompt：用户问题\nchosen：更好的回答\nrejected：较差的回答\n```\n\n偏好数据不是让模型简单模仿 chosen，而是让模型学会：\n\n```text\n在同一个问题下，提高 chosen 的概率，降低 rejected 的概率。\n```\n\n### chosen / rejected 怎么来？\n\n常见来源：\n\n```text\n1. 人工标注\n   人类对多个回答排序，选出更好的。\n\n2. LLM-as-Judge\n   用更强的模型评判回答质量，生成偏好对。\n\n3. 规则构造\n   对代码题、数学题"
+    },
+    {
+     "evidence_id": "E5",
+     "kind": "knowledge",
+     "source_name": "finetuning/微调方法.md",
+     "chunk_id": "56499462d8465d5e351baf9dbf1b962b",
+     "score": 11.6707,
+     "rank": 1,
+     "snippet": "LoRA 不会凭空创造能力 |\n\n应先建立 Prompt/RAG 基线。如果基线已经满足要求，微调可能只增加维护成本。\n\n微调适合解决“行为分布”问题，例如：\n\n- 固定结构化输出；\n- 领域问答的表达习惯；\n- 分类、抽取、改写等稳定任务；\n- 工具调用格式和路由偏好；\n- 特定风格、拒答边界或回答长度。\n\n---\n\n## 二、训练阶段不要混淆\n\n~~~text\n预训练 / 持续预训练：\n  输入主要是原始文本，目标是 next-token prediction。\n\nSFT（监督微调）：\n  输入是指令/对话，模仿高质量目标回答。\n\n偏好优化：\n  输入常包含 prompt + chosen + rejected，\n  优化回答之间的相对偏好。\n\n强化学习后训练：\n  模型在线采样回答，奖励函数打分后再更新策略。\n~~~\n\n“LoRA”描述的是参数更新方式；“SFT/DPO”描述的是训练目标。\n可以用 LoRA 做 SFT，也可以用 LoRA 做 DPO，两者不是同一维度的概念。\n\n---\n\n## 三、全量微调\n\n全量微调会更新模型绝大多数或全部参数。\n\n优点：\n\n- 容量最大；\n-"
+    }
+   ],
+   "tool_calls_used": 0,
+   "iterations_used": 1,
+   "decision_llm_calls": 1,
+   "input_output_tokens": "UNKNOWN",
+   "error_body": null,
+   "sse_event_types": [
+    "status",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "evidence",
+    "answer_start",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "answer_delta",
+    "final",
+    "done"
+   ],
+   "events": [
+    {
+     "type": "status",
+     "stage": "analysis",
+     "state": "started"
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "tool_calling/Function-Calling原理.md",
+      "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+      "score": 12.0637,
+      "rank": 1,
+      "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "deployment/部署架构.md",
+      "chunk_id": "8cc946239eb44cfe42a73f38b89641c1",
+      "score": 11.3913,
+      "rank": 2,
+      "snippet": "] 灰度与回滚；\n- [ ] 备份恢复；\n- [ ] 故障注入；\n- [ ] SLO和告警；\n- [ ] 版本兼容矩阵。\n\n---\n\n## 十七、面试自检\n\n1. 小流量项目为什么不一定需要拆很多微服务？\n2. tenant/user上下文为什么不能信任请求体？\n3. Model Gateway的职责是什么？\n4. 模型单卡能放下时，多个副本与Tensor Parallel如何选择？\n5. 如何用Little定律粗估并发？\n6. 为什么只按请求数限流不够？\n7. 背压如何从推理服务传到网关？\n8. Streaming开始后为什么不适合透明重试？\n9. 用户取消后要释放哪些资源？\n10. RAG/模型缓存键为什么必须包含权限和版本？\n11. 一次模型发布要关联哪些组件版本？\n12. 如何设计灰度、SLO和快速回滚？\n\n能回答10/12，并完成V2，才达到大模型应用工程部署基线。\n\n---\n"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "rag/检索与生成.md",
+      "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+      "score": 11.4834,
+      "rank": 2,
+      "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "post_training/后训练-01-概念与偏好数据.md",
+      "chunk_id": "12e5724c49615bdbdba8f6041dfb58c0",
+      "score": 10.7125,
+      "rank": 4,
+      "snippet": "让模型知道：\n  哪个回答更好？\n  哪个回答更安全？\n  哪个回答更符合人类偏好？\n  哪个推理过程更可靠？\n```\n\n---\n\n## 四、偏好数据 Preference Data\n\n偏好数据通常长这样：\n\n```json\n{\n  \"prompt\": \"请解释 Redis 缓存击穿\",\n  \"chosen\": \"缓存击穿是热点 key 过期后大量请求打到数据库...\",\n  \"rejected\": \"缓存击穿就是 Redis 坏了。\"\n}\n```\n\n含义：\n\n```text\nprompt：用户问题\nchosen：更好的回答\nrejected：较差的回答\n```\n\n偏好数据不是让模型简单模仿 chosen，而是让模型学会：\n\n```text\n在同一个问题下，提高 chosen 的概率，降低 rejected 的概率。\n```\n\n### chosen / rejected 怎么来？\n\n常见来源：\n\n```text\n1. 人工标注\n   人类对多个回答排序，选出更好的。\n\n2. LLM-as-Judge\n   用更强的模型评判回答质量，生成偏好对。\n\n3. 规则构造\n   对代码题、数学题"
+     }
+    },
+    {
+     "type": "evidence",
+     "evidence": {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "finetuning/微调方法.md",
+      "chunk_id": "56499462d8465d5e351baf9dbf1b962b",
+      "score": 11.6707,
+      "rank": 1,
+      "snippet": "LoRA 不会凭空创造能力 |\n\n应先建立 Prompt/RAG 基线。如果基线已经满足要求，微调可能只增加维护成本。\n\n微调适合解决“行为分布”问题，例如：\n\n- 固定结构化输出；\n- 领域问答的表达习惯；\n- 分类、抽取、改写等稳定任务；\n- 工具调用格式和路由偏好；\n- 特定风格、拒答边界或回答长度。\n\n---\n\n## 二、训练阶段不要混淆\n\n~~~text\n预训练 / 持续预训练：\n  输入主要是原始文本，目标是 next-token prediction。\n\nSFT（监督微调）：\n  输入是指令/对话，模仿高质量目标回答。\n\n偏好优化：\n  输入常包含 prompt + chosen + rejected，\n  优化回答之间的相对偏好。\n\n强化学习后训练：\n  模型在线采样回答，奖励函数打分后再更新策略。\n~~~\n\n“LoRA”描述的是参数更新方式；“SFT/DPO”描述的是训练目标。\n可以用 LoRA 做 SFT，也可以用 LoRA 做 DPO，两者不是同一维度的概念。\n\n---\n\n## 三、全量微调\n\n全量微调会更新模型绝大多数或全部参数。\n\n优点：\n\n- 容量最大；\n-"
+     }
+    },
+    {
+     "type": "answer_start"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "对照说明：\n\n**文档描述**："
+    },
+    {
+     "type": "answer_delta",
+     "delta": "\n- [E3]（rag/检索与生"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "成.md）明确说明“LLM 超时"
+    },
+    {
+     "type": "answer_delta",
+     "delta": " → 支持取消、超时和可控重试”"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "，并强调“重试只适合可能瞬时恢复"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "且具备幂等性的操作。参数错误、越"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "权和内容违规不应重试”。\n- ["
+    },
+    {
+     "type": "answer_delta",
+     "delta": "E1]（tool_calling"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "/Function-Callin"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "g原理.md）在 Agent 循"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "环实现顺序中列出“最大轮次、超时"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "和取消”，并提示“写工具重试为什"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "么需要幂等键”。\n- [E2]（"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "deployment/部署架构."
+    },
+    {
+     "type": "answer_delta",
+     "delta": "md）面试自检中提及“Strea"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "ming 开始后为什么不适合透明"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "重试”，暗示流式场景下重试有额外"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "限制。\n\n**代码实现**：\n-"
+    },
+    {
+     "type": "answer_delta",
+     "delta": " 当前绑定工程中未检索到与“重试"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "/再请求”直接对应的实现代码或文"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "档片段。上述文档均为通用技术说明"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "，未发现可对照的源码实现。\n\n*"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "*结论**：\n- 文档层面一致地"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "表达了“重试需满足幂等性、仅限瞬"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "时故障、流式/参数错误等场景不应"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "重试”的原则；但当前工程代码中未"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "找到对应实现，无法确认文档描述与"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "代码实现是否一致。若需进一步核对"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "，应先在仓库中定位实际的重试逻辑"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "（如 retry、backoff"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "、max_retries 等实现"
+    },
+    {
+     "type": "answer_delta",
+     "delta": "）再作判断。"
+    },
+    {
+     "type": "final",
+     "result": {
+      "schema_version": "engineering_query_response_v1",
+      "status": "completed",
+      "answer": "对照说明：\n\n**文档描述**：\n- [E3]（rag/检索与生成.md）明确说明“LLM 超时 → 支持取消、超时和可控重试”，并强调“重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试”。\n- [E1]（tool_calling/Function-Calling原理.md）在 Agent 循环实现顺序中列出“最大轮次、超时和取消”，并提示“写工具重试为什么需要幂等键”。\n- [E2]（deployment/部署架构.md）面试自检中提及“Streaming 开始后为什么不适合透明重试”，暗示流式场景下重试有额外限制。\n\n**代码实现**：\n- 当前绑定工程中未检索到与“重试/再请求”直接对应的实现代码或文档片段。上述文档均为通用技术说明，未发现可对照的源码实现。\n\n**结论**：\n- 文档层面一致地表达了“重试需满足幂等性、仅限瞬时故障、流式/参数错误等场景不应重试”的原则；但当前工程代码中未找到对应实现，无法确认文档描述与代码实现是否一致。若需进一步核对，应先在仓库中定位实际的重试逻辑（如 retry、backoff、max_retries 等实现）再作判断。",
+      "reason_code": null,
+      "failure_code": null,
+      "iterations_used": 1,
+      "tool_calls_used": 0,
+      "tool_errors_used": 0,
+      "trace": [
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": "final_answer",
+        "provider_call_count": 1,
+        "event_type": "decision_completed",
+        "tool_status": null,
+        "repair_attempted": false,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "repair_succeeded": false,
+        "error_code": null,
+        "tool_calls_used": 0
+       },
+       {
+        "tool_name": null,
+        "call_id": null,
+        "action_type": null,
+        "event_type": "runtime_stopped",
+        "tool_status": null,
+        "iteration": 1,
+        "iterations_used": 1,
+        "tool_errors_used": 0,
+        "error_code": null,
+        "tool_calls_used": 0
+       }
+      ],
+      "evidence": [
+       {
+        "evidence_id": "E1",
+        "kind": "knowledge",
+        "source_name": "tool_calling/Function-Calling原理.md",
+        "chunk_id": "a306ce9e65adb6c802a39cee6bae580b",
+        "score": 12.0637,
+        "rank": 1,
+        "snippet": "## 十四、当前学习 Agent 的最小循环\n\n第一版只暴露三个工具：\n\n```text\nsearch_notes(query, top_k, module)        只读\nrecord_weak_point(topic, evidence)        有限写入、幂等\nget_review_queue(limit)                   只读\n```\n\n实现顺序：\n\n- [ ] 非流式、单工具调用；\n- [ ] 参数 Schema 和字段级错误；\n- [ ] 最大轮次、超时和取消；\n- [ ] 多工具串行；\n- [ ] 幂等写入和授权；\n- [ ] Trace 与评测；\n- [ ] 最后再做并行和流式。\n\n---\n\n## 十五、面试自检\n\n1. 模型在 Function Calling 中真正执行函数了吗？\n2. JSON Schema 校验为什么不能代替权限校验？\n3. Agent Loop 必须有哪些终止条件？\n4. 工具结果为什么也不可信？\n5. 写工具重试为什么需要幂等键？\n6. 哪些工具可以并行，哪些不能？\n7. 如何处理 3 个并行工具中 1 个失败"
+       },
+       {
+        "evidence_id": "E2",
+        "kind": "knowledge",
+        "source_name": "deployment/部署架构.md",
+        "chunk_id": "8cc946239eb44cfe42a73f38b89641c1",
+        "score": 11.3913,
+        "rank": 2,
+        "snippet": "] 灰度与回滚；\n- [ ] 备份恢复；\n- [ ] 故障注入；\n- [ ] SLO和告警；\n- [ ] 版本兼容矩阵。\n\n---\n\n## 十七、面试自检\n\n1. 小流量项目为什么不一定需要拆很多微服务？\n2. tenant/user上下文为什么不能信任请求体？\n3. Model Gateway的职责是什么？\n4. 模型单卡能放下时，多个副本与Tensor Parallel如何选择？\n5. 如何用Little定律粗估并发？\n6. 为什么只按请求数限流不够？\n7. 背压如何从推理服务传到网关？\n8. Streaming开始后为什么不适合透明重试？\n9. 用户取消后要释放哪些资源？\n10. RAG/模型缓存键为什么必须包含权限和版本？\n11. 一次模型发布要关联哪些组件版本？\n12. 如何设计灰度、SLO和快速回滚？\n\n能回答10/12，并完成V2，才达到大模型应用工程部署基线。\n\n---\n"
+       },
+       {
+        "evidence_id": "E3",
+        "kind": "knowledge",
+        "source_name": "rag/检索与生成.md",
+        "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+        "score": 11.4834,
+        "rank": 2,
+        "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+       },
+       {
+        "evidence_id": "E4",
+        "kind": "knowledge",
+        "source_name": "post_training/后训练-01-概念与偏好数据.md",
+        "chunk_id": "12e5724c49615bdbdba8f6041dfb58c0",
+        "score": 10.7125,
+        "rank": 4,
+        "snippet": "让模型知道：\n  哪个回答更好？\n  哪个回答更安全？\n  哪个回答更符合人类偏好？\n  哪个推理过程更可靠？\n```\n\n---\n\n## 四、偏好数据 Preference Data\n\n偏好数据通常长这样：\n\n```json\n{\n  \"prompt\": \"请解释 Redis 缓存击穿\",\n  \"chosen\": \"缓存击穿是热点 key 过期后大量请求打到数据库...\",\n  \"rejected\": \"缓存击穿就是 Redis 坏了。\"\n}\n```\n\n含义：\n\n```text\nprompt：用户问题\nchosen：更好的回答\nrejected：较差的回答\n```\n\n偏好数据不是让模型简单模仿 chosen，而是让模型学会：\n\n```text\n在同一个问题下，提高 chosen 的概率，降低 rejected 的概率。\n```\n\n### chosen / rejected 怎么来？\n\n常见来源：\n\n```text\n1. 人工标注\n   人类对多个回答排序，选出更好的。\n\n2. LLM-as-Judge\n   用更强的模型评判回答质量，生成偏好对。\n\n3. 规则构造\n   对代码题、数学题"
+       },
+       {
+        "evidence_id": "E5",
+        "kind": "knowledge",
+        "source_name": "finetuning/微调方法.md",
+        "chunk_id": "56499462d8465d5e351baf9dbf1b962b",
+        "score": 11.6707,
+        "rank": 1,
+        "snippet": "LoRA 不会凭空创造能力 |\n\n应先建立 Prompt/RAG 基线。如果基线已经满足要求，微调可能只增加维护成本。\n\n微调适合解决“行为分布”问题，例如：\n\n- 固定结构化输出；\n- 领域问答的表达习惯；\n- 分类、抽取、改写等稳定任务；\n- 工具调用格式和路由偏好；\n- 特定风格、拒答边界或回答长度。\n\n---\n\n## 二、训练阶段不要混淆\n\n~~~text\n预训练 / 持续预训练：\n  输入主要是原始文本，目标是 next-token prediction。\n\nSFT（监督微调）：\n  输入是指令/对话，模仿高质量目标回答。\n\n偏好优化：\n  输入常包含 prompt + chosen + rejected，\n  优化回答之间的相对偏好。\n\n强化学习后训练：\n  模型在线采样回答，奖励函数打分后再更新策略。\n~~~\n\n“LoRA”描述的是参数更新方式；“SFT/DPO”描述的是训练目标。\n可以用 LoRA 做 SFT，也可以用 LoRA 做 DPO，两者不是同一维度的概念。\n\n---\n\n## 三、全量微调\n\n全量微调会更新模型绝大多数或全部参数。\n\n优点：\n\n- 容量最大；\n-"
+       }
+      ]
+     }
+    },
+    {
+     "type": "done"
+    }
+   ]
+  }
+ ]
+}
