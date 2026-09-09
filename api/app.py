@@ -5,7 +5,7 @@ import tempfile
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -474,6 +474,28 @@ ENGINEERING_RUN_CONCURRENCY_LIMIT = 2
 _engineering_run_slots = threading.BoundedSemaphore(ENGINEERING_RUN_CONCURRENCY_LIMIT)
 
 
+def _acquire_engineering_run_slot() -> Callable[[], None]:
+    """Acquire one stream slot and return an exactly-once release callback."""
+
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
+    released = False
+    release_lock = threading.Lock()
+
+    def release_once() -> None:
+        nonlocal released
+        with release_lock:
+            if released:
+                return
+            released = True
+        _engineering_run_slots.release()
+
+    return release_once
+
+
 def _build_engineering_response(
     result: ToolAgentRunResult,
 ) -> EngineeringQueryResponse:
@@ -714,23 +736,27 @@ def engineering_query_stream(req: EngineeringQueryRequest) -> StreamingResponse:
     """Present existing safe Runtime progress as guarded SSE events."""
 
     facade = _get_engineering_agent_facade()
-    if not _engineering_run_slots.acquire(blocking=False):
-        raise HTTPException(
-            status_code=503,
-            detail="Engineering run at capacity; retry shortly",
+    release_slot = _acquire_engineering_run_slot()
+    cancel_event = threading.Event()
+    try:
+        stream = stream_engineering_query(
+            facade,
+            req.question,
+            conversation_context=None,
+            build_response=_build_engineering_response,
+            cancel_event=cancel_event,
+            on_worker_done=release_slot,
         )
-    stream = stream_engineering_query(
-        facade,
-        req.question,
-        conversation_context=None,
-        build_response=_build_engineering_response,
-    )
+    except Exception:
+        cancel_event.set()
+        release_slot()
+        raise
 
     def guarded_stream():
         try:
             yield from stream
         finally:
-            _engineering_run_slots.release()
+            cancel_event.set()
 
     return StreamingResponse(
         guarded_stream(),
@@ -748,26 +774,27 @@ def engineering_query_stream_v2(req: EngineeringQueryRequest) -> StreamingRespon
     """Present rich safe Tool Activity progress without changing the v1 stream."""
 
     facade = _get_engineering_agent_facade()
-    if not _engineering_run_slots.acquire(blocking=False):
-        raise HTTPException(
-            status_code=503,
-            detail="Engineering run at capacity; retry shortly",
-        )
+    release_slot = _acquire_engineering_run_slot()
     cancel_event = threading.Event()
-    stream = stream_engineering_query_v2(
-        facade,
-        req.question,
-        conversation_context=None,
-        build_response=_build_engineering_response,
-        cancel_event=cancel_event,
-    )
+    try:
+        stream = stream_engineering_query_v2(
+            facade,
+            req.question,
+            conversation_context=None,
+            build_response=_build_engineering_response,
+            cancel_event=cancel_event,
+            on_worker_done=release_slot,
+        )
+    except Exception:
+        cancel_event.set()
+        release_slot()
+        raise
 
     def guarded_stream():
         try:
             yield from stream
         finally:
             cancel_event.set()
-            _engineering_run_slots.release()
 
     return StreamingResponse(
         guarded_stream(),
@@ -875,11 +902,7 @@ def engineering_conversation_message_stream(
     if history is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     facade = _get_engineering_agent_facade()
-    if not _engineering_run_slots.acquire(blocking=False):
-        raise HTTPException(
-            status_code=503,
-            detail="Engineering run at capacity; retry shortly",
-        )
+    release_slot = _acquire_engineering_run_slot()
     cancel_event = threading.Event()
 
     def persist_turn(public_result: dict) -> None:
@@ -891,14 +914,20 @@ def engineering_conversation_message_stream(
             result=public_result,
         )
 
-    stream = stream_engineering_query(
-        facade,
-        req.message,
-        conversation_context=history,
-        build_response=_build_engineering_response,
-        before_public_result=persist_turn,
-        cancel_event=cancel_event,
-    )
+    try:
+        stream = stream_engineering_query(
+            facade,
+            req.message,
+            conversation_context=history,
+            build_response=_build_engineering_response,
+            before_public_result=persist_turn,
+            cancel_event=cancel_event,
+            on_worker_done=release_slot,
+        )
+    except Exception:
+        cancel_event.set()
+        release_slot()
+        raise
 
     def guarded_stream():
         try:
@@ -906,7 +935,7 @@ def engineering_conversation_message_stream(
         finally:
             # Disconnect or normal end: the stream sets the cancellation
             # event itself; persistence stays atomic (no half-turn).
-            _engineering_run_slots.release()
+            cancel_event.set()
 
     return StreamingResponse(
         guarded_stream(),

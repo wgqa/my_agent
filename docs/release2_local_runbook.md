@@ -122,8 +122,8 @@ FULL_APP_SMOKE_OK
   正在进行的 provider 网络调用，也不会改变 5/4/2 budget。
 - 进程内最多同时 admission 2 个 Engineering run；满载时 fail-fast 返回
   HTTP 503，不建立 queue。SSE 客户端断开时通过 cancellation event 通知 Runtime，
-  后续安全边界不再发起新的 Decision / Tool；正常完成、异常和断开都会释放
-  admission slot。
+  后续安全边界不再发起新的 Decision / Tool；正常完成、异常和断开都会在
+  worker 实际终止后由 completion callback exactly once 释放 admission slot。
 - 这组 lifecycle 约束不改变 Agent 的 Prompt、Router、Evidence、Tool registry
   或 conversation atomic-turn 语义。离线回归与 `smoke_local_app.py` 均不需要
   API key。
@@ -166,7 +166,7 @@ python -m pytest -q \
   tests/test_product_repair_23.py
 ```
 
-全量回归（Release 2.0 当前基线：2656 passed / 7 skipped）：
+全量回归（Release 2.0 当前基线：2657 passed / 7 skipped）：
 
 ```bash
 python -m pytest -q --basetemp="$TMP/my_agent_pytest_full"

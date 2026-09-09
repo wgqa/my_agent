@@ -47,6 +47,7 @@ def _run_worker(
     events: Queue,
     conversation_context=None,
     cancel_requested: Callable[[], bool] | None = None,
+    on_worker_done: Callable[[], None] | None = None,
 ) -> None:
     try:
         kwargs = {}
@@ -70,7 +71,14 @@ def _run_worker(
         logger.exception("Engineering v2 stream worker failed")
         events.put(("error", None))
     finally:
-        events.put(("worker_done", None))
+        try:
+            events.put(("worker_done", None))
+        finally:
+            if on_worker_done is not None:
+                try:
+                    on_worker_done()
+                except Exception:
+                    logger.exception("Engineering v2 stream worker cleanup failed")
 
 
 def _result_payload(response: object) -> dict:
@@ -92,6 +100,7 @@ def stream_engineering_query_v2(
     conversation_context=None,
     build_response: Callable[[ToolAgentRunResult], object],
     cancel_event: Event | None = None,
+    on_worker_done: Callable[[], None] | None = None,
 ) -> Iterator[str]:
     """Start one Runtime worker and yield rich activity frames.
 
@@ -106,7 +115,10 @@ def stream_engineering_query_v2(
     worker = Thread(
         target=_run_worker,
         args=(facade, question, events, conversation_context),
-        kwargs={"cancel_requested": cancel_event.is_set},
+        kwargs={
+            "cancel_requested": cancel_event.is_set,
+            "on_worker_done": on_worker_done,
+        },
         daemon=True,
         name="engineering-sse-runtime-v2",
     )

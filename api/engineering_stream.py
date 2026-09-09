@@ -72,6 +72,7 @@ def _run_worker(
     events: Queue,
     conversation_context=None,
     cancel_requested: Callable[[], bool] | None = None,
+    on_worker_done: Callable[[], None] | None = None,
 ) -> None:
     try:
         kwargs = {}
@@ -95,7 +96,14 @@ def _run_worker(
         logger.exception("Engineering stream worker failed")
         events.put(("error", None))
     finally:
-        events.put(("worker_done", None))
+        try:
+            events.put(("worker_done", None))
+        finally:
+            if on_worker_done is not None:
+                try:
+                    on_worker_done()
+                except Exception:
+                    logger.exception("Engineering stream worker cleanup failed")
 
 
 def stream_engineering_query(
@@ -106,6 +114,7 @@ def stream_engineering_query(
     build_response: Callable[[ToolAgentRunResult], object],
     before_public_result: Callable[[dict], None] | None = None,
     cancel_event: Event | None = None,
+    on_worker_done: Callable[[], None] | None = None,
 ) -> Iterator[str]:
     """Start one Runtime worker and yield product-safe SSE frames.
 
@@ -133,7 +142,10 @@ def stream_engineering_query(
     worker = Thread(
         target=_run_worker,
         args=(facade, question, events, conversation_context),
-        kwargs={"cancel_requested": cancel_event.is_set},
+        kwargs={
+            "cancel_requested": cancel_event.is_set,
+            "on_worker_done": on_worker_done,
+        },
         daemon=True,
         name="engineering-sse-runtime",
     )

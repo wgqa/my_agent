@@ -35,6 +35,7 @@ from core.tool_agent.runtime_models import (
     ENGINEERING_RUN_DEADLINE_EXCEEDED,
     ToolAgentBudget,
     ToolAgentExecutionMetrics,
+    ToolAgentRunResult,
 )
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
@@ -460,6 +461,105 @@ class TestSseDisconnectCancellation:
         assert detail is not None
         roles = [m["role"] for m in detail["messages"]]
         assert roles == ["user", "assistant"]
+
+
+class TestStreamingAdmissionOwnership:
+    def test_disconnect_does_not_free_slot_until_worker_stops(self, monkeypatch):
+        from api.engineering_stream import stream_engineering_query
+
+        started = {"A": threading.Event(), "B": threading.Event()}
+        unblock = {"A": threading.Event(), "B": threading.Event()}
+        worker_done = {"A": threading.Event(), "B": threading.Event()}
+        cancel_events = {"A": threading.Event(), "B": threading.Event()}
+
+        class _BlockedFacade:
+            def run(
+                self,
+                question,
+                *,
+                conversation_context=None,
+                trace_sink=None,
+                activity_sink=None,
+                cancel_requested=None,
+            ):
+                if question in started:
+                    started[question].set()
+                    # Simulate an in-flight provider call that is cooperative
+                    # but does not return merely because the client detached.
+                    assert unblock[question].wait(timeout=5)
+                    worker_done[question].set()
+                return ToolAgentRunResult(
+                    status="completed",
+                    answer="worker stopped",
+                    reason_code=None,
+                    failure_code=None,
+                    iterations_used=1,
+                    tool_calls_used=0,
+                    tool_errors_used=0,
+                    trace=(),
+                )
+
+        monkeypatch.setattr(api.app, "engineering_agent_facade", _BlockedFacade())
+        client = TestClient(api.app.app)
+        acquired = []
+        streams = []
+
+        def acquire_stream(question):
+            release_slot = api.app._acquire_engineering_run_slot()
+            acquired.append(release_slot)
+            callback_done = threading.Event()
+
+            def on_worker_done():
+                release_slot()
+                callback_done.set()
+
+            stream = stream_engineering_query(
+                api.app.engineering_agent_facade,
+                question,
+                build_response=lambda result: result,
+                cancel_event=cancel_events[question],
+                on_worker_done=on_worker_done,
+            )
+            streams.append(stream)
+            return callback_done
+
+        callback_done = {}
+        try:
+            callback_done["A"] = acquire_stream("A")
+            callback_done["B"] = acquire_stream("B")
+            assert started["A"].wait(timeout=5)
+            assert started["B"].wait(timeout=5)
+
+            # Closing the producer generator only requests cancellation; the
+            # blocked workers still own both admission slots.
+            for question, stream in zip(("A", "B"), streams):
+                assert next(stream).startswith("data:")
+                stream.close()
+                assert cancel_events[question].is_set()
+
+            third_while_alive = client.post(
+                "/engineering/query", json={"question": "third"}
+            )
+            assert third_while_alive.status_code == 503
+
+            unblock["A"].set()
+            unblock["B"].set()
+            assert worker_done["A"].wait(timeout=5)
+            assert worker_done["B"].wait(timeout=5)
+            assert callback_done["A"].wait(timeout=5)
+            assert callback_done["B"].wait(timeout=5)
+
+            third_after_stop = client.post(
+                "/engineering/query", json={"question": "third"}
+            )
+            assert third_after_stop.status_code == 200
+        finally:
+            unblock["A"].set()
+            unblock["B"].set()
+            for stream in streams:
+                stream.close()
+            for release_slot in acquired:
+                release_slot()
 
 
 class TestFrozenBehavior:
