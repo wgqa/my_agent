@@ -4,7 +4,7 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-09-07
+**更新日期：** 2026-09-09
 
 ## 当前状态
 
@@ -52,7 +52,9 @@
 - **PRODUCT-REPAIR-23B = VALID NEGATIVE EXPERIMENT / ROLLED BACK**（prompt-only next-hop guidance：grounded_v2 后继 profile 指引 missing kind 的下一跳取证；固定 Set A 诊断——C 的 project_test 下一跳单点达成但 terminal 仍被 citation 拦截、B 完全未跟随 doc 指引、E-T2/E-T4 completed→refused regression、总分布 PARTIAL 3→2；`git revert 8e1732c` → `36739aa`，core/api/tests 与 cf663d4 逐字节一致；**23 系列到此结束，无 23C**；grounded_v2 仅存于 git 历史作为实验身份，当前 Product prompt 仍为 grounded_v1 `c465defe…`。diagnostic 见 `evaluation/product_validation_v1/repair23b_diagnostic.md`）
 - **Residual Product limitations（23 收尾记录，未修）**：B/C next-hop acquisition（prompt-only 指引不充分——23B 负结果）；citation 合规与被拦截答案可观测性；A3 措辞与 E-T4"对照"词表缺口；E-T3 wrong-subject grounding；多轮 context-resolution 方差
 - **PRODUCT-ENGINEERING-24A = ACCEPT / CLOSED**（Reproducibility + Automatic Offline CI：CI 触发器 push / pull_request / workflow_dispatch 全部启用；provider-free 回归纳入 Release 2.0 关键链路——core/API 原有集合 + Conversation-20 / Grounding-21 / Repair-23 + verification/requirements/context/retrieval/unified-runtime/finalization-guard/stream/stream-v2 共 29 个测试文件，本地同组验证 670 passed / 5 skipped；CI 不要求任何 API key、不下载语料、不跑 Holdout/Set A/真实 provider；新增 `docs/release2_local_runbook.md`（clean install / corpus env（含 autocrlf=false 哈希坑）/ backend / frontend / health checks / runtime SQLite / smoke / 离线测试）。core/api/ui/evaluation 零 diff；YAML 解析验证通过）
-- **NEXT = PRODUCT-ENGINEERING-24 系列后续任务卡 / 待任务卡**（24B 及之后按卡执行，不得自行开始）
+- **PRODUCT-ENGINEERING-24B = ACCEPT / CLOSED**（Engineering request lifecycle：安全 execution observability（wall-clock `elapsed_ms`、Decision call count、provider-reported token totals）、system-owned 60s cooperative deadline、SSE disconnect cancellation、process-local 2-slot fail-fast admission；保持 Prompt / Router / Requirement / Grounding / Evidence acquisition / 5-4-2 / Tool registry / Context 6/1200 / Provider-model 不变。每个 acquired stream slot 在正常完成、异常或断开路径均由 stream cleanup boundary 释放；provider-free 24B 目标 16/16，相关回归 134/134，全量 2656 passed / 7 skipped，local app smoke = `FULL_APP_SMOKE_OK`）
+- **PRODUCT-ENGINEERING-24 = ACCEPT / CLOSED**（24A reproducibility/CI 与 24B request lifecycle observability、deadline、cancellation、bounded concurrency 均已完成 provider-free 验证）
+- **NEXT = PRODUCT-ACCEPT-25**
 - **Project Mastery / Interview Preparation = PARALLEL PERSONAL TRACK**（源码掌握、项目讲解、Demo 场景、README / 简历表达；与 Product 主线并行，不是其替代者，不阻塞 20～27 路线）
 - **ARCH-EVAL-08A System A = `0eef8ef9d6decdaa10efebe04087b06611654670` ToolAgent-only pre-architecture baseline**
 - **ARCH-EVAL-08A System B = `385b7795eafde7c114efc382e95c0d18ec273f54` Unified Runtime v7 cutover baseline**

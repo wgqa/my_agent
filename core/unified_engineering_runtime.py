@@ -9,7 +9,9 @@ loop, budget, finalization policy, or autonomous controller.
 from __future__ import annotations
 
 import inspect
+import time
 from collections.abc import Collection, Sequence
+from dataclasses import replace
 from typing import Callable
 
 from core.engineering_context import EngineeringContextResolver
@@ -22,7 +24,12 @@ from core.engineering_requirements import (
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.tool_agent.activity import ActivityEvent
 from core.tool_agent.runtime import ToolAgentRuntime
-from core.tool_agent.runtime_models import RuntimeTraceEvent, ToolAgentRunResult
+from core.tool_agent.runtime_models import (
+    ENGINEERING_RUN_DEADLINE_SECONDS,
+    RuntimeTraceEvent,
+    ToolAgentExecutionMetrics,
+    ToolAgentRunResult,
+)
 
 
 class LegacyToolAgentExecutionAdapter:
@@ -45,6 +52,8 @@ class LegacyToolAgentExecutionAdapter:
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
         enforce_evidence_acquisition: bool = False,
+        deadline_seconds: float | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
     ) -> ToolAgentRunResult:
         """Delegate one run without adding control flow or policy."""
 
@@ -72,14 +81,20 @@ class LegacyToolAgentExecutionAdapter:
             # during migration. The production ToolAgentRuntime exposes this
             # opt-in policy; no extra loop or budget is introduced here.
             parameters = inspect.signature(self._runtime.run).parameters
-            if (
-                "enforce_evidence_acquisition" in parameters
-                or any(
-                    parameter.kind is inspect.Parameter.VAR_KEYWORD
-                    for parameter in parameters.values()
-                )
-            ):
+            accepts_var_keyword = any(
+                parameter.kind is inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            )
+            if "enforce_evidence_acquisition" in parameters or accepts_var_keyword:
                 kwargs["enforce_evidence_acquisition"] = True
+            if deadline_seconds is not None and (
+                "deadline_seconds" in parameters or accepts_var_keyword
+            ):
+                kwargs["deadline_seconds"] = deadline_seconds
+            if cancel_requested is not None and (
+                "cancel_requested" in parameters or accepts_var_keyword
+            ):
+                kwargs["cancel_requested"] = cancel_requested
         return self._runtime.run(user_input, **kwargs)
 
 
@@ -122,9 +137,19 @@ class UnifiedEngineeringRuntime:
         conversation_context=None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
     ) -> ToolAgentRunResult:
-        """Resolve context, route once, then delegate to the bounded executor."""
+        """Resolve context, route once, then delegate to the bounded executor.
 
+        The product deadline is system-owned
+        (``ENGINEERING_RUN_DEADLINE_SECONDS``) and cooperative; the optional
+        ``cancel_requested`` probe is only consulted at the executor's safe
+        boundaries. ``elapsed_ms`` in the returned execution summary covers
+        the whole product request (context resolution, planning, retrieval,
+        bounded loop).
+        """
+
+        started = time.monotonic()
         context_snapshot = self._context_resolver.resolve(
             user_input,
             conversation_context,
@@ -148,7 +173,7 @@ class UnifiedEngineeringRuntime:
             retrieval_snapshot,
             requirement,
         )
-        return self._execution_adapter.run(
+        result = self._execution_adapter.run(
             resolved_input,
             evidence_requirement=requirement,
             initial_context=retrieval_snapshot.initial_context,
@@ -158,7 +183,20 @@ class UnifiedEngineeringRuntime:
             trace_sink=trace_sink,
             activity_sink=activity_sink,
             enforce_evidence_acquisition=True,
+            deadline_seconds=ENGINEERING_RUN_DEADLINE_SECONDS,
+            cancel_requested=cancel_requested,
         )
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        inner = result.execution
+        execution = ToolAgentExecutionMetrics(
+            elapsed_ms=elapsed_ms,
+            decision_llm_calls=(
+                inner.decision_llm_calls if inner is not None else 0
+            ),
+            input_tokens=inner.input_tokens if inner is not None else None,
+            output_tokens=inner.output_tokens if inner is not None else None,
+        )
+        return replace(result, execution=execution)
 
 
 __all__ = [

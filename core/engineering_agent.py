@@ -24,6 +24,7 @@ class EngineeringAgentFacade:
         conversation_context=None,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
     ) -> ToolAgentRunResult:
         """Forward the request and observers without owning control logic."""
 
@@ -32,6 +33,8 @@ class EngineeringAgentFacade:
             kwargs["trace_sink"] = trace_sink
         if activity_sink is not None:
             kwargs["activity_sink"] = activity_sink
+        if cancel_requested is not None:
+            kwargs["cancel_requested"] = cancel_requested
         return self._runtime.run(
             question,
             conversation_context=conversation_context,

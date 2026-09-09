@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import inspect
+import time
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from pathlib import PurePosixPath
@@ -41,6 +42,8 @@ from core.tool_agent.registry import ToolRegistry
 from core.tool_agent.runtime_models import (
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
+    ENGINEERING_RUN_CANCELLED,
+    ENGINEERING_RUN_DEADLINE_EXCEEDED,
     INSUFFICIENT_EVIDENCE_TO_FINALIZE,
     AgentDecisionProvider,
     DecisionControlState,
@@ -51,6 +54,7 @@ from core.tool_agent.runtime_models import (
     MAX_EVIDENCE_SNIPPET_LENGTH,
     RuntimeTraceEvent,
     ToolAgentBudget,
+    ToolAgentExecutionMetrics,
     ToolAgentRunResult,
 )
 from core.tool_agent.tools.test_discovery import is_test_path
@@ -395,6 +399,49 @@ def _run_finalization_verifier(
     return result
 
 
+class _ExecutionUsage:
+    """Accumulate provider-reported usage from existing call metadata.
+
+    No second metering system: values come straight from
+    ``AgentDecisionCallMetadata``. Calls that did not report usage simply do
+    not contribute, and a kind is reported as ``None`` when no call reported
+    it at all.
+    """
+
+    def __init__(self) -> None:
+        self.decision_llm_calls = 0
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.input_seen = False
+        self.output_seen = False
+
+    def record(self, call_metadata) -> None:
+        if call_metadata is None:
+            return
+        self.decision_llm_calls += call_metadata.call_count
+        if call_metadata.input_tokens is not None:
+            self.input_tokens += call_metadata.input_tokens
+            self.input_seen = True
+        if call_metadata.output_tokens is not None:
+            self.output_tokens += call_metadata.output_tokens
+            self.output_seen = True
+
+
+def _attach_execution_metrics(
+    result: ToolAgentRunResult,
+    *,
+    elapsed_ms: int,
+    usage: "_ExecutionUsage",
+) -> ToolAgentRunResult:
+    metrics = ToolAgentExecutionMetrics(
+        elapsed_ms=elapsed_ms,
+        decision_llm_calls=usage.decision_llm_calls,
+        input_tokens=usage.input_tokens if usage.input_seen else None,
+        output_tokens=usage.output_tokens if usage.output_seen else None,
+    )
+    return replace(result, execution=metrics)
+
+
 class ToolAgentRuntime:
     """Bounded Decision → Tool → Observation execution component。
 
@@ -443,6 +490,66 @@ class ToolAgentRuntime:
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
         enforce_evidence_acquisition: bool = False,
+        deadline_seconds: float | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
+    ) -> ToolAgentRunResult:
+        """One bounded run with product lifecycle governance.
+
+        ``deadline_seconds`` is a system-owned cooperative deadline and
+        ``cancel_requested`` a disconnect/cancellation probe; both are only
+        checked at safe boundaries (before each Decision and before each
+        Tool execution) and never preempt in-flight provider or tool work.
+        The returned result carries a safe execution summary aggregated from
+        the existing per-decision call metadata.
+        """
+
+        if deadline_seconds is not None and (
+            type(deadline_seconds) not in (int, float)
+            or isinstance(deadline_seconds, bool)
+            or deadline_seconds <= 0
+        ):
+            raise ValueError("deadline_seconds 必须是正数或 None")
+        if cancel_requested is not None and not callable(cancel_requested):
+            raise TypeError("cancel_requested 必须可调用或 None")
+        usage = _ExecutionUsage()
+        deadline_at = (
+            time.monotonic() + float(deadline_seconds)
+            if deadline_seconds is not None
+            else None
+        )
+        started = time.monotonic()
+        result = self._run_bounded(
+            user_query,
+            evidence_requirement=evidence_requirement,
+            initial_context=initial_context,
+            initial_evidence=initial_evidence,
+            disabled_tools=disabled_tools,
+            finalization_verifier=finalization_verifier,
+            trace_sink=trace_sink,
+            activity_sink=activity_sink,
+            enforce_evidence_acquisition=enforce_evidence_acquisition,
+            usage=usage,
+            deadline_at=deadline_at,
+            cancel_requested=cancel_requested,
+        )
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return _attach_execution_metrics(result, elapsed_ms=elapsed_ms, usage=usage)
+
+    def _run_bounded(
+        self,
+        user_query: str,
+        *,
+        evidence_requirement: EngineeringEvidenceRequirement | None = None,
+        initial_context: Sequence[DecisionContextItem] = (),
+        initial_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = (),
+        disabled_tools: Collection[str] = (),
+        finalization_verifier=None,
+        trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
+        activity_sink: Callable[[ActivityEvent], None] | None = None,
+        enforce_evidence_acquisition: bool = False,
+        usage: _ExecutionUsage,
+        deadline_at: float | None,
+        cancel_requested: Callable[[], bool] | None,
     ) -> ToolAgentRunResult:
         if type(user_query) is not str or not user_query.strip():
             raise ValueError("user_query 必须是非空字符串")
@@ -489,6 +596,29 @@ class ToolAgentRuntime:
                 self._record_activity(evidence_activity, activity_sink)
 
         while True:
+            # PRODUCT-ENGINEERING-24B lifecycle boundary: cooperative cancel
+            # and the system deadline are evaluated before any new Decision
+            # or Tool work is started; in-flight work is never preempted.
+            if cancel_requested is not None and cancel_requested():
+                return self._hard_stop(
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    ENGINEERING_RUN_CANCELLED,
+                    trace_sink,
+                )
+            if deadline_at is not None and time.monotonic() >= deadline_at:
+                return self._hard_stop(
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    ENGINEERING_RUN_DEADLINE_EXCEEDED,
+                    trace_sink,
+                )
             iterations += 1
             if iterations > self._budget.max_agent_iterations:
                 return self._hard_stop(
@@ -575,6 +705,7 @@ class ToolAgentRuntime:
             if not isinstance(outcome, AgentDecisionOutcome):
                 # Provider 违反 Protocol 属于程序契约错误，fail-fast
                 raise TypeError("provider.decide 必须返回 AgentDecisionOutcome")
+            usage.record(outcome.call_metadata)
             self._record_trace(
                 trace,
                 RuntimeTraceEvent(
@@ -911,6 +1042,29 @@ class ToolAgentRuntime:
                     tool_calls,
                     tool_errors,
                     AGENT_DUPLICATE_TOOL_CALL,
+                    trace_sink,
+                )
+            # PRODUCT-ENGINEERING-24B lifecycle boundary: stop before a new
+            # Tool execution when the client disconnected or the run
+            # deadline expired; the previous Tool already finished normally.
+            if cancel_requested is not None and cancel_requested():
+                return self._hard_stop(
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    ENGINEERING_RUN_CANCELLED,
+                    trace_sink,
+                )
+            if deadline_at is not None and time.monotonic() >= deadline_at:
+                return self._hard_stop(
+                    trace,
+                    evidence,
+                    iterations,
+                    tool_calls,
+                    tool_errors,
+                    ENGINEERING_RUN_DEADLINE_EXCEEDED,
                     trace_sink,
                 )
 

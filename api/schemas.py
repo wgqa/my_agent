@@ -251,6 +251,21 @@ EngineeringEvidence = Annotated[
 ]
 
 
+class EngineeringExecutionMetrics(BaseModel):
+    """Safe execution summary (PRODUCT-ENGINEERING-24B).
+
+    ``elapsed_ms`` covers the whole product request; ``decision_llm_calls``
+    counts provider decision calls from the existing call metadata; token
+    fields aggregate provider-reported usage and are null when no call
+    reported usage (never estimated or fabricated).
+    """
+
+    elapsed_ms: int
+    decision_llm_calls: int
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+
+
 class EngineeringQueryResponse(BaseModel):
     """Unified public contract for Knowledge/Repository/Change/Test evidence."""
 
@@ -264,6 +279,7 @@ class EngineeringQueryResponse(BaseModel):
     tool_errors_used: int
     trace: List[dict]
     evidence: List[EngineeringEvidence]
+    execution: Optional[EngineeringExecutionMetrics] = None
 
 
 class EngineeringConversationMessageRequest(BaseModel):

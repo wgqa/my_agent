@@ -691,6 +691,9 @@ class TestActivitySink:
             payload = result.to_dict()
             for trace_event in payload["trace"]:
                 trace_event["call_id"] = None
+            # Wall-clock elapsed_ms is observational, not a run-content fact.
+            if payload["execution"] is not None:
+                payload["execution"] = dict(payload["execution"], elapsed_ms=None)
             return payload
 
         # call_id is intentionally per-run unique; every other public result
@@ -758,7 +761,17 @@ class TestActivitySink:
 
         with_throwing_sink = run(throwing_sink)
 
-        assert without_sink == with_sink == with_throwing_sink
+        def normalized(result):
+            payload = result.to_dict()
+            if payload["execution"] is not None:
+                payload["execution"] = dict(payload["execution"], elapsed_ms=None)
+            return payload
+
+        # Observer behavior must not alter business output; elapsed_ms is
+        # wall-clock observability and is intentionally excluded.
+        assert normalized(without_sink) == normalized(with_sink) == normalized(
+            with_throwing_sink
+        )
         assert with_sink.evidence[0].path == long_path
         assert len(long_path) > 120
         assert not any(isinstance(event, EvidenceAddedActivity) for event in observed)
@@ -797,7 +810,17 @@ class TestActivitySink:
 
         with_throwing_sink = run(throwing_sink)
 
-        assert without_sink == with_sink == with_throwing_sink
+        def normalized(result):
+            payload = result.to_dict()
+            if payload["execution"] is not None:
+                payload["execution"] = dict(payload["execution"], elapsed_ms=None)
+            return payload
+
+        # Observer behavior must not alter business output; elapsed_ms is
+        # wall-clock observability and is intentionally excluded.
+        assert normalized(without_sink) == normalized(with_sink) == normalized(
+            with_throwing_sink
+        )
         assert with_sink.evidence[0].source_name == long_source_name
         assert len(long_source_name) > 120
         assert not any(isinstance(event, EvidenceAddedActivity) for event in observed)

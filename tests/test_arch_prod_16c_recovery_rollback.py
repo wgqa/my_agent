@@ -222,7 +222,9 @@ def test_blocked_terminal_action_gets_no_recovery_second_call(
 def test_runtime_has_no_tool_argument_synthesis_path():
     runtime_source = inspect.getsource(ToolAgentRuntime)
     assert "arguments[" not in runtime_source.replace("arguments=action.arguments", "")
-    assert inspect.getsource(ToolAgentRuntime.run).count("ToolCall.create") == 1
+    # 24B wraps the existing bounded loop with lifecycle metrics; the sole
+    # ToolCall construction remains inside that loop, not in the wrapper.
+    assert inspect.getsource(ToolAgentRuntime._run_bounded).count("ToolCall.create") == 1
 
 
 # ---- H. the 5/4/2 budget is untouched ----

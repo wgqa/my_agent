@@ -33,12 +33,23 @@ _DECISION_FAILURE_CODES_SET = frozenset(AGENT_DECISION_FAILURE_CODES)
 AGENT_DUPLICATE_TOOL_CALL = "AGENT_DUPLICATE_TOOL_CALL"
 AGENT_TOOL_ERROR_LIMIT = "AGENT_TOOL_ERROR_LIMIT"
 INSUFFICIENT_EVIDENCE_TO_FINALIZE = "INSUFFICIENT_EVIDENCE_TO_FINALIZE"
+ENGINEERING_RUN_DEADLINE_EXCEEDED = "ENGINEERING_RUN_DEADLINE_EXCEEDED"
+ENGINEERING_RUN_CANCELLED = "ENGINEERING_RUN_CANCELLED"
 AGENT_TERMINATION_CODES = (
     AGENT_BUDGET_EXCEEDED,
     AGENT_DUPLICATE_TOOL_CALL,
     AGENT_TOOL_ERROR_LIMIT,
     INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+    ENGINEERING_RUN_DEADLINE_EXCEEDED,
+    ENGINEERING_RUN_CANCELLED,
 )
+
+# PRODUCT-ENGINEERING-24B: system-owned cooperative deadline for one
+# Engineering run. Clients cannot change it. It is checked at safe
+# boundaries (before each Decision and before each Tool execution); it does
+# not preempt an in-flight provider call, which stays bounded by the
+# existing per-call provider timeout.
+ENGINEERING_RUN_DEADLINE_SECONDS = 60
 
 _TERMINATION_CODES_SET = frozenset(AGENT_TERMINATION_CODES)
 
@@ -641,6 +652,48 @@ class KnowledgeEvidence:
 
 
 @dataclass(frozen=True)
+class ToolAgentExecutionMetrics:
+    """Safe, product-visible execution summary for one Engineering run.
+
+    Values come only from the existing per-decision call metadata and one
+    wall-clock measurement: no price estimation, no raw provider response,
+    no prompt/CoT content. ``input_tokens``/``output_tokens`` aggregate the
+    provider-reported usage of calls that reported it and are ``None`` when
+    no call reported usage (usage is never fabricated).
+    """
+
+    elapsed_ms: int
+    decision_llm_calls: int
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        for label in (
+            "elapsed_ms",
+            "decision_llm_calls",
+            "input_tokens",
+            "output_tokens",
+        ):
+            value = getattr(self, label)
+            if value is None:
+                if label in ("input_tokens", "output_tokens"):
+                    continue
+                raise TypeError(f"{label} 必须是严格 int")
+            if type(value) is not int or isinstance(value, bool):
+                raise TypeError(f"{label} 必须是严格 int")
+            if value < 0:
+                raise ValueError(f"{label} 必须非负")
+
+    def to_dict(self) -> dict:
+        return {
+            "elapsed_ms": self.elapsed_ms,
+            "decision_llm_calls": self.decision_llm_calls,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+        }
+
+
+@dataclass(frozen=True)
 class ToolAgentRunResult:
     """Bounded Loop 的一次运行结果。
 
@@ -659,6 +712,7 @@ class ToolAgentRunResult:
     tool_errors_used: int
     trace: Sequence[RuntimeTraceEvent]
     evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = ()
+    execution: Optional[ToolAgentExecutionMetrics] = None
 
     def __post_init__(self) -> None:
         if self.status not in RUN_STATUSES:
@@ -706,6 +760,10 @@ class ToolAgentRunResult:
                     "evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
                 )
         object.__setattr__(self, "evidence", normalized_evidence)
+        if self.execution is not None and not isinstance(
+            self.execution, ToolAgentExecutionMetrics
+        ):
+            raise TypeError("execution 必须是 ToolAgentExecutionMetrics 或 None")
 
     def to_dict(self) -> dict:
         return {
@@ -718,6 +776,9 @@ class ToolAgentRunResult:
             "tool_errors_used": self.tool_errors_used,
             "trace": [event.to_dict() for event in self.trace],
             "evidence": [item.to_dict() for item in self.evidence],
+            "execution": None
+            if self.execution is None
+            else self.execution.to_dict(),
         }
 
 

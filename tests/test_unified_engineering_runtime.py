@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 import core.unified_engineering_runtime as unified_runtime_module
@@ -148,7 +150,11 @@ def test_requirement_routing_happens_once_in_unified_runtime_not_in_facade(monke
 
     result = facade.run(question)
 
-    assert result == _completed_result()
+    # Execution metrics carry a wall-clock elapsed_ms, so equality is
+    # asserted without them; routing-once is the contract under test.
+    assert dataclasses.replace(result, execution=None) == _completed_result()
+    assert result.execution is not None
+    assert result.execution.decision_llm_calls == 0
     assert route_calls == [question]
     assert execution_runtime.received == [
         (question, expected_requirement, None, None)

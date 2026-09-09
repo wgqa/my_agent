@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import tempfile
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -65,6 +66,7 @@ from api.schemas import (
     EngineeringConversationListResponse,
     EngineeringConversationMessageRequest,
     EngineeringConversationSummary,
+    EngineeringExecutionMetrics,
     EngineeringQueryRequest,
     EngineeringQueryResponse,
     KnowledgeEvidence,
@@ -464,6 +466,14 @@ def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResp
     )
 
 
+# PRODUCT-ENGINEERING-24B: process-local bounded admission for Engineering
+# runs. Single-process local product; no queue, no distributed lock. When
+# the fixed number of slots is taken, new Engineering runs fail fast with
+# 503 instead of piling up. Clients cannot change the limit.
+ENGINEERING_RUN_CONCURRENCY_LIMIT = 2
+_engineering_run_slots = threading.BoundedSemaphore(ENGINEERING_RUN_CONCURRENCY_LIMIT)
+
+
 def _build_engineering_response(
     result: ToolAgentRunResult,
 ) -> EngineeringQueryResponse:
@@ -492,6 +502,16 @@ def _build_engineering_response(
                     snippet=item.snippet,
                 )
             )
+    execution = (
+        EngineeringExecutionMetrics(
+            elapsed_ms=result.execution.elapsed_ms,
+            decision_llm_calls=result.execution.decision_llm_calls,
+            input_tokens=result.execution.input_tokens,
+            output_tokens=result.execution.output_tokens,
+        )
+        if result.execution is not None
+        else None
+    )
     return EngineeringQueryResponse(
         schema_version="engineering_query_response_v1",
         status=result.status,
@@ -503,6 +523,7 @@ def _build_engineering_response(
         tool_errors_used=result.tool_errors_used,
         trace=_safe_engineering_trace([event.to_dict() for event in result.trace]),
         evidence=evidence,
+        execution=execution,
     )
 
 
@@ -671,6 +692,11 @@ def engineering_query(req: EngineeringQueryRequest):
     """Unified product entry backed by the existing ToolAgentRuntime loop."""
 
     facade = _get_engineering_agent_facade()
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
     try:
         result = facade.run(req.question, conversation_context=None)
     except Exception:
@@ -678,6 +704,8 @@ def engineering_query(req: EngineeringQueryRequest):
         raise HTTPException(
             status_code=500, detail="Internal engineering agent query error"
         )
+    finally:
+        _engineering_run_slots.release()
     return _build_engineering_response(result)
 
 
@@ -686,13 +714,26 @@ def engineering_query_stream(req: EngineeringQueryRequest) -> StreamingResponse:
     """Present existing safe Runtime progress as guarded SSE events."""
 
     facade = _get_engineering_agent_facade()
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
+    stream = stream_engineering_query(
+        facade,
+        req.question,
+        conversation_context=None,
+        build_response=_build_engineering_response,
+    )
+
+    def guarded_stream():
+        try:
+            yield from stream
+        finally:
+            _engineering_run_slots.release()
+
     return StreamingResponse(
-        stream_engineering_query(
-            facade,
-            req.question,
-            conversation_context=None,
-            build_response=_build_engineering_response,
-        ),
+        guarded_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -707,13 +748,29 @@ def engineering_query_stream_v2(req: EngineeringQueryRequest) -> StreamingRespon
     """Present rich safe Tool Activity progress without changing the v1 stream."""
 
     facade = _get_engineering_agent_facade()
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
+    cancel_event = threading.Event()
+    stream = stream_engineering_query_v2(
+        facade,
+        req.question,
+        conversation_context=None,
+        build_response=_build_engineering_response,
+        cancel_event=cancel_event,
+    )
+
+    def guarded_stream():
+        try:
+            yield from stream
+        finally:
+            cancel_event.set()
+            _engineering_run_slots.release()
+
     return StreamingResponse(
-        stream_engineering_query_v2(
-            facade,
-            req.question,
-            conversation_context=None,
-            build_response=_build_engineering_response,
-        ),
+        guarded_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -818,6 +875,12 @@ def engineering_conversation_message_stream(
     if history is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     facade = _get_engineering_agent_facade()
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
+    cancel_event = threading.Event()
 
     def persist_turn(public_result: dict) -> None:
         store.append_turn(
@@ -828,14 +891,25 @@ def engineering_conversation_message_stream(
             result=public_result,
         )
 
+    stream = stream_engineering_query(
+        facade,
+        req.message,
+        conversation_context=history,
+        build_response=_build_engineering_response,
+        before_public_result=persist_turn,
+        cancel_event=cancel_event,
+    )
+
+    def guarded_stream():
+        try:
+            yield from stream
+        finally:
+            # Disconnect or normal end: the stream sets the cancellation
+            # event itself; persistence stays atomic (no half-turn).
+            _engineering_run_slots.release()
+
     return StreamingResponse(
-        stream_engineering_query(
-            facade,
-            req.message,
-            conversation_context=history,
-            build_response=_build_engineering_response,
-            before_public_result=persist_turn,
-        ),
+        guarded_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

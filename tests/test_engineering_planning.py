@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from types import SimpleNamespace
 
@@ -328,7 +329,11 @@ def test_different_plans_produce_identical_execution_result_in_this_stage():
     single_result = single_runtime.run(question)
     decomposed_result = decomposed_runtime.run(question)
 
-    assert single_result.to_dict() == decomposed_result.to_dict()
+    # The business result is deterministic; elapsed_ms is wall-clock
+    # observability and is intentionally excluded from this comparison.
+    assert dataclasses.replace(single_result, execution=None).to_dict() == (
+        dataclasses.replace(decomposed_result, execution=None).to_dict()
+    )
     assert single_provider.queries == [question]
     assert decomposed_provider.queries == [question]
 

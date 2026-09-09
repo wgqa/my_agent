@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import inspect
 
@@ -44,6 +45,28 @@ def _sse_payloads(response):
             if line.startswith("data: "):
                 payloads.append(json.loads(line.removeprefix("data: ")))
     return payloads
+
+
+def _close_unconsumed_stream_response(response):
+    """Drive direct endpoint calls through the stream cleanup boundary.
+
+    These tests call the route functions directly instead of letting an ASGI
+    server consume the response body.  The 24B admission slot is released by
+    the response iterator's ``finally`` block, so an unstarted iterator would
+    otherwise retain a slot into the next test.
+    """
+
+    iterator = response.body_iterator
+
+    async def drive_and_close():
+        try:
+            await iterator.__anext__()
+        except StopAsyncIteration:
+            pass
+        finally:
+            await iterator.aclose()
+
+    asyncio.run(drive_and_close())
 
 
 def test_unified_runtime_requires_full_assembly_and_has_no_compatibility_bypass():
@@ -105,23 +128,30 @@ def test_three_engineering_entries_share_facade_and_observers_only(monkeypatch):
     monkeypatch.setattr(api.app, "engineering_agent_facade", facade)
 
     request = EngineeringQueryRequest(question="same business request")
-    sync_result = api.app.engineering_query(request)
-    v1_result = api.app.engineering_query_stream(request)
-    v2_result = api.app.engineering_query_stream_v2(request)
+    stream_responses = []
+    try:
+        sync_result = api.app.engineering_query(request)
+        v1_result = api.app.engineering_query_stream(request)
+        stream_responses.append(v1_result)
+        v2_result = api.app.engineering_query_stream_v2(request)
+        stream_responses.append(v2_result)
 
-    assert sync_result.answer == "same unified answer"
-    assert v1_result.media_type == "text/event-stream"
-    assert v2_result.media_type == "text/event-stream"
-    assert calls == [
-        ("same business request", None, False, False),
-        ("same business request", None, True, False),
-        ("same business request", None, False, True),
-    ]
+        assert sync_result.answer == "same unified answer"
+        assert v1_result.media_type == "text/event-stream"
+        assert v2_result.media_type == "text/event-stream"
+        assert calls == [
+            ("same business request", None, False, False),
+            ("same business request", None, True, False),
+            ("same business request", None, False, True),
+        ]
 
-    # Each transport selects one observer sink; neither stream creates a
-    # second business-runtime invocation or a second control loop.
-    assert v1_result.body_iterator is not None
-    assert v2_result.body_iterator is not None
+        # Each transport selects one observer sink; neither stream creates a
+        # second business-runtime invocation or a second control loop.
+        assert v1_result.body_iterator is not None
+        assert v2_result.body_iterator is not None
+    finally:
+        for response in stream_responses:
+            _close_unconsumed_stream_response(response)
 
 
 def test_sync_stream_v1_and_stream_v2_have_same_business_result(monkeypatch):

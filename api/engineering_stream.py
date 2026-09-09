@@ -7,10 +7,11 @@ public response without exposing actions, observations, prompts, or CoT.
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 from queue import Empty, Queue
-from threading import Thread
+from threading import Event, Thread
 from typing import Callable, Iterator
 
 from core.engineering_agent import EngineeringAgentFacade
@@ -70,12 +71,24 @@ def _run_worker(
     question: str,
     events: Queue,
     conversation_context=None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> None:
     try:
+        kwargs = {}
+        if cancel_requested is not None:
+            # Source compatibility with test-double facades that predate the
+            # cancellation probe; the production facade accepts it.
+            parameters = inspect.signature(facade.run).parameters
+            if "cancel_requested" in parameters or any(
+                parameter.kind is inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            ):
+                kwargs["cancel_requested"] = cancel_requested
         result = facade.run(
             question,
             conversation_context=conversation_context,
             trace_sink=lambda event: events.put(("trace", event)),
+            **kwargs,
         )
         events.put(("result", result))
     except Exception:
@@ -92,6 +105,7 @@ def stream_engineering_query(
     conversation_context=None,
     build_response: Callable[[ToolAgentRunResult], object],
     before_public_result: Callable[[dict], None] | None = None,
+    cancel_event: Event | None = None,
 ) -> Iterator[str]:
     """Start one Runtime worker and yield product-safe SSE frames.
 
@@ -104,72 +118,89 @@ def stream_engineering_query(
     a callback failure therefore surfaces as ``error`` + ``done`` without the
     stream ever claiming a successful answer.  The frozen question-only
     endpoints pass nothing and keep their exact previous behavior.
+
+    ``cancel_event`` is the disconnect-cancellation signal
+    (PRODUCT-ENGINEERING-24B): when the consumer abandons the stream, the
+    generator's ``finally`` sets it and the Runtime stops at its next safe
+    boundary — no new LLM or Tool call is started. Persistence semantics are
+    unchanged: either no turn is stored, or the turn that already completed
+    atomically.
     """
 
+    if cancel_event is None:
+        cancel_event = Event()
     events: Queue = Queue()
     worker = Thread(
         target=_run_worker,
         args=(facade, question, events, conversation_context),
+        kwargs={"cancel_requested": cancel_event.is_set},
         daemon=True,
         name="engineering-sse-runtime",
     )
     worker.start()
 
     def generate() -> Iterator[str]:
-        yield _encode_event(
-            {
-                "type": "status",
-                "stage": "analysis",
-                "state": "started",
-            }
-        )
-        while True:
-            try:
-                kind, value = events.get(timeout=KEEP_ALIVE_SECONDS)
-            except Empty:
-                yield ": keep-alive\n\n"
-                continue
+        try:
+            yield _encode_event(
+                {
+                    "type": "status",
+                    "stage": "analysis",
+                    "state": "started",
+                }
+            )
+            while True:
+                try:
+                    kind, value = events.get(timeout=KEEP_ALIVE_SECONDS)
+                except Empty:
+                    yield ": keep-alive\n\n"
+                    continue
 
-            if kind == "trace":
-                status = _trace_status(value)
-                if status is not None:
-                    yield _encode_event(status)
-                continue
-            if kind == "error":
-                yield _encode_event(
-                    {"type": "error", "code": "INTERNAL_ENGINEERING_STREAM_ERROR"}
-                )
+                if kind == "trace":
+                    status = _trace_status(value)
+                    if status is not None:
+                        yield _encode_event(status)
+                    continue
+                if kind == "error":
+                    yield _encode_event(
+                        {"type": "error", "code": "INTERNAL_ENGINEERING_STREAM_ERROR"}
+                    )
+                    yield _encode_event({"type": "done"})
+                    return
+                if kind != "result":
+                    continue
+
+                try:
+                    response = build_response(value)
+                    public_result = _result_payload(response)
+                    if before_public_result is not None:
+                        before_public_result(public_result)
+                    for evidence in public_result["evidence"]:
+                        yield _encode_event({"type": "evidence", "evidence": evidence})
+
+                    if public_result["status"] == "completed":
+                        yield _encode_event({"type": "answer_start"})
+                        answer = public_result["answer"]
+                        for start in range(0, len(answer), ANSWER_CHUNK_CHARS):
+                            yield _encode_event(
+                                {
+                                    "type": "answer_delta",
+                                    "delta": answer[start : start + ANSWER_CHUNK_CHARS],
+                                }
+                            )
+                    yield _encode_event({"type": "final", "result": public_result})
+                except Exception:
+                    logger.exception("Engineering stream presentation failed")
+                    yield _encode_event(
+                        {"type": "error", "code": "INTERNAL_ENGINEERING_STREAM_ERROR"}
+                    )
                 yield _encode_event({"type": "done"})
                 return
-            if kind != "result":
-                continue
-
-            try:
-                response = build_response(value)
-                public_result = _result_payload(response)
-                if before_public_result is not None:
-                    before_public_result(public_result)
-                for evidence in public_result["evidence"]:
-                    yield _encode_event({"type": "evidence", "evidence": evidence})
-
-                if public_result["status"] == "completed":
-                    yield _encode_event({"type": "answer_start"})
-                    answer = public_result["answer"]
-                    for start in range(0, len(answer), ANSWER_CHUNK_CHARS):
-                        yield _encode_event(
-                            {
-                                "type": "answer_delta",
-                                "delta": answer[start : start + ANSWER_CHUNK_CHARS],
-                            }
-                        )
-                yield _encode_event({"type": "final", "result": public_result})
-            except Exception:
-                logger.exception("Engineering stream presentation failed")
-                yield _encode_event(
-                    {"type": "error", "code": "INTERNAL_ENGINEERING_STREAM_ERROR"}
-                )
-            yield _encode_event({"type": "done"})
-            return
+        finally:
+            # Client disconnect / generator close: signal cooperative
+            # cancellation so the worker stops at the next safe boundary.
+            # On a normally completed stream the worker already finished and
+            # the signal is a no-op.
+            cancel_event.set()
 
     return generate()
 
