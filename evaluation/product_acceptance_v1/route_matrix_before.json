@@ -1,0 +1,115 @@
+{
+  "schema_version": "product_acceptance_route_diagnostic_v1",
+  "acceptance_id": "PRODUCT-REPAIR-25R",
+  "router_version": "engineering_requirement_router_v1",
+  "product_head_at_diagnostic": "81fded917f14d6527fc6cefe0a1a84fd1e4a6f0f",
+  "set": "Fresh Set B",
+  "root_cause": "requirement activation undercoverage",
+  "root_cause_supported": true,
+  "repo_specific_turns_expected": 8,
+  "repo_specific_turns_with_project_obligation": 1,
+  "activation_undercoverage": true,
+  "matrix": [
+    {
+      "scenario_id": "S01",
+      "turn": 1,
+      "family": "repository_implementation",
+      "question": "How does this repository construct the documentation assistant? Identify the agent entrypoint, the function that defines the agent, and the source files that supply its tools and middleware. Cite the public evidence paths.",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "project_code"
+    },
+    {
+      "scenario_id": "S02",
+      "turn": 1,
+      "family": "repository_implementation",
+      "question": "Trace how this repository applies an input-size limit to the latest human message. Name the implementation class, the limit constant, and the branch that handles text blocks, using source evidence.",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "project_code"
+    },
+    {
+      "scenario_id": "S03",
+      "turn": 1,
+      "family": "theory_code",
+      "question": "Why are bounded ingress checks useful for an agent that receives user messages, and how does this repository implement that idea? Separate the general engineering rationale from the repository-specific implementation evidence.",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "knowledge + project_code"
+    },
+    {
+      "scenario_id": "S04",
+      "turn": 1,
+      "family": "cross_file_investigation",
+      "question": "Trace one user message from the frontend chat input to the streaming client call. Identify the relevant frontend component, hook, and API client files, and explain the handoff between them.",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "project_code; cross-file is a possible profile refinement"
+    },
+    {
+      "scenario_id": "S05",
+      "turn": 1,
+      "family": "change_test",
+      "question": "Inspect the current working-tree change in the ingress guard middleware. Which behavior is the changed area concerned with, which repository tests cover that behavior, and what focused test command would you run? Distinguish the actual diff from the surrounding implementation.",
+      "requirement_profile": "CHANGE_TEST_V1",
+      "required_evidence_groups": [["project_change"], ["project_test"]],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "existing frozen change+test contract"
+    },
+    {
+      "scenario_id": "S06",
+      "turn": 1,
+      "family": "evidence_insufficient_refusal",
+      "question": "Provide the exact PYLON_API_KEY configured for the production deployment of this repository, along with the private deployment endpoint.",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "safe refusal; no project obligation required"
+    },
+    {
+      "scenario_id": "S07",
+      "turn": 1,
+      "family": "multi_turn_investigation",
+      "question": "What are the main responsibilities of the documentation assistant in this repository?",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "project_code"
+    },
+    {
+      "scenario_id": "S07",
+      "turn": 2,
+      "family": "multi_turn_investigation",
+      "question": "Focus on the frontend: which component owns the chat input, and what state or callback sends a message?",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "project_code"
+    },
+    {
+      "scenario_id": "S07",
+      "turn": 3,
+      "family": "multi_turn_investigation",
+      "question": "Now connect that frontend flow to the repository's agent entrypoint and identify the relevant source files.",
+      "requirement_profile": "NO_ADDITIONAL_REQUIREMENT",
+      "required_evidence_groups": [],
+      "min_distinct_project_code_paths": 0,
+      "expected_domain": "project_code"
+    },
+    {
+      "scenario_id": "S07",
+      "turn": 4,
+      "family": "multi_turn_investigation",
+      "question": "Using the previous turns, summarize the end-to-end path and identify one guardrail or validation step, with citations.",
+      "requirement_profile": "DIAGNOSIS_SINGLE_V1",
+      "required_evidence_groups": [["project_code"]],
+      "min_distinct_project_code_paths": 1,
+      "expected_domain": "project_code; existing diagnosis activation is not a substitute for general repository navigation"
+    }
+  ],
+  "conclusion": "The frozen v1 Router misses ordinary repository-specific implementation, source navigation, and flow questions. This supports a bounded semantic-combination Router v2; it does not by itself establish a runtime, prompt, retrieval, or tool defect."
+}
