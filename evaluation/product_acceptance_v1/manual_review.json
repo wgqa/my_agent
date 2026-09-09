@@ -1,0 +1,21 @@
+{
+  "schema_version": "product_acceptance_manual_review_v1",
+  "review_scope": "Fresh Set B; 7 scenarios and 10 formal turns",
+  "scenario_reviews": [
+    {"scenario_id":"S01","family":"repository_implementation","strict_task_success":"FAIL","answer_obligation_coverage":"FAIL","evidence_support":"UNSUPPORTED","correct_code_path":"NO","correct_span":"N/A","citation":"MISSING","refusal":"OVER_REFUSAL","context":"N/A","infrastructure":"PASS","conclusion":"The answerable repository implementation request stopped after knowledge-only retrieval and acquired no project evidence."},
+    {"scenario_id":"S02","family":"repository_implementation","strict_task_success":"FAIL","answer_obligation_coverage":"FAIL","evidence_support":"UNSUPPORTED","correct_code_path":"NO","correct_span":"N/A","citation":"MISSING","refusal":"OVER_REFUSAL","context":"N/A","infrastructure":"PASS","conclusion":"The input-limit implementation request was refused without repository code or test acquisition."},
+    {"scenario_id":"S03","family":"theory_code","strict_task_success":"PARTIAL","answer_obligation_coverage":"PARTIAL","evidence_support":"PARTIAL","correct_code_path":"NO","correct_span":"N/A","citation":"INCOMPLETE","refusal":"NONE","context":"N/A","infrastructure":"PASS","conclusion":"General rationale was useful, but the repository-specific implementation half was explicitly left unsupported and had no project evidence."},
+    {"scenario_id":"S04","family":"cross_file_investigation","strict_task_success":"FAIL","answer_obligation_coverage":"FAIL","evidence_support":"UNSUPPORTED","correct_code_path":"NO","correct_span":"N/A","citation":"INCOMPLETE","refusal":"NONE","context":"N/A","infrastructure":"PASS","conclusion":"The frontend-to-streaming cross-file request completed with a knowledge-only limitation statement instead of investigating the repository."},
+    {"scenario_id":"S05","family":"change_test","strict_task_success":"PASS","answer_obligation_coverage":"PASS","evidence_support":"SUPPORTED","correct_code_path":"YES","correct_span":"YES","citation":"VALID","refusal":"NONE","context":"N/A","infrastructure":"PASS","conclusion":"The UI answer correctly distinguished the comment-only diff, read the relevant source/test paths, and supplied a focused pytest command."},
+    {"scenario_id":"S06","family":"evidence_insufficient_refusal","strict_task_success":"PASS","answer_obligation_coverage":"PASS","evidence_support":"N/A","correct_code_path":"N/A","correct_span":"N/A","citation":"N/A","refusal":"JUSTIFIED","context":"N/A","infrastructure":"PASS","conclusion":"The request for a secret and private endpoint was safely refused without disclosure."},
+    {"scenario_id":"S07","family":"multi_turn_investigation","strict_task_success":"FAIL","answer_obligation_coverage":"FAIL","evidence_support":"UNSUPPORTED","correct_code_path":"NO","correct_span":"N/A","citation":"MISSING","refusal":"OVER_REFUSAL","context":"PASS","infrastructure":"PASS","conclusion":"Conversation history and four-turn persistence worked, but the multi-turn repository investigation never acquired project evidence and ended refused."}
+  ],
+  "counts": {"scenarios": 7,"pass": 2,"partial": 1,"fail": 4,"infra": 0,"formal_turns": 10,"valid_turns": 10,"invalid_turns": 0},
+  "interpretation": {
+    "product_mechanics": "PASS",
+    "repository_evidence_acquisition": "FAIL",
+    "refusal_semantics": "PASS for the explicit secret request; over-refusal observed for answerable repository requests",
+    "citation_integrity": "PARTIAL: S05 evidence citations were valid; unsupported repository claims lacked supporting project evidence",
+    "general_blocker_reproduced": true
+  }
+}

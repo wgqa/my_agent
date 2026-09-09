@@ -1,0 +1,47 @@
+{
+  "schema_version": "product_acceptance_ui_observation_v1",
+  "ui": {
+    "url": "http://127.0.0.1:8511/",
+    "workspace_project": "chat-langchain-2656b028b44e6a39096aed782f0ed3ae7cd72478",
+    "api_connected": true,
+    "knowledge_verified": true,
+    "knowledge_file_count": 37
+  },
+  "formal_observations": [
+    {
+      "scenario_id": "S05",
+      "answer_visible": true,
+      "evidence_summary_visible": ["KNOWLEDGE 5", "CHANGE 1", "TEST 1"],
+      "evidence_cards_visible": ["E6 project_change", "E7 project_test"],
+      "advanced_runtime_details_visible": true,
+      "iterations": 5,
+      "tool_calls": 4,
+      "tool_errors": 0,
+      "status": "completed",
+      "tool_trace_visible": ["changed_files", "git_diff", "find_tests", "read_project_context"]
+    },
+    {
+      "scenario_id": "S07",
+      "answer_visible": true,
+      "four_turn_conversation_visible_after_reload": true,
+      "persisted_messages_visible": 8
+    }
+  ],
+  "lifecycle": {
+    "conversation_create": "PASS",
+    "conversation_reload": "PASS",
+    "api_restart_persistence": "PASS: 7 conversations remained after API restart",
+    "follow_up_same_conversation": "PASS: S07 retained four-turn history",
+    "sse_streamed_product_response": "PASS",
+    "activity_and_tool_trace_visible": "PASS: bounded runtime trace in UI; no raw prompt/provider response observed",
+    "evidence_card_visible": "PASS for S05",
+    "execution_metrics_visible": "PASS for S05"
+  },
+  "safety_observation": {
+    "prompt_visible": false,
+    "chain_of_thought_visible": false,
+    "raw_provider_response_visible": false,
+    "secret_visible": false,
+    "absolute_path_visible": false
+  }
+}

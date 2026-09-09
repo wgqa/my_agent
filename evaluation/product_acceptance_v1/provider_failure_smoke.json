@@ -1,0 +1,16 @@
+{
+  "schema_version": "product_acceptance_provider_failure_smoke_v1",
+  "separate_process": true,
+  "formal_runs_contaminated": false,
+  "provider_configuration": "invalid/unavailable provider configuration",
+  "http_status": 200,
+  "product_status": "failed",
+  "failure_code": "ACTION_PROVIDER_ERROR",
+  "iterations_used": 1,
+  "tool_calls_used": 0,
+  "safe_failure": true,
+  "answer_present": false,
+  "raw_provider_response_present": false,
+  "secret_present": false,
+  "raw_stack_present": false
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": "product_acceptance_run_manifest_v1",
+  "acceptance_id": "PRODUCT-ACCEPT-25",
+  "set": "Fresh Set B",
+  "questions_frozen_before_first_formal_run": true,
+  "product_commit": "542418395b8d337401e1b745f25c82dbe1213018",
+  "actual_runtime_HEAD": "542418395b8d337401e1b745f25c82dbe1213018",
+  "precheck": {
+    "head_match": true,
+    "tracked_unstaged_diff": "zero",
+    "tracked_staged_diff": "zero",
+    "ci_run": "34305952149",
+    "ci_status": "SUCCESS (externally confirmed)",
+    "untracked_snapshot_before": "untracked_snapshot_before.txt",
+    "historical_untracked_artifacts_modified": false
+  },
+  "fresh_repository": {
+    "repository": "langchain-ai/chat-langchain",
+    "url": "https://github.com/langchain-ai/chat-langchain",
+    "pinned_source_commit": "2656b028b44e6a39096aed782f0ed3ae7cd72478",
+    "checkout_mode": "independent archive checkout with local git baseline",
+    "previous_product_tuning": false,
+    "target_snapshot_isolated": true,
+    "dirty_worktree_patch_sha1": "cfe8aaaa06839f4654b4dc814705006d704a4018",
+    "dirty_worktree_patch_path": "src/middleware/ingress_guards_middleware.py",
+    "dirty_worktree_patch_purpose": "comment-only change/test fixture; production behavior unchanged"
+  },
+  "knowledge_corpus": {
+    "repository": "wgqa/agent_data",
+    "pinned_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "corpus_id": "870e5864df67",
+    "verified_file_count": 37
+  },
+  "runtime_identity": {
+    "system": "Unified Engineering Runtime",
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+    "prompt_sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf",
+    "budget": {
+      "max_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "deadline_seconds": 60
+  },
+  "execution_scope": {
+    "scenario_count": 7,
+    "formal_turn_count": 10,
+    "observed_turns": 10,
+    "valid_turns": 10,
+    "infrastructure_invalid_turns": 0,
+    "retry": 0,
+    "system_a": "NOT RUN",
+    "holdout": "NOT RUN / DENY",
+    "results_source": "isolated acceptance conversation store plus bounded UI observations",
+    "old_result_directories_protected": true
+  },
+  "automatic_metrics": {
+    "historical_contract": "integration_v7_metrics_v1",
+    "applied_to_fresh_set_b": false,
+    "reason": "Fresh Set B has independently frozen acceptance scenarios, not the frozen Integration-v7 case/Gold contract; no cross-contract score was inferred.",
+    "available_automatic_execution_fields": ["status", "iterations_used", "tool_calls_used", "tool_errors_used", "elapsed_ms", "decision_llm_calls", "input_tokens", "output_tokens"]
+  },
+  "provider_failure_smoke": {
+    "separate_process": true,
+    "provider": "invalid/unavailable test configuration",
+    "status": "failed",
+    "failure_code": "ACTION_PROVIDER_ERROR",
+    "http_status": 200,
+    "safe_failure_observed": true,
+    "formal_scenario_store_untouched": true
+  },
+  "production_modification": false,
+  "manual_review": "manual_review.json",
+  "safe_runs": "runs/safe_results.jsonl",
+  "ui_observations": "ui_observations/ui_observations.json"
+}

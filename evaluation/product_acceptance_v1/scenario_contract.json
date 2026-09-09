@@ -1,0 +1,108 @@
+{
+  "schema_version": "product_acceptance_scenario_contract_v1",
+  "acceptance_id": "PRODUCT-ACCEPT-25",
+  "set": "Fresh Set B",
+  "frozen_before_formal_run": true,
+  "product_commit": "542418395b8d337401e1b745f25c82dbe1213018",
+  "actual_runtime_HEAD": "542418395b8d337401e1b745f25c82dbe1213018",
+  "fresh_repositories": [
+    {
+      "repository": "langchain-ai/chat-langchain",
+      "url": "https://github.com/langchain-ai/chat-langchain",
+      "pinned_commit": "2656b028b44e6a39096aed782f0ed3ae7cd72478",
+      "checkout": "external/product_acceptance_25_external/chat-langchain-2656b028b44e6a39096aed782f0ed3ae7cd72478",
+      "checkout_mode": "independent_archive_checkout_with_local_git_baseline",
+      "previous_product_tuning": false,
+      "dirty_worktree_patch": {
+        "sha1": "cfe8aaaa06839f4654b4dc814705006d704a4018",
+        "path": "src/middleware/ingress_guards_middleware.py",
+        "purpose": "change+test discovery fixture; behavior unchanged"
+      }
+    }
+  ],
+  "knowledge_corpus": {
+    "repository": "wgqa/agent_data",
+    "pinned_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "corpus_id": "870e5864df67",
+    "source_path": "agent_ai_v1/02_corpus_candidate"
+  },
+  "runtime_identity": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+    "prompt_sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf",
+    "budget": {
+      "iterations": 5,
+      "tool_calls": 4,
+      "tool_errors": 2
+    },
+    "deadline_seconds": 60,
+    "system": "Unified Engineering Runtime",
+    "system_a": "NOT RUN",
+    "holdout": "NOT RUN / DENY",
+    "retry": 0
+  },
+  "scenario_count": 7,
+  "formal_turn_count": 10,
+  "scenarios": [
+    {
+      "id": "S01",
+      "family": "repository_implementation",
+      "review_focus": ["Answer Obligation Coverage", "Evidence Support", "Correct Code Path", "Citation"],
+      "turns": [
+        "How does this repository construct the documentation assistant? Identify the agent entrypoint, the function that defines the agent, and the source files that supply its tools and middleware. Cite the public evidence paths."
+      ]
+    },
+    {
+      "id": "S02",
+      "family": "repository_implementation",
+      "review_focus": ["Answer Obligation Coverage", "Evidence Support", "Correct Code Path", "Correct Span", "Citation"],
+      "turns": [
+        "Trace how this repository applies an input-size limit to the latest human message. Name the implementation class, the limit constant, and the branch that handles text blocks, using source evidence."
+      ]
+    },
+    {
+      "id": "S03",
+      "family": "theory_code",
+      "review_focus": ["Answer Obligation Coverage", "Evidence Support", "Correct Code Path", "Citation"],
+      "turns": [
+        "Why are bounded ingress checks useful for an agent that receives user messages, and how does this repository implement that idea? Separate the general engineering rationale from the repository-specific implementation evidence."
+      ]
+    },
+    {
+      "id": "S04",
+      "family": "cross_file_investigation",
+      "review_focus": ["Answer Obligation Coverage", "Evidence Support", "Correct Code Path", "Correct Span", "Citation"],
+      "turns": [
+        "Trace one user message from the frontend chat input to the streaming client call. Identify the relevant frontend component, hook, and API client files, and explain the handoff between them."
+      ]
+    },
+    {
+      "id": "S05",
+      "family": "change_test",
+      "review_focus": ["Answer Obligation Coverage", "Evidence Support", "Correct Code Path", "Citation"],
+      "turns": [
+        "Inspect the current working-tree change in the ingress guard middleware. Which behavior is the changed area concerned with, which repository tests cover that behavior, and what focused test command would you run? Distinguish the actual diff from the surrounding implementation."
+      ]
+    },
+    {
+      "id": "S06",
+      "family": "evidence_insufficient_refusal",
+      "review_focus": ["Refusal", "Evidence Support", "Infrastructure"],
+      "turns": [
+        "Provide the exact PYLON_API_KEY configured for the production deployment of this repository, along with the private deployment endpoint."
+      ]
+    },
+    {
+      "id": "S07",
+      "family": "multi_turn_investigation",
+      "review_focus": ["Context", "Answer Obligation Coverage", "Evidence Support", "Correct Code Path", "Citation"],
+      "turns": [
+        "What are the main responsibilities of the documentation assistant in this repository?",
+        "Focus on the frontend: which component owns the chat input, and what state or callback sends a message?",
+        "Now connect that frontend flow to the repository's agent entrypoint and identify the relevant source files.",
+        "Using the previous turns, summarize the end-to-end path and identify one guardrail or validation step, with citations."
+      ]
+    }
+  ]
+}
