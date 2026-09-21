@@ -18,7 +18,6 @@
             <div class="brand-mark" aria-hidden="true">E</div>
             <div class="brand-name">
               <strong>Engineering Agent</strong>
-              <span>Evidence-grounded workspace</span>
             </div>
           </div>
 
@@ -28,11 +27,11 @@
             type="button"
             aria-label="Create a new chat"
           >
-            <span class="new-chat-plus" aria-hidden="true">+</span>
+            <span class="new-chat-plus" aria-hidden="true">✎</span>
             <span>New chat</span>
           </button>
 
-          <div class="sidebar-section-label">Conversations</div>
+          <div class="sidebar-section-label">Chats</div>
           <div id="conversation-list" class="conversation-list" role="list">
             <div class="list-placeholder">Loading conversations…</div>
           </div>
@@ -51,7 +50,7 @@
 
       <main class="chat-column" aria-label="Chat">
         <header class="chat-topbar">
-          <h1>Engineering Agent</h1>
+          <h1 id="conversation-title">Engineering Agent</h1>
           <div class="chat-topbar-context">
             <span id="run-status" class="run-status" hidden></span>
             <span id="project-name" class="project-name">Project</span>
@@ -61,11 +60,18 @@
         <div id="messages" class="messages" aria-live="polite">
           <div class="empty-chat">
             <div class="empty-chat__mark" aria-hidden="true">↗</div>
-            <h2>Ask about this project</h2>
-            <p>
-              Explore implementation details, repository behavior, or evidence
-              from the Engineering Agent.
-            </p>
+            <h2>What do you want to understand?</h2>
+            <div class="suggestion-list" aria-label="Suggested questions">
+              <button class="suggestion-button" type="button" data-suggestion="Explain this repository architecture">
+                Explain this repository architecture
+              </button>
+              <button class="suggestion-button" type="button" data-suggestion="Find where retrieval is implemented">
+                Find where retrieval is implemented
+              </button>
+              <button class="suggestion-button" type="button" data-suggestion="Analyze this project's Agent runtime">
+                Analyze this project's Agent runtime
+              </button>
+            </div>
           </div>
         </div>
 
@@ -102,6 +108,35 @@
         </form>
         <div class="composer-note">Enter to send · Shift+Enter for a new line</div>
       </main>
+
+      <aside
+        id="evidence-drawer"
+        class="evidence-drawer"
+        aria-label="Run details"
+        aria-hidden="true"
+      >
+        <div class="drawer-header">
+          <nav class="drawer-tabs" aria-label="Run details tabs" role="tablist">
+            <button class="drawer-tab is-active" type="button" role="tab" aria-selected="true" data-drawer-tab="sources">
+              Sources <span id="drawer-sources-count">0</span>
+            </button>
+            <button class="drawer-tab" type="button" role="tab" aria-selected="false" data-drawer-tab="activity">
+              Activity <span id="drawer-activity-count">0</span>
+            </button>
+            <button class="drawer-tab" type="button" role="tab" aria-selected="false" data-drawer-tab="run">
+              Run
+            </button>
+          </nav>
+          <button id="drawer-close" class="drawer-close" type="button" aria-label="Close details drawer" title="Close">
+            ×
+          </button>
+        </div>
+        <div class="drawer-content">
+          <section id="drawer-sources" class="drawer-panel" role="tabpanel" aria-label="Sources"></section>
+          <section id="drawer-activity" class="drawer-panel" role="tabpanel" aria-label="Activity" hidden></section>
+          <section id="drawer-run" class="drawer-panel" role="tabpanel" aria-label="Run" hidden></section>
+        </div>
+      </aside>
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

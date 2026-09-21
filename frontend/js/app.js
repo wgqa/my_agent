@@ -24,12 +24,17 @@ const state = {
   activity: [],
   latestResult: null,
   running: false,
+  drawerOpen: false,
+  drawerTab: 'sources',
+  drawerResult: null,
+  drawerEvidenceId: null,
   toastTimer: null,
 };
 
 const elements = {
   apiStatus: document.querySelector('#api-status'),
   apiStatusText: document.querySelector('#api-status-text'),
+  conversationTitle: document.querySelector('#conversation-title'),
   projectName: document.querySelector('#project-name'),
   runStatus: document.querySelector('#run-status'),
   conversationList: document.querySelector('#conversation-list'),
@@ -42,6 +47,15 @@ const elements = {
   composer: document.querySelector('#composer'),
   messageInput: document.querySelector('#message-input'),
   sendMessage: document.querySelector('#send-message'),
+  suggestions: document.querySelectorAll('[data-suggestion]'),
+  drawer: document.querySelector('#evidence-drawer'),
+  drawerClose: document.querySelector('#drawer-close'),
+  drawerTabs: document.querySelectorAll('[data-drawer-tab]'),
+  drawerSourcesCount: document.querySelector('#drawer-sources-count'),
+  drawerActivityCount: document.querySelector('#drawer-activity-count'),
+  drawerSources: document.querySelector('#drawer-sources'),
+  drawerActivity: document.querySelector('#drawer-activity'),
+  drawerRun: document.querySelector('#drawer-run'),
   toast: document.querySelector('#toast'),
 };
 
@@ -52,6 +66,7 @@ function text(value, fallback = '') {
 function setApiStatus(status, label) {
   elements.apiStatus.hidden = status === 'online';
   elements.apiStatusText.textContent = label;
+  elements.refreshConversations.hidden = status === 'online';
 }
 
 function showToast(message, { error = false } = {}) {
@@ -95,17 +110,27 @@ function clearRunError() {
   elements.runStatus.textContent = '';
 }
 
+function resizeComposer() {
+  elements.messageInput.style.height = 'auto';
+  elements.messageInput.style.height = Math.min(elements.messageInput.scrollHeight, 180) + 'px';
+}
+
+function updateComposerState() {
+  elements.sendMessage.disabled = state.running || !elements.messageInput.value.trim();
+}
+
 function setRunning(running) {
   state.running = running;
   elements.newConversation.disabled = running;
   elements.refreshConversations.disabled = running;
   elements.messageInput.disabled = running;
-  elements.sendMessage.disabled = running;
   elements.liveRun.hidden = !running;
   if (running) {
     clearRunError();
     elements.liveRunLabel.textContent = 'Analyzing…';
   }
+  updateComposerState();
+  renderConversationList();
   renderLiveActivity();
 }
 
@@ -146,6 +171,55 @@ function resultForMessage(message) {
   return message && message.role === 'assistant' && message.result
     ? message.result
     : null;
+}
+
+function evidenceId(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const raw = String(value).trim().toUpperCase();
+  if (!raw) {
+    return '';
+  }
+  return raw.startsWith('E') ? raw : 'E' + raw;
+}
+
+function evidenceForResult(result) {
+  return Array.isArray(result?.evidence) ? result.evidence : state.evidence;
+}
+
+function findEvidence(evidence, id) {
+  const wanted = evidenceId(id);
+  return evidence.find((item) => evidenceId(item?.evidence_id) === wanted) || null;
+}
+
+function appendTextWithCitations(container, value, evidence, result = null) {
+  const source = String(value ?? '');
+  const pattern = /\[E\d+\]/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = pattern.exec(source)) !== null) {
+    if (match.index > lastIndex) {
+      container.append(document.createTextNode(source.slice(lastIndex, match.index)));
+    }
+    const citationId = evidenceId(match[0].slice(1, -1));
+    if (!findEvidence(evidence, citationId)) {
+      container.append(document.createTextNode(match[0]));
+    } else {
+      const citation = document.createElement('button');
+      citation.type = 'button';
+      citation.className = 'citation';
+      citation.textContent = match[0];
+      citation.dataset.evidenceId = citationId;
+      citation.setAttribute('aria-label', 'Open evidence ' + citationId);
+      citation.addEventListener('click', () => openDrawer('sources', result, citationId));
+      container.append(citation);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < source.length) {
+    container.append(document.createTextNode(source.slice(lastIndex)));
+  }
 }
 
 function statusMessage(result) {
@@ -203,10 +277,11 @@ function renderMessageContent(container, message) {
     return;
   }
 
+  const resultEvidence = evidenceForResult(result);
   const paragraphs = String(content).split(/\n{2,}/);
   for (const paragraphText of paragraphs) {
     const paragraph = document.createElement('p');
-    paragraph.textContent = paragraphText;
+    appendTextWithCitations(paragraph, paragraphText, resultEvidence, result);
     container.append(paragraph);
   }
 }
@@ -219,15 +294,21 @@ function kindClass(kind) {
   return kind ? 'kind-badge--' + kind.replaceAll('_', '-') : '';
 }
 
-function buildEvidenceCard(item) {
+function buildEvidenceCard(item, { selected = false } = {}) {
   const card = document.createElement('article');
   card.className = 'evidence-card';
+  card.classList.toggle('is-selected', selected);
+  const itemId = evidenceId(item?.evidence_id);
+  if (itemId) {
+    card.id = 'evidence-' + itemId;
+    card.dataset.evidenceId = itemId;
+  }
 
   const heading = document.createElement('div');
   heading.className = 'evidence-card__heading';
   const id = document.createElement('span');
   id.className = 'evidence-card__id';
-  id.textContent = '[' + text(item.evidence_id, 'E?') + ']';
+  id.textContent = '[' + (itemId || 'E?') + ']';
   const kind = document.createElement('span');
   kind.className = 'kind-badge ' + kindClass(item.kind);
   kind.textContent = kindLabel(item.kind);
@@ -251,7 +332,7 @@ function buildEvidenceCard(item) {
   return card;
 }
 
-function appendEvidence(container, evidence) {
+function appendEvidence(container, evidence, selectedId = '') {
   const stack = document.createElement('div');
   stack.className = 'evidence-stack';
   const ordered = [...(Array.isArray(evidence) ? evidence : [])].sort((left, right) => {
@@ -265,7 +346,13 @@ function appendEvidence(container, evidence) {
     empty.textContent = 'No public evidence was returned.';
     stack.append(empty);
   } else {
-    ordered.forEach((item) => stack.append(buildEvidenceCard(item)));
+    ordered.forEach((item) => {
+      stack.append(
+        buildEvidenceCard(item, {
+          selected: evidenceId(item?.evidence_id) === evidenceId(selectedId),
+        }),
+      );
+    });
   }
   container.append(stack);
 }
@@ -396,79 +483,180 @@ function addActivity(event) {
   renderLiveActivity();
 }
 
-function buildAssistantDetails(result) {
-  const evidence = Array.isArray(result.evidence) ? result.evidence : [];
-  const activity = activityFromResult(result);
-  const details = document.createElement('details');
-  details.className = 'assistant-details';
+function drawerData() {
+  const result = state.drawerResult || state.latestResult;
+  const evidence = evidenceForResult(result);
+  const activity = result ? activityFromResult(result) : state.activity;
+  return { result, evidence, activity };
+}
 
-  const summary = document.createElement('summary');
-  for (const label of [
-    'Sources ' + evidence.length,
-    'Activity ' + activity.length,
-    'Details',
-  ]) {
-    const item = document.createElement('span');
-    item.className = 'summary-item';
-    item.textContent = label;
-    summary.append(item);
+function renderDrawerRun(result) {
+  elements.drawerRun.replaceChildren();
+  const heading = document.createElement('div');
+  heading.className = 'drawer-section-heading';
+  heading.textContent = 'Execution summary';
+  elements.drawerRun.append(heading);
+
+  const metrics = document.createElement('dl');
+  metrics.className = 'run-metrics';
+  const execution = result?.execution || {};
+  const values = [
+    ['Status', text(result?.status, state.running ? 'running' : '—')],
+    ['Iterations', result?.iterations_used],
+    ['Tool calls', result?.tool_calls_used],
+    ['Tool errors', result?.tool_errors_used],
+    ['Elapsed', execution.elapsed_ms === undefined ? null : execution.elapsed_ms + ' ms'],
+    ['Decision calls', execution.decision_llm_calls],
+  ];
+  for (const [label, value] of values) {
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const detail = document.createElement('dd');
+    detail.textContent = value === null || value === undefined ? '—' : String(value);
+    metrics.append(term, detail);
   }
+  elements.drawerRun.append(metrics);
 
-  const body = document.createElement('div');
-  body.className = 'assistant-details__body';
+  if (result?.reason_code || result?.failure_code) {
+    const details = document.createElement('div');
+    details.className = 'drawer-run-details';
+    if (result.reason_code) {
+      details.append('Reason: ' + result.reason_code);
+    }
+    if (result.failure_code) {
+      if (details.childNodes.length) {
+        details.append(document.createTextNode(' · '));
+      }
+      details.append('Failure: ' + result.failure_code);
+    }
+    elements.drawerRun.append(details);
+  }
+}
 
-  const sources = document.createElement('section');
-  sources.className = 'detail-group';
-  const sourcesHeading = document.createElement('h3');
-  sourcesHeading.textContent = 'Sources';
-  sources.append(sourcesHeading);
-  appendEvidence(sources, evidence);
+function renderDrawer() {
+  const { result, evidence, activity } = drawerData();
+  elements.drawerSourcesCount.textContent = String(evidence.length);
+  elements.drawerActivityCount.textContent = String(activity.length);
+  elements.drawerSources.replaceChildren();
+  elements.drawerActivity.replaceChildren();
 
-  const activityGroup = document.createElement('section');
-  activityGroup.className = 'detail-group detail-group--activity';
-  const activityHeading = document.createElement('h3');
-  activityHeading.textContent = 'Activity';
+  const sourcesHeading = document.createElement('div');
+  sourcesHeading.className = 'drawer-section-heading';
+  sourcesHeading.textContent = evidence.length
+    ? 'Public evidence'
+    : 'No public evidence';
+  elements.drawerSources.append(sourcesHeading);
+  appendEvidence(elements.drawerSources, evidence, state.drawerEvidenceId);
+
+  const activityHeading = document.createElement('div');
+  activityHeading.className = 'drawer-section-heading';
+  activityHeading.textContent = 'Execution trace';
   const activityList = document.createElement('ol');
-  activityList.className = 'activity-list';
-  activityGroup.append(activityHeading, activityList);
+  activityList.className = 'activity-list activity-list--drawer';
+  elements.drawerActivity.append(activityHeading, activityList);
   renderActivityItems(activityList, activity, 'No activity recorded.');
 
-  const runDetails = document.createElement('section');
-  runDetails.className = 'detail-group';
-  const runDetailsHeading = document.createElement('h3');
-  runDetailsHeading.textContent = 'Details';
-  const runDetailLine = document.createElement('div');
-  runDetailLine.className = 'run-detail-line';
-  runDetailLine.textContent = 'Status: ' + text(result.status, 'unknown');
-  if (result.reason_code) {
-    runDetailLine.textContent += ' · Reason: ' + result.reason_code;
+  renderDrawerRun(result);
+  for (const button of elements.drawerTabs) {
+    const selected = button.dataset.drawerTab === state.drawerTab;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-selected', String(selected));
   }
-  if (result.failure_code) {
-    runDetailLine.textContent += ' · Failure: ' + result.failure_code;
-  }
-  runDetails.append(runDetailsHeading, runDetailLine);
+  elements.drawerSources.hidden = state.drawerTab !== 'sources';
+  elements.drawerActivity.hidden = state.drawerTab !== 'activity';
+  elements.drawerRun.hidden = state.drawerTab !== 'run';
 
-  body.append(sources, activityGroup, runDetails);
-  details.append(summary, body);
-  return details;
+  if (state.drawerOpen && state.drawerTab === 'sources' && state.drawerEvidenceId) {
+    window.requestAnimationFrame(() => {
+      const selected = document.querySelector(
+        '#evidence-' + evidenceId(state.drawerEvidenceId),
+      );
+      selected?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+}
+
+function openDrawer(tab = 'sources', result = null, selectedEvidenceId = '') {
+  state.drawerOpen = true;
+  state.drawerTab = tab;
+  state.drawerResult = result || state.latestResult || null;
+  state.drawerEvidenceId = selectedEvidenceId || '';
+  document.querySelector('.app-shell').classList.add('drawer-open');
+  elements.drawer.setAttribute('aria-hidden', 'false');
+  renderDrawer();
+}
+
+function closeDrawer() {
+  state.drawerOpen = false;
+  state.drawerEvidenceId = '';
+  document.querySelector('.app-shell').classList.remove('drawer-open');
+  elements.drawer.setAttribute('aria-hidden', 'true');
+}
+
+function buildAssistantActions(result) {
+  const evidence = Array.isArray(result?.evidence) ? result.evidence : [];
+  const activity = activityFromResult(result);
+  const actions = document.createElement('nav');
+  actions.className = 'assistant-actions';
+  actions.setAttribute('aria-label', 'Answer details');
+
+  const makeAction = (label, value, tab, disabled = false) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'assistant-action';
+    button.disabled = disabled;
+    button.append(label + (value === null ? '' : ' ' + value));
+    button.addEventListener('click', () => openDrawer(tab, result));
+    return button;
+  };
+
+  actions.append(
+    makeAction('Sources', evidence.length, 'sources', evidence.length === 0),
+    makeAction('Activity', activity.length, 'activity'),
+    makeAction('Run', null, 'run'),
+  );
+  return actions;
+}
+
+function renderEmptyState() {
+  const empty = document.createElement('div');
+  empty.className = 'empty-chat';
+  const mark = document.createElement('div');
+  mark.className = 'empty-chat__mark';
+  mark.setAttribute('aria-hidden', 'true');
+  mark.textContent = '↗';
+  const heading = document.createElement('h2');
+  heading.textContent = 'What do you want to understand?';
+  const suggestions = document.createElement('div');
+  suggestions.className = 'suggestion-list';
+  suggestions.setAttribute('aria-label', 'Suggested questions');
+  const values = [
+    'Explain this repository architecture',
+    'Find where retrieval is implemented',
+    "Analyze this project's Agent runtime",
+  ];
+  for (const value of values) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'suggestion-button';
+    button.dataset.suggestion = value;
+    button.textContent = value;
+    button.addEventListener('click', () => {
+      elements.messageInput.value = value;
+      resizeComposer();
+      updateComposerState();
+      elements.messageInput.focus();
+    });
+    suggestions.append(button);
+  }
+  empty.append(mark, heading, suggestions);
+  return empty;
 }
 
 function renderMessages() {
   elements.messages.replaceChildren();
   if (!state.messages.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-chat';
-    const mark = document.createElement('div');
-    mark.className = 'empty-chat__mark';
-    mark.setAttribute('aria-hidden', 'true');
-    mark.textContent = '↗';
-    const heading = document.createElement('h2');
-    heading.textContent = 'Ask about this project';
-    const copy = document.createElement('p');
-    copy.textContent =
-      'Explore implementation details, repository behavior, or evidence from the Engineering Agent.';
-    empty.append(mark, heading, copy);
-    elements.messages.append(empty);
+    elements.messages.append(renderEmptyState());
     return;
   }
 
@@ -494,7 +682,7 @@ function renderMessages() {
 
     const result = resultForMessage(message);
     if (result && !message.pending) {
-      bubble.append(buildAssistantDetails(result));
+      bubble.append(buildAssistantActions(result));
     }
     row.append(bubble);
     elements.messages.append(row);
@@ -511,10 +699,16 @@ function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
     state.latestResult = assistant ? assistant.result : null;
     state.evidence = state.latestResult?.evidence || [];
     state.activity = activityFromResult(state.latestResult);
+    state.drawerResult = state.latestResult;
+    state.drawerEvidenceId = '';
   }
+  const title = text(detail.title, '');
+  elements.conversationTitle.textContent =
+    title && title !== 'New conversation' ? title : 'Engineering Agent';
   elements.projectName.textContent = text(detail.project_name, 'Project');
   renderMessages();
   renderLiveActivity();
+  renderDrawer();
   if (!state.running) {
     setTerminalRunState(state.latestResult);
   }
@@ -554,6 +748,7 @@ async function selectConversation(conversationId) {
     return;
   }
   try {
+    closeDrawer();
     await loadConversation(conversationId);
   } catch (error) {
     showToast(userFacingError(error), { error: true });
@@ -571,6 +766,8 @@ async function createConversation() {
     state.latestResult = null;
     state.evidence = [];
     state.activity = [];
+    state.drawerResult = null;
+    closeDrawer();
     clearRunError();
     applyConversationDetail(created);
     renderConversationList();
@@ -626,6 +823,8 @@ async function sendMessage(event) {
   state.evidence = [];
   state.activity = [];
   state.latestResult = null;
+  state.drawerResult = null;
+  closeDrawer();
   elements.messageInput.value = '';
   setRunning(true);
   renderMessages();
@@ -659,11 +858,13 @@ async function sendMessage(event) {
         if (eventPayload.type === 'final') {
           finalResult = eventPayload.result || null;
           state.latestResult = finalResult;
+          state.drawerResult = finalResult;
           state.evidence = Array.isArray(finalResult?.evidence)
             ? finalResult.evidence
             : state.evidence;
           updatePendingAssistant(statusMessage(finalResult), finalResult);
           renderMessages();
+          renderDrawer();
           return;
         }
         if (eventPayload.type === 'error') {
@@ -685,6 +886,7 @@ async function sendMessage(event) {
     if (streamError && !finalResult) {
       setRunError('Error');
       renderMessages();
+      renderDrawer();
       return;
     }
     setTerminalRunState(finalResult);
@@ -700,6 +902,7 @@ async function sendMessage(event) {
     markPendingError(userFacingError(error), errorDetails(error));
     setRunError('Unavailable');
     renderMessages();
+    renderDrawer();
     showToast(userFacingError(error), { error: true });
   }
 }
@@ -707,6 +910,14 @@ async function sendMessage(event) {
 async function boot() {
   elements.composer.addEventListener('submit', sendMessage);
   elements.newConversation.addEventListener('click', createConversation);
+  elements.drawerClose.addEventListener('click', closeDrawer);
+  for (const button of elements.drawerTabs) {
+    button.addEventListener('click', () => {
+      state.drawerTab = button.dataset.drawerTab;
+      state.drawerOpen = true;
+      renderDrawer();
+    });
+  }
   elements.refreshConversations.addEventListener('click', async () => {
     try {
       await refreshConversations();
@@ -721,6 +932,21 @@ async function boot() {
       elements.composer.requestSubmit();
     }
   });
+  elements.messageInput.addEventListener('input', () => {
+    resizeComposer();
+    updateComposerState();
+  });
+  elements.messageInput.addEventListener('focus', resizeComposer);
+  elements.suggestions.forEach((button) => {
+    button.addEventListener('click', () => {
+      elements.messageInput.value = button.dataset.suggestion || '';
+      resizeComposer();
+      updateComposerState();
+      elements.messageInput.focus();
+    });
+  });
+  updateComposerState();
+  renderDrawer();
 
   try {
     await refreshConversations();
