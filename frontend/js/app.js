@@ -28,12 +28,14 @@ const state = {
   drawerTab: 'sources',
   drawerResult: null,
   drawerEvidenceId: null,
+  drawerHighlightTimer: null,
   toastTimer: null,
 };
 
 const elements = {
   apiStatus: document.querySelector('#api-status'),
   apiStatusText: document.querySelector('#api-status-text'),
+  sidebarFooter: document.querySelector('.sidebar-footer'),
   conversationTitle: document.querySelector('#conversation-title'),
   projectName: document.querySelector('#project-name'),
   runStatus: document.querySelector('#run-status'),
@@ -47,7 +49,6 @@ const elements = {
   composer: document.querySelector('#composer'),
   messageInput: document.querySelector('#message-input'),
   sendMessage: document.querySelector('#send-message'),
-  suggestions: document.querySelectorAll('[data-suggestion]'),
   drawer: document.querySelector('#evidence-drawer'),
   drawerClose: document.querySelector('#drawer-close'),
   drawerTabs: document.querySelectorAll('[data-drawer-tab]'),
@@ -67,6 +68,7 @@ function setApiStatus(status, label) {
   elements.apiStatus.hidden = status === 'online';
   elements.apiStatusText.textContent = label;
   elements.refreshConversations.hidden = status === 'online';
+  elements.sidebarFooter.hidden = status === 'online';
 }
 
 function showToast(message, { error = false } = {}) {
@@ -284,6 +286,12 @@ function renderMessageContent(container, message) {
     appendTextWithCitations(paragraph, paragraphText, resultEvidence, result);
     container.append(paragraph);
   }
+  if (message.pending && content) {
+    const cursor = document.createElement('span');
+    cursor.className = 'streaming-cursor';
+    cursor.setAttribute('aria-hidden', 'true');
+    container.append(cursor);
+  }
 }
 
 function kindLabel(kind) {
@@ -462,12 +470,7 @@ function renderLiveActivity() {
     state.activity,
     'Waiting for runtime activity…',
   );
-  if (!state.activity.length) {
-    elements.liveRunLabel.textContent = 'Analyzing…';
-    return;
-  }
-  elements.liveRunLabel.textContent =
-    state.activity[state.activity.length - 1].label;
+  elements.liveRunLabel.textContent = 'Analyzing';
 }
 
 function addActivity(event) {
@@ -577,6 +580,7 @@ function renderDrawer() {
 }
 
 function openDrawer(tab = 'sources', result = null, selectedEvidenceId = '') {
+  window.clearTimeout(state.drawerHighlightTimer);
   state.drawerOpen = true;
   state.drawerTab = tab;
   state.drawerResult = result || state.latestResult || null;
@@ -584,9 +588,16 @@ function openDrawer(tab = 'sources', result = null, selectedEvidenceId = '') {
   document.querySelector('.app-shell').classList.add('drawer-open');
   elements.drawer.setAttribute('aria-hidden', 'false');
   renderDrawer();
+  if (selectedEvidenceId) {
+    state.drawerHighlightTimer = window.setTimeout(() => {
+      state.drawerEvidenceId = '';
+      renderDrawer();
+    }, 850);
+  }
 }
 
 function closeDrawer() {
+  window.clearTimeout(state.drawerHighlightTimer);
   state.drawerOpen = false;
   state.drawerEvidenceId = '';
   document.querySelector('.app-shell').classList.remove('drawer-open');
@@ -626,30 +637,10 @@ function renderEmptyState() {
   mark.setAttribute('aria-hidden', 'true');
   mark.textContent = '↗';
   const heading = document.createElement('h2');
-  heading.textContent = 'What do you want to understand?';
-  const suggestions = document.createElement('div');
-  suggestions.className = 'suggestion-list';
-  suggestions.setAttribute('aria-label', 'Suggested questions');
-  const values = [
-    'Explain this repository architecture',
-    'Find where retrieval is implemented',
-    "Analyze this project's Agent runtime",
-  ];
-  for (const value of values) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'suggestion-button';
-    button.dataset.suggestion = value;
-    button.textContent = value;
-    button.addEventListener('click', () => {
-      elements.messageInput.value = value;
-      resizeComposer();
-      updateComposerState();
-      elements.messageInput.focus();
-    });
-    suggestions.append(button);
-  }
-  empty.append(mark, heading, suggestions);
+  heading.textContent = 'Ask about this project';
+  const copy = document.createElement('p');
+  copy.textContent = 'Explore the repository with evidence-grounded answers.';
+  empty.append(mark, heading, copy);
   return empty;
 }
 
@@ -937,14 +928,6 @@ async function boot() {
     updateComposerState();
   });
   elements.messageInput.addEventListener('focus', resizeComposer);
-  elements.suggestions.forEach((button) => {
-    button.addEventListener('click', () => {
-      elements.messageInput.value = button.dataset.suggestion || '';
-      resizeComposer();
-      updateComposerState();
-      elements.messageInput.focus();
-    });
-  });
   updateComposerState();
   renderDrawer();
 

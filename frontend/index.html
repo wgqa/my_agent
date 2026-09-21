@@ -33,11 +33,11 @@
 
           <div class="sidebar-section-label">Chats</div>
           <div id="conversation-list" class="conversation-list" role="list">
-            <div class="list-placeholder">Loading conversations…</div>
+            <div class="list-placeholder">Loading…</div>
           </div>
         </div>
 
-        <div class="sidebar-footer">
+        <div class="sidebar-footer" hidden>
           <span id="api-status" class="api-status" hidden>
             <span class="status-dot__light" aria-hidden="true"></span>
             <span id="api-status-text">API unavailable</span>
@@ -60,18 +60,8 @@
         <div id="messages" class="messages" aria-live="polite">
           <div class="empty-chat">
             <div class="empty-chat__mark" aria-hidden="true">↗</div>
-            <h2>What do you want to understand?</h2>
-            <div class="suggestion-list" aria-label="Suggested questions">
-              <button class="suggestion-button" type="button" data-suggestion="Explain this repository architecture">
-                Explain this repository architecture
-              </button>
-              <button class="suggestion-button" type="button" data-suggestion="Find where retrieval is implemented">
-                Find where retrieval is implemented
-              </button>
-              <button class="suggestion-button" type="button" data-suggestion="Analyze this project's Agent runtime">
-                Analyze this project's Agent runtime
-              </button>
-            </div>
+            <h2>Ask about this project</h2>
+            <p>Explore the repository with evidence-grounded answers.</p>
           </div>
         </div>
 
