@@ -29,23 +29,19 @@ const state = {
 
 const elements = {
   apiStatus: document.querySelector('#api-status'),
+  apiStatusText: document.querySelector('#api-status-text'),
   projectName: document.querySelector('#project-name'),
+  runStatus: document.querySelector('#run-status'),
   conversationList: document.querySelector('#conversation-list'),
   newConversation: document.querySelector('#new-conversation'),
   refreshConversations: document.querySelector('#refresh-conversations'),
-  conversationTitle: document.querySelector('#conversation-title'),
-  conversationMeta: document.querySelector('#conversation-meta'),
-  runState: document.querySelector('#run-state'),
   messages: document.querySelector('#messages'),
+  liveRun: document.querySelector('#live-run'),
+  liveRunLabel: document.querySelector('#live-run-label'),
+  liveActivityList: document.querySelector('#live-activity-list'),
   composer: document.querySelector('#composer'),
   messageInput: document.querySelector('#message-input'),
   sendMessage: document.querySelector('#send-message'),
-  evidenceCount: document.querySelector('#evidence-count'),
-  evidenceList: document.querySelector('#evidence-list'),
-  activityState: document.querySelector('#activity-state'),
-  activityList: document.querySelector('#activity-list'),
-  runSummary: document.querySelector('#run-summary'),
-  runMetrics: document.querySelector('#run-metrics'),
   toast: document.querySelector('#toast'),
 };
 
@@ -53,33 +49,9 @@ function text(value, fallback = '') {
   return typeof value === 'string' && value ? value : fallback;
 }
 
-function formatDate(value) {
-  if (!value) {
-    return '';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
 function setApiStatus(status, label) {
-  elements.apiStatus.classList.remove('status-online', 'status-error', 'status-unknown');
-  elements.apiStatus.classList.add(
-    status === 'online'
-      ? 'status-online'
-      : status === 'error'
-        ? 'status-error'
-        : 'status-unknown',
-  );
-  const light = elements.apiStatus.querySelector('.status-dot__light');
-  elements.apiStatus.replaceChildren(light, document.createTextNode(' ' + label));
+  elements.apiStatus.hidden = status === 'online';
+  elements.apiStatusText.textContent = label;
 }
 
 function showToast(message, { error = false } = {}) {
@@ -113,32 +85,35 @@ function errorDetails(error) {
   return parts.join(' · ');
 }
 
+function setRunError(label = 'Unavailable') {
+  elements.runStatus.hidden = false;
+  elements.runStatus.textContent = label;
+}
+
+function clearRunError() {
+  elements.runStatus.hidden = true;
+  elements.runStatus.textContent = '';
+}
+
 function setRunning(running) {
   state.running = running;
   elements.newConversation.disabled = running;
   elements.refreshConversations.disabled = running;
   elements.messageInput.disabled = running;
   elements.sendMessage.disabled = running;
-  elements.sendMessage.querySelector('span').textContent = running ? 'Running' : 'Send';
-  elements.runState.className = running
-    ? 'run-state run-state-running'
-    : 'run-state run-state-idle';
-  elements.runState.textContent = running ? 'Running' : 'Ready';
+  elements.liveRun.hidden = !running;
+  if (running) {
+    clearRunError();
+    elements.liveRunLabel.textContent = 'Analyzing…';
+  }
+  renderLiveActivity();
 }
 
 function setTerminalRunState(result) {
-  if (result?.status === 'completed') {
-    elements.runState.className = 'run-state run-state-complete';
-    elements.runState.textContent = 'Complete';
-  } else if (result?.status === 'refused') {
-    elements.runState.className = 'run-state run-state-error';
-    elements.runState.textContent = 'Refused';
-  } else if (result?.status === 'failed') {
-    elements.runState.className = 'run-state run-state-error';
-    elements.runState.textContent = 'Failed';
+  if (result?.status === 'failed') {
+    setRunError('Error');
   } else {
-    elements.runState.className = 'run-state run-state-idle';
-    elements.runState.textContent = 'Ready';
+    clearRunError();
   }
 }
 
@@ -161,15 +136,8 @@ function renderConversationList() {
       conversation.id === state.activeConversationId,
     );
     button.disabled = state.running;
+    button.textContent = text(conversation.title, 'New conversation');
     button.addEventListener('click', () => selectConversation(conversation.id));
-
-    const title = document.createElement('span');
-    title.className = 'conversation-item__title';
-    title.textContent = text(conversation.title, 'New conversation');
-    const meta = document.createElement('span');
-    meta.className = 'conversation-item__meta';
-    meta.textContent = formatDate(conversation.updated_at) || 'Server conversation';
-    button.append(title, meta);
     elements.conversationList.append(button);
   }
 }
@@ -200,15 +168,6 @@ function statusMessage(result) {
 }
 
 function renderMessageContent(container, message) {
-  const result = resultForMessage(message);
-  const content = result ? statusMessage(result) : text(message.content);
-  if (message.pending) {
-    const pending = document.createElement('span');
-    pending.className = 'message-placeholder';
-    pending.textContent = 'Waiting for the Engineering Agent…';
-    container.append(pending);
-    return;
-  }
   if (message.error) {
     const error = document.createElement('span');
     error.className = 'message-error';
@@ -224,6 +183,16 @@ function renderMessageContent(container, message) {
       details.append(summary, detail);
       container.append(details);
     }
+    return;
+  }
+
+  const result = resultForMessage(message);
+  const content = result ? statusMessage(result) : text(message.content);
+  if (message.pending && !content) {
+    const pending = document.createElement('span');
+    pending.className = 'message-placeholder';
+    pending.textContent = 'Waiting for the Engineering Agent…';
+    container.append(pending);
     return;
   }
   if (!content) {
@@ -242,66 +211,6 @@ function renderMessageContent(container, message) {
   }
 }
 
-function renderMessages() {
-  elements.messages.replaceChildren();
-  if (!state.messages.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-chat';
-    const mark = document.createElement('div');
-    mark.className = 'empty-chat__mark';
-    mark.setAttribute('aria-hidden', 'true');
-    mark.textContent = '↗';
-    const heading = document.createElement('h3');
-    heading.textContent = 'Ask about the bound project';
-    const copy = document.createElement('p');
-    copy.textContent =
-      'Explore implementation details, repository behavior, or evidence from the Engineering Agent.';
-    empty.append(mark, heading, copy);
-    elements.messages.append(empty);
-    return;
-  }
-
-  for (const message of state.messages) {
-    const row = document.createElement('article');
-    row.className = 'message-row message-row--' + (message.role === 'user' ? 'user' : 'assistant');
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = message.role === 'user' ? 'You' : 'E';
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble';
-    const meta = document.createElement('div');
-    meta.className = 'message-meta';
-    const author = document.createElement('span');
-    author.textContent = message.role === 'user' ? 'You' : 'Engineering Agent';
-    const time = document.createElement('span');
-    time.textContent = formatDate(message.created_at);
-    meta.append(author, time);
-    const content = document.createElement('div');
-    content.className = 'message-content';
-    renderMessageContent(content, message);
-    bubble.append(meta, content);
-
-    const result = resultForMessage(message);
-    if (result) {
-      const metaLine = document.createElement('div');
-      metaLine.className = 'message-result-meta';
-      if (result.status) {
-        metaLine.append(document.createTextNode(result.status));
-      }
-      if (result.tool_calls_used !== undefined) {
-        metaLine.append(document.createTextNode(' · ' + result.tool_calls_used + ' tool calls'));
-      }
-      if (result.iterations_used !== undefined) {
-        metaLine.append(document.createTextNode(' · ' + result.iterations_used + ' iterations'));
-      }
-      bubble.append(metaLine);
-    }
-    row.append(avatar, bubble);
-    elements.messages.append(row);
-  }
-  elements.messages.scrollTop = elements.messages.scrollHeight;
-}
-
 function kindLabel(kind) {
   return KIND_LABELS[kind] || 'EVIDENCE';
 }
@@ -310,83 +219,86 @@ function kindClass(kind) {
   return kind ? 'kind-badge--' + kind.replaceAll('_', '-') : '';
 }
 
-function renderEvidence() {
-  elements.evidenceCount.textContent = String(state.evidence.length);
-  elements.evidenceList.replaceChildren();
-  if (!state.evidence.length) {
-    const empty = document.createElement('div');
-    empty.className = 'section-empty';
-    empty.textContent = 'Evidence from the active run will appear here.';
-    elements.evidenceList.append(empty);
-    return;
+function buildEvidenceCard(item) {
+  const card = document.createElement('article');
+  card.className = 'evidence-card';
+
+  const heading = document.createElement('div');
+  heading.className = 'evidence-card__heading';
+  const id = document.createElement('span');
+  id.className = 'evidence-card__id';
+  id.textContent = '[' + text(item.evidence_id, 'E?') + ']';
+  const kind = document.createElement('span');
+  kind.className = 'kind-badge ' + kindClass(item.kind);
+  kind.textContent = kindLabel(item.kind);
+  heading.append(id, kind);
+
+  const location = document.createElement('div');
+  location.className = 'evidence-card__location';
+  if (item.kind === 'knowledge') {
+    location.textContent = text(item.source_name, 'Knowledge source');
+  } else {
+    const lineStart = item.start_line || '?';
+    const lineEnd = item.end_line || lineStart;
+    location.textContent =
+      text(item.path, 'Project path') + ' · lines ' + lineStart + '–' + lineEnd;
   }
 
-  const evidence = [...state.evidence].sort((left, right) => {
+  const snippet = document.createElement('p');
+  snippet.className = 'evidence-card__snippet';
+  snippet.textContent = text(item.snippet, 'No public snippet');
+  card.append(heading, location, snippet);
+  return card;
+}
+
+function appendEvidence(container, evidence) {
+  const stack = document.createElement('div');
+  stack.className = 'evidence-stack';
+  const ordered = [...(Array.isArray(evidence) ? evidence : [])].sort((left, right) => {
     const leftOrder = EVIDENCE_ORDER.indexOf(left.kind);
     const rightOrder = EVIDENCE_ORDER.indexOf(right.kind);
     return (leftOrder < 0 ? 99 : leftOrder) - (rightOrder < 0 ? 99 : rightOrder);
   });
-
-  for (const item of evidence) {
-    const card = document.createElement('article');
-    card.className = 'evidence-card';
-    const heading = document.createElement('div');
-    heading.className = 'evidence-card__heading';
-    const id = document.createElement('span');
-    id.className = 'evidence-card__id';
-    id.textContent = '[' + text(item.evidence_id, 'E?') + ']';
-    const kind = document.createElement('span');
-    kind.className = 'kind-badge ' + kindClass(item.kind);
-    kind.textContent = kindLabel(item.kind);
-    heading.append(id, kind);
-
-    const location = document.createElement('div');
-    location.className = 'evidence-card__location';
-    if (item.kind === 'knowledge') {
-      location.textContent = text(item.source_name, 'Knowledge source');
-    } else {
-      const lineStart = item.start_line || '?';
-      const lineEnd = item.end_line || lineStart;
-      location.textContent =
-        text(item.path, 'Project path') + ' · lines ' + lineStart + '–' + lineEnd;
-    }
-    const snippet = document.createElement('p');
-    snippet.className = 'evidence-card__snippet';
-    snippet.textContent = text(item.snippet, 'No public snippet');
-    card.append(heading, location, snippet);
-    elements.evidenceList.append(card);
+  if (!ordered.length) {
+    const empty = document.createElement('div');
+    empty.className = 'section-empty';
+    empty.textContent = 'No public evidence was returned.';
+    stack.append(empty);
+  } else {
+    ordered.forEach((item) => stack.append(buildEvidenceCard(item)));
   }
+  container.append(stack);
 }
 
 function activityLabel(event) {
-  if (event.kind === 'status') {
-    if (event.stage === 'analysis') {
-      return 'Analysis started';
-    }
-    if (event.stage === 'verification') {
-      return event.state === 'blocked'
-        ? 'Evidence verification blocked'
-        : 'Evidence verification';
-    }
-    if (event.stage === 'tool') {
-      return text(event.tool_name, 'Tool') + ' ' + text(event.state, 'updated');
-    }
+  if (event?.type !== 'status') {
+    return null;
   }
-  return 'Runtime activity';
-}
-
-function addActivity(event) {
-  if (!event || typeof event.type !== 'string') {
-    return;
+  if (event.stage === 'analysis') {
+    if (event.state === 'started') {
+      return 'Analyzing';
+    }
+    if (event.state === 'completed') {
+      return 'Analysis complete';
+    }
+    return null;
   }
-  if (event.type === 'status') {
-    state.activity.push({
-      label: activityLabel(event),
-      state: text(event.state, 'started'),
-      timestamp: new Date(),
-    });
+  if (event.stage === 'tool' && event.tool_name) {
+    if (event.state === 'started') {
+      return event.tool_name + ' started';
+    }
+    if (event.state === 'completed') {
+      return event.tool_name + ' completed';
+    }
+    if (event.state === 'error') {
+      return event.tool_name + ' error';
+    }
+    return null;
   }
-  renderActivity();
+  if (event.stage === 'verification' && event.state === 'blocked') {
+    return 'Evidence verification blocked';
+  }
+  return null;
 }
 
 function activityFromResult(result) {
@@ -395,17 +307,17 @@ function activityFromResult(result) {
   }
   return result.trace
     .map((event) => {
-      if (event.event_type === 'tool_call_created') {
+      if (event.event_type === 'tool_call_created' && event.tool_name) {
         return {
-          label: text(event.tool_name, 'Tool') + ' started',
+          label: event.tool_name + ' started',
           state: 'started',
           timestamp: null,
         };
       }
-      if (event.event_type === 'tool_observation') {
+      if (event.event_type === 'tool_observation' && event.tool_name) {
         return {
-          label: text(event.tool_name, 'Tool') + ' '
-            + (event.tool_status === 'ok' ? 'completed' : 'error'),
+          label: event.tool_name
+            + (event.tool_status === 'ok' ? ' completed' : ' error'),
           state: event.tool_status === 'ok' ? 'completed' : 'error',
           timestamp: null,
         };
@@ -422,70 +334,172 @@ function activityFromResult(result) {
     .filter(Boolean);
 }
 
-function renderActivity() {
-  elements.activityList.replaceChildren();
-  if (!state.activity.length) {
+function renderActivityItems(container, activity, emptyText) {
+  container.replaceChildren();
+  if (!activity.length) {
     const empty = document.createElement('li');
     empty.className = 'section-empty';
-    empty.textContent = 'Activity from the active run will appear here.';
-    elements.activityList.append(empty);
-    elements.activityState.textContent = 'Live run events';
+    empty.textContent = emptyText;
+    container.append(empty);
     return;
   }
-  elements.activityState.textContent = state.running ? 'Receiving events' : 'Run complete';
-  for (const item of state.activity) {
+  for (const item of activity) {
     const row = document.createElement('li');
     row.className = 'activity-item';
     const marker = document.createElement('span');
     marker.className = 'activity-marker activity-marker--' + item.state;
     marker.setAttribute('aria-hidden', 'true');
-    const copy = document.createElement('div');
-    copy.className = 'activity-item__copy';
     const label = document.createElement('span');
     label.className = 'activity-item__label';
     label.textContent = item.label;
-    const timestamp = document.createElement('span');
-    timestamp.className = 'activity-item__time';
-    timestamp.textContent = item.timestamp
-      ? item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : 'history';
-    copy.append(label, timestamp);
-    row.append(marker, copy);
-    elements.activityList.append(row);
+    row.append(marker, label);
+    if (item.timestamp) {
+      const timestamp = document.createElement('span');
+      timestamp.className = 'activity-item__time';
+      timestamp.textContent = item.timestamp.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      row.append(timestamp);
+    }
+    container.append(row);
   }
 }
 
-function renderRunSummary(result) {
-  if (!result) {
-    elements.runSummary.hidden = true;
-    elements.runMetrics.replaceChildren();
+function renderLiveActivity() {
+  if (!elements.liveActivityList) {
     return;
   }
-  elements.runSummary.hidden = false;
-  elements.runMetrics.replaceChildren();
-  const metrics = [
-    ['Status', text(result.status, 'unknown')],
-    ['Iterations', result.iterations_used],
-    ['Tool calls', result.tool_calls_used],
-    ['Tool errors', result.tool_errors_used],
-  ];
-  if (result.execution) {
-    metrics.push(['Elapsed', String(result.execution.elapsed_ms) + ' ms']);
-    metrics.push(['Decision calls', result.execution.decision_llm_calls]);
+  renderActivityItems(
+    elements.liveActivityList,
+    state.activity,
+    'Waiting for runtime activity…',
+  );
+  if (!state.activity.length) {
+    elements.liveRunLabel.textContent = 'Analyzing…';
+    return;
   }
+  elements.liveRunLabel.textContent =
+    state.activity[state.activity.length - 1].label;
+}
+
+function addActivity(event) {
+  const label = activityLabel(event);
+  if (!label) {
+    return;
+  }
+  state.activity.push({
+    label,
+    state: text(event.state, 'started'),
+    timestamp: new Date(),
+  });
+  renderLiveActivity();
+}
+
+function buildAssistantDetails(result) {
+  const evidence = Array.isArray(result.evidence) ? result.evidence : [];
+  const activity = activityFromResult(result);
+  const details = document.createElement('details');
+  details.className = 'assistant-details';
+
+  const summary = document.createElement('summary');
+  for (const label of [
+    'Sources ' + evidence.length,
+    'Activity ' + activity.length,
+    'Details',
+  ]) {
+    const item = document.createElement('span');
+    item.className = 'summary-item';
+    item.textContent = label;
+    summary.append(item);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'assistant-details__body';
+
+  const sources = document.createElement('section');
+  sources.className = 'detail-group';
+  const sourcesHeading = document.createElement('h3');
+  sourcesHeading.textContent = 'Sources';
+  sources.append(sourcesHeading);
+  appendEvidence(sources, evidence);
+
+  const activityGroup = document.createElement('section');
+  activityGroup.className = 'detail-group detail-group--activity';
+  const activityHeading = document.createElement('h3');
+  activityHeading.textContent = 'Activity';
+  const activityList = document.createElement('ol');
+  activityList.className = 'activity-list';
+  activityGroup.append(activityHeading, activityList);
+  renderActivityItems(activityList, activity, 'No activity recorded.');
+
+  const runDetails = document.createElement('section');
+  runDetails.className = 'detail-group';
+  const runDetailsHeading = document.createElement('h3');
+  runDetailsHeading.textContent = 'Details';
+  const runDetailLine = document.createElement('div');
+  runDetailLine.className = 'run-detail-line';
+  runDetailLine.textContent = 'Status: ' + text(result.status, 'unknown');
   if (result.reason_code) {
-    metrics.push(['Reason', result.reason_code]);
+    runDetailLine.textContent += ' · Reason: ' + result.reason_code;
   }
   if (result.failure_code) {
-    metrics.push(['Failure', result.failure_code]);
+    runDetailLine.textContent += ' · Failure: ' + result.failure_code;
   }
-  for (const [labelText, value] of metrics) {
-    const label = document.createElement('dt');
-    label.textContent = labelText;
-    const valueNode = document.createElement('dd');
-    valueNode.textContent = String(value ?? '—');
-    elements.runMetrics.append(label, valueNode);
+  runDetails.append(runDetailsHeading, runDetailLine);
+
+  body.append(sources, activityGroup, runDetails);
+  details.append(summary, body);
+  return details;
+}
+
+function renderMessages() {
+  elements.messages.replaceChildren();
+  if (!state.messages.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-chat';
+    const mark = document.createElement('div');
+    mark.className = 'empty-chat__mark';
+    mark.setAttribute('aria-hidden', 'true');
+    mark.textContent = '↗';
+    const heading = document.createElement('h2');
+    heading.textContent = 'Ask about this project';
+    const copy = document.createElement('p');
+    copy.textContent =
+      'Explore implementation details, repository behavior, or evidence from the Engineering Agent.';
+    empty.append(mark, heading, copy);
+    elements.messages.append(empty);
+    return;
   }
+
+  for (const message of state.messages) {
+    const row = document.createElement('article');
+    row.className =
+      'message-row message-row--'
+      + (message.role === 'user' ? 'user' : 'assistant');
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+
+    if (message.role === 'assistant') {
+      const author = document.createElement('div');
+      author.className = 'message-author';
+      author.textContent = 'Engineering Agent';
+      bubble.append(author);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    renderMessageContent(content, message);
+    bubble.append(content);
+
+    const result = resultForMessage(message);
+    if (result && !message.pending) {
+      bubble.append(buildAssistantDetails(result));
+    }
+    row.append(bubble);
+    elements.messages.append(row);
+  }
+  elements.messages.scrollTop = elements.messages.scrollHeight;
 }
 
 function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
@@ -498,16 +512,9 @@ function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
     state.evidence = state.latestResult?.evidence || [];
     state.activity = activityFromResult(state.latestResult);
   }
-  elements.conversationTitle.textContent = text(detail.title, 'New conversation');
   elements.projectName.textContent = text(detail.project_name, 'Project');
-  elements.conversationMeta.textContent =
-    text(detail.project_name, 'Bound project')
-      + ' · '
-      + (formatDate(detail.updated_at) || 'Server conversation');
   renderMessages();
-  renderEvidence();
-  renderActivity();
-  renderRunSummary(state.latestResult);
+  renderLiveActivity();
   if (!state.running) {
     setTerminalRunState(state.latestResult);
   }
@@ -564,6 +571,7 @@ async function createConversation() {
     state.latestResult = null;
     state.evidence = [];
     state.activity = [];
+    clearRunError();
     applyConversationDetail(created);
     renderConversationList();
     elements.messageInput.focus();
@@ -583,6 +591,15 @@ function updatePendingAssistant(content, result = null) {
     pending: false,
     result,
   };
+}
+
+function markPendingError(message, detail) {
+  const pending = state.messages[state.messages.length - 1];
+  if (pending && pending.role === 'assistant') {
+    pending.error = message;
+    pending.errorDetail = detail;
+    pending.pending = false;
+  }
 }
 
 async function sendMessage(event) {
@@ -612,71 +629,76 @@ async function sendMessage(event) {
   elements.messageInput.value = '';
   setRunning(true);
   renderMessages();
-  renderEvidence();
-  renderActivity();
-  renderRunSummary(null);
+  renderLiveActivity();
 
   let finalResult = null;
+  let streamError = null;
   try {
-    await api.streamConversation(state.activeConversationId, message, async (eventPayload) => {
-      if (eventPayload.type === 'status') {
-        addActivity(eventPayload);
-        return;
-      }
-      if (eventPayload.type === 'evidence') {
-        if (eventPayload.evidence) {
-          state.evidence.push(eventPayload.evidence);
-          renderEvidence();
+    await api.streamConversation(
+      state.activeConversationId,
+      message,
+      async (eventPayload) => {
+        if (eventPayload.type === 'status') {
+          addActivity(eventPayload);
+          return;
         }
-        return;
-      }
-      if (eventPayload.type === 'answer_delta') {
-        const pending = state.messages.find((item) => item.pending);
-        if (pending) {
-          pending.content = (pending.content || '') + text(eventPayload.delta);
+        if (eventPayload.type === 'evidence') {
+          if (eventPayload.evidence) {
+            state.evidence.push(eventPayload.evidence);
+          }
+          return;
+        }
+        if (eventPayload.type === 'answer_delta') {
+          const pending = state.messages.find((item) => item.pending);
+          if (pending) {
+            pending.content = (pending.content || '') + text(eventPayload.delta);
+            renderMessages();
+          }
+          return;
+        }
+        if (eventPayload.type === 'final') {
+          finalResult = eventPayload.result || null;
+          state.latestResult = finalResult;
+          state.evidence = Array.isArray(finalResult?.evidence)
+            ? finalResult.evidence
+            : state.evidence;
+          updatePendingAssistant(statusMessage(finalResult), finalResult);
+          renderMessages();
+          return;
+        }
+        if (eventPayload.type === 'error') {
+          streamError = {
+            message: 'Unable to complete this request.',
+            detail: text(eventPayload.code),
+          };
+          updatePendingAssistant('');
+          markPendingError(streamError.message, streamError.detail);
           renderMessages();
         }
-        return;
-      }
-      if (eventPayload.type === 'final') {
-        finalResult = eventPayload.result || null;
-        state.latestResult = finalResult;
-        state.evidence = Array.isArray(finalResult?.evidence)
-          ? finalResult.evidence
-          : state.evidence;
-        updatePendingAssistant(statusMessage(finalResult), finalResult);
-        renderMessages();
-        renderEvidence();
-        renderRunSummary(finalResult);
-        return;
-      }
-      if (eventPayload.type === 'error') {
-        updatePendingAssistant('');
-        const pending = state.messages[state.messages.length - 1];
-        if (pending && pending.role === 'assistant') {
-          pending.error = 'Unable to complete this request.';
-          pending.errorDetail = text(eventPayload.code);
-        }
-        renderMessages();
-      }
-    });
+      },
+    );
 
     if (finalResult && state.activeConversationId) {
       await loadConversation(state.activeConversationId, { keepRunPanels: true });
     }
     setRunning(false);
-    renderActivity();
+    if (streamError && !finalResult) {
+      setRunError('Error');
+      renderMessages();
+      return;
+    }
     setTerminalRunState(finalResult);
   } catch (error) {
-    updatePendingAssistant('');
-    const pending = state.messages[state.messages.length - 1];
-    if (pending && pending.role === 'assistant') {
-      pending.error = userFacingError(error);
-      pending.errorDetail = errorDetails(error);
-    }
     setRunning(false);
-    elements.runState.className = 'run-state run-state-error';
-    elements.runState.textContent = 'Unavailable';
+    if (finalResult) {
+      setTerminalRunState(finalResult);
+      showToast('The answer arrived, but history could not be refreshed.', {
+        error: true,
+      });
+      return;
+    }
+    markPendingError(userFacingError(error), errorDetails(error));
+    setRunError('Unavailable');
     renderMessages();
     showToast(userFacingError(error), { error: true });
   }
