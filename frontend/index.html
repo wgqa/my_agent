@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A quiet, evidence-grounded engineering workspace."
+    />
+    <title>Engineering Workspace</title>
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">E</div>
+          <div>
+            <p class="eyebrow">Evidence-grounded AI</p>
+            <h1>Engineering Workspace</h1>
+          </div>
+        </div>
+        <div class="header-context">
+          <span id="api-status" class="status-dot status-unknown">
+            <span class="status-dot__light" aria-hidden="true"></span>
+            Connecting
+          </span>
+          <span id="project-name" class="project-badge">Project</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar panel" aria-label="Conversations">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Workspace</p>
+              <h2>Conversations</h2>
+            </div>
+            <button
+              id="new-conversation"
+              class="icon-button"
+              type="button"
+              title="New chat"
+              aria-label="Create a new chat"
+            >
+              +
+            </button>
+          </div>
+          <div id="conversation-list" class="conversation-list" role="list">
+            <div class="list-placeholder">Loading conversations…</div>
+          </div>
+          <div class="sidebar-footer">
+            <span class="connection-label">Server-owned history</span>
+            <button id="refresh-conversations" class="text-button" type="button">
+              Refresh
+            </button>
+          </div>
+        </aside>
+
+        <section class="chat-column panel" aria-label="Chat">
+          <div class="chat-heading">
+            <div class="chat-heading__copy">
+              <p class="eyebrow">Engineering Agent</p>
+              <h2 id="conversation-title">New conversation</h2>
+              <p id="conversation-meta" class="muted">Select or create a conversation</p>
+            </div>
+            <div id="run-state" class="run-state run-state-idle">Ready</div>
+          </div>
+
+          <div id="messages" class="messages" aria-live="polite">
+            <div class="empty-chat">
+              <div class="empty-chat__mark" aria-hidden="true">↗</div>
+              <h3>Ask about the bound project</h3>
+              <p>
+                Explore implementation details, repository behavior, or evidence
+                from the Engineering Agent.
+              </p>
+            </div>
+          </div>
+
+          <form id="composer" class="composer">
+            <label class="sr-only" for="message-input">Message</label>
+            <textarea
+              id="message-input"
+              name="message"
+              rows="3"
+              maxlength="12000"
+              placeholder="Ask an engineering question…"
+              autocomplete="off"
+              spellcheck="true"
+            ></textarea>
+            <div class="composer-footer">
+              <span class="composer-hint">Enter to send · Shift+Enter for a new line</span>
+              <button id="send-message" class="primary-button" type="submit">
+                <span>Send</span>
+                <span class="send-arrow" aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="inspector panel" aria-label="Evidence and activity">
+          <div class="inspector-heading">
+            <div>
+              <p class="eyebrow">Observability</p>
+              <h2>Evidence &amp; Activity</h2>
+            </div>
+          </div>
+
+          <section class="inspector-section">
+            <div class="section-heading">
+              <h3>Evidence</h3>
+              <span id="evidence-count" class="count-badge">0</span>
+            </div>
+            <div id="evidence-list" class="evidence-list">
+              <div class="section-empty">Evidence from the active run will appear here.</div>
+            </div>
+          </section>
+
+          <section class="inspector-section inspector-section--activity">
+            <div class="section-heading">
+              <h3>Activity</h3>
+              <span id="activity-state" class="muted">Live run events</span>
+            </div>
+            <ol id="activity-list" class="activity-list">
+              <li class="section-empty">Activity from the active run will appear here.</li>
+            </ol>
+          </section>
+
+          <section id="run-summary" class="run-summary" hidden>
+            <div class="section-heading">
+              <h3>Run summary</h3>
+            </div>
+            <dl id="run-metrics" class="metrics-list"></dl>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
