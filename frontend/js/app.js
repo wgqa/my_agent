@@ -195,32 +195,191 @@ function findEvidence(evidence, id) {
   return evidence.find((item) => evidenceId(item?.evidence_id) === wanted) || null;
 }
 
-function appendTextWithCitations(container, value, evidence, result = null) {
+function appendCitation(container, token, evidence, result) {
+  const citationId = evidenceId(token.slice(1, -1));
+  if (!findEvidence(evidence, citationId)) {
+    container.append(document.createTextNode(token));
+    return;
+  }
+  const citation = document.createElement('button');
+  citation.type = 'button';
+  citation.className = 'citation';
+  citation.textContent = token;
+  citation.dataset.evidenceId = citationId;
+  citation.setAttribute('aria-label', 'Open evidence ' + citationId);
+  citation.addEventListener('click', () => openDrawer('sources', result, citationId));
+  container.append(citation);
+}
+
+function appendInlineContent(container, value, evidence, result = null) {
   const source = String(value ?? '');
-  const pattern = /\[E\d+\]/g;
+  const pattern = /(\*\*[^*\n]+?\*\*|`[^`\n]+`|\[E\d+\])/g;
   let lastIndex = 0;
   let match;
   while ((match = pattern.exec(source)) !== null) {
     if (match.index > lastIndex) {
       container.append(document.createTextNode(source.slice(lastIndex, match.index)));
     }
-    const citationId = evidenceId(match[0].slice(1, -1));
-    if (!findEvidence(evidence, citationId)) {
-      container.append(document.createTextNode(match[0]));
+    const token = match[0];
+    if (token.startsWith('**')) {
+      const strong = document.createElement('strong');
+      appendInlineContent(strong, token.slice(2, -2), evidence, result);
+      container.append(strong);
+    } else if (token.startsWith('`')) {
+      const code = document.createElement('code');
+      code.textContent = token.slice(1, -1);
+      container.append(code);
     } else {
-      const citation = document.createElement('button');
-      citation.type = 'button';
-      citation.className = 'citation';
-      citation.textContent = match[0];
-      citation.dataset.evidenceId = citationId;
-      citation.setAttribute('aria-label', 'Open evidence ' + citationId);
-      citation.addEventListener('click', () => openDrawer('sources', result, citationId));
-      container.append(citation);
+      appendCitation(container, token, evidence, result);
     }
-    lastIndex = match.index + match[0].length;
+    lastIndex = match.index + token.length;
   }
   if (lastIndex < source.length) {
     container.append(document.createTextNode(source.slice(lastIndex)));
+  }
+}
+
+function appendParagraph(container, lines, evidence, result) {
+  const paragraph = document.createElement('p');
+  appendInlineContent(paragraph, lines.join('\n'), evidence, result);
+  container.append(paragraph);
+}
+
+function appendCodeBlock(container, lines, language = '') {
+  const shell = document.createElement('div');
+  shell.className = 'code-block-shell';
+  if (language) {
+    const label = document.createElement('div');
+    label.className = 'code-block__language';
+    label.textContent = language;
+    shell.append(label);
+  }
+  const pre = document.createElement('pre');
+  pre.className = 'message-code-block';
+  const code = document.createElement('code');
+  code.textContent = lines.join('\n');
+  pre.append(code);
+  shell.append(pre);
+  container.append(shell);
+}
+
+function appendBlockquote(container, lines, evidence, result) {
+  const quote = document.createElement('blockquote');
+  for (const line of lines) {
+    const paragraph = document.createElement('p');
+    appendInlineContent(paragraph, line, evidence, result);
+    quote.append(paragraph);
+  }
+  container.append(quote);
+}
+
+function isMarkdownBlockStart(line) {
+  return (
+    /^ {0,3}```/.test(line)
+    || /^ {0,3}#{2,3}\s+/.test(line)
+    || /^ {0,3}>/.test(line)
+    || /^ {0,3}[-*]\s+/.test(line)
+    || /^ {0,3}\d+[.)]\s+/.test(line)
+  );
+}
+
+function renderMarkdownContent(container, content, evidence, result = null) {
+  const lines = String(content ?? '').replace(/\r\n?/g, '\n').split('\n');
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    const fence = line.match(/^ {0,3}```([^\s`]*)\s*$/);
+    if (fence) {
+      const language = fence[1] || '';
+      const codeLines = [];
+      index += 1;
+      let closed = false;
+      while (index < lines.length) {
+        if (/^ {0,3}```\s*$/.test(lines[index])) {
+          closed = true;
+          index += 1;
+          break;
+        }
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      // An unfinished stream is still useful: keep the visible remainder as code.
+      appendCodeBlock(container, codeLines, language);
+      if (!closed) {
+        break;
+      }
+      continue;
+    }
+
+    const heading = line.match(/^ {0,3}(#{2,3})\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      const element = document.createElement(heading[1].length === 2 ? 'h2' : 'h3');
+      appendInlineContent(element, heading[2], evidence, result);
+      container.append(element);
+      index += 1;
+      continue;
+    }
+
+    if (/^ {0,3}>/.test(line)) {
+      const quoteLines = [];
+      while (index < lines.length && /^ {0,3}>/.test(lines[index])) {
+        quoteLines.push(lines[index].replace(/^ {0,3}> ?/, ''));
+        index += 1;
+      }
+      appendBlockquote(container, quoteLines, evidence, result);
+      continue;
+    }
+
+    const unordered = line.match(/^ {0,3}[-*]\s+(.+)$/);
+    if (unordered) {
+      const list = document.createElement('ul');
+      while (index < lines.length) {
+        const item = lines[index].match(/^ {0,3}[-*]\s+(.+)$/);
+        if (!item) {
+          break;
+        }
+        const listItem = document.createElement('li');
+        appendInlineContent(listItem, item[1], evidence, result);
+        list.append(listItem);
+        index += 1;
+      }
+      container.append(list);
+      continue;
+    }
+
+    const ordered = line.match(/^ {0,3}\d+[.)]\s+(.+)$/);
+    if (ordered) {
+      const list = document.createElement('ol');
+      while (index < lines.length) {
+        const item = lines[index].match(/^ {0,3}\d+[.)]\s+(.+)$/);
+        if (!item) {
+          break;
+        }
+        const listItem = document.createElement('li');
+        appendInlineContent(listItem, item[1], evidence, result);
+        list.append(listItem);
+        index += 1;
+      }
+      container.append(list);
+      continue;
+    }
+
+    const paragraphLines = [line];
+    index += 1;
+    while (
+      index < lines.length
+      && lines[index].trim()
+      && !isMarkdownBlockStart(lines[index])
+    ) {
+      paragraphLines.push(lines[index]);
+      index += 1;
+    }
+    appendParagraph(container, paragraphLines, evidence, result);
   }
 }
 
@@ -280,12 +439,7 @@ function renderMessageContent(container, message) {
   }
 
   const resultEvidence = evidenceForResult(result);
-  const paragraphs = String(content).split(/\n{2,}/);
-  for (const paragraphText of paragraphs) {
-    const paragraph = document.createElement('p');
-    appendTextWithCitations(paragraph, paragraphText, resultEvidence, result);
-    container.append(paragraph);
-  }
+  renderMarkdownContent(container, content, resultEvidence, result);
   if (message.pending && content) {
     const cursor = document.createElement('span');
     cursor.className = 'streaming-cursor';
