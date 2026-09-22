@@ -456,9 +456,35 @@ function kindClass(kind) {
   return kind ? 'kind-badge--' + kind.replaceAll('_', '-') : '';
 }
 
+function cleanKnowledgeSnippet(value) {
+  const lines = String(value ?? '').replace(/\r\n?/g, '\n').split('\n');
+  const cleaned = [];
+  let previousBlank = false;
+
+  for (const rawLine of lines) {
+    if (/^\s*```(?:[\w.+-]+)?\s*$/.test(rawLine)) {
+      continue;
+    }
+    const heading = rawLine.match(/^\s*#{1,3}\s+(.+?)\s*#*\s*$/);
+    const line = heading ? heading[1].trim() : rawLine.trimEnd();
+    if (!line.trim()) {
+      if (!previousBlank) {
+        cleaned.push('');
+      }
+      previousBlank = true;
+      continue;
+    }
+    cleaned.push(line);
+    previousBlank = false;
+  }
+
+  return cleaned.join('\n').trim() || 'No public snippet';
+}
+
 function buildEvidenceCard(item, { selected = false } = {}) {
   const card = document.createElement('article');
-  card.className = 'evidence-card';
+  const codeEvidence = ['project_code', 'project_test', 'project_change'].includes(item.kind);
+  card.className = 'evidence-card' + (codeEvidence ? ' evidence-card--code' : '');
   card.classList.toggle('is-selected', selected);
   const itemId = evidenceId(item?.evidence_id);
   if (itemId) {
@@ -471,26 +497,37 @@ function buildEvidenceCard(item, { selected = false } = {}) {
   const id = document.createElement('span');
   id.className = 'evidence-card__id';
   id.textContent = '[' + (itemId || 'E?') + ']';
+  const separator = document.createElement('span');
+  separator.className = 'evidence-card__separator';
+  separator.textContent = '·';
   const kind = document.createElement('span');
   kind.className = 'kind-badge ' + kindClass(item.kind);
   kind.textContent = kindLabel(item.kind);
-  heading.append(id, kind);
+  heading.append(id, separator, kind);
 
   const location = document.createElement('div');
   location.className = 'evidence-card__location';
+  const lineInfo = document.createElement('div');
+  lineInfo.className = 'evidence-card__line';
   if (item.kind === 'knowledge') {
     location.textContent = text(item.source_name, 'Knowledge source');
   } else {
     const lineStart = item.start_line || '?';
     const lineEnd = item.end_line || lineStart;
-    location.textContent =
-      text(item.path, 'Project path') + ' · lines ' + lineStart + '–' + lineEnd;
+    location.textContent = text(item.path, 'Project path');
+    lineInfo.textContent = 'Lines ' + lineStart + '–' + lineEnd;
   }
 
   const snippet = document.createElement('p');
   snippet.className = 'evidence-card__snippet';
-  snippet.textContent = text(item.snippet, 'No public snippet');
-  card.append(heading, location, snippet);
+  snippet.textContent = item.kind === 'knowledge'
+    ? cleanKnowledgeSnippet(item.snippet)
+    : text(item.snippet, 'No public snippet');
+  card.append(heading, location);
+  if (item.kind !== 'knowledge') {
+    card.append(lineInfo);
+  }
+  card.append(snippet);
   return card;
 }
 
@@ -505,7 +542,7 @@ function appendEvidence(container, evidence, selectedId = '') {
   if (!ordered.length) {
     const empty = document.createElement('div');
     empty.className = 'section-empty';
-    empty.textContent = 'No public evidence was returned.';
+    empty.textContent = 'No sources were returned for this answer.';
     stack.append(empty);
   } else {
     ordered.forEach((item) => {
@@ -598,10 +635,20 @@ function renderActivityItems(container, activity, emptyText) {
     const marker = document.createElement('span');
     marker.className = 'activity-marker activity-marker--' + item.state;
     marker.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    label.className = 'activity-item__label';
-    label.textContent = item.label;
-    row.append(marker, label);
+    const parts = splitActivityLabel(item.label);
+    const copy = document.createElement('span');
+    copy.className = 'activity-item__copy';
+    const name = document.createElement('span');
+    name.className = 'activity-item__name';
+    name.textContent = parts.name;
+    copy.append(name);
+    if (parts.state) {
+      const state = document.createElement('span');
+      state.className = 'activity-item__state';
+      state.textContent = parts.state;
+      copy.append(state);
+    }
+    row.append(marker, copy);
     if (item.timestamp) {
       const timestamp = document.createElement('span');
       timestamp.className = 'activity-item__time';
@@ -613,6 +660,21 @@ function renderActivityItems(container, activity, emptyText) {
     }
     container.append(row);
   }
+}
+
+function splitActivityLabel(label) {
+  const value = String(label || '');
+  const match = value.match(/^(.*?)\s+(started|completed|error|blocked)$/i);
+  if (!match) {
+    return { name: value, state: '' };
+  }
+  const stateLabels = {
+    started: 'Started',
+    completed: 'Completed',
+    error: 'Error',
+    blocked: 'Blocked',
+  };
+  return { name: match[1], state: stateLabels[match[2].toLowerCase()] };
 }
 
 function renderLiveActivity() {
@@ -728,7 +790,7 @@ function renderDrawer() {
       const selected = document.querySelector(
         '#evidence-' + evidenceId(state.drawerEvidenceId),
       );
-      selected?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      selected?.scrollIntoView({ block: 'center', behavior: 'auto' });
     });
   }
 }
