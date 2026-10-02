@@ -148,6 +148,7 @@ class TestCapabilities:
         monkeypatch.setattr(api.app, "pipeline", None)
         monkeypatch.setattr(api.app, "agent_runtime", None)
         monkeypatch.setattr(api.app, "tool_agent_runtime", None)
+        monkeypatch.setattr(api.app, "engineering_agent_facade", None)
 
         resp = client.get("/capabilities")
 

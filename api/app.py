@@ -87,8 +87,6 @@ logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-logger = logging.getLogger(__name__)
-
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MiB
 UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 MAX_FILENAME_LENGTH = 255

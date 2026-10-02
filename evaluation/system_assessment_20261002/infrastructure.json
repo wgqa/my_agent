@@ -1,0 +1,375 @@
+{
+  "offline_transfer": {
+    "passed": 42,
+    "failed": 0,
+    "model_calls": 0,
+    "checks": [
+      {
+        "name": "configured_root_with_spaces_and_unicode",
+        "status": "PASS"
+      },
+      {
+        "name": "calculator_transfer",
+        "status": "PASS"
+      },
+      {
+        "name": "literal_source_search",
+        "status": "PASS"
+      },
+      {
+        "name": "doc_search",
+        "status": "PASS"
+      },
+      {
+        "name": "unknown_symbol_empty",
+        "status": "PASS"
+      },
+      {
+        "name": "source_window",
+        "status": "PASS"
+      },
+      {
+        "name": "change_discovery",
+        "status": "PASS"
+      },
+      {
+        "name": "actual_diff",
+        "status": "PASS"
+      },
+      {
+        "name": "test_discovery",
+        "status": "PASS"
+      },
+      {
+        "name": "test_read",
+        "status": "PASS"
+      },
+      {
+        "name": "knowledge_search",
+        "status": "PASS"
+      },
+      {
+        "name": "hidden_secret_excluded",
+        "status": "PASS"
+      },
+      {
+        "name": "dependency_directory_excluded",
+        "status": "PASS"
+      },
+      {
+        "name": "oversized_file_excluded",
+        "status": "PASS"
+      },
+      {
+        "name": "context_rejects_secret",
+        "status": "PASS"
+      },
+      {
+        "name": "git_rejects_secret",
+        "status": "PASS"
+      },
+      {
+        "name": "context_rejects_traversal",
+        "status": "PASS"
+      },
+      {
+        "name": "git_rejects_traversal",
+        "status": "PASS"
+      },
+      {
+        "name": "context_rejects_absolute",
+        "status": "PASS"
+      },
+      {
+        "name": "git_rejects_absolute",
+        "status": "PASS"
+      },
+      {
+        "name": "missing_source_typed_error",
+        "status": "PASS"
+      },
+      {
+        "name": "unknown_tool_rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "root_override_rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "bad_calculator_input",
+        "status": "PASS",
+        "actual_error_code": "TOOL_EXECUTION_FAILED",
+        "harness_correction": "Initial harness assumed a nonexistent division-specific public code; checked the documented generic execution-error contract."
+      },
+      {
+        "name": "window_limit_enforced",
+        "status": "PASS"
+      },
+      {
+        "name": "second_project_source_isolation",
+        "status": "PASS"
+      },
+      {
+        "name": "second_project_visible",
+        "status": "PASS"
+      },
+      {
+        "name": "non_git_directory_source_supported",
+        "status": "PASS"
+      },
+      {
+        "name": "non_git_change_error",
+        "status": "PASS"
+      },
+      {
+        "name": "api_new_project_identity",
+        "status": "PASS"
+      },
+      {
+        "name": "new_project_conversation_create",
+        "status": "PASS"
+      },
+      {
+        "name": "request_rejects_root",
+        "status": "PASS"
+      },
+      {
+        "name": "request_rejects_model",
+        "status": "PASS"
+      },
+      {
+        "name": "request_rejects_history",
+        "status": "PASS"
+      },
+      {
+        "name": "binding_stays_until_restart",
+        "status": "PASS"
+      },
+      {
+        "name": "same_name_project_conversation_isolation",
+        "status": "PASS"
+      },
+      {
+        "name": "same_name_project_list_isolation",
+        "status": "PASS"
+      },
+      {
+        "name": "rebind_restores_own_conversation",
+        "status": "PASS"
+      },
+      {
+        "name": "bad_corpus_reported_not_ready",
+        "status": "PASS"
+      },
+      {
+        "name": "bad_corpus_query_503",
+        "status": "PASS"
+      },
+      {
+        "name": "bad_corpus_health_still_200",
+        "status": "PASS"
+      },
+      {
+        "name": "invalid_project_startup_fails",
+        "status": "PASS"
+      }
+    ],
+    "router_examples": {
+      "literal_config": "NO_ADDITIONAL_REQUIREMENT",
+      "paraphrase_config": "NO_ADDITIONAL_REQUIREMENT",
+      "knowledge": "NO_ADDITIONAL_REQUIREMENT",
+      "arithmetic": "NO_ADDITIONAL_REQUIREMENT",
+      "docs_consistency": "NO_ADDITIONAL_REQUIREMENT"
+    }
+  },
+  "live_startup_and_isolation": [
+    {
+      "label": "controlled",
+      "project": {
+        "project_name": "mini-rag",
+        "source": "configured"
+      },
+      "knowledge": {
+        "schema_version": "engineering_knowledge_status_v1",
+        "ready": true,
+        "verified": true,
+        "corpus_id": "870e5864df67",
+        "file_count": 37,
+        "chunk_count": 215,
+        "retrieval_strategy": "bm25",
+        "manifest_experiment_id": "dbc497c796d5"
+      },
+      "status": "PASS"
+    },
+    {
+      "label": "public",
+      "project": {
+        "project_name": "smolagents",
+        "source": "configured"
+      },
+      "knowledge": {
+        "schema_version": "engineering_knowledge_status_v1",
+        "ready": true,
+        "verified": true,
+        "corpus_id": "870e5864df67",
+        "file_count": 37,
+        "chunk_count": 215,
+        "retrieval_strategy": "bm25",
+        "manifest_experiment_id": "dbc497c796d5"
+      },
+      "status": "PASS"
+    },
+    {
+      "label": "cross_project_conversation_isolation",
+      "status": "PASS"
+    },
+    {
+      "label": "coverage-followup",
+      "project": {
+        "project_name": "mini-rag",
+        "source": "configured"
+      },
+      "knowledge": {
+        "schema_version": "engineering_knowledge_status_v1",
+        "ready": true,
+        "verified": true,
+        "corpus_id": "870e5864df67",
+        "file_count": 37,
+        "chunk_count": 215,
+        "retrieval_strategy": "bm25",
+        "manifest_experiment_id": "dbc497c796d5"
+      },
+      "status": "PASS"
+    }
+  ],
+  "corpus_and_token_diagnostics": {
+    "corpus_literal_coverage": {
+      "IDF": [],
+      "逆文档": [],
+      "长度归一": [],
+      "k1": []
+    },
+    "probes": [
+      {
+        "query": " ",
+        "tokens": [
+          " "
+        ],
+        "hits": [
+          {
+            "source": "tool_calling/Function-Calling原理.md",
+            "score": 0.0173
+          },
+          {
+            "source": "tool_calling/Function-Calling原理.md",
+            "score": 0.0173
+          },
+          {
+            "source": "deployment/部署架构.md",
+            "score": 0.0173
+          },
+          {
+            "source": "rag/文档处理.md",
+            "score": 0.0172
+          },
+          {
+            "source": "llm/Transformer架构-01-Attention与基础组件.md",
+            "score": 0.0172
+          }
+        ]
+      },
+      {
+        "query": "\n",
+        "tokens": [
+          "\n"
+        ],
+        "hits": [
+          {
+            "source": "post_training/后训练-04-常见问题与DPO落地.md",
+            "score": 0.0057
+          },
+          {
+            "source": "deployment/部署架构.md",
+            "score": 0.0057
+          },
+          {
+            "source": "prompt/提示工程基础.md",
+            "score": 0.0057
+          },
+          {
+            "source": "prompt/评估与优化.md",
+            "score": 0.0057
+          },
+          {
+            "source": "post_training/后训练-05-RM细节与GRPO应用.md",
+            "score": 0.0057
+          }
+        ]
+      },
+      {
+        "query": "ZZZZNOEXACTTOKEN9QX",
+        "tokens": [
+          "ZZZZNOEXACTTOKEN9QX"
+        ],
+        "hits": []
+      },
+      {
+        "query": "unmatched_ZZZV99",
+        "tokens": [
+          "unmatched",
+          "_",
+          "ZZZV99"
+        ],
+        "hits": [
+          {
+            "source": "finetuning/微调方法.md",
+            "score": 1.9724
+          },
+          {
+            "source": "tool_calling/工具设计.md",
+            "score": 1.9352
+          },
+          {
+            "source": "finetuning/训练与评估.md",
+            "score": 1.9265
+          },
+          {
+            "source": "finetuning/训练与评估.md",
+            "score": 1.8929
+          },
+          {
+            "source": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+            "score": 1.8843
+          }
+        ]
+      }
+    ]
+  },
+  "controlled_fixture_test_runs": [
+    {
+      "src_pythonpath": false,
+      "exit_code": 2,
+      "result": "ImportError before collection: mini_retriever is not installed"
+    },
+    {
+      "src_pythonpath": true,
+      "exit_code": 1,
+      "result": "1 failed / 4 passed; expected failure because default changed from 3 to 5"
+    }
+  ],
+  "full_pytest": {
+    "passed": 2658,
+    "failed": 0,
+    "skipped": 6,
+    "elapsed_seconds": 452.78,
+    "skip_reason": "Windows symlink creation unavailable",
+    "optional_gate4_corpus_provenance_checked": true,
+    "history": [
+      "2656 passed / 1 failed / 7 skipped: missing facade cleanup in test premise",
+      "2654 passed / 3 failed / 7 skipped: Git clone Filename too long",
+      "3 previously failed Git fixture tests pass using a shorter path",
+      "2658 passed / 6 skipped: final full run with short path and available Gate 4 corpus"
+    ]
+  }
+}

@@ -12,47 +12,17 @@ project_test 继续由 find_tests → read_project_context 负责。
 from __future__ import annotations
 
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Mapping
 
 from core.tool_agent.models import ToolSpec
+from core.tool_agent.project_files import (
+    ALLOWED_SUFFIXES,
+    classify_project_evidence_path,
+)
 
 CODE_SEARCH_VERSION = "code_search_v5"
 
-ALLOWED_SUFFIXES = frozenset(
-    {
-        ".c",
-        ".cc",
-        ".cpp",
-        ".cs",
-        ".css",
-        ".go",
-        ".h",
-        ".hpp",
-        ".html",
-        ".ini",
-        ".java",
-        ".js",
-        ".json",
-        ".jsx",
-        ".md",
-        ".php",
-        ".properties",
-        ".py",
-        ".rb",
-        ".rs",
-        ".rst",
-        ".sh",
-        ".sql",
-        ".toml",
-        ".ts",
-        ".tsx",
-        ".txt",
-        ".xml",
-        ".yaml",
-        ".yml",
-    }
-)
 EXCLUDED_DIR_NAMES = frozenset(
     {
         ".git",
@@ -170,26 +140,6 @@ def _require_bounded_int(value: object, label: str, cap: int) -> None:
 
 
 ARTIFACT_KINDS = frozenset({"any", "project_code", "project_doc"})
-
-
-def classify_project_evidence_path(path: str) -> str:
-    """Classify a repo-relative path using the Runtime's public-evidence rules.
-
-    Imports are intentionally lazy because ``test_discovery`` imports this
-    module for the shared filesystem constants.  The source suffix set is
-    taken from ``ToolAgentRuntime`` itself, while conventional test paths are
-    taken from the existing ``find_tests`` contract; this prevents search and
-    final evidence classification from growing separate heuristics.
-    """
-
-    from core.tool_agent.runtime import _PROJECT_CODE_SUFFIXES
-    from core.tool_agent.tools.test_discovery import is_test_path
-
-    if is_test_path(path):
-        return "project_test"
-    if PurePosixPath(path).suffix.lower() in _PROJECT_CODE_SUFFIXES:
-        return "project_code"
-    return "project_doc"
 
 
 class CodeSearchHandler:

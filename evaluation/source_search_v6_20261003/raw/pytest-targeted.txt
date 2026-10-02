@@ -1,0 +1,114 @@
+.....................................ssss......F........................ [ 37%]
+..........................sss...............................F........... [ 74%]
+.................................................                        [100%]
+================================== FAILURES ===================================
+_ test_runtime_recovers_from_truncation_then_reads_definition_with_existing_budget _
+
+tmp_path = WindowsPath('D:/学习/rag实战项目/.codex-test-runs/search-20261003-offline/test_runtime_recovers_from_tru0')
+
+    def test_runtime_recovers_from_truncation_then_reads_definition_with_existing_budget(tmp_path):
+        put(tmp_path, "examples/a.py", "# process example\n" * 11)
+        put(tmp_path, "src/service.py", "def process(value):\n    return value + 1\n")
+        registry = ToolRegistry()
+        registry.register(CODE_SEARCH_SPEC, CodeSearchHandler(tmp_path))
+        registry.register(READ_PROJECT_CONTEXT_SPEC, ReadProjectContextHandler(tmp_path))
+    
+        class Provider:
+            def decide(self, registry, query, *, context=()):
+                if not context:
+                    action = ToolCallAction(action="tool_call", tool_name="code_search", arguments={"query": "process", "artifact_kind": "project_code"})
+                elif len(context) == 1:
+                    result = context[-1].observation_result
+                    assert result["truncated"] is True and result["scope"] == "."
+                    action = ToolCallAction(action="tool_call", tool_name="code_search", arguments={"query": "process", "artifact_kind": "project_code", "scope": "src"})
+                elif len(context) == 2:
+                    match = context[-1].observation_result["matches"][0]
+                    assert match["path"] == "src/service.py"
+                    action = ToolCallAction(action="tool_call", tool_name="read_project_context", arguments={"path": match["path"], "line": match["line"], "context_lines": 0, "mode": "definition"})
+                else:
+                    assert context[-1].observation_result["content_complete"] is True
+                    action = FinalAnswerAction(action="final_answer", answer="process 返回 value + 1。[E1]")
+                return AgentDecisionOutcome(action=action, failure_code=None, call_metadata=None)
+    
+        result = ToolAgentRuntime(registry=registry, provider=Provider()).run("说明 src 内 process 的实际实现")
+        assert result.status == "completed"
+        assert (result.iterations_used, result.tool_calls_used, result.tool_errors_used) == (4, 3, 0)
+>       assert len(result.evidence) == 1 and result.evidence[0].source_name == "src/service.py"
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'EngineeringEvidence' object has no attribute 'source_name'
+
+tests\test_code_search_scope.py:192: AttributeError
+_ test_candidate_identity_validation_requires_unified_v1_v5_and_frozen_bindings _
+
+    def test_candidate_identity_validation_requires_unified_v1_v5_and_frozen_bindings():
+>       validate_kind_aware_candidate_identities(
+            candidate_head=CANDIDATE_RUNTIME_COMMIT,
+            target_head=TARGET_PROJECT_COMMIT,
+            corpus_head=CORPUS_SOURCE_COMMIT,
+            protocol_sha=FROZEN_PROTOCOL_SHA,
+            prompt_profile_version=ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
+            prompt_profile_sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.sha256,
+            code_search_version="code_search_v5",
+            artifact_kind_optional=True,
+            artifact_kind_values=EXPECTED_ARTIFACT_KIND_VALUES,
+        )
+
+tests\test_arch_integration_12b_kind_aware_harness.py:239: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+candidate_head = '6cd1d8248cb939ba2e15e883c04859fbd835a671'
+target_head = '385b7795eafde7c114efc382e95c0d18ec273f54'
+corpus_head = '179f18e812ad63c36c5569de8e86c5ff9a931cb5'
+protocol_sha = '281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d'
+prompt_profile_version = 'engineering_agent_decision_prompt_unified_v1'
+prompt_profile_sha256 = '0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b'
+code_search_version = 'code_search_v5', artifact_kind_optional = True
+artifact_kind_values = ('any', 'project_code', 'project_doc')
+
+    def validate_kind_aware_candidate_identities(
+        *,
+        candidate_head: str,
+        target_head: str,
+        corpus_head: str,
+        protocol_sha: str,
+        prompt_profile_version: str,
+        prompt_profile_sha256: str,
+        code_search_version: str,
+        artifact_kind_optional: bool,
+        artifact_kind_values: tuple[str, ...],
+    ) -> None:
+        if candidate_head != CANDIDATE_RUNTIME_COMMIT:
+            raise RunnerPreflightError("12B candidate runtime SHA mismatch")
+        if target_head != TARGET_PROJECT_COMMIT:
+            raise RunnerPreflightError("12B target project SHA mismatch")
+        if corpus_head != CORPUS_SOURCE_COMMIT:
+            raise RunnerPreflightError("12B knowledge corpus SHA mismatch")
+        if protocol_sha != FROZEN_PROTOCOL_SHA:
+            raise RunnerPreflightError("12B protocol SHA mismatch")
+        if prompt_profile_version != ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version:
+            raise RunnerPreflightError("12B decision prompt profile version mismatch")
+        if prompt_profile_sha256 != ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.sha256:
+            raise RunnerPreflightError("12B decision prompt profile SHA mismatch")
+        if code_search_version != CODE_SEARCH_VERSION or code_search_version != "code_search_v5":
+>           raise RunnerPreflightError("12B code_search version mismatch")
+E           evaluation.integration_v7.runner.RunnerPreflightError: 12B code_search version mismatch
+
+evaluation\integration_v7\kind_aware_candidate_runner.py:155: RunnerPreflightError
+============================== warnings summary ===============================
+..\..\..\python\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128
+  D:\python\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+..\..\..\python\Lib\site-packages\jieba\_compat.py:18
+  D:\python\Lib\site-packages\jieba\_compat.py:18: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    import pkg_resources
+
+..\..\..\python\Lib\site-packages\fastapi\testclient.py:1
+  D:\python\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_code_search_scope.py::test_runtime_recovers_from_truncation_then_reads_definition_with_existing_budget
+FAILED tests/test_arch_integration_12b_kind_aware_harness.py::test_candidate_identity_validation_requires_unified_v1_v5_and_frozen_bindings
+2 failed, 184 passed, 7 skipped, 3 warnings in 8.24s

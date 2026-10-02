@@ -1,0 +1,227 @@
+{
+  "baseline_head": "538196995a2bd7e4db141be8d2f0c06d441213a6",
+  "working_tree": "existing uncommitted SSE/documentation work preserved; not a clean HEAD-only comparison",
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "actual_paid_requests": 32,
+  "rounds": 2,
+  "requests_per_round": 16,
+  "max_live_requests_per_round": 20,
+  "independent_formal_acceptance": false,
+  "source_pins": {
+    "smolagents": "c30b115286e000e98711fae5e85993547b73d826",
+    "requests": "b25c87d7cb8d6a18a37fa12442b5f883f9e41741"
+  },
+  "source_file_sha256": {
+    "smolagents/src/smolagents/agents.py": "d4f40408e0e55dc4ad20b6a92bb166285b6624dfbdce6ef55b511b7bd1e94c33",
+    "mini/src/mini_retriever/config.py": "0505a61552c2d40bc20186f35e89acf07debb820e06b13023e1724708fbfca3a",
+    "mini/docs/retrieval.md": "df5b2ae3648f327a092269eba5e434f7af0a00abd92c1703d0ad3118693a7677",
+    "requests/src/requests/sessions.py": "42f72303ecde0cca0e8479b2f95845d2f7280d99ca0cf865b1dda8d0433cf662",
+    "requests/src/requests/models.py": "df0f615771b4d6bc1eaccabe30639643f8e32dd5a447f7cdaae8354b539b324c",
+    "requests/src/requests/utils.py": "cc378c150377aea0b406b73a4c904c2f17e8cb202821f278ee833735a4128025"
+  },
+  "frozen_catalog_sha256": "6e7a011ddaf27c6fe28cfc940d828a6265bdc8ac6d76d96e248d16ae521130eb",
+  "metadata": {
+    "round1": {
+      "v1": {
+        "planner": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "gate3_planner_prompt_v1"
+          ],
+          "prompt_sha256": [
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+          ]
+        },
+        "decision": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1"
+          ],
+          "prompt_sha256": [
+            "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+          ],
+          "toolset_sha256": [
+            "03e0536641552b0310552301e8a9c41bd689144f856d81a40049ca82f761680a"
+          ]
+        }
+      },
+      "v2": {
+        "planner": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "gate3_planner_prompt_v1"
+          ],
+          "prompt_sha256": [
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+          ]
+        },
+        "decision": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1"
+          ],
+          "prompt_sha256": [
+            "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+          ],
+          "toolset_sha256": [
+            "43ccd0dfc10d7e2843198b09f66ef5634a88a1a9a8b60726d64066174822db92"
+          ]
+        }
+      }
+    },
+    "round2": {
+      "v1": {
+        "planner": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "gate3_planner_prompt_v1"
+          ],
+          "prompt_sha256": [
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+          ]
+        },
+        "decision": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1"
+          ],
+          "prompt_sha256": [
+            "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+          ],
+          "toolset_sha256": [
+            "03e0536641552b0310552301e8a9c41bd689144f856d81a40049ca82f761680a"
+          ]
+        }
+      },
+      "v2": {
+        "planner": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "gate3_planner_prompt_v1"
+          ],
+          "prompt_sha256": [
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+          ]
+        },
+        "decision": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1"
+          ],
+          "prompt_sha256": [
+            "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+          ],
+          "toolset_sha256": [
+            "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+          ]
+        }
+      }
+    }
+  },
+  "protected_files_unchanged": {
+    "core/tool_agent/runtime.py": true,
+    "core/tool_agent/runtime_models.py": true,
+    "core/tool_agent/decision_prompt.py": true,
+    "core/tool_agent/executor.py": true,
+    "core/tool_agent/default_tools.py": true,
+    "core/engineering_requirements.py": true,
+    "core/engineering_verification.py": true,
+    "core/unified_engineering_runtime.py": true,
+    "api/app.py": true,
+    "api/engineering_stream.py": true,
+    "api/engineering_stream_v2.py": true
+  },
+  "candidate_revisions": {
+    "round1": "initial definition reader; class anchor fallback regression retained",
+    "round2": "useful bounded window fallback and clearer tool description",
+    "shipping": "round2 plus fixed fallback continuation range; recorded ten v2 reads replay identically, zero extra provider calls"
+  },
+  "api_contract_checks": {
+    "http_schema": "32/32",
+    "stream_v2": "all streamed cases: one final, answer_delta assembled equals final, done and no error",
+    "runtime_budget": "32/32 within 5/4/2"
+  },
+  "artifacts_sha256": {
+    "catalog.json": "6e7a011ddaf27c6fe28cfc940d828a6265bdc8ac6d76d96e248d16ae521130eb",
+    "raw/results_round1.jsonl": "142439339b5f0d15b8b76583d03ce0d3847785cb9ab6a37138b00e822031f8e4",
+    "raw/results_round2.jsonl": "75b95ec6378f0941f176431411bfe6d76c175311f1ee6635f568fa8eec4612bb",
+    "raw/initial_manifest.json": "d852f21c38c0373eba47370000d7220ba9365b153726c1e2b7b5d4881b0587db",
+    "raw/round1_manifest.json": "710acd19f8679e1b156eab4a7d1eb91fea50a34d1c02e08eb105071b37bb9e7b",
+    "raw/round2_manifest.json": "c34c5b11e0e09946cfd773de8c3a3686210597735874cbfee2e4412a0e179fe4",
+    "raw/post_audit_replay.json": "d33c5dbcf98cb7492365a8adbd2a2e9ebf200011bac59ed6eb6d984628932470",
+    "snapshots/reader_v1.snapshot": "5e338779905ebe853ff7e9faedfe9cedd88d1c00588d7d0a26386a785d8b588f",
+    "snapshots/reader_round1.snapshot": "e8660c5ef60ca2e053cfcd84b069529612a056c30bcca3634e2ca31abbd290ad",
+    "snapshots/reader_round2.snapshot": "62f4360afecbf2e209091d028ed90b634f2abde4c193c82f2e584d928978c6a3",
+    "snapshots/reader_shipping.snapshot": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "snapshots/source_navigation.snapshot": "71870394a45afbfb5c9b1665251bab9c07490e1833b3b8637a7e470ca034c602",
+    "fixture_snapshot.json": "057786c67ee7f48eb6688e70befd3dbab460c7c27505a8c9a39d82078cc5ee53",
+    "harness/passive_observer.py": "9d4a05d333c6b4ef1f4578dbb7ef16aa7c5206762c1fa1dc215487cbfb908d76",
+    "harness/comparison_server.py": "1b25dcdeca6a76d18e4c1cedf7fc2970bdf68f2fa6beff4dd2f823050013cda8",
+    "harness/run_comparison.py": "8620c4b4a185b24a0c61b2cbb5bad3cafd3ec63a942730d899a97e2c960191a7",
+    "README.md": "b27c7fd684d8901b0ed90d3881b6f54fb968f48fe0c141ae4cd8d80c4f2861ae",
+    "comparison.json": "ae914ee8ccc08174cfa0f9239fbfb32eb35f39a4e6847eb58889131e5e06e128",
+    "offline_comparison.json": "791a131ca0ec0ecfeae849c5e2dcd752c02012f567f9d0f455e06e1a303bcb2b",
+    "raw/pytest-shipping.log": "d3c0fc4a05c685307858a4f93d5b377044e78320f16c925b514b5fcd052d1606"
+  },
+  "harness_note": "Portable adaptation of the original scratch runner; input-only path and syntax verified, no extra live run after adaptation.",
+  "offline_regression": {
+    "passed": 2692,
+    "skipped": 6,
+    "warnings": 4,
+    "seconds": 435.85,
+    "scope": "entire pytest collection on shipping revision",
+    "log": "raw/pytest-shipping.log",
+    "network": "HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1; local verified Gate4 corpus"
+  },
+  "knowledge": {
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "chunk_count": 215,
+    "strategy": "bm25",
+    "basis": "same verified corpus and configuration used for original system assessment and both paired rounds"
+  }
+}

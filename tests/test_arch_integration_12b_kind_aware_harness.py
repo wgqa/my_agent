@@ -180,12 +180,13 @@ def test_manifest_records_candidate_repo_tool_and_frozen_bindings(tmp_path):
     protocol = validate_protocol_manifest()
     plan = build_kind_aware_candidate_run_plan(_cases())
     code_search_contract = {
-        "tool": CODE_SEARCH_SPEC.name,
-        "version": CODE_SEARCH_SPEC.version,
-        "spec_version": CODE_SEARCH_SPEC.version,
+        # This manifest describes the pinned 12B checkout, not today's registry.
+        "tool": "code_search",
+        "version": "code_search_v5",
+        "spec_version": "code_search_v5",
         "artifact_kind": {
-            "optional": "artifact_kind" not in CODE_SEARCH_SPEC.input_schema["required"],
-            "values": list(CODE_SEARCH_SPEC.input_schema["properties"]["artifact_kind"]["enum"]),
+            "optional": True,
+            "values": list(EXPECTED_ARTIFACT_KIND_VALUES),
         },
         "prompt_profile": {
             "version": ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
@@ -267,6 +268,18 @@ def test_candidate_identity_validation_requires_unified_v1_v5_and_frozen_binding
             prompt_profile_version=ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
             prompt_profile_sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.sha256,
             code_search_version="code_search_v4",
+            artifact_kind_optional=True,
+            artifact_kind_values=EXPECTED_ARTIFACT_KIND_VALUES,
+        )
+    with pytest.raises(RunnerPreflightError, match="code_search version mismatch"):
+        validate_kind_aware_candidate_identities(
+            candidate_head=CANDIDATE_RUNTIME_COMMIT,
+            target_head=TARGET_PROJECT_COMMIT,
+            corpus_head=CORPUS_SOURCE_COMMIT,
+            protocol_sha=FROZEN_PROTOCOL_SHA,
+            prompt_profile_version=ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
+            prompt_profile_sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.sha256,
+            code_search_version="code_search_v6",
             artifact_kind_optional=True,
             artifact_kind_values=EXPECTED_ARTIFACT_KIND_VALUES,
         )

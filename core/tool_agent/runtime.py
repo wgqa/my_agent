@@ -15,7 +15,6 @@ import inspect
 import time
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
-from pathlib import PurePosixPath
 from typing import Callable
 
 from core.engineering_requirements import (
@@ -38,6 +37,10 @@ from core.tool_agent.actions import (
 )
 from core.tool_agent.executor import ToolExecutor
 from core.tool_agent.models import AGENT_BUDGET_EXCEEDED, ToolCall, json_deep_copy
+from core.tool_agent.project_files import (
+    PROJECT_CODE_SUFFIXES as _PROJECT_CODE_SUFFIXES,  # Legacy evaluation import.
+    classify_project_evidence_path,
+)
 from core.tool_agent.registry import ToolRegistry
 from core.tool_agent.runtime_models import (
     AGENT_DUPLICATE_TOOL_CALL,
@@ -56,33 +59,6 @@ from core.tool_agent.runtime_models import (
     ToolAgentBudget,
     ToolAgentExecutionMetrics,
     ToolAgentRunResult,
-)
-from core.tool_agent.tools.test_discovery import is_test_path
-
-
-_PROJECT_CODE_SUFFIXES = frozenset(
-    {
-        ".c",
-        ".cc",
-        ".cpp",
-        ".cs",
-        ".css",
-        ".go",
-        ".h",
-        ".hpp",
-        ".html",
-        ".java",
-        ".js",
-        ".jsx",
-        ".php",
-        ".py",
-        ".rb",
-        ".rs",
-        ".sh",
-        ".sql",
-        ".ts",
-        ".tsx",
-    }
 )
 
 _EVIDENCE_PRODUCER_TOOLS = {
@@ -200,14 +176,7 @@ def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
     if not snippet:
         return None
     try:
-        if is_test_path(path):
-            kind = "project_test"
-        else:
-            kind = (
-                "project_code"
-                if PurePosixPath(path).suffix.lower() in _PROJECT_CODE_SUFFIXES
-                else "project_doc"
-            )
+        kind = classify_project_evidence_path(path)
         return EngineeringEvidence(
             evidence_id="E1",
             kind=kind,

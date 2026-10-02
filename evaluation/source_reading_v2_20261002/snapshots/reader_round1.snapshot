@@ -1,0 +1,290 @@
+"""G6-VERTICAL-02: bounded read-only source context for an injected project root."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any, Mapping
+
+from core.tool_agent.models import (
+    INVALID_TOOL_ARGUMENTS,
+    PROJECT_CONTEXT_FILE_NOT_FOUND,
+    PROJECT_CONTEXT_FILE_UNREADABLE,
+    PROJECT_CONTEXT_LINE_OUT_OF_RANGE,
+    PROJECT_CONTEXT_PATH_NOT_ALLOWED,
+    ToolExecutionError,
+    ToolSpec,
+)
+from core.tool_agent.tools.code_search import (
+    ALLOWED_SUFFIXES,
+    MAX_FILE_SIZE,
+    MAX_LINE_LENGTH,
+    _is_secret_file,
+    is_path_within,
+)
+from core.tool_agent.tools.source_navigation import (
+    MAX_DEFINITION_LINES,
+    MAX_DEFINITION_NAME_LENGTH,
+    bounded_lines,
+    locate_function,
+)
+
+READ_PROJECT_CONTEXT_VERSION = "read_project_context_v2"
+MAX_CONTEXT_LINES = 30
+MAX_PATH_LENGTH = 500
+
+READ_PROJECT_CONTEXT_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": MAX_PATH_LENGTH},
+        "line": {"type": "integer", "minimum": 1},
+        "context_lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": MAX_CONTEXT_LINES,
+        },
+        "mode": {"type": "string", "enum": ["window", "definition"]},
+        "start_line": {"type": "integer", "minimum": 1},
+    },
+    "additionalProperties": False,
+    "required": ["path", "line", "context_lines"],
+    "dependentSchemas": {
+        "start_line": {
+            "properties": {"mode": {"const": "definition"}},
+            "required": ["mode"],
+        },
+    },
+}
+
+WINDOW_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "path": {"type": "string"},
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1},
+        "lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2 * MAX_CONTEXT_LINES + 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "line": {"type": "integer", "minimum": 1},
+                    "text": {"type": "string", "maxLength": MAX_LINE_LENGTH},
+                },
+                "additionalProperties": False,
+                "required": ["line", "text"],
+            },
+        },
+    },
+    "additionalProperties": False,
+    "required": ["path", "start_line", "end_line", "lines"],
+}
+
+DEFINITION_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **WINDOW_OUTPUT_SCHEMA["properties"],
+        "lines": {
+            **WINDOW_OUTPUT_SCHEMA["properties"]["lines"],
+            "maxItems": MAX_DEFINITION_LINES,
+        },
+        "mode": {"const": "definition"},
+        "definition": {
+            "type": ["object", "null"],
+            "properties": {
+                "name": {"type": "string", "maxLength": MAX_DEFINITION_NAME_LENGTH},
+                "start_line": {"type": "integer", "minimum": 1},
+                "end_line": {"type": "integer", "minimum": 1},
+            },
+            "additionalProperties": False,
+            "required": ["name", "start_line", "end_line"],
+        },
+        "content_complete": {"type": "boolean"},
+        "truncation_reasons": {
+            "type": "array", "uniqueItems": True, "maxItems": 4,
+            "items": {
+                "enum": ["line_limit", "character_limit", "line_length_limit", "continuation_page"],
+            },
+        },
+        "next_line": {"type": ["integer", "null"], "minimum": 1},
+        "fallback_reason": {
+            "enum": [None, "unsupported_language", "parse_error", "no_function_at_line", "symbol_name_limit"],
+        },
+    },
+    "additionalProperties": False,
+    "required": [
+        "path", "start_line", "end_line", "lines", "mode", "definition",
+        "content_complete", "truncation_reasons", "next_line", "fallback_reason",
+    ],
+}
+
+READ_PROJECT_CONTEXT_OUTPUT_SCHEMA = {
+    "oneOf": [WINDOW_OUTPUT_SCHEMA, DEFINITION_OUTPUT_SCHEMA],
+}
+
+READ_PROJECT_CONTEXT_SPEC = ToolSpec(
+    name="read_project_context",
+    description=(
+        "读取当前绑定工程项目中一个已定位文件的有限源码上下文。先用 code_search "
+        "定位 repo 相对 path + line。解释 Python 函数完整实现时使用 mode=definition，"
+        "line 指向该函数定义或函数体，context_lines 填 0；按函数边界读取，包含装饰器，"
+        "最多 120 行/8000 字符，单行最多 300 字符。content_complete 表示本次返回是否"
+        "完整包含整个函数，不表示答案正确；若 next_line 非空且仍有工具预算，保持原 line "
+        "并用 start_line=next_line 续读，结合前面各段。fallback_reason 非空表示只能读"
+        "文本窗口，不能认定完整函数；单行截断没有字符续读能力，需要说明缺口。"
+        "省略 mode 或 mode=window 时保持前后 context_lines 的旧窗口；context_lines "
+        "必须提供，范围 0..30。只读，不接受绝对路径或 repo 外路径。"
+    ),
+    input_schema=READ_PROJECT_CONTEXT_INPUT_SCHEMA,
+    output_schema=READ_PROJECT_CONTEXT_OUTPUT_SCHEMA,
+    version=READ_PROJECT_CONTEXT_VERSION,
+)
+
+
+def _relative_parts(raw_path: object) -> tuple[str, ...]:
+    """Parse cross-platform relative paths and reject absolute/traversal forms."""
+
+    if type(raw_path) is not str or not raw_path.strip() or raw_path != raw_path.strip():
+        raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+    windows_path = PureWindowsPath(raw_path)
+    posix_path = PurePosixPath(raw_path)
+    if (
+        windows_path.is_absolute()
+        or windows_path.drive
+        or posix_path.is_absolute()
+    ):
+        raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+    if any(part == ".." for part in windows_path.parts) or any(
+        part == ".." for part in posix_path.parts
+    ):
+        raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+    parts = tuple(part for part in windows_path.parts if part not in (".", ""))
+    if not parts:
+        raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+    return parts
+
+
+class ReadProjectContextHandler:
+    """Return a bounded text window or Python function from the injected project.
+
+    This is not a general filesystem reader: all accepted files must match the
+    code_search text suffix allowlist, remain inside the resolved root, and be
+    regular non-symlink files without secret-like names.
+    """
+
+    def __init__(self, repo_root: str | os.PathLike) -> None:
+        root = Path(repo_root)
+        if not root.is_dir():
+            raise ValueError(f"repo_root 不是目录：{root}")
+        self._root = root.resolve()
+
+    def execute(self, arguments: Mapping[str, Any]) -> dict:
+        requested_line = arguments["line"]
+        context_lines = arguments["context_lines"]
+        mode = arguments.get("mode", "window")
+        continuation_line = arguments.get("start_line")
+        if mode not in ("window", "definition") or (
+            "start_line" in arguments and mode != "definition"
+        ):
+            raise ToolExecutionError(INVALID_TOOL_ARGUMENTS)
+        if type(requested_line) is not int or isinstance(requested_line, bool) or requested_line < 1:
+            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        if "start_line" in arguments and (
+            type(continuation_line) is not int or continuation_line < 1
+        ):
+            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        if (
+            type(context_lines) is not int
+            or isinstance(context_lines, bool)
+            or not 0 <= context_lines <= MAX_CONTEXT_LINES
+        ):
+            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+
+        relative_parts = _relative_parts(arguments["path"])
+        candidate = self._root.joinpath(*relative_parts)
+        if candidate.is_symlink():
+            raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED) from None
+        if not is_path_within(resolved, self._root):
+            raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+        if not candidate.exists():
+            raise ToolExecutionError(PROJECT_CONTEXT_FILE_NOT_FOUND)
+        if not candidate.is_file():
+            raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+        if (
+            _is_secret_file(candidate.name)
+            or candidate.suffix.lower() not in ALLOWED_SUFFIXES
+        ):
+            raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
+        try:
+            if candidate.stat().st_size > MAX_FILE_SIZE:
+                raise ToolExecutionError(PROJECT_CONTEXT_FILE_UNREADABLE)
+            with open(candidate, "r", encoding="utf-8") as source_file:
+                source_lines = [raw.rstrip("\r\n") for raw in source_file]
+        except ToolExecutionError:
+            raise
+        except (OSError, UnicodeDecodeError):
+            raise ToolExecutionError(PROJECT_CONTEXT_FILE_UNREADABLE) from None
+
+        if requested_line > len(source_lines):
+            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        if mode == "definition":
+            return self._read_definition(
+                candidate, source_lines, requested_line, context_lines, continuation_line,
+            )
+        start_line = max(1, requested_line - context_lines)
+        end_line = min(len(source_lines), requested_line + context_lines)
+        return {
+            "path": candidate.relative_to(self._root).as_posix(),
+            "start_line": start_line,
+            "end_line": end_line,
+            "lines": [
+                {
+                    "line": line_number,
+                    "text": source_lines[line_number - 1][:MAX_LINE_LENGTH],
+                }
+                for line_number in range(start_line, end_line + 1)
+            ],
+        }
+
+    def _read_definition(
+        self, candidate: Path, source_lines: list[str], requested_line: int,
+        context_lines: int, continuation_line: int | None,
+    ) -> dict:
+        if candidate.suffix.lower() == ".py":
+            span, fallback = locate_function(source_lines, requested_line)
+        else:
+            span, fallback = None, "unsupported_language"
+        if span is not None:
+            start = continuation_line if continuation_line is not None else span.start_line
+            end = span.end_line
+            if not span.start_line <= start <= end:
+                raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        else:
+            start = continuation_line if continuation_line is not None else max(1, requested_line - context_lines)
+            if start > len(source_lines):
+                raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+            end = min(len(source_lines), start + 2 * context_lines)
+        items, reasons, next_line = bounded_lines(
+            source_lines, start, end, max_line_length=MAX_LINE_LENGTH,
+        )
+        if span is not None and start > span.start_line:
+            reasons.append("continuation_page")
+        if span is None and items[-1]["line"] < len(source_lines):
+            next_line = items[-1]["line"] + 1
+        return {
+            "path": candidate.relative_to(self._root).as_posix(),
+            "start_line": items[0]["line"],
+            "end_line": items[-1]["line"],
+            "lines": items,
+            "mode": "definition",
+            "definition": span.to_dict() if span is not None else None,
+            "content_complete": span is not None and not reasons and next_line is None,
+            "truncation_reasons": reasons,
+            "next_line": next_line,
+            "fallback_reason": fallback,
+        }

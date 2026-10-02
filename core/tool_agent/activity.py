@@ -46,7 +46,7 @@ _CODE_SEARCH_ARTIFACT_KINDS = frozenset(
 )
 _TARGET_KEYS_BY_TOOL = {
     "knowledge_search": frozenset({"query"}),
-    "code_search": frozenset({"query", "artifact_kind"}),
+    "code_search": frozenset({"query", "artifact_kind", "scope"}),
     "read_project_context": frozenset({"path", "line", "context_lines"}),
     "changed_files": frozenset({"mode"}),
     "git_diff": frozenset({"path", "mode"}),
@@ -55,7 +55,7 @@ _TARGET_KEYS_BY_TOOL = {
 }
 _RESULT_SUMMARY_KEYS_BY_TOOL = {
     "knowledge_search": frozenset({"match_count", "top_sources"}),
-    "code_search": frozenset({"match_count", "top_paths"}),
+    "code_search": frozenset({"match_count", "top_paths", "truncated"}),
     "read_project_context": frozenset({"path", "start_line", "end_line"}),
     "changed_files": frozenset({"file_count", "top_paths", "truncated"}),
     "git_diff": frozenset({"path", "mode", "truncated"}),
@@ -141,7 +141,7 @@ def _safe_bool(value: object) -> bool | None:
 
 
 def _safe_public_value(key: str, value: object) -> Any:
-    if key in {"path", "top_paths"}:
+    if key in {"path", "scope", "top_paths"}:
         if key == "top_paths":
             if not isinstance(value, (list, tuple)):
                 return None
@@ -478,6 +478,9 @@ def _target_for_tool(tool_name: str, arguments: object) -> dict[str, Any]:
         )
         if artifact_kind is not None:
             result["artifact_kind"] = artifact_kind
+        scope = _safe_repo_path(arguments.get("scope"))
+        if scope is not None:
+            result["scope"] = scope
         return result
     if tool_name == "read_project_context":
         path = _safe_repo_path(arguments.get("path"))
@@ -544,10 +547,14 @@ def summarize_code_search_result(result: object) -> dict[str, Any]:
     matches = result.get("matches") if isinstance(result, Mapping) else None
     if not isinstance(matches, list):
         return {}
-    return {
+    summary = {
         "match_count": len(matches),
         "top_paths": _unique_safe_values(matches, "path", MAX_ACTIVITY_TOP_PATHS),
     }
+    truncated = _safe_bool(result.get("truncated"))
+    if truncated is not None:
+        summary["truncated"] = truncated
+    return summary
 
 
 def summarize_read_project_context_result(result: object) -> dict[str, Any]:

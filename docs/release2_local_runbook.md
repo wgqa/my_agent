@@ -1,8 +1,8 @@
 # Release 2.0 本地运行手册（Local Runbook）
 
 > 目标：在一台新机器上按明确步骤完成 clean install、启动 backend / frontend、
-> 健康检查与 smoke。本文是操作手册，不是设计文档；README 的作品集表达属于
-> DELIVERY-27，不在此处。
+> 健康检查与 smoke。Engineering 主会话是当前 UI 默认入口，旧模式保留在
+> Advanced / Demo。当前进度以 [status.md](status.md) 为准，历史评测保持冻结。
 
 ## 1. 前置条件
 
@@ -54,12 +54,14 @@ export ENGINEERING_KNOWLEDGE_CORPUS_ROOT=/path/to/agent_data/agent_ai_v1/02_corp
 checkout）。语料校验按文件字节哈希比对 authority manifest，CRLF 转换会导致
 `corpus file hash or size does not match authority manifest`。
 
-可选：DeepSeek key（真实 provider 回答需要；放仓库根目录 `.env`，已被
-`load_dotenv()` 自动加载）：
+DeepSeek key 在启动后端的终端中设置（真实 provider 回答需要）：
 
 ```powershell
-Set-Content -Path .env -Value "DEEPSEEK_API_KEY=sk-..." -NoNewline
+$env:DEEPSEEK_API_KEY = "your-key"
 ```
+
+也可以在仓库根目录 `.env` 中配置 `DEEPSEEK_API_KEY` 与语料路径，后端会通过
+`load_dotenv()` 自动加载；编辑对应配置项即可，保留已有其它配置。
 
 ## 4. 启动 Backend（FastAPI）
 
@@ -88,14 +90,19 @@ $env:RAG_API_URL = "http://127.0.0.1:8000"
 python -m streamlit run ui/app.py --server.port 8501
 ```
 
-浏览器打开 `http://localhost:8501`。UI 默认模式即 Engineering Agent；side-by-side
-的 legacy demo 在 Advanced/Demo 选择器中。
+浏览器打开 `http://localhost:8501`。默认进入 Engineering Agent 主会话，可创建、
+继续或删除服务端保存的会话；Basic RAG、Agentic RAG 与 Structured Tool Agent
+位于侧栏折叠的 `Advanced / Demo` 选择器。
 
 ## 6. Runtime SQLite（会话持久化）
 
 - 位置：`data/runtime/engineering_conversations.sqlite3`（自动创建）。
 - 已被 `.gitignore` 覆盖（`data/runtime/`），**不得提交**。
 - 可用 `ENGINEERING_CONVERSATION_DB` 指到自定义路径（测试/隔离用）。
+- UI 提交 `message` 到 Conversation SSE API，后端加载历史，由 Context Window
+  选取最多 6 条 / 1200 token；旧 `/engineering/query` 系列只接受 `question`。
+- 每操作使用独立连接，提交或回滚后显式关闭；整轮 user/assistant 消息与结果
+  原子保存，保存失败不会发布成功答案。历史全量读取与详情分页仍待优化。
 
 ## 7. Smoke（不需要 LLM / API key）
 
@@ -117,7 +124,8 @@ FULL_APP_SMOKE_OK
   `elapsed_ms` 是 wall-clock elapsed time，`decision_llm_calls` 是实际
   Decision call 数；`input_tokens` / `output_tokens` 只聚合 provider 回报的
   usage，缺失时保持 `null`，不估算、不输出 raw provider response。
-- 单次 Engineering run 使用系统拥有的 60 秒 cooperative deadline。超时会在
+- Tool Agent 执行阶段使用系统拥有的 60 秒 cooperative deadline；前置 Context /
+  Planner / Planned Retrieval 不在该计时范围。超时会在
   下一次 Decision 或 Tool 安全边界停止，并返回 safe failure code；不会强杀
   正在进行的 provider 网络调用，也不会改变 5/4/2 budget。
 - 进程内最多同时 admission 2 个 Engineering run；满载时 fail-fast 返回
@@ -145,6 +153,10 @@ python -m pytest -q \
   tests/test_test_discovery_tools.py \
   tests/test_git_change_tools.py \
   tests/test_read_project_context.py \
+  tests/test_source_definition_reading.py \
+  tests/test_code_search_scope.py \
+  tests/test_arch_integration_12a_code_search_kind_filter.py \
+  tests/test_arch_integration_12a_r1_tool_identity.py \
   tests/test_conversation_context.py \
   tests/test_g9_reliability.py \
   tests/test_agent_runtime_adapters.py \
@@ -162,11 +174,12 @@ python -m pytest -q \
   tests/test_engineering_stream.py \
   tests/test_engineering_stream_v2.py \
   tests/test_product_conversation_20.py \
+  tests/test_conversation_store_lifecycle.py \
   tests/test_product_grounding_21.py \
   tests/test_product_repair_23.py
 ```
 
-全量回归（Release 2.0 当前基线：2657 passed / 7 skipped）：
+全量回归命令（本次维护按授权只做局部验证，未运行此命令）：
 
 ```bash
 python -m pytest -q --basetemp="$TMP/my_agent_pytest_full"
@@ -175,6 +188,34 @@ python -m pytest -q --basetemp="$TMP/my_agent_pytest_full"
 Windows 注意：pytest 默认 temp 目录位于用户目录下，用户名含空格时可能触发
 `PermissionError (WinError 5)`，因此本地命令一律带显式 `--basetemp`（CI 的
 `$RUNNER_TEMP` 无此问题）。
+
+临时目录也应尽量短。2026-10-02 的全量诊断中，过长的工作区临时路径使 Git
+clone fixture 报 `Filename too long`；改用短目录后全量通过。不要据此放宽项目
+隔离断言。该次使用现有 Gate 4 corpus 验证了原本可选的一项 provenance check，
+历史结果为 2658 passed / 6 skipped；6 项剩余跳过均因 Windows 无法创建 symlink。
+完整过程见 [系统评估](validation/2026-10-02-system-assessment.md)。
+
+2026-10-03 的搜索切片为**未晋升候选实验**，默认 registry 继续 v5。新增
+`test_code_search_scope.py` 在 CI 中验证独立候选及默认不晋升边界；相关 9 个文件
+局部 **193 passed / 7 skipped**，未执行完整 CI / 全量回归。16 个配对真实用户
+请求（68 次实际 provider 调用）未证明取证收益，见
+[范围搜索验证](validation/2026-10-03-source-search-v6.md)。
+
+随后共享文件分类切片记录全量 **2691 passed / 7 skipped**，其中可选 provenance
+校验已单独补跑 **1 passed**，剩余 6 项为 Windows symlink 限制；见
+[实时状态](status.md)中的该切片记录。这里保留实际执行口径，不合并推算新基线。
+
+本次 CI / SQLite 维护只执行下面五个测试文件，结果 **70 passed**；无真实模型
+请求，未执行完整 CI job 或全量回归。README / 运行手册对齐仅核对源码，未测试。
+
+```bash
+python -m pytest -q --basetemp="${TMPDIR:-/tmp}/my_agent_pytest_maintenance" \
+  tests/test_source_definition_reading.py \
+  tests/test_arch_integration_12a_code_search_kind_filter.py \
+  tests/test_arch_integration_12a_r1_tool_identity.py \
+  tests/test_conversation_store_lifecycle.py \
+  tests/test_product_conversation_20.py
+```
 
 ## 9. 已知边界
 
@@ -185,3 +226,8 @@ Windows 注意：pytest 默认 temp 目录位于用户目录下，用户名含�
   指向的目录为工程对象（默认仓库自身）；不要把语料仓库当成 Engineering
   Project。
 - CI 不下载任何语料、不运行真实 provider、不跑 Holdout / Set A 评测。
+
+## 10. 挂载其它项目
+
+源码目录和知识库目录分别配置；`ENGINEERING_PROJECT_ROOT` 绑定在后端启动时，
+切换需要重启。一步步操作与已验证限制见 [新项目挂载手册](project_mount_runbook.md)。

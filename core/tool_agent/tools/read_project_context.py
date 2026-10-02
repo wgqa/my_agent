@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Mapping
 
 from core.tool_agent.models import (
+    INVALID_TOOL_ARGUMENTS,
     PROJECT_CONTEXT_FILE_NOT_FOUND,
     PROJECT_CONTEXT_FILE_UNREADABLE,
     PROJECT_CONTEXT_LINE_OUT_OF_RANGE,
@@ -21,8 +22,14 @@ from core.tool_agent.tools.code_search import (
     _is_secret_file,
     is_path_within,
 )
+from core.tool_agent.tools.source_navigation import (
+    MAX_DEFINITION_LINES,
+    MAX_DEFINITION_NAME_LENGTH,
+    bounded_lines,
+    locate_function,
+)
 
-READ_PROJECT_CONTEXT_VERSION = "read_project_context_v1"
+READ_PROJECT_CONTEXT_VERSION = "read_project_context_v2"
 MAX_CONTEXT_LINES = 30
 MAX_PATH_LENGTH = 500
 
@@ -36,12 +43,20 @@ READ_PROJECT_CONTEXT_INPUT_SCHEMA = {
             "minimum": 0,
             "maximum": MAX_CONTEXT_LINES,
         },
+        "mode": {"type": "string", "enum": ["window", "definition"]},
+        "start_line": {"type": "integer", "minimum": 1},
     },
     "additionalProperties": False,
     "required": ["path", "line", "context_lines"],
+    "dependentSchemas": {
+        "start_line": {
+            "properties": {"mode": {"const": "definition"}},
+            "required": ["mode"],
+        },
+    },
 }
 
-READ_PROJECT_CONTEXT_OUTPUT_SCHEMA = {
+WINDOW_OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "path": {"type": "string"},
@@ -66,12 +81,62 @@ READ_PROJECT_CONTEXT_OUTPUT_SCHEMA = {
     "required": ["path", "start_line", "end_line", "lines"],
 }
 
+DEFINITION_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **WINDOW_OUTPUT_SCHEMA["properties"],
+        "lines": {
+            **WINDOW_OUTPUT_SCHEMA["properties"]["lines"],
+            "maxItems": MAX_DEFINITION_LINES,
+        },
+        "mode": {"const": "definition"},
+        "definition": {
+            "type": ["object", "null"],
+            "properties": {
+                "name": {"type": "string", "maxLength": MAX_DEFINITION_NAME_LENGTH},
+                "start_line": {"type": "integer", "minimum": 1},
+                "end_line": {"type": "integer", "minimum": 1},
+            },
+            "additionalProperties": False,
+            "required": ["name", "start_line", "end_line"],
+        },
+        "content_complete": {"type": "boolean"},
+        "truncation_reasons": {
+            "type": "array", "uniqueItems": True, "maxItems": 4,
+            "items": {
+                "enum": ["line_limit", "character_limit", "line_length_limit", "continuation_page"],
+            },
+        },
+        "next_line": {"type": ["integer", "null"], "minimum": 1},
+        "fallback_reason": {
+            "enum": [None, "unsupported_language", "parse_error", "no_function_at_line", "symbol_name_limit"],
+        },
+    },
+    "additionalProperties": False,
+    "required": [
+        "path", "start_line", "end_line", "lines", "mode", "definition",
+        "content_complete", "truncation_reasons", "next_line", "fallback_reason",
+    ],
+}
+
+READ_PROJECT_CONTEXT_OUTPUT_SCHEMA = {
+    "oneOf": [WINDOW_OUTPUT_SCHEMA, DEFINITION_OUTPUT_SCHEMA],
+}
+
 READ_PROJECT_CONTEXT_SPEC = ToolSpec(
     name="read_project_context",
     description=(
         "读取当前绑定工程项目中一个已定位文件的有限源码上下文。先用 code_search "
-        "定位 repo 相对 path + line，再调用本 Tool 查看该行前后实现；只读，不接受 "
-        "绝对路径或 repo 外路径。"
+        "定位 repo 相对 path + line。查看类声明、常量或文档时用 mode=window、"
+        "context_lines=30。解释 Python 函数完整实现时使用 mode=definition，"
+        "line 指向该函数定义或函数体，context_lines 填 0；按函数边界读取，包含装饰器，"
+        "最多 120 行/8000 字符，单行最多 300 字符。content_complete 表示本次返回是否"
+        "完整包含整个函数，不表示答案正确；若 next_line 非空且仍有工具预算，保持原 line "
+        "并用 start_line=next_line 续读，结合前面各段。fallback_reason 非空表示只能读"
+        "原有前后各 30 行的文本窗口，不能认定完整函数；next_line 只指已定位范围内"
+        "尚未返回的后续行，不代表应继续读取整个文件。单行截断没有字符续读能力，需要说明缺口。"
+        "省略 mode 或 mode=window 时保持前后 context_lines 的旧窗口；context_lines "
+        "必须提供，范围 0..30。只读，不接受绝对路径或 repo 外路径。"
     ),
     input_schema=READ_PROJECT_CONTEXT_INPUT_SCHEMA,
     output_schema=READ_PROJECT_CONTEXT_OUTPUT_SCHEMA,
@@ -103,7 +168,7 @@ def _relative_parts(raw_path: object) -> tuple[str, ...]:
 
 
 class ReadProjectContextHandler:
-    """Return a bounded, line-numbered text window from the injected project.
+    """Return a bounded text window or Python function from the injected project.
 
     This is not a general filesystem reader: all accepted files must match the
     code_search text suffix allowlist, remain inside the resolved root, and be
@@ -119,7 +184,17 @@ class ReadProjectContextHandler:
     def execute(self, arguments: Mapping[str, Any]) -> dict:
         requested_line = arguments["line"]
         context_lines = arguments["context_lines"]
+        mode = arguments.get("mode", "window")
+        continuation_line = arguments.get("start_line")
+        if mode not in ("window", "definition") or (
+            "start_line" in arguments and mode != "definition"
+        ):
+            raise ToolExecutionError(INVALID_TOOL_ARGUMENTS)
         if type(requested_line) is not int or isinstance(requested_line, bool) or requested_line < 1:
+            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        if "start_line" in arguments and (
+            type(continuation_line) is not int or continuation_line < 1
+        ):
             raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
         if (
             type(context_lines) is not int
@@ -159,6 +234,10 @@ class ReadProjectContextHandler:
 
         if requested_line > len(source_lines):
             raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        if mode == "definition":
+            return self._read_definition(
+                candidate, source_lines, requested_line, continuation_line,
+            )
         start_line = max(1, requested_line - context_lines)
         end_line = min(len(source_lines), requested_line + context_lines)
         return {
@@ -172,4 +251,44 @@ class ReadProjectContextHandler:
                 }
                 for line_number in range(start_line, end_line + 1)
             ],
+        }
+
+    def _read_definition(
+        self, candidate: Path, source_lines: list[str], requested_line: int,
+        continuation_line: int | None,
+    ) -> dict:
+        if candidate.suffix.lower() == ".py":
+            span, fallback = locate_function(source_lines, requested_line)
+        else:
+            span, fallback = None, "unsupported_language"
+        if span is not None:
+            start = continuation_line if continuation_line is not None else span.start_line
+            end = span.end_line
+            if not span.start_line <= start <= end:
+                raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        else:
+            # Definition mode asks for context_lines=0. A failed function
+            # lookup must still provide a useful legacy-sized text fallback,
+            # rather than spending a tool call on just a class/header line.
+            window_start = max(1, requested_line - MAX_CONTEXT_LINES)
+            end = min(len(source_lines), requested_line + MAX_CONTEXT_LINES)
+            start = continuation_line if continuation_line is not None else window_start
+            if not window_start <= start <= end:
+                raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        items, reasons, next_line = bounded_lines(
+            source_lines, start, end, max_line_length=MAX_LINE_LENGTH,
+        )
+        if span is not None and start > span.start_line:
+            reasons.append("continuation_page")
+        return {
+            "path": candidate.relative_to(self._root).as_posix(),
+            "start_line": items[0]["line"],
+            "end_line": items[-1]["line"],
+            "lines": items,
+            "mode": "definition",
+            "definition": span.to_dict() if span is not None else None,
+            "content_complete": span is not None and not reasons and next_line is None,
+            "truncation_reasons": reasons,
+            "next_line": next_line,
+            "fallback_reason": fallback,
         }

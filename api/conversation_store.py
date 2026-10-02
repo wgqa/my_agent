@@ -16,9 +16,10 @@ import hashlib
 import json
 import os
 import sqlite3
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 from uuid import uuid4
 
 CONVERSATION_DB_ENV = "ENGINEERING_CONVERSATION_DB"
@@ -109,17 +110,27 @@ class ConversationStore:
         if str(parent):
             parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self._path)
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.executescript(_SCHEMA)
-        version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if version and version != SCHEMA_VERSION:
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.executescript(_SCHEMA)
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            if version and version != SCHEMA_VERSION:
+                raise ConversationStoreError(
+                    f"conversation DB schema version {version} is not supported"
+                )
+            if version == 0:
+                connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        except BaseException:
             connection.close()
-            raise ConversationStoreError(
-                f"conversation DB schema version {version} is not supported"
-            )
-        if version == 0:
-            connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            raise
         return connection
+
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        # SQLite's own context manager commits/rolls back, but never closes.
+        # Exit the transaction before closing, including when commit fails.
+        with closing(self._connect()) as connection, connection:
+            yield connection
 
     # ── conversations ────────────────────────────────────
     def create_conversation(
@@ -127,7 +138,7 @@ class ConversationStore:
     ) -> dict[str, Any]:
         now = _utc_now()
         conversation_id = _new_id()
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 "INSERT INTO conversations "
                 "(id, title, project_key, project_name, project_source, created_at, updated_at) "
@@ -145,7 +156,7 @@ class ConversationStore:
         return self.get_conversation(project_key, conversation_id) or {}
 
     def list_conversations(self, project_key: str) -> list[dict[str, Any]]:
-        with self._connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(
                 "SELECT id, title, project_name, project_source, created_at, updated_at "
                 "FROM conversations WHERE project_key = ? ORDER BY updated_at DESC, rowid DESC",
@@ -156,7 +167,7 @@ class ConversationStore:
     def get_conversation(
         self, project_key: str, conversation_id: str
     ) -> dict[str, Any] | None:
-        with self._connect() as conn:
+        with self._connection() as conn:
             row = conn.execute(
                 "SELECT id, title, project_name, project_source, created_at, updated_at "
                 "FROM conversations WHERE project_key = ? AND id = ?",
@@ -183,12 +194,13 @@ class ConversationStore:
         return detail
 
     def delete_conversation(self, project_key: str, conversation_id: str) -> bool:
-        with self._connect() as conn:
+        with self._connection() as conn:
             cursor = conn.execute(
                 "DELETE FROM conversations WHERE project_key = ? AND id = ?",
                 (project_key, conversation_id),
             )
-        return cursor.rowcount > 0
+            deleted = cursor.rowcount > 0
+        return deleted
 
     # ── messages ─────────────────────────────────────────
     def load_history(
@@ -199,7 +211,7 @@ class ConversationStore:
         ``result_json`` / evidence / trace intentionally never become context.
         """
 
-        with self._connect() as conn:
+        with self._connection() as conn:
             row = conn.execute(
                 "SELECT id FROM conversations WHERE project_key = ? AND id = ?",
                 (project_key, conversation_id),
@@ -230,7 +242,7 @@ class ConversationStore:
 
         result_json = json.dumps(dict(result), ensure_ascii=False)
         now = _utc_now()
-        with self._connect() as conn:
+        with self._connection() as conn:
             row = conn.execute(
                 "SELECT title FROM conversations WHERE project_key = ? AND id = ?",
                 (project_key, conversation_id),

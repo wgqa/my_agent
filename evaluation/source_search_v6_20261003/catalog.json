@@ -1,0 +1,55 @@
+{
+  "kind": "paired_development_diagnostic_not_independent_acceptance",
+  "planned_requests": 16,
+  "max_live_requests": 16,
+  "cases": [
+    {
+      "id": "S01", "project": "smolagents", "cohort": "implementation_in_example_noise",
+      "question": "这个项目的 CodeAgent 在单步执行模型生成的 Python 代码时，怎样调用执行器、记录执行日志和输出，并判断是否产生最终答案？请依据源码说明。",
+      "gold_path": "src/smolagents/agents.py", "gold_symbol": "CodeAgent._step_stream",
+      "required_behaviors": ["调用 self.python_executor(code_action)", "从 code_output.logs 保存执行日志并截断展示 code_output.output", "保存 memory_step.action_output；以 code_output.is_final_answer 产生 ActionOutput"]
+    },
+    {
+      "id": "S02", "project": "smolagents", "cohort": "implementation_in_example_noise",
+      "question": "ToolCallingAgent 的 execute_tool_call 方法如何区分普通工具与 managed agent，如何替换指向 state 的参数，以及怎样处理执行异常？请依据项目源码说明。",
+      "gold_path": "src/smolagents/agents.py", "gold_symbol": "ToolCallingAgent.execute_tool_call",
+      "required_behaviors": ["合并工具与 managed_agents 并验证工具名称", "字典参数中的字符串可被 state 中同名对象替换", "普通 Tool 使用 sanitize_inputs_outputs；managed agent 调用分支不同", "异常转换成 AgentToolExecutionError；非法参数抛 AgentToolCallError"]
+    },
+    {
+      "id": "S03", "project": "smolagents", "cohort": "implementation_control",
+      "question": "PythonInterpreterTool.forward 实际怎样执行输入的 Python 代码，传入哪些限制参数，并把标准输出和返回值组合成工具结果？请依据项目源码。",
+      "gold_path": "src/smolagents/default_tools.py", "gold_symbol": "PythonInterpreterTool.forward",
+      "required_behaviors": ["新建 state 字典，调用 python_evaluator", "传 static_tools、authorized_imports、timeout_seconds", "取求值结果的第一个元素并转字符串", "从 state['_print_outputs'] 拼接 Stdout 和 Output"]
+    },
+    {
+      "id": "S04", "project": "smolagents", "cohort": "examples_are_valid_sources",
+      "question": "请根据 examples/text_to_sql.py 这个示例，说明 sql_engine 工具怎样执行收到的 SQL，并怎样把查询结果交给 CodeAgent。",
+      "gold_path": "examples/text_to_sql.py", "gold_symbol": "sql_engine",
+      "required_behaviors": ["使用 engine.connect 与 sqlalchemy.text 执行 SQL", "遍历查询结果，拼接字符串返回", "CodeAgent 的 tools 包含 sql_engine"]
+    },
+    {
+      "id": "R01", "project": "requests", "cohort": "implementation_control",
+      "question": "Session.prepare_request 如何合并 Request 与 Session 的 cookies、headers 和 auth？trust_env 开启时在什么条件下使用 netrc？请依据项目源码。",
+      "gold_path": "src/requests/sessions.py", "gold_symbol": "Session.prepare_request",
+      "required_behaviors": ["将 cookies 归一化并合并 session cookies", "trust_env 且 request.auth 与 session.auth 都缺省时读取 netrc", "调用 PreparedRequest.prepare，headers/auth 通过 merge_setting 合并"]
+    },
+    {
+      "id": "R02", "project": "requests", "cohort": "file_disambiguation",
+      "question": "在 src/requests/sessions.py 中，merge_environment_settings 方法怎样处理环境代理和 CA bundle，最后又如何与 Session 的设置合并？请依据这个方法的实现。",
+      "gold_path": "src/requests/sessions.py", "gold_symbol": "Session.merge_environment_settings",
+      "required_behaviors": ["trust_env 才读取环境代理，通过 setdefault 合并", "verify 为 True 或 None 时尝试 REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE", "proxies、stream、verify、cert 都与 session 设置合并并返回"]
+    },
+    {
+      "id": "R03", "project": "requests", "cohort": "file_disambiguation",
+      "question": "src/requests/models.py 中 Response.json 如何先探测 JSON 编码并解码，在失败后如何回退，以及怎样把 JSON 解码异常转换成 RequestsJSONDecodeError？请依据源码解释。",
+      "gold_path": "src/requests/models.py", "gold_symbol": "Response.json",
+      "required_behaviors": ["无 encoding 且 content 长度大于 3 时调用 guess_json_utf", "尝试解码后 complexjson.loads；UnicodeDecodeError 回退", "回退 complexjson.loads(self.text)", "JSONDecodeError 在两条路径均转换为 RequestsJSONDecodeError"]
+    },
+    {
+      "id": "R04", "project": "requests", "cohort": "documentation_control",
+      "question": "请依据项目 README.md，列出 Requests 支持的三个 HTTP 功能，并引用该文档。",
+      "gold_path": "README.md", "gold_symbol": null,
+      "required_behaviors": ["从 README 实际读取内容", "三个功能与 README 内容一致并有对应文档引用"]
+    }
+  ]
+}

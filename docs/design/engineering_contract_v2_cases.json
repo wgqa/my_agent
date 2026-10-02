@@ -1,0 +1,29 @@
+{
+  "schema_version": "engineering_contract_design_cases_v1",
+  "status": "design_only_not_executed",
+  "date": "2026-10-02",
+  "purpose": "实施前固定契约反例；不是测试结果或封存 Holdout",
+  "cases": [
+    {"id": "K01", "basis": "C02/C03", "scenario": "纯计算得到真实 calculator 结果，同时存在不相关知识命中", "expected": "计算项 fulfilled，允许 completed，不因不相关知识制造引用义务", "check": "integration_and_source_review"},
+    {"id": "K02", "basis": "C13", "scenario": "计算正确，IDF 解释缺知识支持", "expected": "partial；交付数值并列出知识项缺失，不算全部完成", "check": "integration_and_semantic_review"},
+    {"id": "K03", "basis": "R01/R03/N01", "scenario": "关键实现位于已定位函数末尾", "expected": "获取目标范围并据实际材料说明；保留函数读取切片收益", "check": "integration_and_source_review"},
+    {"id": "K04", "basis": "R05", "scenario": "源码中检查是可选的，回答声称只有通过检查才完成且保证正确", "expected": "语义审查判为不通过；不能因为 structural VALID 而报告质量 PASS", "check": "semantic_review_not_guaranteed_by_schema"},
+    {"id": "K05", "basis": "N03/C04", "scenario": "只读到 utils/config，却把引用用于 models/service 的调用点", "expected": "不同对象的结构化 locator 不匹配被阻止；自然语言中的未声明越界仍进入语义审查", "check": "locator_check_and_semantic_review"},
+    {"id": "K06", "basis": "code_review", "scenario": "完整 Observation 为 8000 字符，preview 只包含前 2000 字符", "expected": "preview 标注截断与范围；引用校验可检查真实原文，展开能展示支持段落", "check": "provider_free_and_api"},
+    {"id": "K07", "basis": "reader_v2", "scenario": "同一函数分多页返回，最后一页 content_complete=false", "expected": "同版本实际范围可以合并；不能只检查最后一页的 bool", "check": "provider_free"},
+    {"id": "K08", "basis": "reader_v2", "scenario": "行号连续但其中一行被截掉后半段", "expected": "不标为完整正文；局部可见事实可以成立，依赖缺失字符的项仍有缺口", "check": "provider_free"},
+    {"id": "K09", "basis": "design", "scenario": "查看常量或单一条件，不需要全部函数", "expected": "局部范围可满足 local_fact，不因未读完整函数误拒答", "check": "integration"},
+    {"id": "K10", "basis": "5/4/2", "scenario": "已使用四次工具，最后 Decision 又请求工具", "expected": "拒绝第五次执行，不追加免费总结调用，报告预算原因和已有有效部分", "check": "provider_free"},
+    {"id": "K11", "basis": "existing_parse_repair", "scenario": "一次逻辑 Decision 使用初始 provider 请求和解析修复", "expected": "逻辑决策计一次，provider 请求计两次；全链调用上限拦截额外请求", "check": "provider_free"},
+    {"id": "K12", "basis": "design", "scenario": "用户文本或仓库指令要求提高次数、改变权限", "expected": "不能覆盖系统 policy；policy 只在 run 开始由服务端绑定", "check": "provider_free_and_injection"},
+    {"id": "K13", "basis": "existing_duplicate_guard", "scenario": "相同参数与同一版本重复调用，生成了新 call_id", "expected": "仍判重复；call_id 不改变请求等价关系", "check": "provider_free"},
+    {"id": "K14", "basis": "future_edit", "scenario": "代码实际修改后，再执行相同测试命令", "expected": "版本由系统确认后允许正常重跑并计额度；旧测试凭据对新版本无效", "check": "future_executor_not_current_capability"},
+    {"id": "K15", "basis": "future_edit", "scenario": "只发现或读取测试文件，没有运行", "expected": "不能形成 execution_result；要求运行测试的项 missing", "check": "provider_free_and_future_executor"},
+    {"id": "K16", "basis": "lifecycle", "scenario": "工具执行期间取消或超时，随后返回成功材料", "expected": "记录真实已发生的观察/变更，停止新动作，不提交迟到 completed；terminal 恰好一次", "check": "provider_free_lifecycle"},
+    {"id": "K17", "basis": "design", "scenario": "有已验证部分之后 provider 出错或没有报告 tokens", "expected": "执行状态如实 failed，保留真实部分；usage 为 unknown 的字段不捏造", "check": "provider_free"},
+    {"id": "K18", "basis": "design", "scenario": "任务解释非法或遗漏必需用户项", "expected": "非法结构明确失败，不自动强制 BM25；语义遗漏在验收中判失败而非声称 schema 已证明理解正确", "check": "schema_and_semantic_review"},
+    {"id": "K19", "basis": "compatibility", "scenario": "v2 结果包含 partial 和 computation_result，经旧接口或旧会话读取", "expected": "明确协议适配；不将 partial 编成 completed、不将计算伪装成源码；只有一个执行循环", "check": "api_sse_conversation"},
+    {"id": "K20", "basis": "fresh_validation", "scenario": "扩展预算看起来提高 completed 数，但引用或语义质量变差", "expected": "不晋升配置；同题比较实际完成、错误陈述、资源与时延，保留全部负结果", "check": "fresh_paired_validation"},
+    {"id": "K21", "basis": "capability_readiness", "scenario": "知识 backend 不可用，但计算与项目读取能力就绪", "expected": "纯计算和仓库项可执行，要求知识的项明确列出能力缺口；不以未验证语料或静默旧路径替代", "check": "provider_free_assembly_and_integration"}
+  ]
+}

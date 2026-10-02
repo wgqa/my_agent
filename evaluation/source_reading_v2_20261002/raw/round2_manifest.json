@@ -1,0 +1,11 @@
+{
+  "candidate_file_sha256": {
+    "core/tool_agent/tools/read_project_context.py": "62f4360afecbf2e209091d028ed90b634f2abde4c193c82f2e584d928978c6a3",
+    "core/tool_agent/tools/source_navigation.py": "71870394a45afbfb5c9b1665251bab9c07490e1833b3b8637a7e470ca034c602"
+  },
+  "protected_files_unchanged": true,
+  "catalog_sha256": "6e7a011ddaf27c6fe28cfc940d828a6265bdc8ac6d76d96e248d16ae521130eb",
+  "planned_requests": 16,
+  "cumulative_planned_requests": 32,
+  "rationale": "Repeat the fixed paired matrix after repairing the observed generic fallback regression; do not mix candidate revisions or discard the first round."
+}

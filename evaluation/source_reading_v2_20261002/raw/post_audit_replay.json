@@ -1,0 +1,105 @@
+{
+  "kind": "post_audit_recorded_read_replay",
+  "matches": 10,
+  "all_identical": true,
+  "additional_live_requests": 0,
+  "checked": [
+    {
+      "id": "R01",
+      "arguments": {
+        "path": "src/smolagents/agents.py",
+        "line": 1453,
+        "context_lines": 0,
+        "mode": "definition"
+      },
+      "identical": true
+    },
+    {
+      "id": "R03",
+      "arguments": {
+        "path": "src/smolagents/agents.py",
+        "line": 268,
+        "context_lines": 30
+      },
+      "identical": true
+    },
+    {
+      "id": "R03",
+      "arguments": {
+        "path": "src/smolagents/agents.py",
+        "line": 540,
+        "context_lines": 0,
+        "mode": "definition"
+      },
+      "identical": true
+    },
+    {
+      "id": "R05",
+      "arguments": {
+        "path": "src/smolagents/agents.py",
+        "line": 540,
+        "context_lines": 0,
+        "mode": "definition"
+      },
+      "identical": true
+    },
+    {
+      "id": "N01",
+      "arguments": {
+        "path": "src/requests/sessions.py",
+        "line": 673,
+        "context_lines": 0,
+        "mode": "definition"
+      },
+      "identical": true
+    },
+    {
+      "id": "N02",
+      "arguments": {
+        "path": "src/requests/models.py",
+        "line": 947,
+        "mode": "definition",
+        "context_lines": 0
+      },
+      "identical": true
+    },
+    {
+      "id": "N03",
+      "arguments": {
+        "path": "src/requests/utils.py",
+        "line": 947,
+        "context_lines": 0,
+        "mode": "definition"
+      },
+      "identical": true
+    },
+    {
+      "id": "C04",
+      "arguments": {
+        "path": "src/mini_retriever/config.py",
+        "line": 1,
+        "context_lines": 30
+      },
+      "identical": true
+    },
+    {
+      "id": "C07",
+      "arguments": {
+        "path": "docs/retrieval.md",
+        "line": 2,
+        "context_lines": 5
+      },
+      "identical": true
+    },
+    {
+      "id": "C07",
+      "arguments": {
+        "path": "src/mini_retriever/config.py",
+        "line": 1,
+        "context_lines": 10
+      },
+      "identical": true
+    }
+  ],
+  "final_reader_sha256": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad"
+}

@@ -1,0 +1,9 @@
+{
+  "candidate_file_sha256": {
+    "core/tool_agent/tools/read_project_context.py": "e8660c5ef60ca2e053cfcd84b069529612a056c30bcca3634e2ca31abbd290ad",
+    "core/tool_agent/tools/source_navigation.py": "71870394a45afbfb5c9b1665251bab9c07490e1833b3b8637a7e470ca034c602"
+  },
+  "live_results_sha256": "142439339b5f0d15b8b76583d03ce0d3847785cb9ab6a37138b00e822031f8e4",
+  "requests": 16,
+  "outcome": "Class anchor fallback exposed an extra-read regression in R03; preserve and repair generic fallback before promotion."
+}

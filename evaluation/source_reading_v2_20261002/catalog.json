@@ -1,0 +1,128 @@
+{
+  "kind": "source_reading_paired_diagnostic",
+  "max_live_requests": 20,
+  "planned_requests": 16,
+  "independent_formal_acceptance": false,
+  "cases": [
+    {
+      "id": "R01",
+      "cohort": "historical_diagnostic",
+      "project": "smolagents",
+      "question": "Locate ToolCallingAgent.execute_tool_call in the current repository. Explain how it checks the tool name, validates arguments and executes a normal tool. Cite source evidence.",
+      "critical_spans": [
+        [
+          "src/smolagents/agents.py",
+          1483,
+          1502
+        ]
+      ]
+    },
+    {
+      "id": "R03",
+      "cohort": "historical_diagnostic",
+      "project": "smolagents",
+      "question": "当前仓库 MultiStepAgent 的 max_steps 默认值是多少？_run_stream 在哪些步骤触发 planning，达到步骤上限时怎样结束？请引用源码证据。",
+      "critical_spans": [
+        [
+          "src/smolagents/agents.py",
+          606,
+          611
+        ]
+      ]
+    },
+    {
+      "id": "R05",
+      "cohort": "historical_diagnostic",
+      "project": "smolagents",
+      "question": "对照 bounded agent loop 的原理与当前仓库 MultiStepAgent._run_stream 的源码实现，说明它如何限制循环，以及为什么最终答案校验与步骤预算承担不同职责。分别引用知识和源码。",
+      "critical_spans": [
+        [
+          "src/smolagents/agents.py",
+          589,
+          590
+        ]
+      ]
+    },
+    {
+      "id": "C04",
+      "cohort": "historical_diagnostic",
+      "project": "mini",
+      "question": "请查看 src/mini_retriever/config.py，说明默认 top_k、环境变量名及允许的数值范围。引用源码证据。",
+      "critical_spans": [
+        [
+          "src/mini_retriever/config.py",
+          1,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "C07",
+      "cohort": "historical_diagnostic",
+      "project": "mini",
+      "question": "Compare the documentation in docs/retrieval.md with the current implementation in src/mini_retriever/config.py. Are the default top_k values consistent? Identify both values and cite both sources.",
+      "critical_spans": [
+        [
+          "src/mini_retriever/config.py",
+          1,
+          10
+        ],
+        [
+          "docs/retrieval.md",
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "N01",
+      "cohort": "fresh_repository_diagnostic",
+      "project": "requests",
+      "question": "请查看当前仓库 requests.sessions.Session.send 的完整实现，说明 response hooks 的执行时机、重定向 history 如何组织，以及 stream=False 时返回前是否读取响应内容。引用源码证据。",
+      "critical_spans": [
+        [
+          "src/requests/sessions.py",
+          709,
+          710
+        ],
+        [
+          "src/requests/sessions.py",
+          728,
+          748
+        ]
+      ]
+    },
+    {
+      "id": "N02",
+      "cohort": "fresh_repository_diagnostic",
+      "project": "requests",
+      "question": "当前仓库 requests.models.Response.json 怎样选择解析内容与编码？UnicodeDecodeError 和 JSONDecodeError 分别怎样处理？请覆盖函数末尾的回退与异常包装，引用源码证据。",
+      "critical_spans": [
+        [
+          "src/requests/models.py",
+          957,
+          973
+        ],
+        [
+          "src/requests/models.py",
+          975,
+          980
+        ]
+      ]
+    },
+    {
+      "id": "N03",
+      "cohort": "short_function_control",
+      "project": "requests",
+      "question": "定位当前仓库 requests.utils.guess_json_utf，说明它如何依据 BOM 和 null 字节的位置判断编码，无法识别时返回什么。引用源码证据。",
+      "critical_spans": [
+        [
+          "src/requests/utils.py",
+          947,
+          976
+        ]
+      ]
+    }
+  ],
+  "review_policy": "source and citation review; completed and literal hits alone are not pass criteria"
+}

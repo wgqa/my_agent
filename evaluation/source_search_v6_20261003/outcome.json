@@ -1,0 +1,125 @@
+{
+  "decision": "NOT_PROMOTED",
+  "default_tool_version": "code_search_v5",
+  "default_handler_restored_byte_for_byte": true,
+  "core_and_api_protected_files_unchanged": true,
+  "historical_reader_archive_unchanged": true,
+  "historical_harness_exception": [
+    "evaluation/integration_v7/kind_aware_candidate_runner.py"
+  ],
+  "candidate_variant_note": "real-run v6 snapshot preserved; candidate.py adds invalid-path alias guards only; same ToolSpec identity and all observed search outputs replay identically",
+  "candidate_replay": [
+    {
+      "id": "S01",
+      "arguments": {
+        "query": "CodeAgent",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "S01",
+      "arguments": {
+        "query": "python_executor",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "S02",
+      "arguments": {
+        "query": "execute_tool_call",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "S03",
+      "arguments": {
+        "query": "PythonInterpreterTool",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "S04",
+      "arguments": {
+        "query": "sql_engine",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "R01",
+      "arguments": {
+        "query": "prepare_request",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "R02",
+      "arguments": {
+        "query": "merge_environment_settings",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    },
+    {
+      "id": "R03",
+      "arguments": {
+        "query": "RequestsJSONDecodeError",
+        "artifact_kind": "project_code"
+      },
+      "identical_result": true
+    }
+  ],
+  "real_repo_legacy_match_comparisons": 40,
+  "logical_budget": [
+    5,
+    4,
+    2
+  ],
+  "user_requests": 16,
+  "actual_provider_calls": 68,
+  "offline_regression": {
+    "passed": 193,
+    "skipped": 7,
+    "warnings": 3,
+    "seconds": 7.96,
+    "files": 9,
+    "full_suite": false,
+    "full_ci_job": false
+  },
+  "ci_file_count": 34,
+  "pairs_same_raw_arguments": 7,
+  "pairs_same_effective_arguments_and_spans": 8,
+  "additional_live_requests_after_main_matrix": 0,
+  "git_commit_created": false,
+  "github_push_performed": false,
+  "effective_registry_without": [
+    "knowledge_search"
+  ],
+  "live_toolset_sha256": "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab",
+  "candidate_toolset_sha256": "7885547b6775d4c797ac2c902f530c215bf525ae70868399c20012ccd16dd3fa",
+  "artifacts_sha256": {
+    "candidate.py": "469e2d632953f42bc47f80505f746dd463347cc1add5dd19ec1fc58b98038cb5",
+    "catalog.json": "51f4f3869009645903f5e812b0328f9facb2813696bd3a991b2179e0c2655b24",
+    "harness/analyze.py": "eac4f9f18c483bc996cfc538c78a236f6adae4e8333151f97bb9fd0ac271f9fd",
+    "harness/comparison_server.py": "f53d77b38d7f2fd539942c2d64108703a455d84d6db042a0f608bea5e73125db",
+    "harness/passive_observer.py": "9d4a05d333c6b4ef1f4578dbb7ef16aa7c5206762c1fa1dc215487cbfb908d76",
+    "harness/run_comparison.py": "320b051f63c1332a17ec9c0ab73fbbb7c1c7a394040af505e8de65554d3be7ed",
+    "initial_manifest.json": "fdebb46d123a965ba2b33852bf79af981ceab76ef0153a30f9f7df6849dfb889",
+    "manifest.json": "cf88dd277f9f827a3c2500e9b0f4bbb6cc071a0fabc5655b52108196a8955f50",
+    "offline_comparison.json": "97712eb74b74240bcdf1dc3c88dd7a742787879d70b054337207eebe0e726112",
+    "raw/paired/comparison.json": "06815389a9ef45e7db8b535cb9dc6e69e1017286f05066ffe92867504b4ca8ee",
+    "raw/paired/live_results.jsonl": "f3c7a78c4357e49c21b553b7a3fa3e95e27611c6f4a9debefbaf83d65e67f426",
+    "raw/pytest-candidate-and-baseline.txt": "029ca348f7f11be86aa2f1eb0c422c8284e510e9afc0d07ad3abd3c065437fb3",
+    "raw/pytest-targeted-final.txt": "d3d89a542a569a573e8e1186354985c2122d4de36ec8fca1049da30b954abce3",
+    "raw/pytest-targeted.txt": "6a4e5931e3c8f0b3ba15f6726deba293dd116f095be35abd8d0d0f3af2c3fdcd",
+    "README.md": "943d25815d0e064201d4152a1ebb567710cdf95712d8b43304c13a8c18dd6188",
+    "review.json": "fbd658c22589ee98e442818a7acdbb8e8ab03456cc4425c2f90d5e69877e8448",
+    "snapshots/code_search_v5.snapshot": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "snapshots/code_search_v6.snapshot": "e9c76a8c8a3b54c186fcc2ad676a998a8e1d0f32c1dabf02cb07b87ce13d2bc8"
+  }
+}

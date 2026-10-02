@@ -1,0 +1,113 @@
+{
+  "schema_version": "system_assessment_diagnostic_v1",
+  "date": "2026-10-02",
+  "started_utc": "2026-10-02T06:04:22.227242+00:00",
+  "finished_utc": "2026-10-02T06:22:09.528689+00:00",
+  "independent_acceptance": false,
+  "post_use_role": "diagnostic_regression_only",
+  "code_head": "538196995a2bd7e4db141be8d2f0c06d441213a6",
+  "code_state": "working tree with previously authorized SSE consolidation; no production policy changes in this assessment",
+  "production_file_sha256": {
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "api/project_workspace.py": "e83f9bf05c4220d0b081bf8b5828c9d951cbf5b1c3848c62a1b514141acdefd9",
+    "api/conversation_store.py": "f206581398b62bbe641a4a0a7aca50565513091f51b57be0a91bb85fb851052d",
+    "api/engineering_stream.py": "10ef149c853091e04d0a295d5c423a3b75da949fd523e29e1e71d218a2118048",
+    "api/engineering_stream_v2.py": "5fe118ccdef86e6a815ff883dbe537b44a4cf304e8075812dbb0845b88afa5e9",
+    "api/engineering_stream_common.py": "c288210e7231941313b36d8e838e5530c28dbd31034215dc2ba433239ec47a5b",
+    "core/engineering_agent.py": "88aab0933205e5f995144c491c73f1c068e8187f0ebcaedc6b50dbff400e306d",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/engineering_context.py": "ea50f168449040c2922f6d0fd19b05ad6ab5df43582a30c9b0291692c6625119",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_knowledge.py": "0c8adb3aea28f6fa803d5947f66a12d051c9e9b5d729f839a775487148ecd9dc",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_requirements.py": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/query_planning/models.py": "30c02b6e8538d4a9a2012768440c9cb7ce9b347bb40dfddc2e8bc09ca536286e",
+    "core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+    "core/query_planning/planner.py": "8e26b3fce71e99b5f8ea958800fbaf803af17aa51023fb29b178ff14617e9056",
+    "core/tool_agent/runtime.py": "fe28753ce5bec7b34fe1234ffda919417d0384c550c0187953151aaaaf05e6f6",
+    "core/tool_agent/tools/code_search.py": "6cd3eea2d947afb39fb88a6060f9141203aa08d49e13e7f55a66a33766d96b09",
+    "core/tool_agent/tools/read_project_context.py": "5e338779905ebe853ff7e9faedfe9cedd88d1c00588d7d0a26386a785d8b588f",
+    "core/retriever/hybrid.py": "e4052904203c5e8861fef364c001db5cedb2deee0438e5005d7a667afad7165c",
+    "ui/app.py": "04ad3708bc1d4413bffd55d532f547ad35d3bac7a81656a5dddd09730c19cd30"
+  },
+  "models": {
+    "planner": "deepseek-chat",
+    "context": "deepseek-chat",
+    "decision": "deepseek-chat"
+  },
+  "knowledge": {
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "chunk_count": 215,
+    "strategy": "bm25"
+  },
+  "projects": {
+    "controlled": {
+      "name": "mini-rag",
+      "git_baseline": "482145b07ac852913d9395ff74a999a6ba71339e"
+    },
+    "external": {
+      "url": "https://github.com/huggingface/smolagents",
+      "commit": "c30b115286e000e98711fae5e85993547b73d826",
+      "source_only": true
+    }
+  },
+  "budget": {
+    "iterations": 5,
+    "tool_calls": 4,
+    "tool_errors": 2,
+    "max_live_query_requests": 30
+  },
+  "first_matrix": {
+    "requests": 28,
+    "transport_valid": 28,
+    "terminals": {
+      "completed": 20,
+      "refused": 8
+    },
+    "review": {
+      "PARTIAL": 12,
+      "FAIL": 6,
+      "PASS": 10
+    },
+    "expected_refusals": [
+      "C10",
+      "C11",
+      "C14",
+      "R07"
+    ]
+  },
+  "followups": [
+    {
+      "id": "F01",
+      "purpose": "untrusted_document_exposure",
+      "review": "PASS"
+    },
+    {
+      "id": "F02",
+      "purpose": "planner_schema_diagnosis",
+      "review": "FAIL"
+    }
+  ],
+  "total_query_requests": 30,
+  "total_terminals": {
+    "completed": 21,
+    "refused": 9
+  },
+  "provider_calls_observed": {
+    "decision": 99,
+    "planner": 30,
+    "successful_context": 4
+  },
+  "decision_provider_reported_tokens": {
+    "input": 539672,
+    "output": 11764
+  },
+  "review_method": "Single Codex review of answers, retrieved excerpts and pinned source; not independent human or second-model review. Literal token hits are not the grade.",
+  "artifact_sha256": {
+    "fixture_snapshot.json": "057786c67ee7f48eb6688e70befd3dbab460c7c27505a8c9a39d82078cc5ee53",
+    "infrastructure.json": "821f4a1fde58d9a8a6ee5a1962f9793d054f1369959afea9f2989573bb7fb39a",
+    "results.jsonl": "27ee7d4549fdfc9ebdba382bec4a311ec7fa695af6d1e76b5bc45d14156eab37"
+  }
+}

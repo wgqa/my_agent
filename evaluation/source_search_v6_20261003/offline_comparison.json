@@ -1,0 +1,570 @@
+{
+  "comparisons": [
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "CodeAgent"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "README.md",
+        "docs/source/en/conceptual_guides/react.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "CodeAgent",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "README.md",
+        "docs/source/en/conceptual_guides/react.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "CodeAgent",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "examples/agent_from_any_llm.py",
+        "examples/async_agent/main.py",
+        "examples/gradio_ui.py",
+        "examples/inspect_multiagent_run.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "CodeAgent",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "README.md",
+        "docs/source/en/conceptual_guides/react.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "ToolCallingAgent"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "README.md",
+        "docs/source/en/conceptual_guides/react.md",
+        "docs/source/en/examples/multiagents.md",
+        "docs/source/en/guided_tour.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "ToolCallingAgent",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "README.md",
+        "docs/source/en/conceptual_guides/react.md",
+        "docs/source/en/examples/multiagents.md",
+        "docs/source/en/guided_tour.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "ToolCallingAgent",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "examples/agent_from_any_llm.py",
+        "examples/inspect_multiagent_run.py",
+        "examples/multiple_tools.py",
+        "examples/open_deep_research/run.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "ToolCallingAgent",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "README.md",
+        "docs/source/en/conceptual_guides/react.md",
+        "docs/source/en/examples/multiagents.md",
+        "docs/source/en/guided_tour.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "execute_tool_call"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 4,
+      "truncated": false,
+      "top_paths": [
+        "src/smolagents/agents.py",
+        "tests/test_agents.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "execute_tool_call",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 4,
+      "truncated": false,
+      "top_paths": [
+        "src/smolagents/agents.py",
+        "tests/test_agents.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "execute_tool_call",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 2,
+      "truncated": false,
+      "top_paths": [
+        "src/smolagents/agents.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "execute_tool_call",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 0,
+      "truncated": false,
+      "top_paths": []
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "PythonInterpreterTool"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/source/en/guided_tour.md",
+        "docs/source/en/reference/default_tools.md",
+        "docs/source/hi/guided_tour.md",
+        "docs/source/hi/reference/tools.md",
+        "docs/source/ko/guided_tour.md",
+        "docs/source/zh/guided_tour.md",
+        "docs/source/zh/reference/tools.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "PythonInterpreterTool",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/source/en/guided_tour.md",
+        "docs/source/en/reference/default_tools.md",
+        "docs/source/hi/guided_tour.md",
+        "docs/source/hi/reference/tools.md",
+        "docs/source/ko/guided_tour.md",
+        "docs/source/zh/guided_tour.md",
+        "docs/source/zh/reference/tools.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "PythonInterpreterTool",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 5,
+      "truncated": false,
+      "top_paths": [
+        "examples/smolagents_benchmark/run.py",
+        "src/smolagents/default_tools.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "PythonInterpreterTool",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/source/en/guided_tour.md",
+        "docs/source/en/reference/default_tools.md",
+        "docs/source/hi/guided_tour.md",
+        "docs/source/hi/reference/tools.md",
+        "docs/source/ko/guided_tour.md",
+        "docs/source/zh/guided_tour.md",
+        "docs/source/zh/reference/tools.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "sql_engine"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/source/en/examples/text_to_sql.md",
+        "docs/source/hi/examples/text_to_sql.md",
+        "docs/source/ko/examples/text_to_sql.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "sql_engine",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/source/en/examples/text_to_sql.md",
+        "docs/source/hi/examples/text_to_sql.md",
+        "docs/source/ko/examples/text_to_sql.md"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "sql_engine",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 2,
+      "truncated": false,
+      "top_paths": [
+        "examples/text_to_sql.py"
+      ]
+    },
+    {
+      "project": "smolagents",
+      "arguments": {
+        "query": "sql_engine",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/source/en/examples/text_to_sql.md",
+        "docs/source/hi/examples/text_to_sql.md",
+        "docs/source/ko/examples/text_to_sql.md"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "prepare_request"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "HISTORY.md",
+        "docs/user/advanced.rst",
+        "src/requests/sessions.py",
+        "tests/test_requests.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "prepare_request",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "HISTORY.md",
+        "docs/user/advanced.rst",
+        "src/requests/sessions.py",
+        "tests/test_requests.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "prepare_request",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 2,
+      "truncated": false,
+      "top_paths": [
+        "src/requests/sessions.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "prepare_request",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 4,
+      "truncated": false,
+      "top_paths": [
+        "HISTORY.md",
+        "docs/user/advanced.rst"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "merge_environment_settings"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 4,
+      "truncated": false,
+      "top_paths": [
+        "docs/user/advanced.rst",
+        "src/requests/sessions.py",
+        "tests/test_requests.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "merge_environment_settings",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 4,
+      "truncated": false,
+      "top_paths": [
+        "docs/user/advanced.rst",
+        "src/requests/sessions.py",
+        "tests/test_requests.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "merge_environment_settings",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 2,
+      "truncated": false,
+      "top_paths": [
+        "src/requests/sessions.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "merge_environment_settings",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 1,
+      "truncated": false,
+      "top_paths": [
+        "docs/user/advanced.rst"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "json"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "HISTORY.md"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "json",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "HISTORY.md"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "json",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "src/requests/__init__.py",
+        "src/requests/api.py",
+        "src/requests/compat.py"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "json",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "HISTORY.md"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "HTTP"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        ".pre-commit-config.yaml",
+        ".readthedocs.yaml",
+        "AUTHORS.rst"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "HTTP",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        ".pre-commit-config.yaml",
+        ".readthedocs.yaml",
+        "AUTHORS.rst"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "HTTP",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        "docs/_templates/sidebarintro.html",
+        "docs/_templates/sidebarlogo.html"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "HTTP",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 10,
+      "truncated": true,
+      "top_paths": [
+        ".pre-commit-config.yaml",
+        ".readthedocs.yaml",
+        "AUTHORS.rst"
+      ]
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "absent_search_v6_symbol"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 0,
+      "truncated": false,
+      "top_paths": []
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "absent_search_v6_symbol",
+        "artifact_kind": "any"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 0,
+      "truncated": false,
+      "top_paths": []
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "absent_search_v6_symbol",
+        "artifact_kind": "project_code"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 0,
+      "truncated": false,
+      "top_paths": []
+    },
+    {
+      "project": "requests",
+      "arguments": {
+        "query": "absent_search_v6_symbol",
+        "artifact_kind": "project_doc"
+      },
+      "legacy_matches_identical": true,
+      "match_count": 0,
+      "truncated": false,
+      "top_paths": []
+    }
+  ],
+  "provider_calls": 0
+}

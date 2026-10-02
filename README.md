@@ -24,16 +24,16 @@
 ```mermaid
 flowchart TD
     U[User / API Client] --> API[FastAPI]
-    U --> UI[Streamlit Demo Console: 3 modes]
+    U --> UI[Streamlit: Engineering 主会话<br/>Advanced / Demo: 3 legacy modes]
     UI --> API
 
-    API --> B[Basic RAG /query]
+    API --> B[Basic RAG legacy /query]
     B --> BR[Retriever]
     BR --> RR[Reranker]
     RR --> BG[Generator]
     BG --> BA[Answer + Citations]
 
-    API --> A[Agentic RAG /agent/query]
+    API --> A[Agentic RAG legacy /agent/query]
     A --> P[Planner]
     P --> D[Query Decomposition]
     D --> R[Adaptive Router]
@@ -41,7 +41,7 @@ flowchart TD
     E --> V[Verifier]
     V --> G[Grounded Answer]
 
-    API --> T[Structured Tool Agent /tool-agent/query]
+    API --> T[Structured Tool Agent legacy /tool-agent/query]
     T --> TD[Decision]
     TD --> TC[Allowlisted Tool Call]
     TC --> O[Observation]
@@ -49,6 +49,9 @@ flowchart TD
     L --> TF[Final Answer]
 
     API --> EA[Engineering product path<br/>/engineering/query]
+    API --> CS[Engineering Conversation API<br/>CRUD + message SSE]
+    CS <--> DB[(SQLite conversation store)]
+    CS --> EA
     EA --> F[EngineeringAgentFacade]
     F --> UR[UnifiedEngineeringRuntime]
     UR --> C[Context Resolver]
@@ -63,15 +66,12 @@ flowchart TD
     EV --> FIN[Single finalization point]
     FIN --> ER[Engineering response / SSE]
 
-    API --> LQ[Legacy /query]
-    API --> LA[Legacy /agent/query]
-    API --> LT[Legacy /tool-agent/query]
     API --> KS[/engineering/knowledge<br/>status / identity only]
 ```
 
-Engineering Agent 是默认产品定位与统一 API 主入口；Basic、Agentic、Structured Tool Agent 及其 legacy endpoint 保留为独立回归、历史和调试路径，不是 Engineering Runtime 的替代 controller。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。Streamlit 目前仍提供 Basic RAG、Agentic RAG 与 Structured Tool Agent 三种 Demo mode；Engineering Agent API 不作为第四个 mode selector。
+Engineering Agent 是 Streamlit 默认主会话与统一 API 主入口；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE。Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 `Advanced / Demo` 选择器中，使用各自的 legacy API。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。
 
-## 三种 Demo 运行模式与 Engineering API 入口
+## Engineering 主入口与三种 legacy Demo
 
 ### Basic RAG
 
@@ -95,6 +95,8 @@ Decision → Tool Call → Observation → bounded iteration → Final Answer。
 
 `POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 verified Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开 verified Knowledge backend 的状态和 identity，不执行 Agent；`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
 
+UI 主会话通过 `POST /engineering/conversations` 创建，后续向 `POST /engineering/conversations/{conversation_id}/messages/stream/v1` 提交 `message`。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保存后才发布答案。旧 question-only Engineering API 仍接受 `question`，不自动保存为多轮会话。
+
 `/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。
 
 Jev 预期证据路由已暂缓，Engineering 主链使用原有关键词路由。历史实现与方案见 [归档记录](docs/archive/jev_evidence_routing/design.md)。
@@ -117,6 +119,8 @@ export DEEPSEEK_API_KEY="your-key"
 
 PowerShell 等价写法是 `$env:DEEPSEEK_API_KEY = "your-key"`。不要把真实凭据写入仓库文件。
 
+默认 Engineering 还需要 `ENGINEERING_KNOWLEDGE_CORPUS_ROOT` 指向身份验证通过的冻结语料；新机器的安装、语料和启动步骤见 [本地运行手册](docs/release2_local_runbook.md)。源码项目通过 `ENGINEERING_PROJECT_ROOT` 绑定，默认指向本仓库；切换项目见 [挂载操作](docs/project_mount_runbook.md)。
+
 ### 启动 API 与 UI
 
 ```bash
@@ -124,7 +128,7 @@ uvicorn api.app:app --host 127.0.0.1 --port 8000
 streamlit run ui/app.py
 ```
 
-打开 Streamlit 地址后，可以在 Agent Console 中切换三种 Demo mode：Basic RAG、Agentic RAG 和 Structured Tool Agent。侧栏会先读取 `/health` 与 `/capabilities`；runtime 未 ready 的模式会在提交前提示，不会等一次 503 才暴露问题。默认产品路径是 Engineering API；它不作为第四个 Streamlit mode selector。
+打开 Streamlit 地址后，默认进入 Engineering Agent，可创建、继续或删除后端保存的会话；三种旧 Demo 在侧栏 `Advanced / Demo` 中切换。页面读取 `/health`、`/capabilities`、项目与知识库状态，runtime 未 ready 时会在提交前提示。
 
 如果 API 不在默认地址，可设置 `RAG_API_URL=http://127.0.0.1:<port>` 后再启动 UI。
 
@@ -163,6 +167,9 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 | `POST /engineering/query` | 统一 Engineering Agent query entry |
 | `POST /engineering/query/stream` | Engineering Agent safe Trace SSE |
 | `POST /engineering/query/stream/v2` | Engineering Agent Rich Activity SSE |
+| `POST /engineering/conversations`、`GET /engineering/conversations` | 创建或列出当前项目的会话 |
+| `GET /engineering/conversations/{conversation_id}`、`DELETE /engineering/conversations/{conversation_id}` | 读取或删除当前项目的会话 |
+| `POST /engineering/conversations/{conversation_id}/messages/stream/v1` | 提交一条消息，使用服务端历史并返回 SSE |
 | `GET /engineering/knowledge` | Verified Engineering Knowledge backend 的公开状态与 identity |
 | `GET /project` | 当前 system-bound project 的公开 identity，不暴露本地绝对路径 |
 
@@ -215,7 +222,7 @@ Dev 侧冻结系统 evidence（24 cases）记录：retrieval obligation `35/44 =
 | Diagnosis & Config | NEGATIVE |
 | Docs ↔ Code | NEGATIVE |
 
-这是 Engineering task family 的 transfer-validation evidence，不是历史 Gate 4 Tool-use baseline 的替代或重算。各 workflow 共同确认了 Evidence Sufficiency、Claim-Evidence Coverage 以及 cross-file / bilateral grounding 的技术债；这些问题将进入 G12 Engineering Evaluation 2.0，而非由 README 隐藏或改写。
+这是 Engineering task family 的 transfer-validation evidence，不是历史 Gate 4 Tool-use baseline 的替代或重算。各 workflow 确认的 Evidence Sufficiency、Claim-Evidence Coverage 以及 cross-file / bilateral grounding 缺口，已在 G12 冻结结果与当前技术债中继续记录。
 
 ### 冻结评测语义
 
@@ -248,17 +255,17 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 
 ## Known Limitations
 
-- Engineering Agent 的统一 API 主链与 Streamlit 三种 legacy/demo mode 分开；当前不把 Engineering 伪装成第四个 UI mode。
-- Structural/query-level evidence sufficiency 已由 deterministic verification stack 检查；claim-level semantic grounding/entailment 仍未解决。`ARCH-EVAL-08` 将验证这一架构整合是否产生真实效果；不要将当前检查写成完整 factual verification 或 semantic correctness guarantee。
+- Engineering 主会话支持服务端历史与持久化，但每轮仍受 5/4/2 执行预算与 6 条 / 1200 token 上下文窗口约束。当前历史读取和会话详情没有分页，长会话容量优化仍待处理。
+- Structural/query-level evidence sufficiency 已由 deterministic verification stack 检查；claim-level semantic grounding/entailment 仍未解决。G12 冻结结果和近期系统诊断保留了这一缺口，当前检查不保证完整 factual verification 或 semantic correctness。
 - G11 多个 task family 已真实暴露 premature finalization、cross-file / bilateral evidence 缺失等问题。
 - Basic `/query` schema 支持 `history`；当前 Streamlit UI 不把会话历史发送给后端。
-- Agentic RAG 与 Tool Agent 当前是单轮 request contract；UI 也按模式隔离历史。
+- Agentic RAG Demo 会提交 `history` 并经过有界上下文处理；Tool Agent 仍只接受 `question`。legacy Demo 与 Engineering 服务端会话分别保存各自历史。
 - Engineering stream v1/v2 只在 SSE observer transport 上不同，业务结果仍来自同一 Unified Runtime。
 - Tool Agent 正式 Dev baseline 的 multi-step allowed sequence match 为 `1/4`，required tool coverage 为 `14/20`；`ACTION_PARSE_FAILED` 为 `2/24`，budget stop 为 `1/24`。
 - Gate 3 Dev 侧有 `4/24` generation failures；检索找到证据不等于 Generator 覆盖全部 answer obligation。
 - 当前默认是本地单用户 Demo，不包含认证、租户隔离或面向公网的部署安全层。
 
-这些是冻结证据中的已知限制，不是 README 里等待偷偷修掉的数字。
+冻结评测保留原始结果；当前产品与维护进度见 [实时状态](docs/status.md)。
 
 ## Engineering Decisions
 
@@ -301,6 +308,7 @@ G12 已在冻结的 16-case、two-repository transfer benchmark 上完成 Baseli
 - `docs/experiments/`：tracked freeze、seal 和 release readiness evidence。
 - `docs/roadmap.md`：Release 2.0 主路线与后续阶段。
 - `docs/status.md`：唯一实时状态表。
+- `docs/technical_debt.md`：技术债清单、重构候选与实际处理进度。
 - `docs/study-notes/`：设计演进与面向学习的解释。
 
 推荐阅读顺序是：先看本 README 的架构和限制，再看 `api/app.py`、`core/engineering_agent.py`、`core/engineering_knowledge.py` 与 `core/tool_agent/`，最后沿 `docs/roadmap.md`、`docs/status.md` 和对应 Gate 的 evidence path 核对数字。这样可以把产品路径、实现路径和评测证据保持在同一条可追溯链上。
@@ -308,6 +316,10 @@ G12 已在冻结的 16-case、two-repository transfer benchmark 上完成 Baseli
 ## Docs
 
 - [实时项目状态](docs/status.md)
+- [Release 2.0 本地运行手册](docs/release2_local_runbook.md)
+- [技术债清单与处理进度](docs/technical_debt.md)
+- [新项目挂载操作](docs/project_mount_runbook.md)
+- [2026-10-02 系统覆盖与迁移评估](docs/validation/2026-10-02-system-assessment.md)
 - [Release readiness 基线](docs/experiments/gate5_release_readiness_baseline.md)
 - [API contract 与 runtime capabilities](docs/study-notes/98-Gate5-后端API契约与运行时能力.md)
 - [前后端联调与 Full App Smoke](docs/study-notes/97-Gate5-前后端联调与全应用Smoke.md)

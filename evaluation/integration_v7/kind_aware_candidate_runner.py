@@ -23,7 +23,6 @@ from typing import Any, Iterator, Mapping
 
 from core.tool_agent.default_tools import CODE_SEARCH_SPEC
 from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE
-from core.tool_agent.tools.code_search import CODE_SEARCH_VERSION
 from evaluation.integration_v7.candidate_runner import _verify_candidate_corpus
 from evaluation.integration_v7.case_contract import (
     CORPUS_SOURCE_COMMIT,
@@ -74,6 +73,7 @@ DEFAULT_OUTPUT_DIR = (
     REPO_ROOT / "evaluation" / "integration_v7" / "results" / "dev_candidate_6cd1_v1"
 )
 EXPECTED_ARTIFACT_KIND_VALUES = ("any", "project_code", "project_doc")
+FROZEN_CODE_SEARCH_VERSION = "code_search_v5"
 
 
 @dataclass(frozen=True)
@@ -151,7 +151,8 @@ def validate_kind_aware_candidate_identities(
         raise RunnerPreflightError("12B decision prompt profile version mismatch")
     if prompt_profile_sha256 != ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.sha256:
         raise RunnerPreflightError("12B decision prompt profile SHA mismatch")
-    if code_search_version != CODE_SEARCH_VERSION or code_search_version != "code_search_v5":
+    # Bind the pinned candidate's identity, independent of today's live registry.
+    if code_search_version != FROZEN_CODE_SEARCH_VERSION:
         raise RunnerPreflightError("12B code_search version mismatch")
     if not artifact_kind_optional:
         raise RunnerPreflightError("12B code_search artifact_kind must be optional")

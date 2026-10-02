@@ -17,8 +17,8 @@ from core.tool_agent.models import (
     ToolExecutionError,
     ToolSpec,
 )
+from core.tool_agent.project_files import ALLOWED_SUFFIXES, is_test_path
 from core.tool_agent.tools.code_search import (
-    ALLOWED_SUFFIXES,
     EXCLUDED_DIR_NAMES,
     MAX_FILE_SIZE,
     _is_secret_file,
@@ -97,9 +97,6 @@ FIND_TESTS_SPEC = ToolSpec(
 )
 
 
-_TEST_DIR_NAMES = frozenset({"test", "tests", "__tests__"})
-_PYTHON_SUFFIXES = frozenset({".py", ".rb"})
-_JS_SUFFIXES = frozenset({".js", ".jsx", ".ts", ".tsx"})
 _REASON_RANK = {name: index for index, name in enumerate(TEST_DISCOVERY_REASONS)}
 
 
@@ -137,30 +134,6 @@ def _normalise_path(raw_path: object) -> str:
     if not parts or _is_secret_file(parts[-1]):
         raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
     return PurePosixPath(*parts).as_posix()
-
-
-def is_test_path(path: str) -> bool:
-    """Return whether a repo-relative path follows a conventional test shape."""
-
-    normalised = path.replace("\\", "/")
-    parsed = PurePosixPath(normalised)
-    name = parsed.name.lower()
-    suffix = parsed.suffix.lower()
-    parts = {part.lower() for part in parsed.parts[:-1]}
-    if suffix not in ALLOWED_SUFFIXES:
-        return False
-    if parts & _TEST_DIR_NAMES:
-        return True
-    if suffix == ".go":
-        return name.endswith("_test.go")
-    if suffix in _PYTHON_SUFFIXES:
-        return name.startswith("test_") or name.endswith("_test" + suffix)
-    if suffix in _JS_SUFFIXES:
-        return ".test." in name or ".spec." in name
-    stem = parsed.stem.lower()
-    if suffix in {".java", ".cs"}:
-        return stem.endswith("test") or stem.endswith("tests")
-    return name.endswith("_test" + suffix)
 
 
 def _compact(value: str) -> str:

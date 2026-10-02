@@ -1,0 +1,41 @@
+{
+  "reviewer": "same implementation assistant; source and citation review, not independent acceptance",
+  "rubric": {
+    "asked_behavior": "PASS=所问行为完整且与 pinned 源码一致；PARTIAL=缺少所问的关键细节或证据；FAIL=错误、未回答或不必要拒答",
+    "whole_answer": "还要求额外断言与引用能够被实际读取内容及公开证据支持；completed 不等于 PASS"
+  },
+  "cases": [
+    {
+      "id": "S01", "v5": {"asked_behavior": "PASS", "whole_answer": "PARTIAL"}, "v6": {"asked_behavior": "PASS", "whole_answer": "PARTIAL"},
+      "finding": "两版同读 agents.py:1696-1756，读到了执行器、日志、截断输出和最终答案标志，但未完整读取 _step_stream 尾部；公开 E6 snippet 在 2000 字符处提前结束，无法展示多项后续断言。新 truncated 信息没有改变取证路径。"
+    },
+    {
+      "id": "S02", "v5": {"asked_behavior": "PARTIAL", "whole_answer": "PARTIAL"}, "v6": {"asked_behavior": "PARTIAL", "whole_answer": "PARTIAL"},
+      "finding": "两版读到 execute_tool_call 的完整定义，但都只说调用 _substitute_state_variables，未读取 helper 并解释字典字符串查 state、找不到时保留原值的规则；公开 E5 snippet 也截掉部分执行异常分支。"
+    },
+    {
+      "id": "S03", "v5": {"asked_behavior": "PASS", "whole_answer": "PASS"}, "v6": {"asked_behavior": "PASS", "whole_answer": "PASS"},
+      "finding": "两版同样先读类窗口再读 forward 定义，限制参数、[0] 返回值及 Stdout/Output 拼接均有实际读取内容支持。没有减少调用。"
+    },
+    {
+      "id": "S04", "v5": {"asked_behavior": "PARTIAL", "whole_answer": "PARTIAL"}, "v6": {"asked_behavior": "PARTIAL", "whole_answer": "PARTIAL"},
+      "finding": "两版都能读取 examples 下 sql_engine，SQL 执行与字符串返回正确；却未读 tools=[sql_engine] 注册所在 76 行，仍以只覆盖 50-69 行的 E6 支持注册断言。examples 未被全局屏蔽。"
+    },
+    {
+      "id": "R01", "v5": {"asked_behavior": "PASS", "whole_answer": "PASS"}, "v6": {"asked_behavior": "PASS", "whole_answer": "PASS"},
+      "finding": "两版读到 prepare_request:457-498，cookies 归一化及合并、headers/auth 合并和 trust_env/netrc 条件正确；公开片段包含该方法全部内容。此判定不外推 cookie 不同 domain/path 等未询问边界。"
+    },
+    {
+      "id": "R02", "v5": {"asked_behavior": "PASS", "whole_answer": "PASS"}, "v6": {"asked_behavior": "PASS", "whole_answer": "PARTIAL"},
+      "finding": "两版同读 merge_environment_settings:750-779，所问行为正确。v6 额外声称该方法在 579 行被调用，却引用只含 750-779 的 E6；搜索匹配不是 E6 所声明的读取证据。此变化属于单轮回答波动，不能证明候选必然导致回归。"
+    },
+    {
+      "id": "R03", "v5": {"asked_behavior": "PASS", "whole_answer": "PARTIAL"}, "v6": {"asked_behavior": "PASS", "whole_answer": "PARTIAL"},
+      "finding": "两版同读两个重叠窗口，核心编码探测、回退和异常转换正确；却引用 910-1000 的 E6/E7 支持未读取的 49 行 import 别名，v6 还把 requests.exceptions 的别名描述为标准库/第三方异常的直接别名。"
+    },
+    {
+      "id": "R04", "v5": {"asked_behavior": "FAIL", "whole_answer": "FAIL"}, "v6": {"asked_behavior": "FAIL", "whole_answer": "FAIL"},
+      "finding": "README 确有功能列表，但两版均 NO_ADDITIONAL_REQUIREMENT、0 次仓库工具调用并主动 INSUFFICIENT_INFORMATION 拒答；知识检索返回 5 段其他技术笔记。不是路径错误、provider 故障或预算耗尽，也不是 Verifier 拦截 final_answer。文档取证/要求激活需另行定位。"
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "created_before_live": true,
+  "source_pins": {
+    "smolagents": "c30b115286e000e98711fae5e85993547b73d826",
+    "requests": "b25c87d7cb8d6a18a37fa12442b5f883f9e41741"
+  },
+  "source_file_sha256": {
+    "smolagents/src/smolagents/agents.py": "d4f40408e0e55dc4ad20b6a92bb166285b6624dfbdce6ef55b511b7bd1e94c33",
+    "requests/src/requests/sessions.py": "42f72303ecde0cca0e8479b2f95845d2f7280d99ca0cf865b1dda8d0433cf662",
+    "requests/src/requests/models.py": "df0f615771b4d6bc1eaccabe30639643f8e32dd5a447f7cdaae8354b539b324c",
+    "requests/src/requests/utils.py": "cc378c150377aea0b406b73a4c904c2f17e8cb202821f278ee833735a4128025",
+    "smolagents/src/smolagents/default_tools.py": "82de8b3999e6d18e6b864109e64c9bf67fb6fe07b45e39f6d0690f9870b3bb54",
+    "smolagents/examples/text_to_sql.py": "5399008a07baee57003cedc4991bcce93ef2bc0306cafdd02db055b6204718cb",
+    "requests/README.md": "0f245a57cbb58dbd024aefafbef5843b577ae3f62ca674512358fd3b1c7c8f33"
+  },
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "planned_requests": 16,
+  "independent_formal_acceptance": false,
+  "baseline": "current working tree v5 snapshot",
+  "candidate_spec": {
+    "name": "code_search",
+    "description": "在当前绑定 Engineering Project 的代码、README 和技术文档中做只读、case-insensitive literal text search。query 应是简短且可能真实存在的 literal，例如 endpoint、annotation、config key、exception 名、method/symbol、SQL identifier或关键字符串；不要传整句自然语言。它只负责定位 repo-relative path + line。可选 artifact_kind 过滤 Evidence Backend 的 path discovery：缺省或 any 保持兼容的混合搜索；要求 project_code 时传 project_code 只定位 Runtime 会认可的source implementation，要求 project_doc 时传 project_doc 只定位 repo 文档；project_test 不由本 Tool 过滤，测试发现仍使用 find_tests → read_project_context。可选 scope 是 repo-relative 文件或目录（缺省或 . 搜整个项目），可依据用户给出的路径或已有匹配路径缩小范围；不要猜测不确定的目录。结果 scope 返回实际范围。最多返回 10 个匹配，truncated=true 表示该范围内还有匹配被上限截去，不是完整结果；如未定位目标，缩小 scope 或换更具体的 literal 再搜索。当匹配结果需要解释实际实现、行为、调用关系或多文件关系时，随后必须调用 read_project_context 读取上下文，不要只从单个匹配行推断答案。若已有结果，读取它或调整 scope/关键词，绝不重复完全相同的工具参数。",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "artifact_kind": {
+          "type": "string",
+          "enum": [
+            "any",
+            "project_code",
+            "project_doc"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "可选 repo-relative 文件或目录；缺省或 . 为整个项目。"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "query"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "matches": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 300
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "line",
+              "text"
+            ]
+          }
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "matches",
+        "scope",
+        "truncated"
+      ]
+    },
+    "version": "code_search_v6"
+  },
+  "runtime_file_sha256": {
+    "api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "api/conversation_store.py": "06aa4ff2e959d168527d4597c7ae7dbc730691adf81315e9e48e7ab94026cbc6",
+    "api/engineering_stream.py": "10ef149c853091e04d0a295d5c423a3b75da949fd523e29e1e71d218a2118048",
+    "api/engineering_stream_common.py": "c288210e7231941313b36d8e838e5530c28dbd31034215dc2ba433239ec47a5b",
+    "api/engineering_stream_v2.py": "5fe118ccdef86e6a815ff883dbe537b44a4cf304e8075812dbb0845b88afa5e9",
+    "api/project_workspace.py": "e83f9bf05c4220d0b081bf8b5828c9d951cbf5b1c3848c62a1b514141acdefd9",
+    "api/schemas.py": "ff00bdc36f48434663c155173a4a0c3d2f749909e1cb976800ad3d459567554e",
+    "core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/adaptive_retrieval/__init__.py": "1ce41a682f3588488f8257d4ab51713d142dd567268dad4a3b703fd93055f307",
+    "core/adaptive_retrieval/policy.py": "1f6cc5a49bab3dd62c201e5a818ba2db71faf5e0ed0178e3b17be2c839784f17",
+    "core/agent_runtime/__init__.py": "86d4f4a7256e2bc0fa0bd5c4daeb435c1a905b2ebde4c1e424006280ad1db3e9",
+    "core/agent_runtime/adapters.py": "78702861431b8bbb5bd18d504a732982f9b2744c1f479a427bc11f8fb644b61a",
+    "core/agent_runtime/evidence.py": "33b448f26e7e8ed7b2f3dadc6f617e30fa4291d046a68b628a460a0c30c2ac26",
+    "core/agent_runtime/models.py": "bb4530de59b96a9a1d2e5221a35c346ec6641088ffc91ef381bc732533adbac0",
+    "core/agent_runtime/runtime.py": "556341885d91bdc136b5a3d349414a85f9ba269f55a680101d00fd7d0de0873f",
+    "core/chunker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/chunker/base.py": "8d3b8dd875f422fd9f8e83233ebd2a16b7c16b2f4bd259f7154eb4f3a2b14285",
+    "core/chunker/embedding_runtime_counter.py": "c9dde639f91c59f720ee67434fe8c6d80a147e85b098ef57081888a4d8935360",
+    "core/chunker/fixed_size.py": "14486ec1082a6f714e13fbbbc38ac0a4f4d7196f5373a30a3a706a1b2adece8c",
+    "core/chunker/recursive.py": "c4ae0d676da78bbc53f96bb7971fbac3b95feb171a0a685bbc542a266c3facbb",
+    "core/chunker/semantic.py": "ccd89924336d6835b6f2fe9e88e46f1e893ade933f05aba538cb557bffaf1c49",
+    "core/chunker/token_counter.py": "04f1a09f6d8e3fb6f6e9d7b09c87cd6fdc6ef755d4ab5fd9f45c4faa66cbbeb0",
+    "core/config.py": "b32c9328a1253d3fa656588bc85c488f5471cff9ab425b708970bd243b117bb4",
+    "core/context/__init__.py": "f8d580c29a4630afac65ede9937d237bcde6cda8e27fa973679b3afd057c6283",
+    "core/context/assembler.py": "8cc4f6e30885511d6b745434f1600c5b6ad19ddfacb73df0c72b024cf3b13e5f",
+    "core/conversation_context/__init__.py": "cce262d8e59486301d48f1155abd01832668e27ab925fa365e7f4a01e35c2e61",
+    "core/conversation_context/models.py": "ad1d8d120cc20aa95e65bc2e251211fbba7c0b12ac2bd9ab22154ad626413809",
+    "core/conversation_context/resolver.py": "1b3837abe0ce6a596cd67eedb7c8dc884e29d70fb196d37acfd0011841668962",
+    "core/domain/__init__.py": "26a205a4bc1c4de0f372f48a4674684450672189399e8849afbac76032d95e77",
+    "core/domain/models.py": "74062d670e5878cf7350a013ecc0e85f22d6cb7fdb86a42be60cde574e694814",
+    "core/embeddings/__init__.py": "66da23233164888ec12fe1d29907f6902ea3836c17d229bb65c1c82a11b334f6",
+    "core/embeddings/base.py": "b93234a07a2f77db4b1347c79acd426202c08f4b94207531edf8550a2647a77f",
+    "core/embeddings/bge_emb.py": "518ec5539a2214dd8d28b4c9c3f294cf200e2e0f26eb463eb219c12729b32433",
+    "core/embeddings/openai_emb.py": "2f159702725c97a9e1736b1074481c311a4e77f48716f050157c772b5771e21d",
+    "core/embeddings/runtime_contract.py": "781826d87538ca7b66349e73141b87dee6503906218f2ea8dbe8e607df5cbd47",
+    "core/engineering_agent.py": "88aab0933205e5f995144c491c73f1c068e8187f0ebcaedc6b50dbff400e306d",
+    "core/engineering_context.py": "ea50f168449040c2922f6d0fd19b05ad6ab5df43582a30c9b0291692c6625119",
+    "core/engineering_knowledge.py": "0c8adb3aea28f6fa803d5947f66a12d051c9e9b5d729f839a775487148ecd9dc",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_requirements.py": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/generator/__init__.py": "99fc85beeb64b293c2db16d908717eedd1f6c096e92c23fd59aff04aa7a11bc5",
+    "core/generator/base.py": "fedec68274b4f08b6ad8353f6e70c8466dafed930fdf30154aeadb4838938a74",
+    "core/generator/citation.py": "ead4f4054aefe86f2e57eff5829de97dbe9f713c77617276e97be07e0ee464cf",
+    "core/generator/deepseek_gen.py": "3be8edcc17e77031c8b4e9116970e186aab1b46939aab51067a6195f9d765be7",
+    "core/generator/errors.py": "48a0bfb8feb62039e33dd986034a6e45d51061f9579ef68a354df34d73f2966a",
+    "core/generator/openai_gen.py": "099317d33d32dff07f748892532a715d2acbd9d2c4ca7afaf824bf0f3ef81969",
+    "core/loader/__init__.py": "73b82180517dd9d22e4f162b9260aed6028c758f4915cd9dfd2fdff89303d1e8",
+    "core/loader/base.py": "501ae7ed16ad484ad8ffbcec6ea1841fec7a357c0f7fbe135f6bb859fb56b5b4",
+    "core/loader/code_loader.py": "25135f4670477efb05b67806ee7a0a6c1bd2ab837c8e1d1924d4b50f5efc21bb",
+    "core/loader/pdf_loader.py": "f1fcb53e4a8350ca25d1cda3ec5bece1d384a223bdff3a13e1bd7fefde640a2f",
+    "core/loader/text_loader.py": "91caeb87a18ec27eb6af0f2edeebca914212c829457114d12821882c3ef60872",
+    "core/pipeline.py": "f33caca2653571c5898dd1e7efa04bf16cffaa59b0dc27bd9a0e6adceb41909b",
+    "core/provider_config.py": "01512cc4c4c2efa1f259cb20ad7b09d9bb333fcba487c7b8a90cb855b039df9d",
+    "core/query_planning/__init__.py": "c610ce8fcc584a4323ca891d12f302583d16712b207197e95165518276f38bb4",
+    "core/query_planning/models.py": "30c02b6e8538d4a9a2012768440c9cb7ce9b347bb40dfddc2e8bc09ca536286e",
+    "core/query_planning/openai_compatible.py": "4db81e971663ee707ae55b655b19cbb6936ad15cf67439ae070c3b1beb6fcf4a",
+    "core/query_planning/planner.py": "8e26b3fce71e99b5f8ea958800fbaf803af17aa51023fb29b178ff14617e9056",
+    "core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+    "core/query_rewriter.py": "b5ca752405b15aba57845b44e5c27928f1b68887bf9236c627ab8fa63ec0e502",
+    "core/reranker/__init__.py": "4dc85c5beaad18c7517da8cdf3bd691f4605f7b3b18fbdc09be2445c4d76e0ed",
+    "core/reranker/base.py": "728e8c01ac265c1c0833cf98dd712e7d4e59e57355ff15c2bb69374cb69e3dff",
+    "core/reranker/bge_reranker.py": "3c072d50ca13c4faeb4b6af1ab21c17c9a4f584eba82b9173c80ac253fb71235",
+    "core/retriever/__init__.py": "69648b7aa3920cfaac0d3431152180e124cd9275e45077c948538b852ec18bb0",
+    "core/retriever/base.py": "0029de25254a9b34c979db1e644004d16de578b6bb7c469c07e907647f1ce736",
+    "core/retriever/bm25_only.py": "b2565dd009c86340ad991aa3a55d8d6e28851a4932a90803d49c3f6d0960bc28",
+    "core/retriever/hybrid.py": "e4052904203c5e8861fef364c001db5cedb2deee0438e5005d7a667afad7165c",
+    "core/retriever/mmr.py": "498ddf4198e0fb403b3edb5a57fceaa7dc484cf36cbb3ed56d79d6cabbf092c7",
+    "core/retriever/simple.py": "cac31504b8bc8d1d60ebc9a149edee5fbe9e8c0ba57f19f9301b8a6dd7c798ea",
+    "core/tool_agent/__init__.py": "350b209ff8349d22bf9620e4739646d9e11b005c2fed443f0905494e1deb11ff",
+    "core/tool_agent/action_parser.py": "366736248c68f048638c6ad6d157d58f29b0bd2580f8d14635ed15c16e77ed65",
+    "core/tool_agent/actions.py": "9208dd3285619e04d7f39396ad21ed0886715b63756a86d414485943b2518177",
+    "core/tool_agent/decision_prompt.py": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "core/tool_agent/default_tools.py": "fa255af2ae555ef40b084e8ec60c624885bcf299d2f6b91465c52db4311d9547",
+    "core/tool_agent/executor.py": "928fae0d2ca01f70aff532fd241f6c68328a94631e4ccbfae0e9c41eea804d5b",
+    "core/tool_agent/integration.py": "39963b96bfad7ad6749a39b02d135d589a0e5ac90ba53c75d1801b83d7acf717",
+    "core/tool_agent/models.py": "8e0aa77a9a098662f469bc36632554cf879d5901a81d97c58dbf1df8b9557c2f",
+    "core/tool_agent/openai_compatible.py": "9275773f891e28b9eaeeae469459c039db7d2d21fa1677de3ae014f2fd29b8d9",
+    "core/tool_agent/project_files.py": "755ba10dd8bc78cf8aaa14d6812875ce5ecc3b7b6a9c09a3b8c7d529ff306898",
+    "core/tool_agent/registry.py": "16c011e78ef4aa48afe27a4602e2fc4312cd8c80bb2b28c4dca9e6d2378a1428",
+    "core/tool_agent/runtime.py": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+    "core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "core/tool_agent/tools/__init__.py": "e6ef161d601bd52625b83b8a376abf15ad16696931e2980584e32c5d2390b98d",
+    "core/tool_agent/tools/calculator.py": "92a94618462645599c267048ab15b0233de6f733843b1943dfdf514a83400229",
+    "core/tool_agent/tools/git_change.py": "60b28fcb5a0f3d4c4d12690c332e4562931604bb77350b8d648778744116b1a3",
+    "core/tool_agent/tools/knowledge_search.py": "061ceb6e1418844474d9ad72ed95c36a030543f18dffe350e20bb6ae4a6c96db",
+    "core/tool_agent/tools/read_project_context.py": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "core/tool_agent/tools/source_navigation.py": "71870394a45afbfb5c9b1665251bab9c07490e1833b3b8637a7e470ca034c602",
+    "core/tool_agent/tools/test_discovery.py": "9119ec171f93238a4c90592ae518de78a551fd39e10b17b4ef299d2d8fd080c5",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/vector_store/__init__.py": "8dd4d1cbe7bc06d1ffd82611d21521cfec923edd2706b77960a2ca411ad9f579",
+    "core/vector_store/base.py": "c88155c131cd69e6518f957bec3d8cb7bf1b1ea087cf1c2222a13c0e85e6a57e",
+    "core/vector_store/chroma_store.py": "c7ab161e5215d6a1fb238e5488a474907a044d176fb40efccef599fdd98b48a2",
+    "evaluation/integration_v7/__init__.py": "162f571fc7bd81becbb94f3ea24d571b7a1902087178e4a43157f9fbf1c5c315",
+    "evaluation/integration_v7/candidate_runner.py": "eb50f38d9a4c88c76d8fcef450856f6dfdc059b7c49ee7bfd0dd713dae3a1a8b",
+    "evaluation/integration_v7/case_contract.py": "39802b5183c5214c9ce486662213174d1cff36b9276fbd61b7d2514410191fa5",
+    "evaluation/integration_v7/end_to_end_candidate_runner.py": "3ec06164242c4ddc6aa29e3b1d6370d4138393d8c6f156fb7bb74900cbb09204",
+    "evaluation/integration_v7/finalization_attribution.py": "0cfcd10e9f1f9a2efa5b333419e16950f4ea7f9f292c107b99a5e10e4b20173c",
+    "evaluation/integration_v7/gold_proof_audit_v1.jsonl": "b5cfeb072f4dd4e8311b39d287e8ec42f7e9ba9ab57b816f3476974e972ef413",
+    "evaluation/integration_v7/historical_attribution_projection.py": "2aad277ed6e55fe54e6cc78cbf550769a215acd0efca26ba3743d708949d53dc",
+    "evaluation/integration_v7/integration_dev_v1.jsonl": "12bcde832b69fbd24f0b4e0e0af0f6fef9573d2b3ee3a567a598576948f6c7da",
+    "evaluation/integration_v7/integration_holdout_v1.jsonl": "b35a73d10e5d93f55e7199d2730c72155b753344a0a72a6b1fd0fcccc0fb8b9f",
+    "evaluation/integration_v7/kind_aware_candidate_runner.py": "2427cb37143c1d737740aa4b899728e66118e5adba4c3cdb7afae2436913b73c",
+    "evaluation/integration_v7/protocol_manifest_v1.json": "89f17b37cb5c747cf8a0bc78e51025a9b767ffa2a90634a43c8713ce8ab4f1c2",
+    "evaluation/integration_v7/recovery_candidate_runner.py": "b0a8cd5ab06aa4654edfa5e599a4f4c879c4950e9341e7c4ab3b0852268b96ba",
+    "evaluation/integration_v7/recovery_repair_candidate_runner.py": "b3da815f6a0463b100b88a40b8b0a25a45aa717d4fde1d9fdb3a227f29fb0447",
+    "evaluation/integration_v7/repo_acquisition_diagnostic_runner.py": "c2daca868f6a71e874c4fbc66e1004e8c8cd858435a69948d0d3db2248c980a7",
+    "evaluation/integration_v7/runner.py": "2539e45284f6c470ed5e913e8c133b7c2658c495f18d1baa89d6295f7e61fb24",
+    "evaluation/integration_v7/runner_worker.py": "348afda876e582263099ab1f2a3d0e59e66953d247604a6d7d3fdc958b0b6b82",
+    "evaluation/integration_v7/semantic_candidate_runner.py": "814185437bc00472ce5b5293cc73e79e892d328b11063b3e9d9dde2b61b78878",
+    "evaluation/integration_v7/semantic_evaluation_artifact.py": "eff6a0db3a9b7a99c652108d4fe3f363348623c9f846fdf5813a6ccf37584643",
+    "evaluation/integration_v7/semantic_review_contract.py": "bee0f96b4a1344079b9b2df1fb00ad68def85be1be18edc8202edfa75e61b36f",
+    "evaluation/integration_v7/unified_v2_candidate_runner.py": "bd666e00613ef6bef6fd3d67f86764b0410c9ea335c85f22aad91819081b7246"
+  },
+  "allowed_historical_harness_change": {
+    "path": "evaluation/integration_v7/kind_aware_candidate_runner.py",
+    "reason": "Freeze historical v5 identity instead of coupling it to current live version; old v6 input remains rejected"
+  },
+  "artifacts_sha256": {
+    "catalog.json": "51f4f3869009645903f5e812b0328f9facb2813696bd3a991b2179e0c2655b24",
+    "harness/comparison_server.py": "f53d77b38d7f2fd539942c2d64108703a455d84d6db042a0f608bea5e73125db",
+    "harness/passive_observer.py": "9d4a05d333c6b4ef1f4578dbb7ef16aa7c5206762c1fa1dc215487cbfb908d76",
+    "harness/run_comparison.py": "320b051f63c1332a17ec9c0ab73fbbb7c1c7a394040af505e8de65554d3be7ed",
+    "initial_manifest.json": "fdebb46d123a965ba2b33852bf79af981ceab76ef0153a30f9f7df6849dfb889",
+    "snapshots/code_search_v5.snapshot": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "snapshots/code_search_v6.snapshot": "e9c76a8c8a3b54c186fcc2ad676a998a8e1d0f32c1dabf02cb07b87ce13d2bc8"
+  }
+}

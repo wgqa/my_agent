@@ -7,13 +7,17 @@ public response without exposing actions, observations, prompts, or CoT.
 
 from __future__ import annotations
 
-import inspect
-import json
 import logging
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Callable, Iterator
 
+from api.engineering_stream_common import (
+    ANSWER_CHUNK_CHARS,
+    KEEP_ALIVE_SECONDS,
+    encode_event as _encode_event,
+    run_worker as _run_worker,
+)
 from core.engineering_agent import EngineeringAgentFacade
 from core.tool_agent.runtime_models import RuntimeTraceEvent, ToolAgentRunResult
 
@@ -21,14 +25,6 @@ from core.tool_agent.runtime_models import RuntimeTraceEvent, ToolAgentRunResult
 logger = logging.getLogger(__name__)
 
 STREAM_SCHEMA_VERSION = "engineering_query_stream_v1"
-ANSWER_CHUNK_CHARS = 16
-KEEP_ALIVE_SECONDS = 10.0
-
-
-def _encode_event(payload: dict) -> str:
-    """Encode one JSON product event without an SSE event-name dependency."""
-
-    return f"data: {json.dumps(payload, ensure_ascii=False, separators=(',', ':'))}\n\n"
 
 
 def _trace_status(event: RuntimeTraceEvent) -> dict | None:
@@ -64,46 +60,6 @@ def _result_payload(response) -> dict:
     """Convert the already validated public API response to JSON data."""
 
     return response.model_dump(mode="json")
-
-
-def _run_worker(
-    facade: EngineeringAgentFacade,
-    question: str,
-    events: Queue,
-    conversation_context=None,
-    cancel_requested: Callable[[], bool] | None = None,
-    on_worker_done: Callable[[], None] | None = None,
-) -> None:
-    try:
-        kwargs = {}
-        if cancel_requested is not None:
-            # Source compatibility with test-double facades that predate the
-            # cancellation probe; the production facade accepts it.
-            parameters = inspect.signature(facade.run).parameters
-            if "cancel_requested" in parameters or any(
-                parameter.kind is inspect.Parameter.VAR_KEYWORD
-                for parameter in parameters.values()
-            ):
-                kwargs["cancel_requested"] = cancel_requested
-        result = facade.run(
-            question,
-            conversation_context=conversation_context,
-            trace_sink=lambda event: events.put(("trace", event)),
-            **kwargs,
-        )
-        events.put(("result", result))
-    except Exception:
-        logger.exception("Engineering stream worker failed")
-        events.put(("error", None))
-    finally:
-        try:
-            events.put(("worker_done", None))
-        finally:
-            if on_worker_done is not None:
-                try:
-                    on_worker_done()
-                except Exception:
-                    logger.exception("Engineering stream worker cleanup failed")
 
 
 def stream_engineering_query(
@@ -145,6 +101,7 @@ def stream_engineering_query(
         kwargs={
             "cancel_requested": cancel_event.is_set,
             "on_worker_done": on_worker_done,
+            "worker_logger": logger,
         },
         daemon=True,
         name="engineering-sse-runtime",

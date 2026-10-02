@@ -7,14 +7,17 @@ chunks are sent only for a completed, Guard-approved public result.
 
 from __future__ import annotations
 
-import inspect
-import json
 import logging
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Callable, Iterator
 
-from api.engineering_stream import ANSWER_CHUNK_CHARS, KEEP_ALIVE_SECONDS
+from api.engineering_stream_common import (
+    ANSWER_CHUNK_CHARS,
+    KEEP_ALIVE_SECONDS,
+    encode_event as _encode_event,
+    run_worker as _run_worker,
+)
 from core.engineering_agent import EngineeringAgentFacade
 from core.tool_agent.activity import (
     ActivityEvent,
@@ -35,50 +38,6 @@ _ACTIVITY_EVENT_TYPES = (
     EvidenceAddedActivity,
     VerificationBlockedActivity,
 )
-
-
-def _encode_event(payload: dict) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False, separators=(',', ':'))}\n\n"
-
-
-def _run_worker(
-    facade: EngineeringAgentFacade,
-    question: str,
-    events: Queue,
-    conversation_context=None,
-    cancel_requested: Callable[[], bool] | None = None,
-    on_worker_done: Callable[[], None] | None = None,
-) -> None:
-    try:
-        kwargs = {}
-        if cancel_requested is not None:
-            # Preserve compatibility with provider-free test doubles and
-            # legacy facades that predate the cooperative probe.
-            parameters = inspect.signature(facade.run).parameters
-            if "cancel_requested" in parameters or any(
-                parameter.kind is inspect.Parameter.VAR_KEYWORD
-                for parameter in parameters.values()
-            ):
-                kwargs["cancel_requested"] = cancel_requested
-        result = facade.run(
-            question,
-            conversation_context=conversation_context,
-            activity_sink=lambda event: events.put(("activity", event)),
-            **kwargs,
-        )
-        events.put(("result", result))
-    except Exception:
-        logger.exception("Engineering v2 stream worker failed")
-        events.put(("error", None))
-    finally:
-        try:
-            events.put(("worker_done", None))
-        finally:
-            if on_worker_done is not None:
-                try:
-                    on_worker_done()
-                except Exception:
-                    logger.exception("Engineering v2 stream worker cleanup failed")
 
 
 def _result_payload(response: object) -> dict:
@@ -118,6 +77,8 @@ def stream_engineering_query_v2(
         kwargs={
             "cancel_requested": cancel_event.is_set,
             "on_worker_done": on_worker_done,
+            "event_kind": "activity",
+            "worker_logger": logger,
         },
         daemon=True,
         name="engineering-sse-runtime-v2",

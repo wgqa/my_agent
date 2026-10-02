@@ -4,7 +4,26 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-09-09
+**更新日期：** 2026-10-03
+
+## 范围搜索候选评估（2026-10-03）
+
+- TD-TOOL-02 的 `code_search_v6` 候选支持文件/目录 scope 与真实结果截断，局部 **193 passed / 7 skipped**，真实仓库 40 组缺省 matches 保持一致；候选测试补入现有 CI，完整 CI / 全量回归未运行。
+- 两仓库 8 题旧/新各一次，共 **16 个用户请求 / 68 次实际 provider 调用**，HTTP/SSE 与 5/4/2 全部正常。两版各 17 次工具调用、7/8 题获取目标源码，候选 scope 使用 **0/8 次搜索**，所有配对工具顺序和读取范围一致；7/8 题参数逐项一致，仅 S01 新版显式填了旧版缺省的 window 模式，未证明问答收益。
+- **候选保留，默认 registry 继续 code_search_v5，未晋升。** 实际 v5/v6 快照、逐题负结果和复跑材料均保留；历史 protocol/dataset/结果未重标。长期契约与 Runtime 扩容继续暂缓。见 [范围搜索验证](validation/2026-10-03-source-search-v6.md)。
+
+## 当前清理进度（2026-10-02）
+
+- SSE v1/v2 的事件编码、后台执行与结束清理已收敛到 `api/engineering_stream_common.py`；两版 presentation 与公开协议继续分开。状态：**专项 27 passed / CI 离线核心 670 passed、5 skipped / Full App smoke 通过 / 真实 v1-v2 SSE 可运行**；见 [系统验证记录](validation/2026-10-02-sse-cleanup.md)。
+- 技术债台账已迁入 [technical_debt.md](technical_debt.md)，工作区旧路径保留入口。台账迁移完成，Runtime 简化与历史文档归档的大项继续开放。
+- 同日真实 DeepSeek 检查：源码/知识问答及知识多轮会话、保存和重启恢复可运行；Engineering 纯计算存在引用校验误拒答（工具成功，正确数值答案被 `ANSWER_EVIDENCE_REFERENCE_MISSING` 拦截），**已定位 / 未修复**，登记到 TD-PLAN-01 / TD-VERIFY-02。本地 `.env` 缺失的知识库路径已补齐并验证正常自动加载。
+- 同日扩展系统评估：全量 **2658 passed / 6 skipped**，另有新项目/边界检查 **42/42**；两个新项目上的首轮 28 项真实 DeepSeek 任务，链路 28/28 有效，Runtime 20 completed / 8 refused，逐条源码与引用审查 **10 PASS / 12 PARTIAL / 6 FAIL**（PASS 含 4 项预期拒答；同一助手审查，非独立验收）。另有 2 项标识清楚的覆盖/根因诊断，总计 30 次请求。纯计算进一步定位为 `fact + no_retrieval` 的 Planner schema 错配 → BM25 fallback → 引用误拒答；陌生仓库复现取证下一步、行窗截断和结构引用不等于语义支持的缺口。Production 策略未改，候选重构未实施；详见 [系统评估](validation/2026-10-02-system-assessment.md)、[挂载手册](project_mount_runbook.md)及 `evaluation/system_assessment_20261002/`。
+- 同日第一改进切片完成：`read_project_context_v2` 增加有界 Python 函数读取、截断信息和范围内续读，旧 window 兼容；Runtime / Guard / 5-4-2 不变。交付版全量 **2692 passed / 6 skipped**；旧/新 8 题两轮共 **32 次** DeepSeek 配对诊断，保留首轮类声明回退负结果。最终新版所问行为 **7 PASS / 1 PARTIAL**，整份答案与引用审查 **5 PASS / 3 PARTIAL**（同一助手审查，非独立验收）；函数末尾取证改善，尚有引用越界和可选校验过度保证。该切片结束时尚未开始总体任务/执行契约；详见 [函数读取验证](validation/2026-10-02-source-reading-v2.md)及 `evaluation/source_reading_v2_20261002/`。
+- 同日共享文件分类切片完成：新增 `core/tool_agent/project_files.py`，搜索与 Runtime 复用分类，消除相关直接循环依赖和生产重复判断；保留工具与旧评测导入入口，5/4/2、工具协议和安全边界不变。改动前后 **3270 个路径及工具输出一致**；专项 **78 passed / 1 skipped**，全量 **2691 passed / 7 skipped**，其中缺少语料环境变量的 provenance 校验已单独补跑 **1 passed**，余下 6 项为 Windows symlink 限制。无真实模型请求；Runtime 整体复杂度债仍开放，详见 [技术债记录](technical_debt.md)。
+- 随后维护审查登记 **TD-CI-01 / TD-STORE-01 / TD-STORE-02（审查时均未实施）**：CI 清单遗漏新增函数读取专项及直接分类/协议回归；SQLite 正常操作缺少显式关闭，初始化脚本早于版本检查；长会话每轮全量读取后才裁剪为 6 条/1200 token。该次只更新台账和状态，没有代码/CI 修改、测试或模型调用。
+- 同日按授权完成三项近期维护：**CI 覆盖补齐 / SQLite 连接显式关闭 / README 与运行手册对齐**。CI 新增 4 个文件、现选择 33 个文件；SQLite 保留事务提交/回滚语义并确定关闭，包括初始化失败，新增 13 项真实 SQLite 生命周期与半轮失败回归。前两项仅运行相关 5 个文件，结果 **70 passed**；第三项只核对文档与源码，按要求未测试。没有完整 CI job、GitHub Actions、全量回归或真实模型请求；5/4/2、工具协议与 Runtime 未调整。TD-CI-01 清单遗漏关闭；TD-STORE-01 生命周期切片完成，schema 初始化频率/版本检查顺序仍开放；TD-STORE-02 长会话优化和历史文档归档继续暂缓。详见 [技术债台账](technical_debt.md)与[运行手册](release2_local_runbook.md)。
+- 后续契约设计已产出 **DRAFT / 长期目标 / 近期暂缓**：[Task / Evidence / Execution Contract v2](design/engineering_task_execution_contract_v2.md)，附 21 个实施前反例。设计推荐沿用单一循环，将 5/4/2 作为默认 policy，逐项完成与执行停止分开；记录来源范围/版本及真实执行凭据，明确结构校验不等于语义正确。项目所有者已明确近期先处理维护债务，不实施契约切片 A；扩容、v2 接口及编辑/沙箱均未启用。该设计阶段只修改文档，没有模型调用或生产行为变化。
+- Jev 判定证据要求已暂缓，当前仍使用关键词路由；见 [归档记录](archive/jev_evidence_routing/design.md)。下方冻结评测与验收结论保持原记录。本轮新增 smoke 与覆盖诊断，没有重跑旧 benchmark，也未替代独立产品验收。
 
 ## 当前状态
 

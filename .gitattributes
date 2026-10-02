@@ -3,3 +3,8 @@
 # 56ef1805... 导致跨平台不一致。强制 eol=crlf 让所有平台 checkout 出与
 # 冻结 manifest 一致的字节；不修改 frozen dataset/manifest。
 evaluation/gate4/data/*.jsonl text eol=crlf
+
+# Keep archived bytes intact: manifests hash the original diagnostic artifacts.
+evaluation/source_reading_v2_20261002/** -text
+evaluation/source_search_v6_20261003/** -text
+evaluation/system_assessment_20261002/** -text

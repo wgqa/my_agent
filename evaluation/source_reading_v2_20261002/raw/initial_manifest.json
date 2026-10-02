@@ -1,0 +1,25 @@
+{
+  "started_utc": "2026-10-02T07:53:32.487965+00:00",
+  "baseline_head": "538196995a2bd7e4db141be8d2f0c06d441213a6",
+  "baseline_reader_sha256": "5e338779905ebe853ff7e9faedfe9cedd88d1c00588d7d0a26386a785d8b588f",
+  "protected_file_sha256": {
+    "core/tool_agent/runtime.py": "fe28753ce5bec7b34fe1234ffda919417d0384c550c0187953151aaaaf05e6f6",
+    "core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "core/tool_agent/decision_prompt.py": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "core/tool_agent/executor.py": "928fae0d2ca01f70aff532fd241f6c68328a94631e4ccbfae0e9c41eea804d5b",
+    "core/tool_agent/default_tools.py": "fa255af2ae555ef40b084e8ec60c624885bcf299d2f6b91465c52db4311d9547",
+    "core/engineering_requirements.py": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "api/engineering_stream.py": "10ef149c853091e04d0a295d5c423a3b75da949fd523e29e1e71d218a2118048",
+    "api/engineering_stream_v2.py": "5fe118ccdef86e6a815ff883dbe537b44a4cf304e8075812dbb0845b88afa5e9"
+  },
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "max_live_requests": 20,
+  "independent_formal_acceptance": false
+}

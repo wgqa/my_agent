@@ -1,0 +1,700 @@
+{
+  "requests": 16,
+  "transport_valid": 16,
+  "within_budget": 16,
+  "stream_v2_validated_requests": 8,
+  "independent_formal_acceptance": false,
+  "reviewer": "same implementation assistant; source and citation review, not independent acceptance",
+  "arms": {
+    "v5": {
+      "terminal_status": {
+        "completed": 7,
+        "refused": 1
+      },
+      "iterations": 25,
+      "tool_calls": 17,
+      "tool_errors": 0,
+      "search_calls": 8,
+      "scope_calls": 0,
+      "truncated_true_calls": 0,
+      "gold_source_read_requests": 7,
+      "provider_calls": 34,
+      "planner_calls": 8,
+      "decision_calls": 26,
+      "repair_attempts": 1,
+      "input_tokens": 156878,
+      "output_tokens": 5734,
+      "query_seconds": 43.724,
+      "identity": {
+        "planner": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "gate3_planner_prompt_v1"
+          ],
+          "prompt_sha256": [
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+          ],
+          "toolset_sha256": []
+        },
+        "decision_metadata": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1"
+          ],
+          "prompt_sha256": [
+            "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+          ],
+          "toolset_sha256": [
+            "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+          ]
+        }
+      },
+      "asked_behavior": {
+        "PASS": 5,
+        "PARTIAL": 2,
+        "FAIL": 1
+      },
+      "whole_answer": {
+        "PARTIAL": 4,
+        "PASS": 3,
+        "FAIL": 1
+      }
+    },
+    "v6": {
+      "terminal_status": {
+        "completed": 7,
+        "refused": 1
+      },
+      "iterations": 25,
+      "tool_calls": 17,
+      "tool_errors": 0,
+      "search_calls": 8,
+      "scope_calls": 0,
+      "truncated_true_calls": 2,
+      "gold_source_read_requests": 7,
+      "provider_calls": 34,
+      "planner_calls": 8,
+      "decision_calls": 26,
+      "repair_attempts": 1,
+      "input_tokens": 161276,
+      "output_tokens": 5309,
+      "query_seconds": 40.547,
+      "identity": {
+        "planner": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "gate3_planner_prompt_v1"
+          ],
+          "prompt_sha256": [
+            "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+          ],
+          "toolset_sha256": []
+        },
+        "decision_metadata": {
+          "provider": [
+            "deepseek"
+          ],
+          "model": [
+            "deepseek-chat"
+          ],
+          "prompt_version": [
+            "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1"
+          ],
+          "prompt_sha256": [
+            "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+          ],
+          "toolset_sha256": [
+            "7885547b6775d4c797ac2c902f530c215bf525ae70868399c20012ccd16dd3fa"
+          ]
+        }
+      },
+      "asked_behavior": {
+        "PASS": 5,
+        "PARTIAL": 2,
+        "FAIL": 1
+      },
+      "whole_answer": {
+        "PARTIAL": 5,
+        "PASS": 2,
+        "FAIL": 1
+      }
+    }
+  },
+  "pairs": [
+    {
+      "id": "S01",
+      "same_tool_arguments": false,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "CodeAgent",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "python_executor",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/agents.py",
+              "line": 1726,
+              "context_lines": 30
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "CodeAgent",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "python_executor",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/agents.py",
+              "line": 1726,
+              "context_lines": 30,
+              "mode": "window"
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "src/smolagents/agents.py",
+            "start_line": 1696,
+            "end_line": 1756,
+            "definition": null
+          }
+        ],
+        "v6": [
+          {
+            "path": "src/smolagents/agents.py",
+            "start_line": 1696,
+            "end_line": 1756,
+            "definition": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "S02",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "execute_tool_call",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/agents.py",
+              "line": 1453,
+              "mode": "definition",
+              "context_lines": 0
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "execute_tool_call",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/agents.py",
+              "line": 1453,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "src/smolagents/agents.py",
+            "start_line": 1453,
+            "end_line": 1502,
+            "definition": {
+              "name": "ToolCallingAgent.execute_tool_call",
+              "start_line": 1453,
+              "end_line": 1502
+            }
+          }
+        ],
+        "v6": [
+          {
+            "path": "src/smolagents/agents.py",
+            "start_line": 1453,
+            "end_line": 1502,
+            "definition": {
+              "name": "ToolCallingAgent.execute_tool_call",
+              "start_line": 1453,
+              "end_line": 1502
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S03",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "PythonInterpreterTool",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/default_tools.py",
+              "line": 39,
+              "context_lines": 30,
+              "mode": "window"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/default_tools.py",
+              "line": 69,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "PythonInterpreterTool",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/default_tools.py",
+              "line": 39,
+              "context_lines": 30,
+              "mode": "window"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/smolagents/default_tools.py",
+              "line": 69,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "src/smolagents/default_tools.py",
+            "start_line": 9,
+            "end_line": 69,
+            "definition": null
+          },
+          {
+            "path": "src/smolagents/default_tools.py",
+            "start_line": 69,
+            "end_line": 80,
+            "definition": {
+              "name": "PythonInterpreterTool.forward",
+              "start_line": 69,
+              "end_line": 80
+            }
+          }
+        ],
+        "v6": [
+          {
+            "path": "src/smolagents/default_tools.py",
+            "start_line": 9,
+            "end_line": 69,
+            "definition": null
+          },
+          {
+            "path": "src/smolagents/default_tools.py",
+            "start_line": 69,
+            "end_line": 80,
+            "definition": {
+              "name": "PythonInterpreterTool.forward",
+              "start_line": 69,
+              "end_line": 80
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S04",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "sql_engine",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "examples/text_to_sql.py",
+              "line": 51,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "sql_engine",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "examples/text_to_sql.py",
+              "line": 51,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "examples/text_to_sql.py",
+            "start_line": 50,
+            "end_line": 69,
+            "definition": {
+              "name": "sql_engine",
+              "start_line": 50,
+              "end_line": 69
+            }
+          }
+        ],
+        "v6": [
+          {
+            "path": "examples/text_to_sql.py",
+            "start_line": 50,
+            "end_line": 69,
+            "definition": {
+              "name": "sql_engine",
+              "start_line": 50,
+              "end_line": 69
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "R01",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "prepare_request",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/sessions.py",
+              "line": 457,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "prepare_request",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/sessions.py",
+              "line": 457,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "src/requests/sessions.py",
+            "start_line": 457,
+            "end_line": 498,
+            "definition": {
+              "name": "Session.prepare_request",
+              "start_line": 457,
+              "end_line": 498
+            }
+          }
+        ],
+        "v6": [
+          {
+            "path": "src/requests/sessions.py",
+            "start_line": 457,
+            "end_line": 498,
+            "definition": {
+              "name": "Session.prepare_request",
+              "start_line": 457,
+              "end_line": 498
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "R02",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "merge_environment_settings",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/sessions.py",
+              "line": 750,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "merge_environment_settings",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/sessions.py",
+              "line": 750,
+              "context_lines": 0,
+              "mode": "definition"
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "src/requests/sessions.py",
+            "start_line": 750,
+            "end_line": 779,
+            "definition": {
+              "name": "Session.merge_environment_settings",
+              "start_line": 750,
+              "end_line": 779
+            }
+          }
+        ],
+        "v6": [
+          {
+            "path": "src/requests/sessions.py",
+            "start_line": 750,
+            "end_line": 779,
+            "definition": {
+              "name": "Session.merge_environment_settings",
+              "start_line": 750,
+              "end_line": 779
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "R03",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "RequestsJSONDecodeError",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/models.py",
+              "line": 940,
+              "context_lines": 30
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/models.py",
+              "line": 970,
+              "context_lines": 30
+            }
+          }
+        ],
+        "v6": [
+          {
+            "tool": "code_search",
+            "arguments": {
+              "query": "RequestsJSONDecodeError",
+              "artifact_kind": "project_code"
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/models.py",
+              "line": 940,
+              "context_lines": 30
+            }
+          },
+          {
+            "tool": "read_project_context",
+            "arguments": {
+              "path": "src/requests/models.py",
+              "line": 970,
+              "context_lines": 30
+            }
+          }
+        ]
+      },
+      "read_spans": {
+        "v5": [
+          {
+            "path": "src/requests/models.py",
+            "start_line": 910,
+            "end_line": 970,
+            "definition": null
+          },
+          {
+            "path": "src/requests/models.py",
+            "start_line": 940,
+            "end_line": 1000,
+            "definition": null
+          }
+        ],
+        "v6": [
+          {
+            "path": "src/requests/models.py",
+            "start_line": 910,
+            "end_line": 970,
+            "definition": null
+          },
+          {
+            "path": "src/requests/models.py",
+            "start_line": 940,
+            "end_line": 1000,
+            "definition": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "R04",
+      "same_tool_arguments": true,
+      "same_effective_tool_arguments": true,
+      "same_read_spans": true,
+      "tool_chain": {
+        "v5": [],
+        "v6": []
+      },
+      "read_spans": {
+        "v5": [],
+        "v6": []
+      }
+    }
+  ],
+  "decision": "NOT_PROMOTED: scope never used; acquisition and tool usage unchanged; no demonstrated answer-quality gain",
+  "total_provider_calls": 68,
+  "export_sha256": "f3c7a78c4357e49c21b553b7a3fa3e95e27611c6f4a9debefbaf83d65e67f426"
+}
