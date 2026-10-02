@@ -97,6 +97,8 @@ Decision → Tool Call → Observation → bounded iteration → Final Answer。
 
 `/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。
 
+Jev 预期证据路由已暂缓，Engineering 主链使用原有关键词路由。历史实现与方案见 [归档记录](docs/archive/jev_evidence_routing/design.md)。
+
 ## 5 分钟体验
 
 ### 安装
