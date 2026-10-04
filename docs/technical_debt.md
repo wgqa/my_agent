@@ -12,6 +12,20 @@
 
 ## 最近处理记录
 
+2026-10-04 第四项：当前演示与交付一致性切片已完成。产品版本统一为2.0.0-dev/development，OpenAPI与新增`/version`、UI Settings、当前Engineering Demo共源；保留历史Release 1.0冻结与旧Demo。独立Git fixture覆盖三个卡片，复用原题目生成/会话/SSE/持久化；`run --live`每场景一条消息、无任务级重试，拒答及失败保留，结果不覆盖。smoke配置隔离项目/语料/数据库/凭据，Full App可显式检查当前Engineering ready、三个入口及版本。局部12模块100 passed，真实Full App和故障隔离smoke通过，CI/手册48模块；零新增付费调用，未全量/GitHub CI/正式发版。TD-CLEAN-02的当前入口一致性已有进展，历史文档归档、整体可靠性与Runtime大项继续开放。见 [演示手册](demo_engineering_runbook.md)、[验证](validation/2026-10-04-product-delivery.md)。
+
+2026-10-04 后续：按项目所有者授权处理校招第二、三项。质量/成本/基线汇总新增零provider离线脚本，校验81份历史材料，完整54请求/295调用按版本、阶段、核心/边界和内容分数展示，当前生产SHA与最近付费检查差异明确记录；不把历史Gate指标或completed当当前正确率。TD-RUNTIME-01的启动依赖切片已完成：Engineering装配移出旧Pipeline/Tool Agent成功分支，UI不再由旧`/health`失败阻断所有模式；知识校验与5/4/2保留。局部六模块122 passed，真实uvicorn+实际页面AppTest在旧配置失败时Engineering verified且聊天可用，零新增付费调用。CI/手册44模块，未全量/GitHub CI；整体可靠性、Runtime大项与第四项仍开放。见 [质量索引](validation/2026-10-04-quality-baseline.md)、[启动隔离验证](validation/2026-10-04-quality-and-startup.md)。
+
+2026-10-04：三类任务入口与对象取证切片已交付，第一项整体可靠性仍 **OPEN**。Engineering启用单个Reader v4与decision v4；Python具名定义、限定测试名和一般文本文件内匹配共享旧定义正文上限，每段独立引用，legacy v2/历史SHA与七工具/5/4/2保持。前三个轻量候选未启用；54真实请求/295 provider调用全保留。同组六开发题完整正确1→3（各一次），新六核心题4 PASS/2 PARTIAL，两个边界PASS；修订后变更入口取得diff/实际测试/真实命令，整份答案仍有未读语义与范围越界，不能以completed关债。TD-TOOL-02对象读取已有实质进展；TD-ROUTER-01/TD-PLAN-01/TD-VERIFY-01/02及一般任务规划继续开放。CI/手册42模块，本地CI清单加四架构模块959 passed/9 skips，后续局部回归通过、不累加；未全量/完整前端测试。详见 [完整检查](validation/2026-10-04-core-workflows.md)、[任务范围](core_workflows.md)、[取证落地记录](design/core_workflow_acquisition_slice.md)。长期v2与目录大重构继续暂缓，不增加按题放行规则。
+
+2026-10-03：TD-TOOL-02 / TD-ROUTER-01 的独立测试取证域已补齐：搜索 v7、`PROJECT_TEST_V1` 与 grounded v2 对齐，底层复用原搜索/读取/校验，六个生产文件，5/4/2 与目录结构不变。两阶段 **32 请求 / 130 provider 调用**保留负结果；最终八题 **7 PASS / 1 PARTIAL**，R06 与中文改写取得完整测试及准确命令，限定缺失测试仍拒答。T03 断言解释正确但 pytest 命令/范围错误，仍属于 TD-VERIFY-01；首轮参数解析失败没有被宣称根治。阶段一局部 371 passed/7 skips，最终六模块 184 passed（重叠不累加），CI/手册38模块；不关闭全部拒答、Router 或语义质量债务。见 [验证报告](validation/2026-10-03-project-test-acquisition.md)。
+
+2026-10-03：TD-PLAN-01 / TD-VERIFY-02 的合法不检索任务误拒答切片已修复。Engineering 单独使用明确现有字段组合约束的 Planner 提示词，旧 v1 默认/SHA、严格 parser、保守 fallback、证据 Guard 和 5/4/2 不变。16 请求 / 53 provider 调用中，两道计算、通用文档对比、新增排序 **0/4 → 4/4 正确完成**；相关 15 模块 **377 passed**。文档/源码继续取证，限定缺文档继续拒答；R02 语义回归、C01 支持不足与一次 baseline action/repair 失败原样记录，不把 completed 当正确率。更广任务适用性和 Planner mandatory 策略继续开放；代码结构重构暂缓。见 [配对验证](validation/2026-10-03-planner-no-retrieval-alignment.md)。
+
+2026-10-03：TD-VERIFY-01 / TD-TOOL-02 的 Reader → 公共正文丢失切片已修复，保留全部已返回的有界文本与原定位身份，共用容量策略。48 个旧请求中的 41 次成功读取回放，旧 23 次二次截断 → 新 0 次；相关 15 模块 303 passed / 6 Windows symlink skips，真实 Reader 最大窗口三项复验通过，无新 provider 调用。5/4/2 与控制循环不变；严格旧客户端需更新 snippet 上限，响应/存储增大但仍有界。D02 公共预览丢失已解决，未读 helper/尾部、越界引用和条件表述错误未解决；见 [验证报告](validation/2026-10-03-evidence-excerpt-fidelity.md)。
+
+2026-10-03：TD-ROUTER-01 的文档独立证据域切片已保留。先试通用提示词未见改善并撤回，再补齐 `PROJECT_DOC_V1`，复用原取证与引用链路；文档阶段 12 题配对 / 24 请求 / 95 provider 调用，可答文档三题 0/3 → 3/3 完成，源码七题工具链相同。相关局部 278 passed，CI 所选新模块复验 31 passed；5/4/2、保护文件及历史冻结身份保持边界。Quick demo 公共引用截断、源码 helper/尾部遗漏、R03 回退表述错误与通用题误拒答继续开放；未独立验收或全量测试。两阶段总 48 请求 / 187 provider 调用，详见 [验证报告](validation/2026-10-03-project-document-acquisition.md)。
+
 2026-10-03：TD-TOOL-02 范围搜索候选已实现并验证，**默认未晋升、继续 v5**。候选加入文件/目录 scope 与真正的结果截断，局部 **193 passed / 7 skipped**；两仓库 8 题配对、16 个真实用户请求中，scope 使用 0/8 次搜索，取证路径及调用数均与旧版相同，未证明问答收益。负结果、原版及候选快照保留；见 [范围搜索验证](validation/2026-10-03-source-search-v6.md)。这不是新功能已完成上线，也没有关闭整个取证债务。
 
 2026-10-02：项目所有者授权分切片处理简单技术债。已完成的清理切片如下；大项的原有状态与冻结评测结论继续保留。
@@ -596,6 +610,8 @@ Query decomposition 已做过正式实验，不能简单说 Planner 没用。但
 
 2026-10-02 扩展诊断新增确定证据：纯计算返回 `query_type=fact` / `action=no_retrieval`，而 QueryPlan 要求该 action 配 `unanswerable_or_no_retrieval`；Prompt 未明确此组合约束，导致 schema fallback。首轮中文/英文两题失败，单独根因诊断再现。问候的合法 no_retrieval 可以完成，因此不能概括为所有问题一定强制检索。与 TD-VERIFY-02 合并考虑任务契约，见 [本轮报告](validation/2026-10-02-system-assessment.md)。
 
+2026-10-03：上述字段组合遗漏在 Engineering 提示词中补齐，保留原 QueryPlan 和严格解析。配对四道无需知识检索的题由全部拒答变为全部正确完成；未按计算关键词放行，也未取消 Planner。**此切片已解决，mandatory/conditional 策略继续 RE-EVALUATE**；见 [验证](validation/2026-10-03-planner-no-retrieval-alignment.md)。
+
 ### 状态
 
 **RE-EVALUATE**
@@ -650,9 +666,11 @@ Fresh Set A 中 repo-specific task 经常没有拿到 repo evidence，Router voc
 
 PRODUCT-REPAIR-23 的 bounded `_repo_navigation_intent()` 修复后，zero repo-tool 任务下降、repo evidence acquisition 提升、PASS/PARTIAL 改善，说明 lexical coverage 确实存在缺口。
 
+2026-10-03 保留 `PROJECT_DOC_V1`：补齐“明确依据仓库文档回答”的证据域，既有 7 个 shape 不变。Requests / smolagents 三道可答文档题在本轮配对从零工具拒答转为读取并回答，缺失文档不替换、通用知识不新增仓库义务，原有源码七题工具链相同。最终实现另补文件名遮蔽，12 题离线路由与付费候选一致。该切片没有解决所有措辞识别、指定文件绑定或语义完成度，不是 Router 技术债整体关闭；见 [验证报告](validation/2026-10-03-project-document-acquisition.md)。
+
 ### 状态
 
-**OPEN / 已知 limitation**
+**PARTIAL / 文档与已有测试独立域已补齐 / 其他 under-activation 仍开放**
 
 ---
 
@@ -704,6 +722,10 @@ PRODUCT-REPAIR-25R 中 Router v2 扩大 requirement 后，部分场景 project e
 
 2026-10-02 的 C09 实际复现：词频源码判断正确，但 IDF / 长度归一化理论使用未包含该说明的 E1/E2；引用绑定为 VALID。C04/M01 也把 config.py 的 E6 用于 service.py 的调用结论。该能力边界有新的产品输出证据，仍未修复。
 
+2026-10-03 文档切片再次区分实际读取与公共引用：D02 读到 README 23–83 的 Quick demo，公共 E6 的 2000 字符预览却在 demo 前截断；S04 引用 sql_engine 50–69 解释未读的 76 行注册；R03 引用窗口外的顶部导入，并在候选回答中将条件回退表述为“最终都会尝试”。源码七题的工具链相同，不能据单轮把表述波动归因于新增文档域，但必须保留质量问题，不能以 completed 或合法 E-ID 视为解决。
+
+随后同日公共正文切片去掉 Reader 结果的二次裁切，D02 的 E6 保留实际 3454 字符，全部 41 次旧成功读取的正文回放一致。这里只解决公共 artifact 丢失；S04/R03 越界引用和语义错误仍存在，Verifier 能力边界不变，技术债仍 OPEN。
+
 候选方向：先改善 answer↔evidence prompt、claim scope、source excerpt quality、tool acquisition quality、semantic grounding benchmark；若真实失败率仍高，再评估 semantic verifier，不直接堆第二个 Verifier LLM。
 
 ### 状态
@@ -721,6 +743,8 @@ PRODUCT-REPAIR-25R 中 Router v2 扩大 requirement 后，部分场景 project e
 Guard 起源合理：模型不能自己降低证据门槛。但随着 requirement 类型增加，Guard 越来越依赖 Router 的语义判断。
 
 2026-10-02 真实 smoke 新增一个明确复现：Engineering 主链的 `37 * 29` 已得到正确计算结果，知识检索和 requirement 均满足，却因已注入知识证据而要求 `[E#]`，最终以 `ANSWER_EVIDENCE_REFERENCE_MISSING` 拒答；旧工具接口能完成同一计算。该问题同时关联 TD-PLAN-01；SSE 共享 worker 没有改变此判定。状态：**已定位 / 未修复**，见 [验证与诊断](validation/2026-10-02-sse-cleanup.md)。
+
+2026-10-03 更新：同一计算与通用文档对比等任务的上游字段冲突已在 Engineering Planner 修复。合法不检索任务不再被错误注入知识，原 Guard 自然返回 NOT_REQUIRED；**没有修改 Guard 或普遍取消引用**。此确定误拒答切片已解决；更广的任务适用性和语义校验继续开放，见 [新旧对照](validation/2026-10-03-planner-no-retrieval-alignment.md)。
 
 候选：保留 evidence existence、citation validity、hard policy；重新评估 task-family-specific evidence shape、cross-file minimum、theory-code mandatory pairing。
 
@@ -939,7 +963,7 @@ EXPERIMENT_INDEX.md
 | TD-AGENT-01 | Custom Action vs Function Calling | 高 | OPEN |
 | GAP-CAP-01 | Edit / Patch / Test / Repair Loop | 高 | MISSING |
 | TD-PLAN-02 | Front-loaded Retrieval / dynamic knowledge | 中高 | OPEN |
-| TD-ROUTER-01 | Router under-activation | 中高 | OPEN |
+| TD-ROUTER-01 | Router under-activation | 中高 | PARTIAL / 文档域已补齐 |
 | TD-ROUTER-02 | Router over-constraint | 中高 | OPEN |
 | TD-VERIFY-01 | Structural ≠ Semantic verification | 中高 | OPEN |
 | TD-RAG-01 | Chunk / Embedding / 泛化验证 | 中 | OPEN |

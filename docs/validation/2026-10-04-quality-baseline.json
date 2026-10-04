@@ -1,0 +1,2353 @@
+{
+  "schema_version": "current_quality_report_v1",
+  "independent_acceptance": false,
+  "review_method": "Archived same-developer whole-answer source review; no rejudging or provider calls.",
+  "archive_seal_sha256": "fe1bab857562628f9426cd3c5c05300aafb6b9d7dcf6239dd7cebdec84bd7e6d",
+  "historical_files_verified": 81,
+  "runtime_budget": {
+    "decisions": 5,
+    "tool_calls": 4,
+    "tool_errors": 2
+  },
+  "current_code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9",
+  "last_live_code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9",
+  "last_live_started_utc": "2026-10-04T03:00:05.131335+00:00",
+  "matches_last_live_product_files": false,
+  "changed_since_last_live": [
+    "api/app.py",
+    "api/schemas.py",
+    "ui/api_client.py",
+    "ui/app.py"
+  ],
+  "missing_since_last_live": [],
+  "new_unrecorded_product_files": [
+    "core/product_version.py"
+  ],
+  "current_product_sha256": {
+    "api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "api/app.py": "683d37af2654e17efb74cc1cf78d1d4e6d4146c19170a19b58e24e52fff655e4",
+    "api/conversation_store.py": "06aa4ff2e959d168527d4597c7ae7dbc730691adf81315e9e48e7ab94026cbc6",
+    "api/engineering_stream.py": "10ef149c853091e04d0a295d5c423a3b75da949fd523e29e1e71d218a2118048",
+    "api/engineering_stream_common.py": "c288210e7231941313b36d8e838e5530c28dbd31034215dc2ba433239ec47a5b",
+    "api/engineering_stream_v2.py": "5fe118ccdef86e6a815ff883dbe537b44a4cf304e8075812dbb0845b88afa5e9",
+    "api/project_workspace.py": "e83f9bf05c4220d0b081bf8b5828c9d951cbf5b1c3848c62a1b514141acdefd9",
+    "api/schemas.py": "54e42949067da2a6d56bcf51047d2614d8265b9a111c17c40fa5ae884015d8ee",
+    "config.yaml": "0f8705d10e09a5d1e131cfdd2d744e1da95a68111a41c3cd297245d60d86b41a",
+    "core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/adaptive_retrieval/__init__.py": "1ce41a682f3588488f8257d4ab51713d142dd567268dad4a3b703fd93055f307",
+    "core/adaptive_retrieval/policy.py": "1f6cc5a49bab3dd62c201e5a818ba2db71faf5e0ed0178e3b17be2c839784f17",
+    "core/agent_runtime/__init__.py": "86d4f4a7256e2bc0fa0bd5c4daeb435c1a905b2ebde4c1e424006280ad1db3e9",
+    "core/agent_runtime/adapters.py": "78702861431b8bbb5bd18d504a732982f9b2744c1f479a427bc11f8fb644b61a",
+    "core/agent_runtime/evidence.py": "33b448f26e7e8ed7b2f3dadc6f617e30fa4291d046a68b628a460a0c30c2ac26",
+    "core/agent_runtime/models.py": "bb4530de59b96a9a1d2e5221a35c346ec6641088ffc91ef381bc732533adbac0",
+    "core/agent_runtime/runtime.py": "556341885d91bdc136b5a3d349414a85f9ba269f55a680101d00fd7d0de0873f",
+    "core/chunker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/chunker/base.py": "8d3b8dd875f422fd9f8e83233ebd2a16b7c16b2f4bd259f7154eb4f3a2b14285",
+    "core/chunker/embedding_runtime_counter.py": "c9dde639f91c59f720ee67434fe8c6d80a147e85b098ef57081888a4d8935360",
+    "core/chunker/fixed_size.py": "14486ec1082a6f714e13fbbbc38ac0a4f4d7196f5373a30a3a706a1b2adece8c",
+    "core/chunker/recursive.py": "c4ae0d676da78bbc53f96bb7971fbac3b95feb171a0a685bbc542a266c3facbb",
+    "core/chunker/semantic.py": "ccd89924336d6835b6f2fe9e88e46f1e893ade933f05aba538cb557bffaf1c49",
+    "core/chunker/token_counter.py": "04f1a09f6d8e3fb6f6e9d7b09c87cd6fdc6ef755d4ab5fd9f45c4faa66cbbeb0",
+    "core/config.py": "b32c9328a1253d3fa656588bc85c488f5471cff9ab425b708970bd243b117bb4",
+    "core/context/__init__.py": "f8d580c29a4630afac65ede9937d237bcde6cda8e27fa973679b3afd057c6283",
+    "core/context/assembler.py": "8cc4f6e30885511d6b745434f1600c5b6ad19ddfacb73df0c72b024cf3b13e5f",
+    "core/conversation_context/__init__.py": "cce262d8e59486301d48f1155abd01832668e27ab925fa365e7f4a01e35c2e61",
+    "core/conversation_context/models.py": "ad1d8d120cc20aa95e65bc2e251211fbba7c0b12ac2bd9ab22154ad626413809",
+    "core/conversation_context/resolver.py": "1b3837abe0ce6a596cd67eedb7c8dc884e29d70fb196d37acfd0011841668962",
+    "core/domain/__init__.py": "26a205a4bc1c4de0f372f48a4674684450672189399e8849afbac76032d95e77",
+    "core/domain/models.py": "74062d670e5878cf7350a013ecc0e85f22d6cb7fdb86a42be60cde574e694814",
+    "core/embeddings/__init__.py": "66da23233164888ec12fe1d29907f6902ea3836c17d229bb65c1c82a11b334f6",
+    "core/embeddings/base.py": "b93234a07a2f77db4b1347c79acd426202c08f4b94207531edf8550a2647a77f",
+    "core/embeddings/bge_emb.py": "518ec5539a2214dd8d28b4c9c3f294cf200e2e0f26eb463eb219c12729b32433",
+    "core/embeddings/openai_emb.py": "2f159702725c97a9e1736b1074481c311a4e77f48716f050157c772b5771e21d",
+    "core/embeddings/runtime_contract.py": "781826d87538ca7b66349e73141b87dee6503906218f2ea8dbe8e607df5cbd47",
+    "core/engineering_agent.py": "88aab0933205e5f995144c491c73f1c068e8187f0ebcaedc6b50dbff400e306d",
+    "core/engineering_context.py": "ea50f168449040c2922f6d0fd19b05ad6ab5df43582a30c9b0291692c6625119",
+    "core/engineering_knowledge.py": "0c8adb3aea28f6fa803d5947f66a12d051c9e9b5d729f839a775487148ecd9dc",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_requirements.py": "b1adf44293277e0d6f459c01fb4fa6f1318db0694391f3842080d0b082302efe",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/generator/__init__.py": "99fc85beeb64b293c2db16d908717eedd1f6c096e92c23fd59aff04aa7a11bc5",
+    "core/generator/base.py": "fedec68274b4f08b6ad8353f6e70c8466dafed930fdf30154aeadb4838938a74",
+    "core/generator/citation.py": "ead4f4054aefe86f2e57eff5829de97dbe9f713c77617276e97be07e0ee464cf",
+    "core/generator/deepseek_gen.py": "3be8edcc17e77031c8b4e9116970e186aab1b46939aab51067a6195f9d765be7",
+    "core/generator/errors.py": "48a0bfb8feb62039e33dd986034a6e45d51061f9579ef68a354df34d73f2966a",
+    "core/generator/openai_gen.py": "099317d33d32dff07f748892532a715d2acbd9d2c4ca7afaf824bf0f3ef81969",
+    "core/loader/__init__.py": "73b82180517dd9d22e4f162b9260aed6028c758f4915cd9dfd2fdff89303d1e8",
+    "core/loader/base.py": "501ae7ed16ad484ad8ffbcec6ea1841fec7a357c0f7fbe135f6bb859fb56b5b4",
+    "core/loader/code_loader.py": "25135f4670477efb05b67806ee7a0a6c1bd2ab837c8e1d1924d4b50f5efc21bb",
+    "core/loader/pdf_loader.py": "f1fcb53e4a8350ca25d1cda3ec5bece1d384a223bdff3a13e1bd7fefde640a2f",
+    "core/loader/text_loader.py": "91caeb87a18ec27eb6af0f2edeebca914212c829457114d12821882c3ef60872",
+    "core/pipeline.py": "f33caca2653571c5898dd1e7efa04bf16cffaa59b0dc27bd9a0e6adceb41909b",
+    "core/product_version.py": "a27ffcb665fa36d2a76492a0caa3ebfd1849d3f75bc1bc51bc0f1ace77ce1325",
+    "core/provider_config.py": "01512cc4c4c2efa1f259cb20ad7b09d9bb333fcba487c7b8a90cb855b039df9d",
+    "core/query_planning/__init__.py": "c610ce8fcc584a4323ca891d12f302583d16712b207197e95165518276f38bb4",
+    "core/query_planning/models.py": "30c02b6e8538d4a9a2012768440c9cb7ce9b347bb40dfddc2e8bc09ca536286e",
+    "core/query_planning/openai_compatible.py": "5291403c48c53511c18fb57a40fe693cbf661306bbfab11f288ee3416320c0e3",
+    "core/query_planning/planner.py": "8e26b3fce71e99b5f8ea958800fbaf803af17aa51023fb29b178ff14617e9056",
+    "core/query_planning/prompt.py": "84d64aafb433c785ab45a20585e5b7022cd32d17bff8821971b5ee51eb23cc6b",
+    "core/query_rewriter.py": "b5ca752405b15aba57845b44e5c27928f1b68887bf9236c627ab8fa63ec0e502",
+    "core/reranker/__init__.py": "4dc85c5beaad18c7517da8cdf3bd691f4605f7b3b18fbdc09be2445c4d76e0ed",
+    "core/reranker/base.py": "728e8c01ac265c1c0833cf98dd712e7d4e59e57355ff15c2bb69374cb69e3dff",
+    "core/reranker/bge_reranker.py": "3c072d50ca13c4faeb4b6af1ab21c17c9a4f584eba82b9173c80ac253fb71235",
+    "core/retriever/__init__.py": "69648b7aa3920cfaac0d3431152180e124cd9275e45077c948538b852ec18bb0",
+    "core/retriever/base.py": "0029de25254a9b34c979db1e644004d16de578b6bb7c469c07e907647f1ce736",
+    "core/retriever/bm25_only.py": "b2565dd009c86340ad991aa3a55d8d6e28851a4932a90803d49c3f6d0960bc28",
+    "core/retriever/hybrid.py": "e4052904203c5e8861fef364c001db5cedb2deee0438e5005d7a667afad7165c",
+    "core/retriever/mmr.py": "498ddf4198e0fb403b3edb5a57fceaa7dc484cf36cbb3ed56d79d6cabbf092c7",
+    "core/retriever/simple.py": "cac31504b8bc8d1d60ebc9a149edee5fbe9e8c0ba57f19f9301b8a6dd7c798ea",
+    "core/tool_agent/__init__.py": "350b209ff8349d22bf9620e4739646d9e11b005c2fed443f0905494e1deb11ff",
+    "core/tool_agent/action_parser.py": "366736248c68f048638c6ad6d157d58f29b0bd2580f8d14635ed15c16e77ed65",
+    "core/tool_agent/actions.py": "9208dd3285619e04d7f39396ad21ed0886715b63756a86d414485943b2518177",
+    "core/tool_agent/activity.py": "2b3d50be41b12a9b67b0fc94dbf272da17f11c4fd44438723dc85eafbb5f1a2e",
+    "core/tool_agent/decision_prompt.py": "efae1337241658e9b53e849232cefafc1f98ab7ae00d2ad282879d8679ab1131",
+    "core/tool_agent/default_tools.py": "74085512815dfee52c69af591cd8086d15b38eac599709927255963958d5a18a",
+    "core/tool_agent/executor.py": "928fae0d2ca01f70aff532fd241f6c68328a94631e4ccbfae0e9c41eea804d5b",
+    "core/tool_agent/integration.py": "d8e83d8552616e8d1adf175e8b950cd782df4d0219348cdaf6ffc3b2c49706bf",
+    "core/tool_agent/models.py": "8e0aa77a9a098662f469bc36632554cf879d5901a81d97c58dbf1df8b9557c2f",
+    "core/tool_agent/openai_compatible.py": "9275773f891e28b9eaeeae469459c039db7d2d21fa1677de3ae014f2fd29b8d9",
+    "core/tool_agent/project_files.py": "755ba10dd8bc78cf8aaa14d6812875ce5ecc3b7b6a9c09a3b8c7d529ff306898",
+    "core/tool_agent/registry.py": "16c011e78ef4aa48afe27a4602e2fc4312cd8c80bb2b28c4dca9e6d2378a1428",
+    "core/tool_agent/runtime.py": "8bd0046a3f4f7edb0a2f45fb20d998cd992c02b4e10b923dad13b5b8d2d29117",
+    "core/tool_agent/runtime_models.py": "34438f3a316a323c9946693857bfa408616ae537e29ef64e69de008604ef6ef8",
+    "core/tool_agent/source_excerpt.py": "601b4bc9278effaeae2919c6a851324f7fe61ae40d69f20781e6250bb1a3f73b",
+    "core/tool_agent/tools/__init__.py": "e6ef161d601bd52625b83b8a376abf15ad16696931e2980584e32c5d2390b98d",
+    "core/tool_agent/tools/calculator.py": "92a94618462645599c267048ab15b0233de6f733843b1943dfdf514a83400229",
+    "core/tool_agent/tools/code_search.py": "2abf4b0348a1053fbf426059a8ba4c04a331626c20c0755f8cc3b39c30d8b72b",
+    "core/tool_agent/tools/git_change.py": "60b28fcb5a0f3d4c4d12690c332e4562931604bb77350b8d648778744116b1a3",
+    "core/tool_agent/tools/knowledge_search.py": "061ceb6e1418844474d9ad72ed95c36a030543f18dffe350e20bb6ae4a6c96db",
+    "core/tool_agent/tools/read_project_context.py": "24a69e126a7158ff219d867719c48c4aeb763a11ea7d0708eafad0a69cbd67c2",
+    "core/tool_agent/tools/read_project_targets.py": "26e507717b5e0ae2b59332a3f90aad1721688cd42e7f228d2eb537d4ed6189ca",
+    "core/tool_agent/tools/source_navigation.py": "7737224a30192d16472ec4067aa8cf9b43669f56609bc8edcbe44d78e9d35299",
+    "core/tool_agent/tools/test_discovery.py": "9119ec171f93238a4c90592ae518de78a551fd39e10b17b4ef299d2d8fd080c5",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/vector_store/__init__.py": "8dd4d1cbe7bc06d1ffd82611d21521cfec923edd2706b77960a2ca411ad9f579",
+    "core/vector_store/base.py": "c88155c131cd69e6518f957bec3d8cb7bf1b1ea087cf1c2222a13c0e85e6a57e",
+    "core/vector_store/chroma_store.py": "c7ab161e5215d6a1fb238e5488a474907a044d176fb40efccef599fdd98b48a2",
+    "ui/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ui/api_client.py": "bc8709f0f911e68bbb477ac5002259dc41e503819aa45f53c56fba07c1ba8d8a",
+    "ui/app.py": "f068b63769bc7a48eb6ed3f286701062a7354492a60dd6a8366a8f5f6d70d525",
+    "ui/components.py": "6f26347a8d107c6f876767fb45a6d1f81f86c5d5aced922951a476c885e3a2a0",
+    "ui/renderers.py": "1e688cfe4b02135bbb40368208b74e1b1cfc6b6a30c6014de748a6ce6874748c",
+    "ui/streaming.py": "6153494432257aa3243b3c80c32e172a074d784962100a1478bc038396116312",
+    "ui/styles.py": "1c5f5fa6520fc01a4d76c753531c2d38d8f04482c33b624bf00d75718510ec90"
+  },
+  "current_product_fingerprint": "362c01ca8fc23845f61c1d6b5fd023780004c459eda4cbecea9b64b0494bb2e7",
+  "same_input_development": {
+    "baseline": "development-ready",
+    "object_reader": "acquisition/development",
+    "runs_per_case_per_version": 1
+  },
+  "latest_three_entries": {
+    "selection": "Latest recorded configuration/document entries plus revised changed-path input; earlier failed input remains in phases.",
+    "scores": {
+      "PASS": 1,
+      "PARTIAL": 2,
+      "FAIL": 0
+    },
+    "cases": [
+      {
+        "id": "E-C",
+        "project": "fixture",
+        "cohort": "configuration",
+        "score": "PARTIAL",
+        "review_reason": "默认值、覆盖校验、实际调用点均正确取得；未读取retriever实现却把limit解释为结果条数上限，后文又承认该语义未验证。",
+        "boundary_control": false,
+        "status": "completed",
+        "reason_code": null,
+        "failure_code": null,
+        "elapsed_seconds": 6.825,
+        "tool_calls": 3,
+        "planner_calls": 1,
+        "decision_calls": 4,
+        "input_tokens": 27293,
+        "output_tokens": 803,
+        "provider_calls": 5,
+        "provider_identities": [
+          {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+            "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+          },
+          {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_contract_prompt_v2",
+            "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+          }
+        ]
+      },
+      {
+        "id": "E-D",
+        "project": "fixture",
+        "cohort": "docs_code",
+        "score": "PASS",
+        "review_reason": "两边实际取得，准确核对默认值、范围、覆盖；其他文档承诺明确未核实。",
+        "boundary_control": false,
+        "status": "completed",
+        "reason_code": null,
+        "failure_code": null,
+        "elapsed_seconds": 6.766,
+        "tool_calls": 4,
+        "planner_calls": 1,
+        "decision_calls": 5,
+        "input_tokens": 34398,
+        "output_tokens": 928,
+        "provider_calls": 6,
+        "provider_identities": [
+          {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+            "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+          },
+          {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_contract_prompt_v2",
+            "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+          }
+        ]
+      },
+      {
+        "id": "E-X-PATH",
+        "project": "fixture",
+        "cohort": "change_test",
+        "score": "PARTIAL",
+        "review_reason": "明确路径后直接diff/find_tests并取得真实测试/命令，误拒答消除；仍从未读调用方推断检索返回语义，并把单文件未见表述为测试全量缺口。",
+        "boundary_control": false,
+        "status": "completed",
+        "reason_code": null,
+        "failure_code": null,
+        "elapsed_seconds": 8.214,
+        "tool_calls": 4,
+        "planner_calls": 1,
+        "decision_calls": 5,
+        "input_tokens": 34926,
+        "output_tokens": 1008,
+        "provider_calls": 6,
+        "provider_identities": [
+          {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+            "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+          },
+          {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_contract_prompt_v2",
+            "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+          }
+        ]
+      }
+    ]
+  },
+  "experimental_usage_totals": {
+    "requests": 54,
+    "planner_calls": 54,
+    "decision_calls": 241,
+    "provider_calls": 295,
+    "input_tokens": 1525739,
+    "output_tokens": 31018
+  },
+  "phases": {
+    "development-ready": {
+      "label": "原开发基线",
+      "requests": 6,
+      "core_scores": {
+        "PASS": 1,
+        "PARTIAL": 2,
+        "FAIL": 3
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 4,
+        "refused": 2
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 2
+      },
+      "planner_calls": 6,
+      "decision_calls": 28,
+      "provider_calls": 34,
+      "input_tokens": 177140,
+      "output_tokens": 3152,
+      "tool_calls": 22,
+      "p50_elapsed_seconds": 4.736,
+      "p95_elapsed_seconds": 6.286,
+      "cases": [
+        {
+          "id": "F-C1",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "默认值、范围、环境变量覆盖和 service 参数传递均由实际读取的两份源码支持。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.726,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30394,
+          "output_tokens": 476,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-D1",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "反复按正文搜索中文词和 README 文件名，未读取文档，普通可答任务拒答。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 3.833,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30410,
+          "output_tokens": 316,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-X1",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "取得 diff 后两次搜索测试常量，未读取实际测试，耗尽预算拒答。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.065,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31167,
+          "output_tokens": 196,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-C1",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "读取构造函数并解释部分传参，但没有取得常量具体值或 init_poolmanager 实现；还引用未读的 213/262/272 行。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 4.086,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 19034,
+          "output_tokens": 693,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-D1",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "仅读取 get_adapter，没有读取 mount 的排序维护，却得出文档与实现不一致的错误结论。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.286,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33897,
+          "output_tokens": 752,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-X1",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "变更、相关测试及真实 node ID 正确；附加无匹配时返回 None 的错误推断，实际是 InvalidSchema。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.385,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 32238,
+          "output_tokens": 719,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/raw/development-ready/live_results.jsonl",
+      "raw_sha256": "f3bf7107e144daff4ea77ebf2e1892d466f89be01768a7603b654b8d24a3f879",
+      "manifest_sha256": "28e6ea5986a2bb9aaf77bd0b63cdabbec26a39ff91f9e5d13df18e8d590b429c",
+      "started_utc": "2026-10-04T01:28:14.634298+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "development-candidate": {
+      "label": "提示词候选（未晋升）",
+      "requests": 6,
+      "core_scores": {
+        "PASS": 2,
+        "PARTIAL": 1,
+        "FAIL": 3
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 5,
+        "refused": 1
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 1
+      },
+      "planner_calls": 6,
+      "decision_calls": 28,
+      "provider_calls": 34,
+      "input_tokens": 184114,
+      "output_tokens": 3853,
+      "tool_calls": 22,
+      "p50_elapsed_seconds": 5.518,
+      "p95_elapsed_seconds": 6.301,
+      "cases": [
+        {
+          "id": "F-C1",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "取得 settings/service，完成默认值、校验和传参。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.301,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31892,
+          "output_tokens": 731,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v3",
+              "prompt_sha256": "9dff1261f2f51107bae77b4fbb8074e0714263a8fc1284ac240f8f5ebd5aa7dd"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-D1",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "新通用策略仍未促成已知 README 的实际读取；耗尽搜索预算。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 3.837,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31452,
+          "output_tokens": 310,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v3",
+              "prompt_sha256": "9dff1261f2f51107bae77b4fbb8074e0714263a8fc1284ac240f8f5ebd5aa7dd"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-X1",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "PASS",
+          "review_reason": "find_tests 后读取完整短测试文件；默认断言、显式覆盖断言和建议 node ID 正确，注明静态预测。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.46,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33137,
+          "output_tokens": 699,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v3",
+              "prompt_sha256": "9dff1261f2f51107bae77b4fbb8074e0714263a8fc1284ac240f8f5ebd5aa7dd"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-C1",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "明确常量值和被调用方法未读，但仍提前结束且描述了未核实的参数映射。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 4.333,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 19943,
+          "output_tokens": 615,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v3",
+              "prompt_sha256": "9dff1261f2f51107bae77b4fbb8074e0714263a8fc1284ac240f8f5ebd5aa7dd"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-D1",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "仍未读取 mount，并错误断言最长前缀规则不一致。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.577,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33982,
+          "output_tokens": 710,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v3",
+              "prompt_sha256": "9dff1261f2f51107bae77b4fbb8074e0714263a8fc1284ac240f8f5ebd5aa7dd"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-X1",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "只读测试文件导入区；虚构 self.adapters 是 CaseInsensitiveDict，未取得所问相关测试与断言。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.156,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33708,
+          "output_tokens": 788,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v3",
+              "prompt_sha256": "9dff1261f2f51107bae77b4fbb8074e0714263a8fc1284ac240f8f5ebd5aa7dd"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/raw/development-candidate/live_results.jsonl",
+      "raw_sha256": "c2aeb3731f887cb6432585d1b99b4142fb340738ed7faef8ef5bd7b093bd0dc1",
+      "manifest_sha256": "f099068a8be60b823db00c03ecf9978f90d9ccc840a3255893c72cb81463e403",
+      "started_utc": "2026-10-04T01:31:30.189886+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "development-reader": {
+      "label": "旧 Reader 候选（未晋升）",
+      "requests": 6,
+      "core_scores": {
+        "PASS": 1,
+        "PARTIAL": 2,
+        "FAIL": 3
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "failed": 1,
+        "refused": 2,
+        "completed": 3
+      },
+      "stop_codes": {
+        "ACTION_PARSE_FAILED": 1,
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 2
+      },
+      "planner_calls": 6,
+      "decision_calls": 27,
+      "provider_calls": 33,
+      "input_tokens": 172316,
+      "output_tokens": 2815,
+      "tool_calls": 19,
+      "p50_elapsed_seconds": 4.321,
+      "p95_elapsed_seconds": 7.008,
+      "cases": [
+        {
+          "id": "F-C1",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "FAIL",
+          "review_reason": "参数 schema 失败及一次修复失败，未完成读取；归档未记录失败动作参数，具体非法字段无法确认。",
+          "boundary_control": false,
+          "status": "failed",
+          "reason_code": null,
+          "failure_code": "ACTION_PARSE_FAILED",
+          "elapsed_seconds": 3.488,
+          "tool_calls": 1,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 17957,
+          "output_tokens": 176,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-D1",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "已知路径的新说明仍未得到采用，没有读到 README。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.667,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30565,
+          "output_tokens": 325,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-X1",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "diff 后重复搜索常量，未读取测试。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 3.677,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31298,
+          "output_tokens": 195,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-C1",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "仍未取得实际常量定义和 init_poolmanager 的完整传参实现。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 3.975,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 19008,
+          "output_tokens": 549,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-D1",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "PASS",
+          "review_reason": "有界窗口同时覆盖 get_adapter 和 mount，正确解释降序维护与首个命中共同实现最长前缀。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.213,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 34289,
+          "output_tokens": 736,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-X1",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "读到相关测试，但猜测 TestSession 类名，生成错误 node ID；还猜测返回 None 和未读测试。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.008,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 6,
+          "input_tokens": 39199,
+          "output_tokens": 834,
+          "provider_calls": 7,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/raw/development-reader/live_results.jsonl",
+      "raw_sha256": "ca8482d115eedf6efa9c37e3f3c65900258a5c12a0a9d61e682fc8a88326d872",
+      "manifest_sha256": "798c62d79b8b3c663751b5c9dd9dbc710bfd77837bcdbd15b5598599cb15dc29",
+      "started_utc": "2026-10-04T01:38:57.362939+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "development-planner": {
+      "label": "Planner 候选（未晋升）",
+      "requests": 6,
+      "core_scores": {
+        "PASS": 1,
+        "PARTIAL": 3,
+        "FAIL": 2
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 4,
+        "refused": 2
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 2
+      },
+      "planner_calls": 6,
+      "decision_calls": 28,
+      "provider_calls": 34,
+      "input_tokens": 129563,
+      "output_tokens": 2862,
+      "tool_calls": 22,
+      "p50_elapsed_seconds": 5.037,
+      "p95_elapsed_seconds": 7.188,
+      "cases": [
+        {
+          "id": "F-C1",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "取得两份源码，默认值、范围和调用参数完整；该题仍发生知识检索。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.438,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30555,
+          "output_tokens": 644,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_knowledge_planner_prompt_v3",
+              "prompt_sha256": "e9ed8576d47aaba5eb7cec9feec30b6b4cb306aa8e57900677cdbb5476a297fb"
+            }
+          ]
+        },
+        {
+          "id": "F-D1",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "知识来源说明没有解决正文搜索代替已知路径读取的问题。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.446,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 19920,
+          "output_tokens": 224,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_knowledge_planner_prompt_v3",
+              "prompt_sha256": "e9ed8576d47aaba5eb7cec9feec30b6b4cb306aa8e57900677cdbb5476a297fb"
+            }
+          ]
+        },
+        {
+          "id": "F-X1",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "仍未读取项目测试，最终拒答。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 3.424,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 20355,
+          "output_tokens": 234,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_knowledge_planner_prompt_v3",
+              "prompt_sha256": "e9ed8576d47aaba5eb7cec9feec30b6b4cb306aa8e57900677cdbb5476a297fb"
+            }
+          ]
+        },
+        {
+          "id": "R-C1",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "不输出常量具体值，但仍没有完成用户所问默认值和 PoolManager 实现链路。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 4.283,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 13559,
+          "output_tokens": 435,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_knowledge_planner_prompt_v3",
+              "prompt_sha256": "e9ed8576d47aaba5eb7cec9feec30b6b4cb306aa8e57900677cdbb5476a297fb"
+            }
+          ]
+        },
+        {
+          "id": "R-D1",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "PARTIAL",
+          "review_reason": "未读取 mount，因此只能给出条件性说明，不能完成两方法与文档的核对；未把未知完全当冲突。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.627,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 23745,
+          "output_tokens": 719,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_knowledge_planner_prompt_v3",
+              "prompt_sha256": "e9ed8576d47aaba5eb7cec9feec30b6b4cb306aa8e57900677cdbb5476a297fb"
+            }
+          ]
+        },
+        {
+          "id": "R-X1",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "取得实际测试与有效命令，但错误推断混合大小写无匹配时回退到默认适配器；实际会抛 InvalidSchema。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.188,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 21429,
+          "output_tokens": 606,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_knowledge_planner_prompt_v3",
+              "prompt_sha256": "e9ed8576d47aaba5eb7cec9feec30b6b4cb306aa8e57900677cdbb5476a297fb"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/raw/development-planner/live_results.jsonl",
+      "raw_sha256": "38d1630bd1ce72f10e42dbc0a8db49fcbe30340ad8021c400dc7181ef7762fc0",
+      "manifest_sha256": "8f9ad4b66354ef86e6395eeac1a3d9d9b76edb8c4a8e300fe23fa1b52f571766",
+      "started_utc": "2026-10-04T01:42:36.821575+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "confirmation": {
+      "label": "恢复原主线的检查",
+      "requests": 8,
+      "core_scores": {
+        "PASS": 1,
+        "PARTIAL": 4,
+        "FAIL": 1
+      },
+      "boundary_scores": {
+        "PASS": 2,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 5,
+        "refused": 3
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 3
+      },
+      "planner_calls": 8,
+      "decision_calls": 35,
+      "provider_calls": 43,
+      "input_tokens": 219115,
+      "output_tokens": 3656,
+      "tool_calls": 25,
+      "p50_elapsed_seconds": 4.602,
+      "p95_elapsed_seconds": 8.033,
+      "cases": [
+        {
+          "id": "F-C2",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "覆盖 9/21 的解析和范围校验，但没有读取 service，未回答转发参数 limit。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 4.194,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 18016,
+          "output_tokens": 429,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-D2",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "PARTIAL",
+          "review_reason": "读取 rank_documents，解释计分/过滤/切片正确，明确未读 README；未完成文档核对，仍标记 completed。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 8.033,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 6,
+          "input_tokens": 37031,
+          "output_tokens": 1097,
+          "provider_calls": 7,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-X2",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "PASS",
+          "review_reason": "diff 仅调整默认值，实际读取显式环境变量测试及 limit=9 断言，给出正确建议命令并说明未执行；结论是静态预期。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.995,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31375,
+          "output_tokens": 583,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-B1",
+          "project": "fixture",
+          "cohort": "missing_source_boundary",
+          "score": "PASS",
+          "review_reason": "有界搜索后拒答，未编造限定类的源码或以其他类替代。",
+          "boundary_control": true,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 3.031,
+          "tool_calls": 3,
+          "planner_calls": 1,
+          "decision_calls": 4,
+          "input_tokens": 24593,
+          "output_tokens": 170,
+          "provider_calls": 5,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-C2",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "读到 Retry(0, read=False) 与 Retry.from_int 两分支，但没读取 DEFAULT_RETRIES 实际定义。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.01,
+          "tool_calls": 3,
+          "planner_calls": 1,
+          "decision_calls": 4,
+          "input_tokens": 27965,
+          "output_tokens": 484,
+          "provider_calls": 5,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-D2",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "把显式文档路径当正文搜索，随后只搜索 Session/mount，未取得文档或实现，拒答。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.048,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30458,
+          "output_tokens": 205,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-X2",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "实际测试/断言/命令取得正确，匹配规则变化正确；仍错误声称混合大小写 URL 会落到默认适配器。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.72,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30994,
+          "output_tokens": 572,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-B1",
+          "project": "requests",
+          "cohort": "execution_boundary",
+          "score": "PASS",
+          "review_reason": "未执行也未伪造通过结果；退出码为证据不足，未精确表达不支持执行。此处只认定安全边界保持。",
+          "boundary_control": true,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 1.936,
+          "tool_calls": 1,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 18683,
+          "output_tokens": 116,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/raw/confirmation/live_results.jsonl",
+      "raw_sha256": "fc48ba2bef1494f5ddcf9d98aecb1e28bb8c0d6bc91fe093523d45f8572a81d7",
+      "manifest_sha256": "bcbb0bc6671e7033a040b23c5d11245d7a5896df45781eaefbb78e623173a1fc",
+      "started_utc": "2026-10-04T01:50:54.157013+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "guided": {
+      "label": "早期明确输入入口",
+      "requests": 3,
+      "core_scores": {
+        "PASS": 2,
+        "PARTIAL": 0,
+        "FAIL": 1
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 2,
+        "refused": 1
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 1
+      },
+      "planner_calls": 3,
+      "decision_calls": 15,
+      "provider_calls": 18,
+      "input_tokens": 94414,
+      "output_tokens": 2122,
+      "tool_calls": 12,
+      "p50_elapsed_seconds": 6.121,
+      "p95_elapsed_seconds": 7.084,
+      "cases": [
+        {
+          "id": "G-C",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "用户给出配置名及两份源码路径，实际读取定义和调用点；主要配置事实完整，内部 retriever 行为明确未核实。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.084,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31637,
+          "output_tokens": 858,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "G-D",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "PASS",
+          "review_reason": "用户指定文档与实现目标，读取两边并正确区分默认值 4/6 冲突、范围和覆盖一致、其余未核实。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.121,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 31804,
+          "output_tokens": 932,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "G-X",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "明确变更路径仍未读取相关测试，耗尽搜索预算后拒答。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 6.002,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 30973,
+          "output_tokens": 332,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+              "prompt_sha256": "1544b0d3486651a72756ebf686e9c58181b91d9cc8265d3a673490f3c4e628ad"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/raw/guided/live_results.jsonl",
+      "raw_sha256": "df8903ed6945c29ff6e66fc9590627ace7f2652cd2844290e9105c67492e2deb",
+      "manifest_sha256": "347dc88ee31d9780e76ab470f02d580377cfd1452c3fbc7082d138117814f4a4",
+      "started_utc": "2026-10-04T01:59:39.222401+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "acquisition/development": {
+      "label": "对象 Reader：原六题",
+      "requests": 6,
+      "core_scores": {
+        "PASS": 3,
+        "PARTIAL": 1,
+        "FAIL": 2
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 4,
+        "refused": 2
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 2
+      },
+      "planner_calls": 6,
+      "decision_calls": 28,
+      "provider_calls": 34,
+      "input_tokens": 189856,
+      "output_tokens": 3796,
+      "tool_calls": 22,
+      "p50_elapsed_seconds": 6.131,
+      "p95_elapsed_seconds": 8.107,
+      "cases": [
+        {
+          "id": "F-C1",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "实际默认6、环境覆盖、范围与service调用点均取得并正确引用。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.171,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 32725,
+          "output_tokens": 704,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-D1",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "FAIL",
+          "review_reason": "已知README仍按正文搜索文件名/中文文本，未读取两边。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.063,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 32549,
+          "output_tokens": 326,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-X1",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "changed_files/diff后两次猜标识符搜索，预算耗尽未读取测试。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.892,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33165,
+          "output_tokens": 196,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-C1",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "同文件实际默认常量、构造方法与init_poolmanager均取得，参数映射正确。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.091,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 20579,
+          "output_tokens": 783,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-D1",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "PASS",
+          "review_reason": "实际读到mount/get_adapter及文档最长前缀段落，正确核对排序与首次匹配。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 8.107,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 36196,
+          "output_tokens": 920,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-X1",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "读取两个真实限定测试名、输入与断言；未取得无匹配分支和默认前缀，却加入回退或异常行为推断。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.737,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 34642,
+          "output_tokens": 867,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/acquisition/raw/development/live_results.jsonl",
+      "raw_sha256": "d9c18639869e728484852ad709c50e199fd5a976f47d869612314f534e300f3b",
+      "manifest_sha256": "b45d1caa45d0d020f9779c591c40fe37e1fb823247988ca61eb9fc28c89e1664",
+      "started_utc": "2026-10-04T02:41:48.862540+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "acquisition/confirmation": {
+      "label": "对象 Reader：新输入检查",
+      "requests": 8,
+      "core_scores": {
+        "PASS": 4,
+        "PARTIAL": 2,
+        "FAIL": 0
+      },
+      "boundary_scores": {
+        "PASS": 2,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 6,
+        "refused": 2
+      },
+      "stop_codes": {
+        "INSUFFICIENT_INFORMATION": 1,
+        "UNSUPPORTED_REQUEST": 1
+      },
+      "planner_calls": 8,
+      "decision_calls": 30,
+      "provider_calls": 38,
+      "input_tokens": 202899,
+      "output_tokens": 4775,
+      "tool_calls": 22,
+      "p50_elapsed_seconds": 6.248,
+      "p95_elapsed_seconds": 8.554,
+      "cases": [
+        {
+          "id": "F-AC",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "取得settings/service，两边支撑未设置、9和越界0的参数或异常传播。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 4.986,
+          "tool_calls": 3,
+          "planner_calls": 1,
+          "decision_calls": 4,
+          "input_tokens": 26115,
+          "output_tokens": 543,
+          "provider_calls": 5,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-AD",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "PASS",
+          "review_reason": "README与settings均实际读取，正确区分默认4/6冲突与覆盖/范围一致。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.594,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33687,
+          "output_tokens": 767,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-AX",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "PASS",
+          "review_reason": "diff及实际三个测试取得，正确指出默认断言4受影响、显式9不受影响，真实建议命令、未执行。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.511,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33663,
+          "output_tokens": 802,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "F-AB",
+          "project": "fixture",
+          "cohort": "missing_source_boundary",
+          "score": "PASS",
+          "review_reason": "请求文件内具名对象未匹配，零源码证据后明确拒答，没有替换成其他对象。",
+          "boundary_control": true,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_INFORMATION",
+          "failure_code": null,
+          "elapsed_seconds": 1.631,
+          "tool_calls": 1,
+          "planner_calls": 1,
+          "decision_calls": 2,
+          "input_tokens": 13116,
+          "output_tokens": 108,
+          "provider_calls": 3,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-AC",
+          "project": "requests",
+          "cohort": "configuration",
+          "score": "PASS",
+          "review_reason": "实际读取构造与init_poolmanager，正确映射显式3/5/True到num_pools/maxsize/block。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 4.487,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 19734,
+          "output_tokens": 584,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-AD",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "PARTIAL",
+          "review_reason": "三个具名方法读取完整且结论正确；文档matching当时不支持rst，改读文件头而非承诺段落，并误建议另找API文档。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 8.554,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 38428,
+          "output_tokens": 1154,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-AX",
+          "project": "requests",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "实际测试类名/输入/断言/命令正确，仍错误断言该混合大小写URL回落默认适配器；本场景应抛InvalidSchema。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 7.831,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33377,
+          "output_tokens": 749,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-AB",
+          "project": "requests",
+          "cohort": "execution_boundary",
+          "score": "PASS",
+          "review_reason": "零工具明确拒绝执行要求，没有伪造实际通过/失败数。",
+          "boundary_control": true,
+          "status": "refused",
+          "reason_code": "UNSUPPORTED_REQUEST",
+          "failure_code": null,
+          "elapsed_seconds": 1.487,
+          "tool_calls": 0,
+          "planner_calls": 1,
+          "decision_calls": 1,
+          "input_tokens": 4779,
+          "output_tokens": 68,
+          "provider_calls": 2,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/acquisition/raw/confirmation/live_results.jsonl",
+      "raw_sha256": "69c5033b03b7474c02eaabdad376ad1b16802cb044a8b839738e5a924bf0f724",
+      "manifest_sha256": "48a3e6d4ca40353f043e6e2f610e530b56ccbe0a30059c8100434cb41b20294c",
+      "started_utc": "2026-10-04T02:46:06.600103+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "acquisition/entry_confirmation": {
+      "label": "文本匹配修订后入口",
+      "requests": 4,
+      "core_scores": {
+        "PASS": 2,
+        "PARTIAL": 1,
+        "FAIL": 1
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 3,
+        "refused": 1
+      },
+      "stop_codes": {
+        "INSUFFICIENT_EVIDENCE_TO_FINALIZE": 1
+      },
+      "planner_calls": 4,
+      "decision_calls": 17,
+      "provider_calls": 21,
+      "input_tokens": 121396,
+      "output_tokens": 2979,
+      "tool_calls": 13,
+      "p50_elapsed_seconds": 6.242,
+      "p95_elapsed_seconds": 6.825,
+      "cases": [
+        {
+          "id": "E-C",
+          "project": "fixture",
+          "cohort": "configuration",
+          "score": "PARTIAL",
+          "review_reason": "默认值、覆盖校验、实际调用点均正确取得；未读取retriever实现却把limit解释为结果条数上限，后文又承认该语义未验证。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.825,
+          "tool_calls": 3,
+          "planner_calls": 1,
+          "decision_calls": 4,
+          "input_tokens": 27293,
+          "output_tokens": 803,
+          "provider_calls": 5,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "E-D",
+          "project": "fixture",
+          "cohort": "docs_code",
+          "score": "PASS",
+          "review_reason": "两边实际取得，准确核对默认值、范围、覆盖；其他文档承诺明确未核实。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 6.766,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 34398,
+          "output_tokens": 928,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "E-X",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "FAIL",
+          "review_reason": "原变更表单仍耗费发现与搜索，缺实际测试证据而拒答。",
+          "boundary_control": false,
+          "status": "refused",
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "failure_code": null,
+          "elapsed_seconds": 4.632,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 33588,
+          "output_tokens": 323,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        },
+        {
+          "id": "R-AD-TEXT",
+          "project": "requests",
+          "cohort": "docs_code",
+          "score": "PASS",
+          "review_reason": "通用文本matching实际取得晚于文件头的承诺段落，加三个真实方法，文档/代码两项核对正确。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 5.718,
+          "tool_calls": 2,
+          "planner_calls": 1,
+          "decision_calls": 3,
+          "input_tokens": 26117,
+          "output_tokens": 925,
+          "provider_calls": 4,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/acquisition/raw/entry_confirmation/live_results.jsonl",
+      "raw_sha256": "23e239f65c0a24991cf006227dd15cfd137bd891c7e12656f86d1ed54cfc3d3a",
+      "manifest_sha256": "a498d2f27c010fab3042e5e749d60a883399fa908ecd95e06da246b32099b56a",
+      "started_utc": "2026-10-04T02:56:34.160985+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    },
+    "acquisition/change_entry_confirmation": {
+      "label": "变更路径入口修订",
+      "requests": 1,
+      "core_scores": {
+        "PASS": 0,
+        "PARTIAL": 1,
+        "FAIL": 0
+      },
+      "boundary_scores": {
+        "PASS": 0,
+        "PARTIAL": 0,
+        "FAIL": 0
+      },
+      "statuses": {
+        "completed": 1
+      },
+      "stop_codes": {},
+      "planner_calls": 1,
+      "decision_calls": 5,
+      "provider_calls": 6,
+      "input_tokens": 34926,
+      "output_tokens": 1008,
+      "tool_calls": 4,
+      "p50_elapsed_seconds": 8.214,
+      "p95_elapsed_seconds": 8.214,
+      "cases": [
+        {
+          "id": "E-X-PATH",
+          "project": "fixture",
+          "cohort": "change_test",
+          "score": "PARTIAL",
+          "review_reason": "明确路径后直接diff/find_tests并取得真实测试/命令，误拒答消除；仍从未读调用方推断检索返回语义，并把单文件未见表述为测试全量缺口。",
+          "boundary_control": false,
+          "status": "completed",
+          "reason_code": null,
+          "failure_code": null,
+          "elapsed_seconds": 8.214,
+          "tool_calls": 4,
+          "planner_calls": 1,
+          "decision_calls": 5,
+          "input_tokens": 34926,
+          "output_tokens": 1008,
+          "provider_calls": 6,
+          "provider_identities": [
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+              "prompt_sha256": "9233a028aa28de8b3937a7dc602efde577452a14788285c30bd12cde544d0af7"
+            },
+            {
+              "provider": "deepseek",
+              "model": "deepseek-chat",
+              "prompt_version": "engineering_planner_contract_prompt_v2",
+              "prompt_sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+            }
+          ]
+        }
+      ],
+      "raw_path": "evaluation/core_workflows_20261004/acquisition/raw/change_entry_confirmation/live_results.jsonl",
+      "raw_sha256": "c7c9e8a8d44a8052714ac10bba96d7014181bafab5755e741cbf7d154e66ffc2",
+      "manifest_sha256": "742b8a20ff0abb4a626ff0ae7a21ff381a8408be59638de71653f45882aa5b4d",
+      "started_utc": "2026-10-04T03:00:05.131335+00:00",
+      "code_head": "d937046d2c0c8d41a74693f879ff41091a861ab9"
+    }
+  },
+  "limitations": [
+    "No merged success rate: candidate arms, changed inputs, revisions and boundary controls differ.",
+    "completed, source fidelity and answer correctness are separate measurements.",
+    "p95 uses nearest rank on small sequential samples; not load testing, an SLA or independent acceptance.",
+    "Token usage includes Planner and Decision repair calls; money/cache discounts are not inferred.",
+    "Later production changes have offline checks only unless new live evidence is explicitly recorded."
+  ]
+}

@@ -32,7 +32,6 @@ from core.query_planning import (
 )
 from core.adaptive_retrieval import ADAPTIVE_RETRIEVAL_POLICY_VERSION
 from core.agent_runtime.evidence import SUBQUERY_RRF_MERGE_V2, DEFAULT_MERGE_RRF_K
-from core.engineering_requirements import ROUTER_VERSION
 from core.engineering_retrieval import MAX_EVIDENCE_ITEMS, MAX_RETRIEVAL_CALLS, RETRIEVAL_TOP_K
 from core.tool_agent.decision_prompt import (
     ACTION_REPAIR_PROMPT_SHA256,
@@ -118,6 +117,9 @@ TOOLSET_NAMES = (
 )
 SYSTEM_A_DYNAMIC_TOOL_NAMES = TOOLSET_NAMES
 SYSTEM_B_DYNAMIC_TOOL_NAMES = tuple(name for name in TOOLSET_NAMES if name != "knowledge_search")
+# Historical System B was frozen with this identity. A live Router revision
+# must neither reject its old manifest nor relabel it as the new product.
+FROZEN_SYSTEM_B_REQUIREMENT_ROUTER_VERSION = "engineering_requirement_router_v1"
 # Historical Integration v7 toolset identities.  These are deliberately not
 # derived from the live ToolSpec registry: additive live evolution must not
 # rewrite the identity of a frozen protocol.
@@ -1408,7 +1410,7 @@ def _validate_current_system_b_identity(system_b: Mapping[str, Any]) -> None:
             "max_output_tokens": RESOLVER_MAX_OUTPUT_TOKENS,
             "network_retry": RESOLVER_MAX_RETRIES,
         },
-        "requirement_router": {"version": ROUTER_VERSION},
+        "requirement_router": {"version": FROZEN_SYSTEM_B_REQUIREMENT_ROUTER_VERSION},
     }
     component_values = {
         "planner": planner,

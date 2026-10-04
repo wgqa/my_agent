@@ -1,0 +1,69 @@
+"""Passive current-app observation, with an explicit development-only arm."""
+
+import os
+
+if os.environ.get("CORE_WORKFLOW_CANDIDATE") == "1":
+    import api.app as application
+    from pathlib import Path
+    import sys
+    import types
+    import core.tool_agent.decision_prompt as prompts
+    snapshot = Path(__file__).with_name("prompt_candidate") / "decision_prompt.snapshot"
+    variant = types.ModuleType("_workflow_prompt_candidate")
+    sys.modules[variant.__name__] = variant
+    exec(compile(snapshot.read_bytes(), str(snapshot), "exec"), variant.__dict__)
+    application.ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE = (
+        variant.ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V3_PROFILE
+    )
+    version = application.ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE.version
+    prompts.ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS |= {version}
+    prompts.ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS |= {version}
+
+if os.environ.get("CORE_WORKFLOW_READER_CANDIDATE") == "1":
+    import api.app as application
+    from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_DIRECT_VERSION
+    original_builder = application.build_tool_agent_runtime
+
+    def build_runtime(**kwargs):
+        if kwargs.get("prompt_profile") is not None:
+            kwargs["read_project_context_version"] = READ_PROJECT_CONTEXT_DIRECT_VERSION
+        return original_builder(**kwargs)
+
+    application.build_tool_agent_runtime = build_runtime
+
+from evaluation.source_search_v6_20261003.harness import passive_observer as observer
+from core.tool_agent.executor import ToolExecutor
+from core.tool_agent.openai_compatible import OpenAICompatibleAgentDecisionProvider
+
+app = observer.app
+original_execute = ToolExecutor.execute
+original_decide = OpenAICompatibleAgentDecisionProvider.decide
+
+
+def execute(self, call, tool_call_allowed=True):
+    result = original_execute(self, call, tool_call_allowed)
+    observer.write("tool_result", {
+        "tool": call.tool_name, "arguments": call.arguments_copy(),
+        "status": result.status, "error_code": result.error_code,
+        "result": result.result,
+    })
+    if call.tool_name in {"code_search", "read_project_context"}:
+        observer.write("source_search" if call.tool_name == "code_search" else "source_read", {
+            "arguments": call.arguments_copy(), "status": result.status,
+            "error_code": result.error_code, "result": result.result,
+        })
+    return result
+
+
+def decide(self, *args, **kwargs):
+    result = original_decide(self, *args, **kwargs)
+    observer.write("decision_metadata", {
+        "metadata": result.call_metadata.to_dict() if result.call_metadata else None,
+        "failure_code": result.failure_code,
+        "selected_action": result.action.action if result.action else None,
+    })
+    return result
+
+
+ToolExecutor.execute = execute
+OpenAICompatibleAgentDecisionProvider.decide = decide

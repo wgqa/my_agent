@@ -1,0 +1,91 @@
+{
+  "artifact_files": [
+    "run_manifest.json",
+    "raw_runs.jsonl",
+    "summary.json"
+  ],
+  "candidate_runtime": {
+    "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+    "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+    "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+    "runtime_variant": "repo_acquisition_diagnostic_12d",
+    "source_commit": "1a26428d64c724cad42b8ed331b9fdef65d1e9d7",
+    "system": "B"
+  },
+  "case_ids": [
+    "v7d003",
+    "v7d012",
+    "v7d014"
+  ],
+  "corpus_identity": {
+    "chunk_count": 215,
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "manifest_experiment_id": "dbc497c796d5",
+    "repository": "wgqa/agent_data",
+    "retrieval_strategy": "bm25",
+    "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "verified": true
+  },
+  "dataset": {
+    "sha256": "fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9",
+    "split": "integration_dev"
+  },
+  "execution_scope": "three frozen Integration Dev cases / diagnostic only",
+  "expected_runs": 3,
+  "holdout": "NOT_RUN / DENY",
+  "invalid_runs": 0,
+  "observed_runs": 3,
+  "protocol": {
+    "sha256": "281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d",
+    "version": "v7_architecture_integration_evaluation_v1"
+  },
+  "provider": {
+    "model": "deepseek-chat",
+    "name": "deepseek"
+  },
+  "retry_policy": "NO_RETRY",
+  "run_id": "arch-integration-12d-repo-acquisition-20260906T083428Z",
+  "run_plan": [
+    {
+      "case_id": "v7d003",
+      "case_order": 3,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 1,
+      "runtime_variant": "repo_acquisition_diagnostic_12d",
+      "system": "B"
+    },
+    {
+      "case_id": "v7d012",
+      "case_order": 12,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 2,
+      "runtime_variant": "repo_acquisition_diagnostic_12d",
+      "system": "B"
+    },
+    {
+      "case_id": "v7d014",
+      "case_order": 14,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 3,
+      "runtime_variant": "repo_acquisition_diagnostic_12d",
+      "system": "B"
+    }
+  ],
+  "schema_version": "integration_v7_repo_acquisition_diagnostic_runner_v1",
+  "split": "integration_dev",
+  "status": "COMPLETE",
+  "system_a": "NOT_RUN",
+  "target_project": {
+    "project_id": "my_agent",
+    "repository": "wgqa/my_agent",
+    "source_sha": "385b7795eafde7c114efc382e95c0d18ec273f54"
+  },
+  "valid_runs": 3
+}

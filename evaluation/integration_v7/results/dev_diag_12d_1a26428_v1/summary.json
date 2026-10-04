@@ -1,0 +1,57 @@
+{
+  "cases": [
+    {
+      "case_id": "v7d003",
+      "final": {
+        "evidence_kinds": [
+          "knowledge",
+          "project_doc"
+        ],
+        "failure_code": null,
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "status": "refused"
+      },
+      "infrastructure_code": null,
+      "run_validity": "VALID"
+    },
+    {
+      "case_id": "v7d012",
+      "final": {
+        "evidence_kinds": [
+          "knowledge",
+          "project_doc"
+        ],
+        "failure_code": null,
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "status": "refused"
+      },
+      "infrastructure_code": null,
+      "run_validity": "VALID"
+    },
+    {
+      "case_id": "v7d014",
+      "final": {
+        "evidence_kinds": [
+          "knowledge",
+          "project_doc"
+        ],
+        "failure_code": null,
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "status": "refused"
+      },
+      "infrastructure_code": null,
+      "run_validity": "VALID"
+    }
+  ],
+  "holdout": "NOT_RUN / DENY",
+  "manual_scoring": "NOT_DONE",
+  "run_counts": {
+    "expected": 3,
+    "invalid": 0,
+    "observed": 3,
+    "valid": 3
+  },
+  "schema_version": "integration_v7_repo_acquisition_diagnostic_runner_v1",
+  "scope": "safe Activity and final state only; no semantic scoring",
+  "system_a": "NOT_RUN"
+}

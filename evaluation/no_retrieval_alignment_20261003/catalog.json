@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "id": "C02",
+      "question": "请用 calculator 计算 37 * 29，只告诉我数值结果。",
+      "cohort": "known_schema_mismatch",
+      "expected": "completed; numeric 1073; actual calculator; no knowledge retrieval",
+      "project": "requests"
+    },
+    {
+      "id": "C03",
+      "question": "Use calculator to evaluate (24 + 18) * 7. Give only the numeric result.",
+      "cohort": "known_schema_mismatch",
+      "expected": "completed; numeric 294; actual calculator; no knowledge retrieval",
+      "project": "requests"
+    },
+    {
+      "id": "K01",
+      "project": "requests",
+      "cohort": "knowledge_only_control",
+      "question": "从通用软件工程的角度，README 与 API 文档的用途有什么区别？无需查看当前项目。",
+      "gold_paths": [],
+      "expected_behavior": "no repository acquisition obligation; do not assert current project facts",
+      "expected": "completed; general README/API purposes; no repository or knowledge retrieval"
+    },
+    {
+      "id": "N01",
+      "question": "请把用户给定的数字 8、2、5、2 按升序排列，只给出排序结果。",
+      "cohort": "new_direct_transform",
+      "expected": "completed; 2,2,5,8; no knowledge retrieval",
+      "project": "requests"
+    },
+    {
+      "id": "D01",
+      "project": "requests",
+      "cohort": "documentation_paraphrase",
+      "question": "根据仓库里的 README.md，说明 Requests 的最低 Python 版本以及 pip 安装命令，并引用原文。",
+      "gold_paths": [
+        "README.md"
+      ],
+      "gold_ranges": [
+        [
+          30,
+          36
+        ]
+      ],
+      "expected": "completed; actual README read and citation; Python 3.9+ and pip install requests"
+    },
+    {
+      "id": "R02",
+      "project": "requests",
+      "cohort": "file_disambiguation",
+      "question": "在 src/requests/sessions.py 中，merge_environment_settings 方法怎样处理环境代理和 CA bundle，最后又如何与 Session 的设置合并？请依据这个方法的实现。",
+      "gold_path": "src/requests/sessions.py",
+      "gold_symbol": "Session.merge_environment_settings",
+      "required_behaviors": [
+        "trust_env 才读取环境代理，通过 setdefault 合并",
+        "verify 为 True 或 None 时尝试 REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE",
+        "proxies、stream、verify、cert 都与 session 设置合并并返回"
+      ],
+      "expected": "completed; actual method read and citation; trust_env, proxy setdefault, CA bundle conditional, final merge"
+    },
+    {
+      "id": "D03",
+      "project": "requests",
+      "cohort": "missing_document_control",
+      "question": "请只依据 docs/does_not_exist_20261003.md，列出该文档记录的三项 HTTP 功能并引用该文件；其他文件不能作为这次回答的依据。",
+      "gold_paths": [],
+      "expected_behavior": "honest bounded refusal; do not substitute another file",
+      "expected": "honest bounded refusal; no substituted document or fabricated claims"
+    },
+    {
+      "id": "C01",
+      "question": "解释 BM25 与稠密检索的主要区别，引用知识库证据。",
+      "cohort": "knowledge_required_control",
+      "expected": "completed with actual knowledge retrieval and valid citations; no repository obligation",
+      "project": "requests"
+    }
+  ],
+  "planned_requests": 16,
+  "max_live_requests": 16,
+  "rounds": 1,
+  "independent_formal_acceptance": false,
+  "selection": "Known development failures plus one new direct-data transform and four grounding controls; not holdout."
+}

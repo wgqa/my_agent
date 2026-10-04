@@ -1,0 +1,121 @@
+{
+  "independent_acceptance": false,
+  "phases": {
+    "development-ready": {
+      "requests": 6,
+      "scores": {
+        "PASS": 1,
+        "FAIL": 3,
+        "PARTIAL": 2
+      },
+      "statuses": {
+        "completed": 4,
+        "refused": 2
+      },
+      "provider_calls": {
+        "planner": 6,
+        "decision": 28
+      },
+      "successful_reads_checked": 7,
+      "median_elapsed_seconds": 4.7355
+    },
+    "development-candidate": {
+      "requests": 6,
+      "scores": {
+        "PASS": 2,
+        "FAIL": 3,
+        "PARTIAL": 1
+      },
+      "statuses": {
+        "completed": 5,
+        "refused": 1
+      },
+      "provider_calls": {
+        "planner": 6,
+        "decision": 28
+      },
+      "successful_reads_checked": 7,
+      "median_elapsed_seconds": 5.5184999999999995
+    },
+    "development-reader": {
+      "requests": 6,
+      "scores": {
+        "FAIL": 3,
+        "PARTIAL": 2,
+        "PASS": 1
+      },
+      "statuses": {
+        "failed": 1,
+        "refused": 2,
+        "completed": 3
+      },
+      "provider_calls": {
+        "planner": 6,
+        "decision": 27
+      },
+      "successful_reads_checked": 4,
+      "median_elapsed_seconds": 4.321
+    },
+    "development-planner": {
+      "requests": 6,
+      "scores": {
+        "PASS": 1,
+        "FAIL": 2,
+        "PARTIAL": 3
+      },
+      "statuses": {
+        "completed": 4,
+        "refused": 2
+      },
+      "provider_calls": {
+        "planner": 6,
+        "decision": 28
+      },
+      "successful_reads_checked": 6,
+      "median_elapsed_seconds": 5.0365
+    },
+    "confirmation": {
+      "requests": 8,
+      "scores": {
+        "PARTIAL": 4,
+        "PASS": 3,
+        "FAIL": 1
+      },
+      "statuses": {
+        "completed": 5,
+        "refused": 3
+      },
+      "provider_calls": {
+        "planner": 8,
+        "decision": 35
+      },
+      "successful_reads_checked": 6,
+      "median_elapsed_seconds": 4.602
+    },
+    "guided": {
+      "requests": 3,
+      "scores": {
+        "PASS": 2,
+        "FAIL": 1
+      },
+      "statuses": {
+        "completed": 2,
+        "refused": 1
+      },
+      "provider_calls": {
+        "planner": 3,
+        "decision": 15
+      },
+      "successful_reads_checked": 4,
+      "median_elapsed_seconds": 6.121
+    }
+  },
+  "requests": 35,
+  "planner_calls": 35,
+  "decision_calls": 161,
+  "input_tokens": 976662,
+  "output_tokens": 18460,
+  "successful_reads_checked": 34,
+  "all_provider_calls": 196,
+  "token_scope": "Provider-reported Planner and Decision usage, including recorded parse repair. No history/Resolver calls in this set. Not money, billing receipt, load testing or an independent evaluation."
+}

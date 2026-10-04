@@ -1,0 +1,25 @@
+{
+  "method": "installed pytest keyword-expression parser + static AST declaration-name inspection only; no repository import, collection, or test execution",
+  "source_sha256": "e58eeef64265e004bfda17c345ce6225b469e1c67653d0681f427b7ae8aebc3c",
+  "diagnostics": [
+    {
+      "expression": "final_answer",
+      "syntactically_valid": true,
+      "matching_test_declaration_names": [
+        "test_code_nontrivial_final_answer_works",
+        "test_custom_final_answer_with_custom_inputs",
+        "test_final_answer_checks",
+        "test_final_answer_checks_with_agent_access",
+        "test_instantiation_with_final_answer_tool",
+        "test_provide_final_answer",
+        "test_toolcalling_agent_final_answer_cannot_be_called_with_parallel_tool_calls"
+      ],
+      "not_pytest_collection": true
+    },
+    {
+      "expression": "do not perform any other tool calls",
+      "syntactically_valid": false,
+      "error_type": "SyntaxError"
+    }
+  ]
+}

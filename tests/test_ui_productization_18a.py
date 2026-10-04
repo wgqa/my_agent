@@ -138,11 +138,12 @@ def test_execution_summary_preserves_safe_public_fields():
     assert mapping["Tool errors"] == 0
 
 
-def test_starter_prompts_are_clickable_text_and_question_pairs():
-    assert len(components.STARTER_PROMPTS) == 4
-    for display, question in components.STARTER_PROMPTS:
-        assert display and question
-        assert display not in question
+def test_starter_prompts_select_three_core_workflows():
+    assert len(components.STARTER_PROMPTS) == 3
+    assert {workflow for _, workflow in components.STARTER_PROMPTS} == {
+        "configuration", "change_test", "docs_code",
+    }
+    assert all(display for display, _ in components.STARTER_PROMPTS)
 
 
 def test_legacy_modes_remain_grouped_in_advanced_selector():

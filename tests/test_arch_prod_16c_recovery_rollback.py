@@ -242,7 +242,9 @@ def test_frozen_budget_is_unchanged():
 
 
 def test_router_verifier_and_guard_seams_are_intact():
-    assert ROUTER_VERSION == "engineering_requirement_router_v1"
+    # Document/test-source v4 extends the active Router; the original rollback
+    # seams and source-code requirement remain intact.
+    assert ROUTER_VERSION == "engineering_requirement_router_v4"
     requirement = route_engineering_evidence_requirement("当前实现如何处理 config?")
     assert requirement.required_evidence_groups == (("project_code",),)
     runtime_module = importlib.import_module("core.tool_agent.runtime")

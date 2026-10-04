@@ -45,6 +45,21 @@ subqueries 规则：
 - 需要核实知识库是否能回答时使用 reason_code=UNANSWERABLE_CHECK
 - 不允许主动声明 fallback：PLANNER_FALLBACK 由系统决定，模型不得输出"""
 
+# Keep the Gate 3 v1 prompt and identity available for frozen evaluations.
+# Engineering adds the existing QueryPlan cross-field rules, without changing
+# the schema, parser, fallback, or evidence policy.
+ENGINEERING_PLANNER_PROMPT_VERSION = "engineering_planner_contract_prompt_v2"
+ENGINEERING_PLANNER_SYSTEM_PROMPT = PLANNER_SYSTEM_PROMPT + """
+
+字段组合约束（优先于上面的单字段类型和分解建议）：
+- 先判断任务是否需要检索材料，再填写整组字段；query_type 不能单独决定 action。
+- action=no_retrieval 时必须同时满足：query_type=unanswerable_or_no_retrieval、retrieval_required=false、reason_code=NO_RETRIEVAL_NEEDED、subqueries=[]。即使表面上是事实或比较问题，也不能保留 fact/comparison 等其他 query_type。
+- 问候、确定性计算、对用户给定数据的排序或字符串处理，以及无需查证特定资料的通用写作/概念建议，可以使用上述完整的 no_retrieval 组合。no_retrieval 只表示无需知识检索，不表示任务无法回答，也不禁止执行器使用其他工具。
+- 用户明确要求依据知识库、特定资料或查证事实时，不能仅因“不查看当前项目”就选择 no_retrieval；需要知识材料时仍选择检索。仓库源码/文档的实际获取由后续独立的项目证据要求负责，本计划不能取消该要求。
+- action=single_retrieval 时 retrieval_required=true，subqueries=[]，reason_code 不能是 NO_RETRIEVAL_NEEDED。
+- action=decomposed_retrieval 时 retrieval_required=true，reason_code 不能是 NO_RETRIEVAL_NEEDED，subqueries 必须为 2～3 条不同问题，id 按 sq1/sq2/sq3 连续，每条 required=true。
+- unknown 与 PLANNER_FALLBACK 都是系统专属状态，任何情况下都不能主动输出。"""
+
 
 # 稳定的内部 user payload 模板身份：original_query 用占位符，运行时值不进哈希。
 # R1 收口：Prompt 身份必须绑定 user payload 的字段结构与 canonicalization，
@@ -56,7 +71,10 @@ _PLANNER_USER_PAYLOAD_TEMPLATE = {
 _PLANNER_USER_PAYLOAD_CANONICALIZATION = "python_json_sort_keys_compact_v1"
 
 
-def _compute_prompt_sha256() -> str:
+def _compute_prompt_sha256(
+    prompt_version: str = PLANNER_PROMPT_VERSION,
+    system_prompt: str = PLANNER_SYSTEM_PROMPT,
+) -> str:
     """Prompt 身份哈希：绑定 prompt version、system prompt 全文、user payload 模板。
 
     user payload 模板绑定其字段结构（original_query + payload_version）与
@@ -65,8 +83,8 @@ def _compute_prompt_sha256() -> str:
     UTF-8）+ SHA-256 完整 64 位小写十六进制。
     """
     payload = {
-        "prompt_version": PLANNER_PROMPT_VERSION,
-        "system_prompt": PLANNER_SYSTEM_PROMPT,
+        "prompt_version": prompt_version,
+        "system_prompt": system_prompt,
         "user_payload_template": _PLANNER_USER_PAYLOAD_TEMPLATE,
         "user_payload_canonicalization": _PLANNER_USER_PAYLOAD_CANONICALIZATION,
     }
@@ -80,15 +98,36 @@ def _compute_prompt_sha256() -> str:
 
 
 PLANNER_PROMPT_SHA256 = _compute_prompt_sha256()
+ENGINEERING_PLANNER_PROMPT_SHA256 = _compute_prompt_sha256(
+    ENGINEERING_PLANNER_PROMPT_VERSION, ENGINEERING_PLANNER_SYSTEM_PROMPT,
+)
+
+_PROMPTS = {
+    PLANNER_PROMPT_VERSION: (PLANNER_SYSTEM_PROMPT, PLANNER_PROMPT_SHA256),
+    ENGINEERING_PLANNER_PROMPT_VERSION: (
+        ENGINEERING_PLANNER_SYSTEM_PROMPT, ENGINEERING_PLANNER_PROMPT_SHA256,
+    ),
+}
 
 
-def build_planner_messages(original_query: str) -> list[dict]:
+def planner_prompt_sha256(prompt_version: str) -> str:
+    """Validate a system-selected prompt version and return its identity."""
+
+    if type(prompt_version) is not str or prompt_version not in _PROMPTS:
+        raise ValueError("Unsupported planner prompt_version")
+    return _PROMPTS[prompt_version][1]
+
+
+def build_planner_messages(
+    original_query: str, *, prompt_version: str = PLANNER_PROMPT_VERSION,
+) -> list[dict]:
     """构造 system + user 两条消息。
 
     user content 是 canonical JSON user payload（含 payload_version 与
     original_query），由 json.dumps 生成，不手工拼 JSON。original_query
     作为数据字段原样保留，转义由 JSON 序列化保证。
     """
+    planner_prompt_sha256(prompt_version)
     user_payload = {
         "original_query": original_query,
         "payload_version": PLANNER_USER_PAYLOAD_VERSION,
@@ -100,6 +139,6 @@ def build_planner_messages(original_query: str) -> list[dict]:
         separators=(",", ":"),
     )
     return [
-        {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
+        {"role": "system", "content": _PROMPTS[prompt_version][0]},
         {"role": "user", "content": user_content},
     ]

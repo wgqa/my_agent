@@ -23,6 +23,8 @@ from core.engineering_requirements import (
     FROZEN_PROFILE_SPECS,
     NO_ADDITIONAL_REQUIREMENT,
     PROJECT_CODE_V1,
+    PROJECT_DOC_V1,
+    PROJECT_TEST_V1,
     THEORY_CODE_V1,
     EngineeringEvidenceRequirement,
 )
@@ -98,7 +100,10 @@ _READ_RESULT = {
     "path": "core/example.py",
     "start_line": 1,
     "end_line": 2,
-    "lines": [{"line": 1, "text": "synthetic implementation"}],
+    "lines": [
+        {"line": 1, "text": "synthetic implementation"},
+        {"line": 2, "text": "# end of synthetic implementation"},
+    ],
 }
 
 
@@ -733,5 +738,7 @@ def test_budget_and_requirement_profiles_stay_frozen():
         DIAGNOSIS_CROSS_FILE_V1,
         DOCS_CODE_V1,
         PROJECT_CODE_V1,
+        PROJECT_DOC_V1,
+        PROJECT_TEST_V1,
         NO_ADDITIONAL_REQUIREMENT,
     }

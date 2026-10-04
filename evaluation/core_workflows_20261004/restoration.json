@@ -1,0 +1,6 @@
+{
+  "api_core_exactly_restored": true,
+  "changed_api_core_files": {},
+  "retained_production_slice": "Only UI task composer, documentation and related regression coverage; no candidate Planner/Reader/decision-policy changes retained.",
+  "scope": "Historical restoration after the first35 requests, before the follow-on object Reader implementation. Not a claim that the final current API/Core is unchanged."
+}

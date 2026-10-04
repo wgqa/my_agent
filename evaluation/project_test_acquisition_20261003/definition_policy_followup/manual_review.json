@@ -1,0 +1,103 @@
+{
+  "reviewer": "same_assistant_development_source_and_citation_review",
+  "independent_formal_acceptance": false,
+  "status_is_not_quality": true,
+  "reviews": [
+    {
+      "id": "R06",
+      "arm": "baseline",
+      "grade": "PARTIAL",
+      "reason": "Read only 1786-1846: actual mock parallel calls and assertions absent; incorrect stream_outputs=True copied from unrelated/stale docstring context. Exact class selector not observed; alternative top-level selector is incorrect."
+    },
+    {
+      "id": "R06",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "Read complete definition 1815-1888; qualified definition name, mock normal + final tool calls, both error assertions and exact pytest node ID are supported. No execution claimed."
+    },
+    {
+      "id": "T02",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "Read complete definition 1815-1888; qualified definition name, mock normal + final tool calls, both error assertions and exact pytest node ID are supported. No execution claimed."
+    },
+    {
+      "id": "T02",
+      "arm": "baseline",
+      "grade": "PASS",
+      "reason": "Read complete definition 1815-1888; qualified definition name, mock normal + final tool calls, both error assertions and exact pytest node ID are supported. No execution claimed."
+    },
+    {
+      "id": "T03",
+      "arm": "baseline",
+      "grade": "PARTIAL",
+      "reason": "Read 1856-1916 supports main input/assertions, but target definition/class omitted. Broad -k final_answer selects multiple declarations; claim of extra call not being executed goes beyond test assertions."
+    },
+    {
+      "id": "T03",
+      "arm": "candidate",
+      "grade": "PARTIAL",
+      "reason": "Read 1856-1916 supports main input/assertions but omits definition; claims function lies in 1856-1888 though it starts at 1815. Suggested -k expression is syntactically invalid and placeholder node ID is unusable. completed is not whole-answer success."
+    },
+    {
+      "id": "T04",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "Exact marker searches return no matches; no test substituted, bounded refusal without fabricated execution. This is not proof of nonexistence."
+    },
+    {
+      "id": "T04",
+      "arm": "baseline",
+      "grade": "PASS",
+      "reason": "Exact marker searches return no matches; no test substituted, bounded refusal without fabricated execution. This is not proof of nonexistence."
+    },
+    {
+      "id": "S01",
+      "arm": "baseline",
+      "grade": "PASS",
+      "reason": "Read 1453-1502 supports actual AgentToolExecutionError and unknown-tool branch, cited as project_code."
+    },
+    {
+      "id": "S01",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "Read 1453-1502 supports actual AgentToolExecutionError and unknown-tool branch, cited as project_code."
+    },
+    {
+      "id": "D01",
+      "arm": "baseline",
+      "grade": "PASS",
+      "reason": "Read README 3-63 supports Python 3.9+ and python -m pip install requests, cited as project_doc."
+    },
+    {
+      "id": "D01",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "Read README 3-63 supports Python 3.9+ and python -m pip install requests, cited as project_doc."
+    },
+    {
+      "id": "K01",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "No retrieval/tools/evidence; general README/API comparison without project fact claims."
+    },
+    {
+      "id": "K01",
+      "arm": "baseline",
+      "grade": "PASS",
+      "reason": "No retrieval/tools/evidence; general README/API comparison without project fact claims."
+    },
+    {
+      "id": "C02",
+      "arm": "baseline",
+      "grade": "PASS",
+      "reason": "Actual calculator gives 1073, no retrieval/project evidence."
+    },
+    {
+      "id": "C02",
+      "arm": "candidate",
+      "grade": "PASS",
+      "reason": "Actual calculator gives 1073, no retrieval/project evidence."
+    }
+  ]
+}

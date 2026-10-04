@@ -88,6 +88,9 @@ class ApiClient:
         return data
 
     # ── 端点 ──────────────────────────────────────────────
+    def version(self) -> dict:
+        return self._request("GET", "/version")
+
     def health(self) -> dict:
         return self._request("GET", "/health")
 

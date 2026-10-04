@@ -1,0 +1,71 @@
+{
+  "created_before_live": true,
+  "planned_requests": 24,
+  "max_live_requests": 24,
+  "rounds": 1,
+  "independent_formal_acceptance": false,
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "source_pins": {
+    "smolagents": "c30b115286e000e98711fae5e85993547b73d826",
+    "requests": "b25c87d7cb8d6a18a37fa12442b5f883f9e41741"
+  },
+  "source_file_sha256": {
+    "smolagents/src/smolagents/agents.py": "d4f40408e0e55dc4ad20b6a92bb166285b6624dfbdce6ef55b511b7bd1e94c33",
+    "requests/src/requests/sessions.py": "42f72303ecde0cca0e8479b2f95845d2f7280d99ca0cf865b1dda8d0433cf662",
+    "requests/src/requests/models.py": "df0f615771b4d6bc1eaccabe30639643f8e32dd5a447f7cdaae8354b539b324c",
+    "requests/src/requests/utils.py": "cc378c150377aea0b406b73a4c904c2f17e8cb202821f278ee833735a4128025",
+    "smolagents/src/smolagents/default_tools.py": "82de8b3999e6d18e6b864109e64c9bf67fb6fe07b45e39f6d0690f9870b3bb54",
+    "smolagents/examples/text_to_sql.py": "5399008a07baee57003cedc4991bcce93ef2bc0306cafdd02db055b6204718cb",
+    "requests/README.md": "0f245a57cbb58dbd024aefafbef5843b577ae3f62ca674512358fd3b1c7c8f33",
+    "smolagents/README.md": "6870e1a62fda6f828ebe3c61bea1c1b5670ba7bee2e43fcb74b4260e7e709e4b"
+  },
+  "runtime_file_sha256": {
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "core/tool_agent/decision_prompt.py": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "core/tool_agent/runtime.py": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+    "core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/tool_agent/integration.py": "39963b96bfad7ad6749a39b02d135d589a0e5ac90ba53c75d1801b83d7acf717",
+    "core/tool_agent/openai_compatible.py": "9275773f891e28b9eaeeae469459c039db7d2d21fa1677de3ae014f2fd29b8d9",
+    "core/tool_agent/tools/code_search.py": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "core/tool_agent/tools/read_project_context.py": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+    "core/engineering_requirements.py": "04ed5bfbd89cedcc2fd897fdf63745effa7261e2dc568adcffcada4ce576ea1c"
+  },
+  "artifacts_sha256": {
+    "catalog.json": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+    "initial_manifest.json": "c4dcd3fd2679b8c1f5bb242f1b159e5214e8abc625fddf874ead1a542fca3010",
+    "snapshots/requirements_baseline.snapshot": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "snapshots/requirements_candidate.snapshot": "04ed5bfbd89cedcc2fd897fdf63745effa7261e2dc568adcffcada4ce576ea1c",
+    "harness/comparison_server.py": "c96c9902d4711e3b0a4986f236ae49bb17d1075981fabf912d658d125b937036",
+    "harness/run_comparison.py": "3466a434808c8570e5e0affcc1f6424a006ec7dd02942438f33b5f879e4e3b58"
+  },
+  "reused_harness_files_sha256": {
+    "evaluation/source_search_v6_20261003/harness/passive_observer.py": "9d4a05d333c6b4ef1f4578dbb7ef16aa7c5206762c1fa1dc215487cbfb908d76",
+    "evaluation/source_search_v6_20261003/harness/run_comparison.py": "320b051f63c1332a17ec9c0ab73fbbb7c1c7a394040af505e8de65554d3be7ed"
+  },
+  "profiles": {
+    "both": {
+      "version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+      "sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf",
+      "output_cap": 1200,
+      "max_parse_repairs": 1
+    }
+  },
+  "requirement_router": {
+    "baseline": "engineering_requirement_router_v1",
+    "candidate": "engineering_requirement_router_v3"
+  },
+  "allowed_historical_harness_change": {
+    "path": "evaluation/integration_v7/case_contract.py",
+    "reason": "Pin historical System B Router-v1 independently from the live Router identity"
+  },
+  "promotion_gate": "R04 and D02 acquire and cite actual requested document; D03 does not substitute another file; K01 does not gain repo obligation; original seven source cases do not gain constraints; review every answer and public citation"
+}

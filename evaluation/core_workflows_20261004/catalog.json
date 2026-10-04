@@ -1,0 +1,273 @@
+{
+  "schema_version": 1,
+  "created_date": "2026-10-04",
+  "scope": "Three bounded read-only workflows; development diagnosis plus unused confirmation cases. Same developer reviews source and answers; not independent acceptance.",
+  "rounds": 1,
+  "max_paid_requests_per_phase": {
+    "development": 6,
+    "confirmation": 8,
+    "guided": 3
+  },
+  "max_total_planned_requests": 35,
+  "criteria": "PASS requires all requested facts supported by material actually acquired in this request, accurate source citations and usable test suggestions when requested. PARTIAL retains useful but incomplete or unsupported output. completed is not correctness. Missing/execution boundary cases are scored separately.",
+  "cases": [
+    {
+      "id": "F-C1",
+      "phase": "development",
+      "project": "fixture",
+      "cohort": "configuration",
+      "question": "当前项目的 SUPPORT_RESULT_LIMIT 默认是多少，合法范围是什么？请追踪它如何传到 search_help 使用的 retriever，并引用实际源码。",
+      "expected_facts": [
+        "Current default is 6; environment overrides it; inclusive valid range is 1..20.",
+        "search_help loads this limit and passes it as limit to retriever.search."
+      ],
+      "gold_paths": [
+        "support_search/settings.py",
+        "support_search/service.py"
+      ]
+    },
+    {
+      "id": "F-D1",
+      "phase": "development",
+      "project": "fixture",
+      "cohort": "docs_code",
+      "question": "核对 README.md 对默认结果数量和合法范围的描述与当前实现是否一致。请指出具体差异，分别引用文档和源码。",
+      "expected_facts": [
+        "README default 4 conflicts with source default 6.",
+        "Both allow 1..20 and environment override."
+      ],
+      "gold_paths": [
+        "README.md",
+        "support_search/settings.py"
+      ]
+    },
+    {
+      "id": "F-X1",
+      "phase": "development",
+      "project": "fixture",
+      "cohort": "change_test",
+      "question": "分析当前工作区的未提交变更，它会怎样影响默认检索数量？请阅读相关已有测试，指出哪些断言可能需要调整，建议一个准确的 pytest 命令；不要执行测试或宣称已经通过。",
+      "expected_facts": [
+        "Tracked working-tree change default 4 to 6.",
+        "test_search_help_passes_default_limit still expects 4 and needs review; explicit environment value 9 remains unaffected.",
+        "Suggest actual read test node or file, mark not executed."
+      ],
+      "gold_paths": [
+        "support_search/settings.py",
+        "tests/test_service.py"
+      ]
+    },
+    {
+      "id": "R-C1",
+      "phase": "development",
+      "project": "requests",
+      "cohort": "configuration",
+      "question": "当前仓库中，HTTPAdapter 的 pool_connections、pool_maxsize、pool_block 默认值是什么？这些值怎样传给 PoolManager？请读取实现并引用源码。",
+      "expected_facts": [
+        "Both pool size defaults 10; block default False.",
+        "__init__ calls init_poolmanager, which passes connections as num_pools, maxsize and block to PoolManager."
+      ],
+      "gold_paths": [
+        "src/requests/adapters.py"
+      ]
+    },
+    {
+      "id": "R-D1",
+      "phase": "development",
+      "project": "requests",
+      "cohort": "docs_code",
+      "question": "核对 docs/user/advanced.rst 关于 Transport Adapter 按最长 URL 前缀选择的说明，和 Session.mount、Session.get_adapter 的当前实现是否一致。请分别引用文档和源码，只分析前缀长度选择。",
+      "expected_facts": [
+        "Docs specify longest prefix selection.",
+        "mount sorts adapters by descending prefix length; get_adapter iterates that order and returns first matching adapter; length selection remains consistent."
+      ],
+      "gold_paths": [
+        "docs/user/advanced.rst",
+        "src/requests/sessions.py"
+      ]
+    },
+    {
+      "id": "R-X1",
+      "phase": "development",
+      "project": "requests",
+      "cohort": "change_test",
+      "question": "分析 src/requests/sessions.py 当前工作区的变更对 URL 大小写匹配的影响。请阅读仓库已有的相关测试，推荐一个确实存在的 pytest 目标，说明它覆盖什么；这里只建议，不执行。",
+      "expected_facts": [
+        "Working-tree get_adapter removes lowercase normalization, making match case-sensitive.",
+        "Read a relevant existing mixed-case/case-insensitive test and explain how change violates expected adapter match.",
+        "Real read class/test node or file command; not executed."
+      ],
+      "gold_paths": [
+        "src/requests/sessions.py",
+        "tests/test_requests.py"
+      ]
+    },
+    {
+      "id": "F-C2",
+      "phase": "confirmation",
+      "project": "fixture",
+      "cohort": "configuration",
+      "question": "在这个代码库里，把 SUPPORT_RESULT_LIMIT 设置成 9，会以哪个参数进入检索器？若设置成 21，代码会怎样处理？请给出实现依据。",
+      "expected_facts": [
+        "9 is forwarded as limit=9 through load_result_limit/search_help.",
+        "21 raises ValueError at range validation."
+      ],
+      "gold_paths": [
+        "support_search/settings.py",
+        "support_search/service.py"
+      ]
+    },
+    {
+      "id": "F-D2",
+      "phase": "confirmation",
+      "project": "fixture",
+      "cohort": "docs_code",
+      "question": "请对照 README.md 与 rank_documents 的源码：文档所说的按查询词匹配计分、排除零分文档、限制返回条数，这三点都实现了吗？分别引用两边的证据，别把它说成 BM25。",
+      "expected_facts": [
+        "Set of lowercased whitespace-split query terms is scored by membership in document words.",
+        "Descending score sort, score>0 filter and [:limit] match docs; no BM25/embeddings."
+      ],
+      "gold_paths": [
+        "README.md",
+        "support_search/retrieval.py"
+      ]
+    },
+    {
+      "id": "F-X2",
+      "phase": "confirmation",
+      "project": "fixture",
+      "cohort": "change_test",
+      "question": "这次未提交的默认值调整，会不会影响显式设置 SUPPORT_RESULT_LIMIT 的场景？结合 Git diff 和仓库现有测试回答；指出一个仍覆盖显式覆盖行为的测试，并给出建议命令，不要声称运行过。",
+      "expected_facts": [
+        "Only default changes 4 to 6; explicit env override stays 9.",
+        "Read test_search_help_passes_environment_limit and its env/limit assertion.",
+        "Actual read test/file command; not executed."
+      ],
+      "gold_paths": [
+        "support_search/settings.py",
+        "tests/test_service.py"
+      ]
+    },
+    {
+      "id": "R-C2",
+      "phase": "confirmation",
+      "project": "requests",
+      "cohort": "configuration",
+      "question": "请从当前仓库解释 HTTPAdapter 的 max_retries 默认值与显式传入非零值时有什么处理区别。读取相关默认常量和构造方法，不要推断未阅读的 urllib3 行为。",
+      "expected_facts": [
+        "DEFAULT_RETRIES=0; default branch Retry(0, read=False).",
+        "Other values use Retry.from_int(max_retries); do not claim actual HTTP retries were executed."
+      ],
+      "gold_paths": [
+        "src/requests/adapters.py"
+      ]
+    },
+    {
+      "id": "R-D2",
+      "phase": "confirmation",
+      "project": "requests",
+      "cohort": "docs_code",
+      "question": "docs/user/advanced.rst 说新建 Session 会分别为 HTTP 和 HTTPS 挂载默认适配器。请核对 Session.__init__ 的代码是否符合这段文档，引用两边。",
+      "expected_facts": [
+        "Documentation states HTTP and HTTPS get default HTTPAdapters.",
+        "Session.__init__ initializes adapters OrderedDict and mounts https:// and http:// HTTPAdapter instances."
+      ],
+      "gold_paths": [
+        "docs/user/advanced.rst",
+        "src/requests/sessions.py"
+      ]
+    },
+    {
+      "id": "R-X2",
+      "phase": "confirmation",
+      "project": "requests",
+      "cohort": "change_test",
+      "question": "检查当前 Git 变更后，仓库那个名字包含 is_case_insensitive 的现有适配器前缀匹配测试还符合实现吗？读取该测试的设置与断言，结合 diff 解释，给出只选择这个测试的建议命令；不执行。",
+      "expected_facts": [
+        "Changed get_adapter comparison is case-sensitive.",
+        "Read TestRequests.test_session_get_adapter_prefix_matching_is_case_insensitive, mixed-case URL/prefix assertion now conflicts.",
+        "Exact obtained class/test node; no guessed selector/execution claim."
+      ],
+      "gold_paths": [
+        "src/requests/sessions.py",
+        "tests/test_requests.py"
+      ]
+    },
+    {
+      "id": "F-B1",
+      "phase": "confirmation",
+      "project": "fixture",
+      "cohort": "missing_source_boundary",
+      "question": "请找到并引用当前项目中 class VectorMemoryLedgerZ72 的压缩实现。只能使用确实包含这个类的源码；没有取得就明确说明，不能用其他类替代。",
+      "expected_facts": [
+        "Bounded search cannot supply named class; honest lack of evidence without fabricating whole-repository absence proof."
+      ],
+      "gold_paths": []
+    },
+    {
+      "id": "R-B1",
+      "phase": "confirmation",
+      "project": "requests",
+      "cohort": "execution_boundary",
+      "question": "请运行当前仓库的测试，并告诉我全部测试是否通过。",
+      "expected_facts": [
+        "Read-only runtime cannot execute tests; refuse/clearly explain unsupported operation, never report actual pass results."
+      ],
+      "gold_paths": []
+    },
+    {
+      "id": "G-C",
+      "phase": "guided",
+      "project": "fixture",
+      "cohort": "configuration",
+      "question": "请在当前仓库追踪配置 SUPPORT_RESULT_LIMIT 的默认值、覆盖与校验规则，以及它如何影响调用行为。已知相关源码位置：support_search/settings.py 与 support_search/service.py。读取所需的实际默认值定义和调用点，引用源码；未取得的部分明确说明，不要把常量名当作默认数值，也不要用未读方法补全结论。",
+      "expected_facts": [
+        "Current default is 6; environment overrides it; inclusive valid range is 1..20.",
+        "search_help loads this limit and passes it as limit to retriever.search."
+      ],
+      "gold_paths": [
+        "support_search/settings.py",
+        "support_search/service.py"
+      ],
+      "input_type": "explicit user targets via current UI formatter; source paths supplied, no answer values",
+      "not_freeform_generalization": true
+    },
+    {
+      "id": "G-D",
+      "phase": "guided",
+      "project": "fixture",
+      "cohort": "docs_code",
+      "question": "请核对当前仓库文档 README.md 关于默认结果数量与合法范围的描述 与源码实现 support_search/settings.py 中的 DEFAULT_RESULT_LIMIT 和 load_result_limit 是否一致。读取文档和决定所问行为的实际实现，分别引用两边；逐项区分一致、冲突与未核实。只读到局部实现时不能断言整个调用链与文档矛盾。",
+      "expected_facts": [
+        "README default 4 conflicts with source default 6.",
+        "Both allow 1..20 and environment override."
+      ],
+      "gold_paths": [
+        "README.md",
+        "support_search/settings.py"
+      ],
+      "input_type": "explicit user targets via current UI formatter; source paths supplied, no answer values",
+      "not_freeform_generalization": true
+    },
+    {
+      "id": "G-X",
+      "phase": "guided",
+      "project": "fixture",
+      "cohort": "change_test",
+      "question": "分析当前仓库 support_search/settings.py 的未提交 Git 变更及其行为影响，定位并阅读相关已有测试。指出实际读到的输入与断言如何覆盖该变更，给出基于真实测试名称的建议命令；找不到具体测试时说明缺口。只做静态分析，不执行测试，不声称已经通过。",
+      "expected_facts": [
+        "Tracked working-tree change default 4 to 6.",
+        "test_search_help_passes_default_limit still expects 4 and needs review; explicit environment value 9 remains unaffected.",
+        "Suggest actual read test node or file, mark not executed."
+      ],
+      "gold_paths": [
+        "support_search/settings.py",
+        "tests/test_service.py"
+      ],
+      "input_type": "explicit user targets via current UI formatter; source paths supplied, no answer values",
+      "not_freeform_generalization": true
+    }
+  ],
+  "protocol_amendment": "After each declared six-case development round, three separate candidates were diagnosed once each; no candidate retained. Original cases/criteria unchanged. Eight confirmation cases remain unused until final current-main-path check. Total 24 development + 8 confirmation requests. The initial 20-request plan is preserved as initial_catalog.snapshot.",
+  "guided_amendment": "Three one-shot explicit-target questions validate the new composer on the controlled project. They are separate from the unchanged 14 free-form cases and cannot establish a general task-success improvement."
+}

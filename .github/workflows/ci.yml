@@ -24,15 +24,23 @@ jobs:
       - name: Run offline core + Release 2.0 product regression
         # Provider-free by construction: no API key is configured, every
         # selected module uses scripted providers or monkeypatched facades.
-        # No corpus download, no fresh validation repos, no Holdout run.
+        # Temporary local fixtures only; no external corpus/model downloads,
+        # repository clones, real provider calls or Holdout run.
         run: >-
           python -m pytest -q
           --basetemp="$RUNNER_TEMP/my_agent_pytest"
           tests/test_api.py
+          tests/test_engineering_startup_isolation.py
+          tests/test_current_quality_report.py
+          tests/test_product_delivery.py
+          tests/test_release_startup.py
+          tests/test_release_app_startup.py
+          tests/test_release_demo.py
           tests/test_tool_agent_core.py
           tests/test_tool_agent_decision.py
           tests/test_tool_agent_runtime.py
           tests/test_tool_agent_evidence.py
+          tests/test_project_evidence_excerpt.py
           tests/test_tool_agent_real_tools.py
           tests/test_engineering_agent_api.py
           tests/test_test_discovery_tools.py
@@ -52,6 +60,13 @@ jobs:
           tests/test_chunk_budget_infrastructure.py
           tests/test_engineering_verification.py
           tests/test_engineering_requirements.py
+          tests/test_project_document_requirements.py
+          tests/test_project_test_acquisition.py
+          tests/test_project_target_reader.py
+          tests/test_core_workflow_entry.py
+          tests/test_core_workflow_streamlit.py
+          tests/test_core_workflow_reference_paths.py
+          tests/test_engineering_planner_alignment.py
           tests/test_engineering_context.py
           tests/test_engineering_retrieval.py
           tests/test_unified_engineering_runtime.py

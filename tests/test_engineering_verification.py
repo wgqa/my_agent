@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from types import SimpleNamespace
+
 from core.agent_runtime import Document
 from core.engineering_requirements import (
     DIAGNOSIS_CROSS_FILE_V1,
@@ -487,7 +490,15 @@ def test_verification_does_not_change_tool_counters():
     assert result.tool_errors_used == 0
 
 
-def test_observer_failure_does_not_change_unified_verification_outcome():
+def test_observer_failure_does_not_change_unified_verification_outcome(monkeypatch):
+    # Only the product clock is controlled: observer isolation must hold even
+    # when the two runs have different durations. Do not patch the shared
+    # time module used by the executor's deadline checks.
+    ticks = iter((1.0, 1.125, 2.0, 2.250))
+    monkeypatch.setattr(
+        "core.unified_engineering_runtime.time",
+        SimpleNamespace(monotonic=lambda: next(ticks)),
+    )
     query = "observer answer"
     def run(sink):
         port = RecordingRetrievalPort(
@@ -498,7 +509,16 @@ def test_observer_failure_does_not_change_unified_verification_outcome():
         return _build_unified_runtime(query, port, provider).run(query, activity_sink=sink)
 
     normal = run(None)
+    observed = []
     def throwing(_event):
+        observed.append(_event)
         raise RuntimeError("observer")
     isolated = run(throwing)
-    assert isolated == normal
+    assert observed
+    assert normal.execution is not None
+    assert isolated.execution is not None
+    assert isolated.execution.elapsed_ms != normal.execution.elapsed_ms
+    # Compare every outcome and execution field except the wall-clock time.
+    assert replace(
+        isolated, execution=replace(isolated.execution, elapsed_ms=0)
+    ) == replace(normal, execution=replace(normal.execution, elapsed_ms=0))

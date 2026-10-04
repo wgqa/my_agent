@@ -4,7 +4,61 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-10-03
+**更新日期：** 2026-10-04
+
+## 当前演示与交付一致性（2026-10-04）
+
+- 第四项开发版展示/交付切片完成。当前标识 **2.0.0-dev / development**，共用版本源驱动OpenAPI、`/version`、UI Settings与新Engineering Demo；不同版本标签会提示。历史Release 1.0冻结记录不变，Release 2.0仍IN PROGRESS，第一项可靠性仍部分完成。
+- 新增独立Git样例及三个当前场景，`prepare/check`零模型，`run --live`复用主页题目生成与会话/SSE链，每场景一条消息、无任务级重试；原Planner/Decision及有界解析修复保留，不能把三条消息当三次provider调用。拒答/失败原样记录，保存结果与final核对，结果文件不覆盖。见 [演示手册](demo_engineering_runbook.md)。
+- 局部12模块 **100 passed / 3 warnings**；真实工具+脚本化决策贯通三个实际会话，不能当模型正确率。真实uvicorn+Streamlit+实际页面AppTest在指定verified corpus下通过`FULL_APP_SMOKE_OK`（Engineering ready、三入口、聊天、版本及Demo预检查）；故障隔离smoke复验通过，零新增付费调用。CI/手册现 **48模块**，未全量/完整CI/GitHub Actions/付费Demo。见 [交付检查](validation/2026-10-04-product-delivery.md)。
+
+## 校招补齐项：质量索引与启动隔离（2026-10-04）
+
+| 项目 | 当前状态 |
+|---|---|
+| 第一项：核心任务可靠性 | 部分完成 / OPEN；入口与对象取证已有改善，继续暂停局部规则扩张 |
+| 第二项：当前质量、调用成本与基线证据 | 汇总与离线复核机制已交付；不代表新独立 benchmark 或正确率达标 |
+| 第三项：旧 Demo 启动失败牵连主产品 | 启动与 UI 可用性隔离切片完成，故障注入和真实进程检查通过 |
+| 第四项：演示、交付和版本一致性 | 后续开发版切片已完成，见上方记录；不等同于Release 2.0正式发布 |
+
+- 新增 `scripts/report_current_quality.py`：读取既有54请求、原完整答案审查和封档材料，校验81份历史文件，按阶段区分核心/边界、内容评分/运行状态；汇总295 provider调用、完整Planner/Decision usage和p50/p95，不重判答案、不将候选与修订输入合成成功率。当前工作区和最近真实检查的逐文件身份同时展示。见 [质量与成本索引](validation/2026-10-04-quality-baseline.md)。
+- `api/app.py` 的 Engineering 初始化不再依赖旧 Pipeline / Tool Agent 成功；旧端点继续按自身可用性返回503。UI用可达的 `/capabilities` 判断API连接，各模式仍按对应feature控制。知识验证失败、显式非法项目路径仍保留原边界；单一Runtime与5/4/2不变。
+- 两项局部回归 **122 passed**（API/UI/启动与报告共六模块，无重叠累加）；真实uvicorn故意破坏旧配置、使用既有verified corpus与dummy key，再由实际页面AppTest连接，`ENGINEERING_ISOLATION_SMOKE_OK`。无新增付费模型调用、无全量/GitHub CI/并发压测；CI与手册现 **44模块**。见 [实现与验证](validation/2026-10-04-quality-and-startup.md)。下方保留各切片当时的状态。
+
+## 核心任务入口与对象取证（2026-10-04）
+
+- 三张任务卡片先填写配置名、明确变更文件或文档/实现目标，再经原会话链提交；变更路径已知时直接围绕该文件取diff/找测试。Engineering启用对象Reader v4与对应decision v4，legacy默认v2保留。Python具名定义/文件内匹配、一般文本匹配窗口共享120行/8000正文字符，每段独立真实引用；不执行代码，不加工具或Runtime循环，5/4/2保持。
+- 入口与对象取证切片已交付，第一项整体可靠性仍 **OPEN**。前三项轻量候选未晋升；后续同组六道开发题由1 PASS/2 PARTIAL/3 FAIL到3/1/2，仅各一次。新核心六题4 PASS/2 PARTIAL，两个边界PASS。最后配置/文档/变更三个入口所需主材料都取得，但完整答案1 PASS/2 PARTIAL；旧变更入口的拒答及所有负结果保留，不能当稳定成功率。
+- 本轮54真实请求/295 provider调用，含五个实际新会话消息/SSE与持久化检查；68来源片段与固定源码一致，22限定定义与AST一致。按42模块CI清单加四架构模块本地跑959 passed/9 skips；随后改动的Reader及UI局部回归通过，集合重叠不累加。未运行全量pytest、GitHub CI、Full App smoke或浏览器到模型全链。
+- 文件名当正文搜索、一般任务规划及未读分支的语义推断仍开放。当前可展示能力及边界见 [任务范围](core_workflows.md)、[完整检查](validation/2026-10-04-core-workflows.md)、[取证切片落地](design/core_workflow_acquisition_slice.md)。长期v2/目录大重构与其余三项未推进；下方保留历史记录。
+
+## 仓库测试取证切片（2026-10-03）
+
+- 保留 Router v4 的独立 `PROJECT_TEST_V1`、Engineering 专用搜索 v7 与匹配的 grounded v2 规则。复用原分类器、搜索器、Reader、Guard；旧 v5/grounded v1 身份和 legacy 默认不变。生产改动限六文件，17 个保护文件及此前归档 83 文件 SHA 不变；5/4/2、知识/Planner、API/SSE 与目录结构不变。
+- 两阶段各 16 次真实请求，共 **32 请求 / 130 provider 调用**，保留首轮失败和部分正确结果。首轮内容审查旧 5 PASS/3 FAIL → 新 6 PASS/1 PARTIAL/1 FAIL；随后仅补测试函数范围/准确选择器规则，旧 6 PASS/2 PARTIAL → 最终 7 PASS/1 PARTIAL。原 R06 与中文改写正确完成，缺失测试继续拒答，源码/文档/通用建议/计算控制题均通过。
+- T03 仍生成错误 pytest 命令、范围表述不准确；不能将 completed 当正确率。首轮 T02 一次参数解析/修复失败，第二轮旧侧也通过，未根治解析问题。TD-VERIFY-01、R02/C01 语义问题和全系统任务完成仍开放；长期契约与目录重构暂缓。
+- 阶段一 23 模块 **371 passed / 7 Windows symlink skips / 3 warnings**；最终六模块 **184 passed / 2 warnings**，集合重叠不累加，新模块 37 项通过。CI/手册当前 **38 模块**；未运行完整 CI/全量/Holdout，未执行挂载仓库测试。见 [范围与两阶段对照](validation/2026-10-03-project-test-acquisition.md)。下方保留各切片当时状态。
+
+## 不检索任务误拒答切片（2026-10-03）
+
+- 保留 Engineering Planner 的完整字段组合提示词 v2，旧 Gate 3 v1 默认及 SHA 保持可用。QueryPlan/schema、parser、fallback、Router、Verifier、Runtime 循环与主 Decision Prompt 不变，仍为 5/4/2；代码结构重构和长期契约继续暂缓。
+- 8 题旧/新各一次，**16 个真实请求 / 53 次实际 provider 调用**，两道计算、通用文档用途对比、新增排序题 **0/4 → 4/4 正确完成**；旧四题均非法组合回退后因缺引用拒答，新四题合法 no_retrieval、零知识检索。文档/源码仍实际读取与引用，限定缺失文档仍拒答。
+- completed/refused/failed 从 2/5/1 到 7/1/0；内容审查从 3 PASS/5 FAIL 到 6 PASS/2 PARTIAL。R02 新答案仍有错误优先级概括和窗口外引用；C01 新答案引用结构有效却缺核心机制支持，baseline 另有一次 schema/repair 失败。不能宣称零质量回归或全系统拒答已解决。
+- 相关 15 模块 **377 passed / 3 warnings**，新增 22 项已加入 CI；CI/手册为 37 模块，未运行完整 CI / 全量 / Holdout。18 个保护文件与上两次归档 56 个文件 SHA 不变。见 [修复与配对验证](validation/2026-10-03-planner-no-retrieval-alignment.md)。下方记录保留各切片当时状态。
+
+## 公共读取正文一致性切片（2026-10-03）
+
+- 保留 Reader → 公共 Evidence 的共用修复：源码、文档、测试文件保留每次 Reader 返回的全部有界正文，去掉公共转换层的 2000 字符二次截断，并校验连续行号与实际范围一致。既有窗口/函数限制集中到共享叶模块；项目读取公共上限改为现有最大窗口 18360 字符，Git diff 2000 / 知识 500 保持原样。
+- 回放上轮 48 个请求中的 **41 次成功读取**：旧正文 **23 次截断 → 0 次截断**，41/41 新正文逐字符匹配实际返回，原 E-ID / kind / path / 行号不变。**新增 provider 调用 0**，未重生成或重评旧答案，不计作模型正确率提升；上轮归档与本轮 13 个保护文件保持 SHA。
+- 相关 15 模块局部 **303 passed / 6 skipped / 3 warnings**，跳过为 Windows symlink 权限；最大窗口改用真实 Reader 后三项 Unicode 复验 **3 passed**，不累加。CI / 运行手册清单共 36 模块且逐项一致；未运行完整 CI 或全量。完整 Runtime、非流式 API 与 SSE v1/v2 均覆盖，5/4/2、模型 Observation、控制循环、Router / Planner / Verifier / Prompt 与工具身份不变。
+- D02 Quick demo 公开片段丢失已修复；helper/函数末尾未读、越界引用、错误条件描述与通用任务误拒答仍开放。响应正文/存储会增大，严格使用旧 2000 上限的外部客户端需更新 schema。详见 [片段一致性验证](validation/2026-10-03-evidence-excerpt-fidelity.md)。
+
+## 文档取证切片（2026-10-03）
+
+- 先试通用任务完成提示词：12 题配对、24 用户请求 / 92 实际 provider 调用，README 拒答未改善且出现一次 action schema / repair 失败，**未晋升，提示词按字节恢复**；负结果已归档。
+- 保留独立 `PROJECT_DOC_V1`，明确依据仓库文档回答时复用既有缺证据取证、finalization 与引用绑定。原有 7 个 requirement shape、Runtime / Planner / Verifier / Reader / 默认搜索 v5 与 **5/4/2** 不变；历史评测仍冻结 Router v1，当前文档 Router 为 v3，未借用未晋升的宽路由 v2。
+- 文档切片同一 12 题旧/新各一次、24 用户请求 / 95 provider 调用；三道可答文档题 **0/3 → 3/3 完成**，所问内容均获实际读取支持，但 Quick demo 公共片段截断仍在。7 道源码题工具链逐项相同，R03 另有回退条件表述回归；不能把 completed 当作语义正确，也不能宣称零质量回归。缺失文件没有替代取证，通用知识题未新增仓库义务但原有误拒答未修复。两阶段合计 48 请求 / 187 provider 调用，均符合预算；非独立验收、非 Holdout。
+- 相关局部 **278 passed / 3 warnings**；身份防漂移用例移入 CI 所选文档模块后，该模块 **31 passed / 2 warnings**。CI 与运行手册清单共 35 个模块且逐项一致；未跑完整 CI / 全量回归。付费候选与最终文件名遮蔽实现分别留快照，12 题离线路由一致、13 个保护文件保持原样。详见 [文档取证验证](validation/2026-10-03-project-document-acquisition.md)。TD-ROUTER-01 仅部分解决；长期契约继续暂缓。
 
 ## 范围搜索候选评估（2026-10-03）
 

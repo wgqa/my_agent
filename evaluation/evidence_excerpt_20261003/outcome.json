@@ -1,0 +1,111 @@
+{
+  "conclusion": "RETAINED_BOUNDED_SLICE",
+  "initial_manifest_sha256": "b8fd1e36cd68d28e2e648df19dfa3e5519ba8408de6ce12bb4d7af8797a5f059",
+  "provider_calls": 0,
+  "new_live_agent_requests": 0,
+  "evaluation_method": "Frozen observation replay and scripted full Runtime / FastAPI / SSE regression; no frozen answer regeneration or regrading.",
+  "replay": {
+    "provider_calls": 0,
+    "historical_user_requests_inspected": 48,
+    "successful_reads_replayed": 41,
+    "before_clipped_reads": 23,
+    "before_affected_requests": 20,
+    "after_clipped_reads": 0,
+    "maximum_observed_characters": 6193,
+    "public_read_character_cap": 18360,
+    "protected_files_unchanged": 13,
+    "previous_archive_files_unchanged": 33,
+    "toolset_sha256": {
+      "all_readonly_tools": "026490795a08b56cbe45ff824a414f45e822d904cc40f8cc22f1ad2ffa76bb17",
+      "engineering_without_knowledge_search": "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+    },
+    "ci_runbook_lists_identical": true,
+    "ci_test_files": 36,
+    "answer_quality_claim": "None: frozen answers are not regenerated or regraded; this only tests public excerpt fidelity."
+  },
+  "local_tests": {
+    "related_test_modules": 15,
+    "passed": 303,
+    "skipped": 6,
+    "skip_reason": "Windows account cannot create symlinks",
+    "warnings": 3,
+    "log": "raw/pytest-targeted.txt",
+    "later_real_reader_maximum_window_recheck": {
+      "passed": 3,
+      "deselected": 28,
+      "log": "raw/pytest-real-reader-max-window.txt"
+    },
+    "counts_not_added_as_distinct_tests": true,
+    "full_ci_job_run": false,
+    "full_pytest_run": false
+  },
+  "contract": {
+    "project_read_max_characters": 18360,
+    "window_max_lines": 61,
+    "single_line_max_characters": 300,
+    "definition_max_lines": 120,
+    "definition_max_characters": 8000,
+    "project_change_max_characters": 2000,
+    "knowledge_max_characters": 500,
+    "source_text_in_trusted_control": false,
+    "public_evidence_keys_unchanged": true,
+    "evidence_identity_and_dedup_unchanged": true,
+    "budget": {
+      "decisions": 5,
+      "tools": 4,
+      "tool_errors": 2
+    }
+  },
+  "known_limits": [
+    "Strict old response clients enforcing 2000 characters on Reader snippets must update the schema.",
+    "Public payload and persisted result_json can grow; storage/rendering performance not benchmarked.",
+    "Reader per-line clipping and missing helper/method tail acquisition remain; no claim entailment checking.",
+    "Git diff retains its separate 2000-character public bound; its excerpt fidelity is outside this slice.",
+    "Current-model answer quality was not retested; previous semantic review is historical and unchanged."
+  ],
+  "checks": {
+    "previous_archive_files_unchanged": 33,
+    "protected_files_unchanged": 13,
+    "ci_runbook_test_list_equal": true,
+    "ci_test_modules": 36,
+    "tracked_diff_check": true,
+    "archive_secret_scan": true
+  },
+  "report": "docs/validation/2026-10-03-evidence-excerpt-fidelity.md",
+  "artifacts_sha256": {
+    "baseline/api/schemas.py": "ff00bdc36f48434663c155173a4a0c3d2f749909e1cb976800ad3d459567554e",
+    "baseline/core/tool_agent/runtime.py": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+    "baseline/core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "baseline/core/tool_agent/tools/code_search.py": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "baseline/core/tool_agent/tools/read_project_context.py": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "baseline/core/tool_agent/tools/source_navigation.py": "71870394a45afbfb5c9b1665251bab9c07490e1833b3b8637a7e470ca034c602",
+    "initial_manifest.json": "b8fd1e36cd68d28e2e648df19dfa3e5519ba8408de6ce12bb4d7af8797a5f059",
+    "raw/initial_test_scope.json": "8e5d99b3c28cc79b902871d86e996546900b7c84bae430b74ae0bbacaf047063",
+    "raw/pytest-initial-targeted.txt": "ad35c746f21eabe639fdd98ebaf8542f80b9f9f4a4ce95ba564759c714f4e31a",
+    "raw/pytest-real-reader-max-window.txt": "8b1e32505b95f24974ee962282dd8e43b8e6bfe5b2dafe6d9b8c674b316c1675",
+    "raw/pytest-targeted.txt": "9efc65f5e533c476fa71532362bfd13e899f4fd9d0206791781df886609ad09c",
+    "raw/replay.json": "bfdfa8e7e6844fc2f8b2865a9598d050665b899fa2e6426c483cf6b0d03fe322",
+    "raw/test_scope.json": "ba24a8b947e0b9e4651a857370c2243aecdbe820262a9a68eaaaf7d9771ebc7d",
+    "README.md": "634bdacd357f7f7b4f638fb97bb8d6d1e484b32e605e5623f7f9b0c50175c5ac",
+    "replay.py": "3d50efc05a15c11de6e0351c09bddced9ad60ee567e8980859d7e3c4d22174ae",
+    "retained/api/schemas.py": "f7f614e70d092c4d97d7121fea0f2d8a864adbe9d9f445bf87040ec3545ba74f",
+    "retained/core/tool_agent/runtime.py": "24c919ce83b9d445f56416600eaccdf3f8b9c8b8e378bd57b7c9dd921dc09287",
+    "retained/core/tool_agent/runtime_models.py": "34438f3a316a323c9946693857bfa408616ae537e29ef64e69de008604ef6ef8",
+    "retained/core/tool_agent/source_excerpt.py": "a2f00ef088d2b69a6a9be58e59198e16abb4796901dec93b2e472a938bce8a59",
+    "retained/core/tool_agent/tools/code_search.py": "bc3518753a0ef2160de9ba074eb8ab08e97de6f860c2c6cf776a512e59838c2a",
+    "retained/core/tool_agent/tools/read_project_context.py": "0c22a39be9b02e8df90a3288a08cfb50ef58c497e13266fd32ded121d83e34f8",
+    "retained/core/tool_agent/tools/source_navigation.py": "7a4646d761eb5aa5fa58d4909c66c0c0ad610e291f519365975406be4f765104"
+  },
+  "implementation_and_test_sha256": {
+    "core/tool_agent/runtime.py": "24c919ce83b9d445f56416600eaccdf3f8b9c8b8e378bd57b7c9dd921dc09287",
+    "core/tool_agent/runtime_models.py": "34438f3a316a323c9946693857bfa408616ae537e29ef64e69de008604ef6ef8",
+    "api/schemas.py": "f7f614e70d092c4d97d7121fea0f2d8a864adbe9d9f445bf87040ec3545ba74f",
+    "core/tool_agent/tools/code_search.py": "bc3518753a0ef2160de9ba074eb8ab08e97de6f860c2c6cf776a512e59838c2a",
+    "core/tool_agent/tools/read_project_context.py": "0c22a39be9b02e8df90a3288a08cfb50ef58c497e13266fd32ded121d83e34f8",
+    "core/tool_agent/tools/source_navigation.py": "7a4646d761eb5aa5fa58d4909c66c0c0ad610e291f519365975406be4f765104",
+    "core/tool_agent/source_excerpt.py": "a2f00ef088d2b69a6a9be58e59198e16abb4796901dec93b2e472a938bce8a59",
+    "tests/test_project_evidence_excerpt.py": "92c34dbb46e70d03a49d31d92e662925d48228ccb760d68227cb8a77a05aba50",
+    "tests/test_product_grounding_21.py": "65eb07c7ea0e27e3d738152470d471938edeb93a5e80e98efe9d2551413aa8b9",
+    ".github/workflows/ci.yml": "b0ad901104a262d5c92165c4bd6cd04ef4ac8f5cb678f47d4a724a05508a9811"
+  }
+}

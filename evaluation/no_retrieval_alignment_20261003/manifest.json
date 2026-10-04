@@ -1,0 +1,66 @@
+{
+  "intervention": "Engineering planner prompt selection and contract-complete prompt only; QueryPlan/parser/Router/Guard/loop/tools unchanged.",
+  "independent_formal_acceptance": false,
+  "baseline_prompt": {
+    "version": "gate3_planner_prompt_v1",
+    "sha256": "5b209054f5274fa8f1f88975625c80b78d7e9e2a84569179288fed0c3a3b5c95"
+  },
+  "candidate_prompt": {
+    "version": "engineering_planner_contract_prompt_v2",
+    "sha256": "3278c2450d6a59aa44c1a0aa5b4af311c66a42d4103a5ba50c67649f0a39a56c"
+  },
+  "input_sha256": {
+    "evaluation/no_retrieval_alignment_20261003/catalog.json": "98d9a2a80449910e2b9dddc366743d63473d65eab0f6f7d68ec43cba774a339b",
+    "evaluation/no_retrieval_alignment_20261003/initial_manifest.json": "cb9ef42d8e4954c6ff9a9c61ead4172944e21ad7f8b2f2ff0b5fc10dbd27dd09",
+    "evaluation/no_retrieval_alignment_20261003/comparison_server.py": "5baac122782e2fe7512e6700a7309a6c681537412eccf8c199892320240a34ac",
+    "evaluation/no_retrieval_alignment_20261003/run_comparison.py": "e9812c87138eec224eed6b09e30a2616242fc2c05b787b77f57ce6dfef3abbce",
+    "evaluation/no_retrieval_alignment_20261003/baseline/api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "evaluation/no_retrieval_alignment_20261003/baseline/core/query_planning/openai_compatible.py": "4db81e971663ee707ae55b655b19cbb6936ad15cf67439ae070c3b1beb6fcf4a",
+    "evaluation/no_retrieval_alignment_20261003/baseline/core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+    "evaluation/no_retrieval_alignment_20261003/retained/api/app.py": "bd3aaf6d82e97607189d960c5287a3e9950fcc3ca4d8a7c5806cba19c0c25825",
+    "evaluation/no_retrieval_alignment_20261003/retained/core/query_planning/openai_compatible.py": "5291403c48c53511c18fb57a40fe693cbf661306bbfab11f288ee3416320c0e3",
+    "evaluation/no_retrieval_alignment_20261003/retained/core/query_planning/prompt.py": "84d64aafb433c785ab45a20585e5b7022cd32d17bff8821971b5ee51eb23cc6b"
+  },
+  "production_sha256": {
+    "api/app.py": "bd3aaf6d82e97607189d960c5287a3e9950fcc3ca4d8a7c5806cba19c0c25825",
+    "core/query_planning/prompt.py": "84d64aafb433c785ab45a20585e5b7022cd32d17bff8821971b5ee51eb23cc6b",
+    "core/query_planning/openai_compatible.py": "5291403c48c53511c18fb57a40fe693cbf661306bbfab11f288ee3416320c0e3"
+  },
+  "protected_sha256": {
+    "core/query_planning/models.py": "30c02b6e8538d4a9a2012768440c9cb7ce9b347bb40dfddc2e8bc09ca536286e",
+    "core/query_planning/planner.py": "8e26b3fce71e99b5f8ea958800fbaf803af17aa51023fb29b178ff14617e9056",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/engineering_requirements.py": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+    "core/tool_agent/runtime.py": "24c919ce83b9d445f56416600eaccdf3f8b9c8b8e378bd57b7c9dd921dc09287",
+    "core/tool_agent/runtime_models.py": "34438f3a316a323c9946693857bfa408616ae537e29ef64e69de008604ef6ef8",
+    "core/tool_agent/decision_prompt.py": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "core/tool_agent/tools/code_search.py": "bc3518753a0ef2160de9ba074eb8ab08e97de6f860c2c6cf776a512e59838c2a",
+    "core/tool_agent/tools/read_project_context.py": "0c22a39be9b02e8df90a3288a08cfb50ef58c497e13266fd32ded121d83e34f8",
+    "core/tool_agent/tools/source_navigation.py": "7a4646d761eb5aa5fa58d4909c66c0c0ad610e291f519365975406be4f765104",
+    "core/tool_agent/source_excerpt.py": "a2f00ef088d2b69a6a9be58e59198e16abb4796901dec93b2e472a938bce8a59",
+    "api/schemas.py": "f7f614e70d092c4d97d7121fea0f2d8a864adbe9d9f445bf87040ec3545ba74f",
+    "api/engineering_stream.py": "10ef149c853091e04d0a295d5c423a3b75da949fd523e29e1e71d218a2118048",
+    "api/engineering_stream_v2.py": "5fe118ccdef86e6a815ff883dbe537b44a4cf304e8075812dbb0845b88afa5e9",
+    "api/engineering_stream_common.py": "c288210e7231941313b36d8e838e5530c28dbd31034215dc2ba433239ec47a5b"
+  },
+  "helper_sha256": {
+    "evaluation/source_search_v6_20261003/harness/passive_observer.py": "9d4a05d333c6b4ef1f4578dbb7ef16aa7c5206762c1fa1dc215487cbfb908d76",
+    "evaluation/source_search_v6_20261003/harness/run_comparison.py": "320b051f63c1332a17ec9c0ab73fbbb7c1c7a394040af505e8de65554d3be7ed"
+  },
+  "source_pin": "b25c87d7cb8d6a18a37fa12442b5f883f9e41741",
+  "source_sha256": {
+    "README.md": "0f245a57cbb58dbd024aefafbef5843b577ae3f62ca674512358fd3b1c7c8f33",
+    "src/requests/sessions.py": "42f72303ecde0cca0e8479b2f95845d2f7280d99ca0cf865b1dda8d0433cf662"
+  },
+  "model": "deepseek-chat",
+  "knowledge_corpus_id": "870e5864df67",
+  "unchanged_budget": [
+    5,
+    4,
+    2
+  ],
+  "unchanged_decision_prompt_sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+}

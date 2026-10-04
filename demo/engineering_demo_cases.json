@@ -1,0 +1,23 @@
+[
+  {
+    "id": "configuration",
+    "workflow": "configuration",
+    "subject": "SUPPORT_RESULT_LIMIT",
+    "reference": "support_search/settings.py 和 support_search/service.py",
+    "observe": "默认值6、环境覆盖、1..20校验、向retriever传递limit；核对每个结论是否实际取得证据。"
+  },
+  {
+    "id": "change_test",
+    "workflow": "change_test",
+    "subject": "support_search/settings.py",
+    "reference": "",
+    "observe": "实际diff 4→6、默认测试仍断言4、环境覆盖测试为9；命令必须来自实际读到的测试，未执行。"
+  },
+  {
+    "id": "docs_code",
+    "workflow": "docs_code",
+    "subject": "README.md 中默认值、环境变量覆盖和合法范围的说明",
+    "reference": "support_search/settings.py",
+    "observe": "文档默认4与实现6冲突；环境覆盖和范围一致；分别引用两边。"
+  }
+]

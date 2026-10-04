@@ -23,6 +23,7 @@ from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.query_planning import OpenAICompatibleQueryPlanner
+from core.query_planning.prompt import ENGINEERING_PLANNER_PROMPT_VERSION
 from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
     UnifiedEngineeringRuntime,
@@ -34,6 +35,7 @@ from core.engineering_knowledge import (
 )
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
 from core.pipeline import Pipeline
+from core.product_version import PRODUCT_NAME, PRODUCT_VERSION, product_identity
 from core.tool_agent import (
     FROZEN_TOOL_MODEL,
     FROZEN_TOOL_PROVIDER,
@@ -42,8 +44,11 @@ from core.tool_agent import (
     build_tool_agent_runtime,
 )
 from core.tool_agent.decision_prompt import (
-    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE,
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE,
+    ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
 )
+from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
+from core.tool_agent.tools.read_project_targets import READ_PROJECT_TARGETS_VERSION
 from api.schemas import (
     AgentQueryRequest,
     AgentQueryResponse,
@@ -53,6 +58,7 @@ from api.schemas import (
     SourceItem,
     IndexResponse,
     HealthResponse,
+    ProductVersionResponse,
     PublicConfigResponse,
     StatsResponse,
     CapabilitiesResponse,
@@ -132,8 +138,8 @@ async def lifespan(app: FastAPI):
             deepseek_api_key=os.getenv("DEEPSEEK_API_KEY"),
             openai_api_key=os.getenv("OPENAI_API_KEY"),
         )
-    except Exception as e:
-        print(f"[WARN] Pipeline init failed (will retry on first request): {e}")
+    except Exception:
+        logger.exception("Legacy Pipeline init failed")
         pipeline = None
     agent_runtime = None
     tool_agent_runtime = None
@@ -167,83 +173,83 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("Legacy tool agent runtime init failed")
             tool_agent_runtime = None
-            engineering_tool_execution_runtime = None
-            unified_engineering_runtime = None
-            engineering_agent_facade = None
-        else:
-            try:
-                engineering_knowledge_backend = build_verified_engineering_knowledge(
-                    os.getenv(CORPUS_ENV_VAR),
-                    repo_root=REPO_ROOT,
-                )
-                engineering_tool_execution_runtime = build_tool_agent_runtime(
-                    repo_root=engineering_project.root,
-                    retrieval_port=engineering_knowledge_backend.retrieval_port,
-                    api_key=os.getenv("DEEPSEEK_API_KEY"),
-                    base_url=DEEPSEEK_BASE_URL,
-                    prompt_profile=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE,
-                )
-                engineering_context_resolver = EngineeringContextResolver(
-                    OpenAICompatibleConversationQueryResolver(
-                        provider=FROZEN_TOOL_PROVIDER,
-                        model=FROZEN_TOOL_MODEL,
-                        api_key=os.getenv("DEEPSEEK_API_KEY"),
-                        base_url=DEEPSEEK_BASE_URL,
-                    )
-                )
-                engineering_evidence_planner = EngineeringEvidencePlanner(
-                    OpenAICompatibleQueryPlanner(
-                        provider=FROZEN_TOOL_PROVIDER,
-                        model=FROZEN_TOOL_MODEL,
-                        api_key=os.getenv("DEEPSEEK_API_KEY"),
-                        base_url=DEEPSEEK_BASE_URL,
-                    )
-                )
-                engineering_retrieval_component = EngineeringRetrievalComponent(
-                    engineering_knowledge_backend.retrieval_port
-                )
-                unified_engineering_runtime = UnifiedEngineeringRuntime(
-                    LegacyToolAgentExecutionAdapter(
-                        engineering_tool_execution_runtime
-                    ),
-                    context_resolver=engineering_context_resolver,
-                    evidence_planner=engineering_evidence_planner,
-                    retrieval_component=engineering_retrieval_component,
-                    evidence_verifier=EngineeringEvidenceVerifier(),
-                )
-                engineering_agent_facade = EngineeringAgentFacade(
-                    unified_engineering_runtime
-                )
-            except Exception:
-                logger.exception("Engineering agent runtime init failed")
-                engineering_tool_execution_runtime = None
-                unified_engineering_runtime = None
-                engineering_context_resolver = None
-                engineering_evidence_planner = None
-                engineering_retrieval_component = None
-                engineering_agent_facade = None
-    yield
-    pipeline = None
-    agent_runtime = None
-    tool_agent_runtime = None
-    engineering_tool_execution_runtime = None
-    unified_engineering_runtime = None
-    engineering_context_resolver = None
-    engineering_evidence_planner = None
-    engineering_retrieval_component = None
-    engineering_agent_facade = None
-    engineering_knowledge_backend = None
-    engineering_project = None
-    conversation_store = None
+
+    # Engineering owns its verified BM25 backend. Legacy Demo availability is
+    # not a prerequisite for building the product runtime.
+    try:
+        engineering_knowledge_backend = build_verified_engineering_knowledge(
+            os.getenv(CORPUS_ENV_VAR),
+            repo_root=REPO_ROOT,
+        )
+        engineering_tool_execution_runtime = build_tool_agent_runtime(
+            repo_root=engineering_project.root,
+            retrieval_port=engineering_knowledge_backend.retrieval_port,
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url=DEEPSEEK_BASE_URL,
+            prompt_profile=ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
+            code_search_version=CODE_SEARCH_TEST_VERSION,
+            read_project_context_version=READ_PROJECT_TARGETS_VERSION,
+        )
+        engineering_context_resolver = EngineeringContextResolver(
+            OpenAICompatibleConversationQueryResolver(
+                provider=FROZEN_TOOL_PROVIDER,
+                model=FROZEN_TOOL_MODEL,
+                api_key=os.getenv("DEEPSEEK_API_KEY"),
+                base_url=DEEPSEEK_BASE_URL,
+            )
+        )
+        engineering_evidence_planner = EngineeringEvidencePlanner(
+            OpenAICompatibleQueryPlanner(
+                provider=FROZEN_TOOL_PROVIDER,
+                model=FROZEN_TOOL_MODEL,
+                api_key=os.getenv("DEEPSEEK_API_KEY"),
+                base_url=DEEPSEEK_BASE_URL,
+                prompt_version=ENGINEERING_PLANNER_PROMPT_VERSION,
+            )
+        )
+        engineering_retrieval_component = EngineeringRetrievalComponent(
+            engineering_knowledge_backend.retrieval_port
+        )
+        unified_engineering_runtime = UnifiedEngineeringRuntime(
+            LegacyToolAgentExecutionAdapter(engineering_tool_execution_runtime),
+            context_resolver=engineering_context_resolver,
+            evidence_planner=engineering_evidence_planner,
+            retrieval_component=engineering_retrieval_component,
+            evidence_verifier=EngineeringEvidenceVerifier(),
+        )
+        engineering_agent_facade = EngineeringAgentFacade(unified_engineering_runtime)
+    except Exception:
+        logger.exception("Engineering agent runtime init failed")
+        engineering_tool_execution_runtime = None
+        unified_engineering_runtime = None
+        engineering_context_resolver = None
+        engineering_evidence_planner = None
+        engineering_retrieval_component = None
+        engineering_agent_facade = None
+    try:
+        yield
+    finally:
+        pipeline = None
+        agent_runtime = None
+        tool_agent_runtime = None
+        engineering_tool_execution_runtime = None
+        unified_engineering_runtime = None
+        engineering_context_resolver = None
+        engineering_evidence_planner = None
+        engineering_retrieval_component = None
+        engineering_agent_facade = None
+        engineering_knowledge_backend = None
+        engineering_project = None
+        conversation_store = None
 
 
 app = FastAPI(
-    title="Evidence-Grounded AI Engineering Agent",
+    title=PRODUCT_NAME,
     description=(
         "Evidence-Grounded AI Engineering Agent with evaluable knowledge "
         "retrieval, repository evidence and bounded tool use."
     ),
-    version="1.0.0",
+    version=PRODUCT_VERSION,
     lifespan=lifespan,
 )
 
@@ -545,6 +551,12 @@ def _build_engineering_response(
         evidence=evidence,
         execution=execution,
     )
+
+
+@app.get("/version", response_model=ProductVersionResponse)
+def version() -> ProductVersionResponse:
+    """Public build label; reachable even when an optional runtime is unavailable."""
+    return ProductVersionResponse(**product_identity())
 
 
 @app.get("/health", response_model=HealthResponse)

@@ -1,0 +1,60 @@
+{
+  "raw_sha256": "22a1cdf5736860c34318240682184e14c4afdc097f8d0e0a62a0559e06c61b39",
+  "requests": 16,
+  "summary": {
+    "baseline": {
+      "status_counts": {
+        "refused": 5,
+        "completed": 2,
+        "failed": 1
+      },
+      "planner_fallbacks": 4,
+      "direct_completed": 0,
+      "actual_provider_calls": 27,
+      "input_tokens": 111135,
+      "output_tokens": 2743,
+      "tool_calls": 9,
+      "stream_v2_requests": 4,
+      "asked_behavior_grades": {
+        "FAIL": 5,
+        "PASS": 3
+      },
+      "whole_answer_grades": {
+        "FAIL": 5,
+        "PASS": 3
+      }
+    },
+    "candidate": {
+      "status_counts": {
+        "completed": 7,
+        "refused": 1
+      },
+      "planner_fallbacks": 0,
+      "direct_completed": 4,
+      "actual_provider_calls": 26,
+      "input_tokens": 95590,
+      "output_tokens": 2439,
+      "tool_calls": 9,
+      "stream_v2_requests": 4,
+      "asked_behavior_grades": {
+        "PASS": 6,
+        "PARTIAL": 2
+      },
+      "whole_answer_grades": {
+        "PASS": 6,
+        "PARTIAL": 2
+      }
+    }
+  },
+  "actual_provider_calls": 53,
+  "protected_files_unchanged": 18,
+  "prior_archive_files_unchanged": 56,
+  "ci_modules": 37,
+  "new_provider_calls_from_analysis": 0,
+  "independent_formal_acceptance": false,
+  "limitations": [
+    "One paired round; known development failures; no holdout.",
+    "R02 candidate answer has a semantic regression despite identical tool chain.",
+    "C01 candidate has valid citations but incomplete semantic support; baseline parse failure has unknown exact format cause."
+  ]
+}

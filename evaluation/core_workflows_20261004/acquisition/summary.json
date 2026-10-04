@@ -1,0 +1,83 @@
+{
+  "independent_acceptance": false,
+  "requests": 19,
+  "planner_calls": 19,
+  "decision_calls": 80,
+  "input_tokens": 549077,
+  "output_tokens": 12558,
+  "source_regions_checked": 34,
+  "qualified_definitions_checked": 22,
+  "persisted_conversations_checked": 5,
+  "phases": {
+    "development": {
+      "requests": 6,
+      "whole_answer_scores": {
+        "PASS": 3,
+        "FAIL": 2,
+        "PARTIAL": 1
+      },
+      "core_scores": {
+        "PASS": 3,
+        "FAIL": 2,
+        "PARTIAL": 1
+      },
+      "boundary_scores": {},
+      "provider_calls": {
+        "planner": 6,
+        "decision": 28
+      }
+    },
+    "confirmation": {
+      "requests": 8,
+      "whole_answer_scores": {
+        "PASS": 6,
+        "PARTIAL": 2
+      },
+      "core_scores": {
+        "PASS": 4,
+        "PARTIAL": 2
+      },
+      "boundary_scores": {
+        "PASS": 2
+      },
+      "provider_calls": {
+        "planner": 8,
+        "decision": 30
+      }
+    },
+    "entry_confirmation": {
+      "requests": 4,
+      "whole_answer_scores": {
+        "PARTIAL": 1,
+        "PASS": 2,
+        "FAIL": 1
+      },
+      "core_scores": {
+        "PARTIAL": 1,
+        "PASS": 2,
+        "FAIL": 1
+      },
+      "boundary_scores": {},
+      "provider_calls": {
+        "planner": 4,
+        "decision": 17
+      }
+    },
+    "change_entry_confirmation": {
+      "requests": 1,
+      "whole_answer_scores": {
+        "PARTIAL": 1
+      },
+      "core_scores": {
+        "PARTIAL": 1
+      },
+      "boundary_scores": {},
+      "provider_calls": {
+        "planner": 1,
+        "decision": 5
+      }
+    }
+  },
+  "all_provider_calls": 99,
+  "limits": "Development has same questions as historical baseline, one run each. Confirmation/entry inputs differ and are not fair A/B or independent success rates. Reported tokens are usage, not money/billing/load-test evidence."
+}

@@ -1,0 +1,103 @@
+{
+  "reviewer": "Same implementation assistant; development review, not independent acceptance or holdout",
+  "criteria": "Asked behavior and whole-answer source support; completed alone is insufficient. An honest constrained refusal can pass.",
+  "cases": [
+    {
+      "id": "C02",
+      "baseline": [
+        "FAIL",
+        "FAIL"
+      ],
+      "candidate": [
+        "PASS",
+        "PASS"
+      ],
+      "note": "Both actually calculate 1073. Old PLAN_INVALID_SCHEMA/fallback injects knowledge and final binding MISSING; new legal no_retrieval finalizes exact numeric answer without knowledge."
+    },
+    {
+      "id": "C03",
+      "baseline": [
+        "FAIL",
+        "FAIL"
+      ],
+      "candidate": [
+        "PASS",
+        "PASS"
+      ],
+      "note": "Both actually calculate 294; same old failure chain and new legal direct plan."
+    },
+    {
+      "id": "K01",
+      "baseline": [
+        "FAIL",
+        "FAIL"
+      ],
+      "candidate": [
+        "PASS",
+        "PASS"
+      ],
+      "note": "Old comparison/no_retrieval combination rejected; new complete legal combination produces general documentation purposes, no project facts or retrieval."
+    },
+    {
+      "id": "N01",
+      "baseline": [
+        "FAIL",
+        "FAIL"
+      ],
+      "candidate": [
+        "PASS",
+        "PASS"
+      ],
+      "note": "New predeclared user-data transform preserves duplicate 2 and returns 2,2,5,8; old field mismatch again caused missing citations."
+    },
+    {
+      "id": "D01",
+      "baseline": [
+        "PASS",
+        "PASS"
+      ],
+      "candidate": [
+        "PASS",
+        "PASS"
+      ],
+      "note": "Both read README and cite E6; Python 3.9+ and python -m pip install requests are present. Tool arguments and read windows differ; not a chain-parity claim."
+    },
+    {
+      "id": "R02",
+      "baseline": [
+        "PASS",
+        "PASS"
+      ],
+      "candidate": [
+        "PARTIAL",
+        "PARTIAL"
+      ],
+      "note": "Exactly the same search and definition read (750-779). Candidate describes branches and merge calls correctly, then adds false universal caller>Session>environment precedence and an unsupported caller at 579 as send flow. The actual call is in request; its lines were not acquired. Same planner shape/retrieval identities/tool chain, one paired sample; causal attribution to new prompt is not established."
+    },
+    {
+      "id": "D03",
+      "baseline": [
+        "PASS",
+        "PASS"
+      ],
+      "candidate": [
+        "PASS",
+        "PASS"
+      ],
+      "note": "Both search only the named marker, get no match, refuse with INSUFFICIENT_EVIDENCE_TO_FINALIZE, no substituted source. Search miss is not a direct existence proof."
+    },
+    {
+      "id": "C01",
+      "baseline": [
+        "FAIL",
+        "FAIL"
+      ],
+      "candidate": [
+        "PARTIAL",
+        "PARTIAL"
+      ],
+      "note": "Both choose decomposed knowledge retrieval. Baseline ACTION_SCHEMA_INVALID then unsuccessful one-shot repair ends ACTION_PARSE_FAILED (initial_finish_reason stop); no raw output captured, exact format cause unknown. Candidate cites real E IDs, but snippets contain deployment checklists and interview questions rather than support for claimed BM25/inverted-index/dense/semantic mechanisms. Offline reconstructed seed confirms this gap; retrieval/citation control passes, semantic support does not. Do not attribute baseline parse failure removal to this change."
+    }
+  ],
+  "accepted_scope": "Fix the four direct-task planner schema mismatch refusals; preserve strict parsing, evidence guards and bounded execution. Other parse failures and semantic grounding gaps remain open."
+}

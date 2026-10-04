@@ -6,7 +6,7 @@ v1 做确定性的 case-insensitive literal substring search（不执行正则�
 不可读文件。path 一律为 repo-relative POSIX 风格，绝不返回绝对路径；
 结果按 (path, line) 确定性排序。artifact_kind 缺省或为 any 时保持原有混合搜索；
 project_code/project_doc 使用与 Runtime public evidence classification 相同的契约，
-project_test 继续由 find_tests → read_project_context 负责。
+旧 v5 保留原契约；Engineering v7 额外支持 project_test 定位，复用同一搜索器。
 """
 
 from __future__ import annotations
@@ -20,8 +20,10 @@ from core.tool_agent.project_files import (
     ALLOWED_SUFFIXES,
     classify_project_evidence_path,
 )
+from core.tool_agent.source_excerpt import MAX_LINE_LENGTH
 
 CODE_SEARCH_VERSION = "code_search_v5"
+CODE_SEARCH_TEST_VERSION = "code_search_v7"
 
 EXCLUDED_DIR_NAMES = frozenset(
     {
@@ -43,7 +45,6 @@ EXCLUDED_DIR_NAMES = frozenset(
 
 MAX_MATCHES = 10
 MAX_FILE_SIZE = 1024 * 1024  # 1 MiB
-MAX_LINE_LENGTH = 300
 
 CODE_SEARCH_INPUT_SCHEMA = {
     "type": "object",
@@ -101,6 +102,30 @@ CODE_SEARCH_SPEC = ToolSpec(
 )
 
 
+_TEST_SEARCH_INPUT_SCHEMA = CODE_SEARCH_SPEC.input_schema
+_TEST_SEARCH_INPUT_SCHEMA["properties"]["artifact_kind"]["enum"].append("project_test")
+CODE_SEARCH_TEST_SPEC = ToolSpec(
+    name=CODE_SEARCH_SPEC.name,
+    description=CODE_SEARCH_SPEC.description.replace(
+        "project_test 不由本 Tool 过滤，测试发现仍使用 find_tests → read_project_context。",
+        "要求 project_test 时传 project_test，只搜索与 Runtime 同一分类的测试文件。"
+        "按测试名称、被测 symbol 或断言字符串定位已有测试，再用 read_project_context "
+        "读取测试上下文；已知源码路径并寻找关联测试时仍可使用 find_tests。",
+    ),
+    input_schema=_TEST_SEARCH_INPUT_SCHEMA,
+    output_schema=CODE_SEARCH_SPEC.output_schema,
+    version=CODE_SEARCH_TEST_VERSION,
+)
+
+
+def code_search_spec(version: str = CODE_SEARCH_VERSION) -> ToolSpec:
+    """Select one closed system-owned contract; legacy callers keep v5."""
+    specs = {CODE_SEARCH_VERSION: CODE_SEARCH_SPEC, CODE_SEARCH_TEST_VERSION: CODE_SEARCH_TEST_SPEC}
+    if type(version) is not str or version not in specs:
+        raise ValueError(f"Unsupported code_search version: {version!r}")
+    return specs[version]
+
+
 _SECRET_SUBSTRINGS = (
     "secret",
     "credential",
@@ -156,7 +181,12 @@ class CodeSearchHandler:
         max_matches: int = MAX_MATCHES,
         max_file_size: int = MAX_FILE_SIZE,
         max_line_length: int = MAX_LINE_LENGTH,
+        *,
+        version: str = CODE_SEARCH_VERSION,
     ) -> None:
+        self._artifact_kinds = frozenset(
+            code_search_spec(version).input_schema["properties"]["artifact_kind"]["enum"]
+        )
         root = Path(repo_root)
         if not root.is_dir():
             raise ValueError(f"repo_root 不是目录：{root}")
@@ -173,7 +203,7 @@ class CodeSearchHandler:
         query = arguments["query"]
         needle = query.lower()
         artifact_kind = arguments.get("artifact_kind", "any")
-        if artifact_kind not in ARTIFACT_KINDS:
+        if artifact_kind not in self._artifact_kinds:
             raise ValueError(f"artifact_kind 不支持：{artifact_kind!r}")
         root_resolved = self._root.resolve()
         candidates = self._collect_files(self._root, root_resolved)

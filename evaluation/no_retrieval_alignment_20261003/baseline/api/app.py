@@ -1,0 +1,988 @@
+import hashlib
+import logging
+import os
+import tempfile
+import threading
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Callable, Optional
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI, Response, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
+from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
+from core.agent_runtime.adapters import PipelineRetrievalAdapter
+from core.engineering_agent import EngineeringAgentFacade
+from core.conversation_context import OpenAICompatibleConversationQueryResolver
+from core.engineering_context import EngineeringContextResolver
+from core.engineering_planning import EngineeringEvidencePlanner
+from core.engineering_retrieval import EngineeringRetrievalComponent
+from core.engineering_verification import EngineeringEvidenceVerifier
+from core.query_planning import OpenAICompatibleQueryPlanner
+from core.unified_engineering_runtime import (
+    LegacyToolAgentExecutionAdapter,
+    UnifiedEngineeringRuntime,
+)
+from core.engineering_knowledge import (
+    CORPUS_ENV_VAR,
+    VerifiedEngineeringKnowledge,
+    build_verified_engineering_knowledge,
+)
+from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
+from core.pipeline import Pipeline
+from core.tool_agent import (
+    FROZEN_TOOL_MODEL,
+    FROZEN_TOOL_PROVIDER,
+    ToolAgentRunResult,
+    ToolAgentRuntime,
+    build_tool_agent_runtime,
+)
+from core.tool_agent.decision_prompt import (
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE,
+)
+from api.schemas import (
+    AgentQueryRequest,
+    AgentQueryResponse,
+    AgentSourceItem,
+    QueryRequest,
+    QueryResponse,
+    SourceItem,
+    IndexResponse,
+    HealthResponse,
+    PublicConfigResponse,
+    StatsResponse,
+    CapabilitiesResponse,
+    FeatureCapabilities,
+    EngineeringKnowledgeStatusResponse,
+    ToolAgentQueryRequest,
+    ToolAgentEvidence,
+    ToolAgentQueryResponse,
+    ProjectResponse,
+    EngineeringConversationDetail,
+    EngineeringConversationListResponse,
+    EngineeringConversationMessageRequest,
+    EngineeringConversationSummary,
+    EngineeringExecutionMetrics,
+    EngineeringQueryRequest,
+    EngineeringQueryResponse,
+    KnowledgeEvidence,
+)
+from api.project_workspace import EngineeringProject, resolve_engineering_project
+from api.conversation_store import ConversationStore
+from api.engineering_stream import STREAM_SCHEMA_VERSION, stream_engineering_query
+from api.engineering_stream_v2 import (
+    STREAM_SCHEMA_VERSION as STREAM_SCHEMA_VERSION_V2,
+    stream_engineering_query_v2,
+)
+from core.tool_agent.runtime_models import (
+    EngineeringEvidence as RuntimeEngineeringEvidence,
+    KnowledgeEvidence as RuntimeKnowledgeEvidence,
+)
+
+logger = logging.getLogger(__name__)
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MiB
+UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
+MAX_FILENAME_LENGTH = 255
+ALLOWED_EXTENSIONS = (".txt", ".md", ".pdf", ".py", ".js", ".java")
+_WINDOWS_ILLEGAL_CHARS = set('<>:"|?*')
+
+
+pipeline: Optional[Pipeline] = None
+agent_runtime: Optional[AgentRuntime] = None
+tool_agent_runtime: Optional[ToolAgentRuntime] = None
+engineering_tool_execution_runtime: Optional[ToolAgentRuntime] = None
+unified_engineering_runtime: Optional[UnifiedEngineeringRuntime] = None
+engineering_context_resolver: Optional[EngineeringContextResolver] = None
+engineering_evidence_planner: Optional[EngineeringEvidencePlanner] = None
+engineering_retrieval_component: Optional[EngineeringRetrievalComponent] = None
+engineering_agent_facade: Optional[EngineeringAgentFacade] = None
+engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
+engineering_project: Optional[EngineeringProject] = None
+conversation_store: Optional[ConversationStore] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global pipeline, agent_runtime, tool_agent_runtime
+    global engineering_tool_execution_runtime, unified_engineering_runtime
+    global engineering_context_resolver, engineering_evidence_planner
+    global engineering_retrieval_component
+    global engineering_agent_facade, engineering_knowledge_backend, engineering_project
+    global conversation_store
+    # The system owns this binding. A bad explicit value aborts startup instead
+    # of silently running code_search against a different repository.
+    engineering_project = resolve_engineering_project(REPO_ROOT)
+    # Server-owned conversation persistence for the Engineering product path.
+    # The Core Agent stays frozen; the store only remembers what happened.
+    try:
+        conversation_store = ConversationStore()
+    except Exception:
+        logger.exception("Conversation store init failed")
+        conversation_store = None
+    try:
+        pipeline = Pipeline(
+            config_path="config.yaml",
+            deepseek_api_key=os.getenv("DEEPSEEK_API_KEY"),
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+        )
+    except Exception as e:
+        print(f"[WARN] Pipeline init failed (will retry on first request): {e}")
+        pipeline = None
+    agent_runtime = None
+    tool_agent_runtime = None
+    engineering_tool_execution_runtime = None
+    unified_engineering_runtime = None
+    engineering_context_resolver = None
+    engineering_evidence_planner = None
+    engineering_retrieval_component = None
+    engineering_agent_facade = None
+    engineering_knowledge_backend = None
+    if pipeline is not None:
+        try:
+            provider, api_key = _resolve_agent_provider(pipeline)
+            agent_runtime = build_pipeline_agent_runtime(
+                pipeline,
+                planner_provider=provider,
+                api_key=api_key,
+            )
+        except Exception:
+            logger.exception("Agent runtime init failed")
+            agent_runtime = None
+        # Gate 4 Structured Tool Agent：独立 runtime，不覆盖 Gate 3 agent_runtime。
+        try:
+            port = PipelineRetrievalAdapter(pipeline.retriever)
+            tool_agent_runtime = build_tool_agent_runtime(
+                repo_root=engineering_project.root,
+                retrieval_port=port,
+                api_key=os.getenv("DEEPSEEK_API_KEY"),
+                base_url=DEEPSEEK_BASE_URL,
+            )
+        except Exception:
+            logger.exception("Legacy tool agent runtime init failed")
+            tool_agent_runtime = None
+            engineering_tool_execution_runtime = None
+            unified_engineering_runtime = None
+            engineering_agent_facade = None
+        else:
+            try:
+                engineering_knowledge_backend = build_verified_engineering_knowledge(
+                    os.getenv(CORPUS_ENV_VAR),
+                    repo_root=REPO_ROOT,
+                )
+                engineering_tool_execution_runtime = build_tool_agent_runtime(
+                    repo_root=engineering_project.root,
+                    retrieval_port=engineering_knowledge_backend.retrieval_port,
+                    api_key=os.getenv("DEEPSEEK_API_KEY"),
+                    base_url=DEEPSEEK_BASE_URL,
+                    prompt_profile=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE,
+                )
+                engineering_context_resolver = EngineeringContextResolver(
+                    OpenAICompatibleConversationQueryResolver(
+                        provider=FROZEN_TOOL_PROVIDER,
+                        model=FROZEN_TOOL_MODEL,
+                        api_key=os.getenv("DEEPSEEK_API_KEY"),
+                        base_url=DEEPSEEK_BASE_URL,
+                    )
+                )
+                engineering_evidence_planner = EngineeringEvidencePlanner(
+                    OpenAICompatibleQueryPlanner(
+                        provider=FROZEN_TOOL_PROVIDER,
+                        model=FROZEN_TOOL_MODEL,
+                        api_key=os.getenv("DEEPSEEK_API_KEY"),
+                        base_url=DEEPSEEK_BASE_URL,
+                    )
+                )
+                engineering_retrieval_component = EngineeringRetrievalComponent(
+                    engineering_knowledge_backend.retrieval_port
+                )
+                unified_engineering_runtime = UnifiedEngineeringRuntime(
+                    LegacyToolAgentExecutionAdapter(
+                        engineering_tool_execution_runtime
+                    ),
+                    context_resolver=engineering_context_resolver,
+                    evidence_planner=engineering_evidence_planner,
+                    retrieval_component=engineering_retrieval_component,
+                    evidence_verifier=EngineeringEvidenceVerifier(),
+                )
+                engineering_agent_facade = EngineeringAgentFacade(
+                    unified_engineering_runtime
+                )
+            except Exception:
+                logger.exception("Engineering agent runtime init failed")
+                engineering_tool_execution_runtime = None
+                unified_engineering_runtime = None
+                engineering_context_resolver = None
+                engineering_evidence_planner = None
+                engineering_retrieval_component = None
+                engineering_agent_facade = None
+    yield
+    pipeline = None
+    agent_runtime = None
+    tool_agent_runtime = None
+    engineering_tool_execution_runtime = None
+    unified_engineering_runtime = None
+    engineering_context_resolver = None
+    engineering_evidence_planner = None
+    engineering_retrieval_component = None
+    engineering_agent_facade = None
+    engineering_knowledge_backend = None
+    engineering_project = None
+    conversation_store = None
+
+
+app = FastAPI(
+    title="Evidence-Grounded AI Engineering Agent",
+    description=(
+        "Evidence-Grounded AI Engineering Agent with evaluable knowledge "
+        "retrieval, repository evidence and bounded tool use."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
+
+def _get_pipeline() -> Pipeline:
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+    return pipeline
+
+
+def _resolve_agent_provider(p) -> tuple[str, Optional[str]]:
+    """按 Generator 供应商解析 Agent Planner 的 provider 与 api_key。"""
+    provider = str(getattr(p.config, "generator_provider", "") or "").lower()
+    if provider == "deepseek":
+        return "deepseek", os.getenv("DEEPSEEK_API_KEY")
+    return "openai", os.getenv("OPENAI_API_KEY")
+
+
+def _get_agent_runtime() -> AgentRuntime:
+    if agent_runtime is None:
+        raise HTTPException(status_code=503, detail="Agent runtime not initialized")
+    return agent_runtime
+
+
+def _build_agent_response(result) -> AgentQueryResponse:
+    cited = set(result.sources)
+    sources = []
+    for item in (result.evidence_bundle.items if result.evidence_bundle else ()):
+        if item.citation_id in cited:
+            sources.append(
+                AgentSourceItem(
+                    citation_id=item.citation_id,
+                    chunk_id=item.chunk_id,
+                    document_id=item.document_id,
+                    source=item.source_name,
+                    content=item.content[:200],
+                    score=item.score,
+                    rank=item.rank,
+                    query_id=item.query_id,
+                )
+            )
+    return AgentQueryResponse(
+        schema_version="agent_query_response_v1",
+        run_id=result.run_id,
+        status=result.status,
+        answer=result.answer,
+        sources=sources,
+        planner=(
+            result.planner_outcome.to_dict()
+            if result.planner_outcome is not None
+            else None
+        ),
+        route=(
+            result.route_decision.to_dict()
+            if result.route_decision is not None
+            else None
+        ),
+        verification=(
+            result.verification.to_dict()
+            if result.verification is not None
+            else None
+        ),
+        trace=[event.to_dict() for event in result.trace],
+        error_code=result.error_code,
+        warnings=list(result.warnings),
+    )
+
+
+LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS = frozenset({
+    "event_type",
+    "iteration",
+    "action_type",
+    "tool_name",
+    "call_id",
+    "tool_status",
+    "error_code",
+    "iterations_used",
+    "tool_calls_used",
+    "tool_errors_used",
+})
+ENGINEERING_TRACE_ALLOWED_KEYS = (
+    LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS
+    | frozenset(
+        {
+            "provider_call_count",
+            "repair_attempted",
+            "repair_succeeded",
+            "parse_failure_category",
+            "guard_status",
+            "missing_evidence_groups",
+            "distinct_project_code_paths",
+            "required_min_distinct_project_code_paths",
+        }
+    )
+)
+
+
+def _safe_trace(trace, allowed_keys=LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS) -> list[dict]:
+    """只透出 Runtime Trace 的安全字段白名单；绝不含 raw/CoT/prompt/key/
+    traceback/本机敏感绝对路径。code_search 匹配行文本也不进 trace。"""
+    return [
+        {k: event.get(k) for k in allowed_keys if k in event}
+        for event in trace
+    ]
+
+
+def _safe_legacy_trace(trace) -> list[dict]:
+    return _safe_trace(trace, LEGACY_TOOL_AGENT_TRACE_ALLOWED_KEYS)
+
+
+def _safe_engineering_trace(trace) -> list[dict]:
+    return _safe_trace(trace, ENGINEERING_TRACE_ALLOWED_KEYS)
+
+
+def _get_tool_agent_runtime() -> ToolAgentRuntime:
+    if tool_agent_runtime is None:
+        raise HTTPException(
+            status_code=503, detail="Tool agent runtime not initialized"
+        )
+    return tool_agent_runtime
+
+
+def _get_engineering_agent_facade() -> EngineeringAgentFacade:
+    if engineering_agent_facade is not None:
+        return engineering_agent_facade
+    raise HTTPException(
+        status_code=503, detail="Engineering agent runtime not initialized"
+    )
+
+
+def _engineering_knowledge_status() -> EngineeringKnowledgeStatusResponse:
+    backend = engineering_knowledge_backend
+    identity = backend.identity if backend is not None else None
+    return EngineeringKnowledgeStatusResponse(
+        schema_version="engineering_knowledge_status_v1",
+        ready=engineering_agent_facade is not None,
+        verified=bool(identity and identity.verified),
+        corpus_id=identity.corpus_id if identity else None,
+        file_count=identity.file_count if identity else None,
+        chunk_count=identity.chunk_count if identity else None,
+        retrieval_strategy=identity.retrieval_strategy if identity else None,
+        manifest_experiment_id=identity.manifest_experiment_id if identity else None,
+    )
+
+
+def _get_engineering_project() -> EngineeringProject:
+    if engineering_project is not None:
+        return engineering_project
+    try:
+        return resolve_engineering_project(REPO_ROOT)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _get_conversation_store() -> ConversationStore:
+    if conversation_store is not None:
+        return conversation_store
+    raise HTTPException(status_code=503, detail="Conversation store not initialized")
+
+
+def _conversation_project_key(project: EngineeringProject) -> str:
+    """Server-internal project binding identity; never returned to clients."""
+
+    return hashlib.sha256(str(project.root).encode("utf-8")).hexdigest()
+
+
+def _assistant_display_content(public_result: dict) -> str:
+    """Bounded deterministic display text from public fields only.
+
+    completed → the public answer; refused/failed without an answer → a safe
+    status line. Raw trace / observations / hidden reasons are never used.
+    """
+
+    answer = public_result.get("answer")
+    if isinstance(answer, str) and answer.strip():
+        return answer
+    status = public_result.get("status")
+    if status == "refused":
+        return f"Refused: {public_result.get('reason_code') or 'REFUSED'}"
+    if status == "failed":
+        return f"Failed: {public_result.get('failure_code') or 'FAILED'}"
+    return ""
+
+
+def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResponse:
+    return ToolAgentQueryResponse(
+        schema_version="tool_agent_query_response_v1",
+        status=result.status,
+        answer=result.answer,
+        reason_code=result.reason_code,
+        failure_code=result.failure_code,
+        iterations_used=result.iterations_used,
+        tool_calls_used=result.tool_calls_used,
+        tool_errors_used=result.tool_errors_used,
+        trace=_safe_legacy_trace([event.to_dict() for event in result.trace]),
+        evidence=[
+            ToolAgentEvidence(
+                evidence_id=f"E{legacy_id}",
+                kind=item.kind,
+                path=item.path,
+                start_line=item.start_line,
+                end_line=item.end_line,
+                snippet=item.snippet,
+            )
+            for legacy_id, item in enumerate(
+                (item for item in result.evidence if type(item) is RuntimeEngineeringEvidence),
+                1,
+            )
+        ],
+    )
+
+
+# PRODUCT-ENGINEERING-24B: process-local bounded admission for Engineering
+# runs. Single-process local product; no queue, no distributed lock. When
+# the fixed number of slots is taken, new Engineering runs fail fast with
+# 503 instead of piling up. Clients cannot change the limit.
+ENGINEERING_RUN_CONCURRENCY_LIMIT = 2
+_engineering_run_slots = threading.BoundedSemaphore(ENGINEERING_RUN_CONCURRENCY_LIMIT)
+
+
+def _acquire_engineering_run_slot() -> Callable[[], None]:
+    """Acquire one stream slot and return an exactly-once release callback."""
+
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
+    released = False
+    release_lock = threading.Lock()
+
+    def release_once() -> None:
+        nonlocal released
+        with release_lock:
+            if released:
+                return
+            released = True
+        _engineering_run_slots.release()
+
+    return release_once
+
+
+def _build_engineering_response(
+    result: ToolAgentRunResult,
+) -> EngineeringQueryResponse:
+    evidence = []
+    for item in result.evidence:
+        if type(item) is RuntimeKnowledgeEvidence:
+            evidence.append(
+                KnowledgeEvidence(
+                    evidence_id=item.evidence_id,
+                    kind="knowledge",
+                    source_name=item.source_name,
+                    chunk_id=item.chunk_id,
+                    score=item.score,
+                    rank=item.rank,
+                    snippet=item.snippet,
+                )
+            )
+        elif type(item) is RuntimeEngineeringEvidence:
+            evidence.append(
+                ToolAgentEvidence(
+                    evidence_id=item.evidence_id,
+                    kind=item.kind,
+                    path=item.path,
+                    start_line=item.start_line,
+                    end_line=item.end_line,
+                    snippet=item.snippet,
+                )
+            )
+    execution = (
+        EngineeringExecutionMetrics(
+            elapsed_ms=result.execution.elapsed_ms,
+            decision_llm_calls=result.execution.decision_llm_calls,
+            input_tokens=result.execution.input_tokens,
+            output_tokens=result.execution.output_tokens,
+        )
+        if result.execution is not None
+        else None
+    )
+    return EngineeringQueryResponse(
+        schema_version="engineering_query_response_v1",
+        status=result.status,
+        answer=result.answer,
+        reason_code=result.reason_code,
+        failure_code=result.failure_code,
+        iterations_used=result.iterations_used,
+        tool_calls_used=result.tool_calls_used,
+        tool_errors_used=result.tool_errors_used,
+        trace=_safe_engineering_trace([event.to_dict() for event in result.trace]),
+        evidence=evidence,
+        execution=execution,
+    )
+
+
+@app.get("/health", response_model=HealthResponse)
+def health():
+    p = _get_pipeline()
+    return HealthResponse(
+        docs_count=p.vector_store.count(),
+        embedding_provider=p.config.embedding_provider,
+        retriever_strategy=p.config.retriever_strategy,
+        generator_provider=p.config.generator_provider,
+    )
+
+
+@app.get("/project", response_model=ProjectResponse)
+def project() -> ProjectResponse:
+    """Return only public project identity, never a local filesystem path."""
+    bound_project = _get_engineering_project()
+    return ProjectResponse(
+        project_name=bound_project.project_name,
+        source=bound_project.source,
+    )
+
+
+def _validate_filename(filename: str) -> None:
+    if not filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    if filename in (".", ".."):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename: path separators are not allowed",
+        )
+    if any(ord(c) < 32 or ord(c) == 127 for c in filename):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename: control characters are not allowed",
+        )
+    if any(c in _WINDOWS_ILLEGAL_CHARS for c in filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if len(filename) > MAX_FILENAME_LENGTH:
+        raise HTTPException(status_code=400, detail="Invalid filename: too long")
+    suffix = os.path.splitext(filename)[1].lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {suffix}. Supported: .txt, .md, .pdf, .py, .js, .java",
+        )
+
+
+def _copy_upload(file_obj, dst_path: str, max_bytes: int) -> int:
+    total = 0
+    with open(dst_path, "wb") as out:
+        while True:
+            chunk = file_obj.read(UPLOAD_CHUNK_SIZE)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail="File too large (max 20 MiB)",
+                )
+            out.write(chunk)
+    return total
+
+
+@app.post("/index/file", response_model=IndexResponse)
+def index_file(file: UploadFile = File(...)):
+    p = _get_pipeline()
+    filename = file.filename or ""
+    _validate_filename(filename)
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="rag_upload_") as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, filename)
+            total = _copy_upload(file.file, tmp_path, MAX_UPLOAD_BYTES)
+            if total == 0:
+                raise HTTPException(status_code=400, detail="Empty file")
+            result = p.index_file(tmp_path)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail="Internal indexing error")
+
+    return IndexResponse(
+        file_name=filename,
+        chunks=result.get("chunks", 0),
+        status=result.get("status", "success"),
+    )
+
+
+@app.post("/query", response_model=QueryResponse)
+def query(req: QueryRequest):
+    p = _get_pipeline()
+
+    if not req.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+    try:
+        history = [m.model_dump() for m in req.history]
+        result = p.query(req.question, top_k=req.top_k, history=history)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Query failed")
+        raise HTTPException(status_code=500, detail="Internal query error")
+
+    sources = [
+        SourceItem(
+            content=s["content"],
+            source=s["source"],
+            score=s["score"],
+        )
+        for s in result["sources"]
+    ]
+
+    return QueryResponse(answer=result["answer"], sources=sources)
+
+
+@app.post("/agent/query", response_model=AgentQueryResponse)
+def agent_query(req: AgentQueryRequest):
+    """Agentic RAG 问答入口：Planner → Runtime → BM25 → Generator → Citation。
+
+    history 只传入 Agentic RAG runtime；Tool Agent 仍有独立且冻结的请求契约。
+    completed/refused/deferred/failed 都返回结构化结果，deferred 不伪装成
+    成功回答。Agent Runtime 未初始化时返回 503，不泄露内部异常。
+    """
+    rt = _get_agent_runtime()
+    try:
+        result = rt.run(
+            req.question,
+            history=tuple(message.model_dump() for message in req.history),
+            top_k=req.top_k,
+        )
+    except Exception:
+        logger.exception("Agent query failed")
+        raise HTTPException(status_code=500, detail="Internal agent query error")
+    return _build_agent_response(result)
+
+
+@app.post("/tool-agent/query", response_model=ToolAgentQueryResponse)
+def tool_agent_query(req: ToolAgentQueryRequest):
+    """Gate 4 Structured Tool Agent 问答入口：Decision → Tool → Observation → Final。
+
+    独立于 Gate 3 /agent/query。模型只见 question + ToolSpec + observations；
+    history / provider / model / budget / tool allowlist 一律不被接受（extra=forbid）。
+    Agent 自己的 refused / failed / budget stop / parse failure 是正常结构化系统
+    结果 → HTTP 200 + status/reason/failure；只有未知基础设施异常 → HTTP 500。
+    """
+    rt = _get_tool_agent_runtime()
+    try:
+        result = rt.run(req.question)
+    except Exception:
+        logger.exception("Tool agent query failed")
+        raise HTTPException(
+            status_code=500, detail="Internal tool agent query error"
+        )
+    return _build_tool_agent_response(result)
+
+
+@app.post("/engineering/query", response_model=EngineeringQueryResponse)
+def engineering_query(req: EngineeringQueryRequest):
+    """Unified product entry backed by the existing ToolAgentRuntime loop."""
+
+    facade = _get_engineering_agent_facade()
+    if not _engineering_run_slots.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503,
+            detail="Engineering run at capacity; retry shortly",
+        )
+    try:
+        result = facade.run(req.question, conversation_context=None)
+    except Exception:
+        logger.exception("Engineering agent query failed")
+        raise HTTPException(
+            status_code=500, detail="Internal engineering agent query error"
+        )
+    finally:
+        _engineering_run_slots.release()
+    return _build_engineering_response(result)
+
+
+@app.post("/engineering/query/stream")
+def engineering_query_stream(req: EngineeringQueryRequest) -> StreamingResponse:
+    """Present existing safe Runtime progress as guarded SSE events."""
+
+    facade = _get_engineering_agent_facade()
+    release_slot = _acquire_engineering_run_slot()
+    cancel_event = threading.Event()
+    try:
+        stream = stream_engineering_query(
+            facade,
+            req.question,
+            conversation_context=None,
+            build_response=_build_engineering_response,
+            cancel_event=cancel_event,
+            on_worker_done=release_slot,
+        )
+    except Exception:
+        cancel_event.set()
+        release_slot()
+        raise
+
+    def guarded_stream():
+        try:
+            yield from stream
+        finally:
+            cancel_event.set()
+
+    return StreamingResponse(
+        guarded_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION,
+        },
+    )
+
+
+@app.post("/engineering/query/stream/v2")
+def engineering_query_stream_v2(req: EngineeringQueryRequest) -> StreamingResponse:
+    """Present rich safe Tool Activity progress without changing the v1 stream."""
+
+    facade = _get_engineering_agent_facade()
+    release_slot = _acquire_engineering_run_slot()
+    cancel_event = threading.Event()
+    try:
+        stream = stream_engineering_query_v2(
+            facade,
+            req.question,
+            conversation_context=None,
+            build_response=_build_engineering_response,
+            cancel_event=cancel_event,
+            on_worker_done=release_slot,
+        )
+    except Exception:
+        cancel_event.set()
+        release_slot()
+        raise
+
+    def guarded_stream():
+        try:
+            yield from stream
+        finally:
+            cancel_event.set()
+
+    return StreamingResponse(
+        guarded_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION_V2,
+        },
+    )
+
+
+@app.get(
+    "/engineering/knowledge",
+    response_model=EngineeringKnowledgeStatusResponse,
+)
+def engineering_knowledge() -> EngineeringKnowledgeStatusResponse:
+    """Return verified backend identity without local paths or corpus contents."""
+
+    return _engineering_knowledge_status()
+
+
+@app.post(
+    "/engineering/conversations",
+    response_model=EngineeringConversationSummary,
+    status_code=201,
+)
+def create_engineering_conversation() -> EngineeringConversationSummary:
+    """Create a server-owned Engineering conversation bound to this project.
+
+    Clients never choose the conversation id or the project binding; both are
+    system-generated.
+    """
+
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    return store.create_conversation(
+        project_key=_conversation_project_key(project),
+        project_name=project.project_name,
+        project_source=project.source,
+    )
+
+
+@app.get(
+    "/engineering/conversations",
+    response_model=EngineeringConversationListResponse,
+)
+def list_engineering_conversations() -> EngineeringConversationListResponse:
+    """List this project's conversations, most recently updated first."""
+
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    return EngineeringConversationListResponse(
+        schema_version="engineering_conversation_list_v1",
+        conversations=store.list_conversations(_conversation_project_key(project)),
+    )
+
+
+@app.get(
+    "/engineering/conversations/{conversation_id}",
+    response_model=EngineeringConversationDetail,
+)
+def get_engineering_conversation(conversation_id: str) -> EngineeringConversationDetail:
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    detail = store.get_conversation(_conversation_project_key(project), conversation_id)
+    if detail is None:
+        # A conversation from another local project is deliberately not
+        # distinguishable from a missing one.
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return detail
+
+
+@app.delete("/engineering/conversations/{conversation_id}", status_code=204)
+def delete_engineering_conversation(conversation_id: str) -> Response:
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    deleted = store.delete_conversation(_conversation_project_key(project), conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return Response(status_code=204)
+
+
+@app.post(
+    "/engineering/conversations/{conversation_id}/messages/stream/v1",
+)
+def engineering_conversation_message_stream(
+    conversation_id: str,
+    req: EngineeringConversationMessageRequest,
+) -> StreamingResponse:
+    """One server-owned multi-turn Engineering conversation turn over SSE.
+
+    The store supplies the committed role/content history; which history
+    enters the Runtime remains owned by the existing
+    EngineeringContextResolver / RecentContextWindow (6 messages / 1200
+    tokens). Persistence is atomic and happens strictly before the answer is
+    presented as successful, so the server conversation can never miss a turn
+    the UI already showed as complete.
+    """
+
+    project = _get_engineering_project()
+    store = _get_conversation_store()
+    project_key = _conversation_project_key(project)
+    history = store.load_history(project_key, conversation_id)
+    if history is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    facade = _get_engineering_agent_facade()
+    release_slot = _acquire_engineering_run_slot()
+    cancel_event = threading.Event()
+
+    def persist_turn(public_result: dict) -> None:
+        store.append_turn(
+            project_key,
+            conversation_id,
+            user_content=req.message,
+            assistant_content=_assistant_display_content(public_result),
+            result=public_result,
+        )
+
+    try:
+        stream = stream_engineering_query(
+            facade,
+            req.message,
+            conversation_context=history,
+            build_response=_build_engineering_response,
+            before_public_result=persist_turn,
+            cancel_event=cancel_event,
+            on_worker_done=release_slot,
+        )
+    except Exception:
+        cancel_event.set()
+        release_slot()
+        raise
+
+    def guarded_stream():
+        try:
+            yield from stream
+        finally:
+            # Disconnect or normal end: the stream sets the cancellation
+            # event itself; persistence stays atomic (no half-turn).
+            cancel_event.set()
+
+    return StreamingResponse(
+        guarded_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION,
+        },
+    )
+
+
+@app.get("/stats", response_model=StatsResponse)
+def stats() -> StatsResponse:
+    p = _get_pipeline()
+    config = p.config
+    return StatsResponse(
+        documents_count=p.vector_store.count(),
+        config=PublicConfigResponse(
+            embedding_provider=config.embedding_provider,
+            embedding_model=config.embedding_model,
+            chunker_strategy=config.chunker_strategy,
+            chunk_size=config.chunk_size,
+            chunk_overlap=config.chunk_overlap,
+            retriever_strategy=config.retriever_strategy,
+            top_k=config.top_k,
+            reranker_enabled=config.reranker_enabled,
+            generator_provider=config.generator_provider,
+            generator_model=config.generator_model,
+        ),
+    )
+
+
+@app.get("/capabilities", response_model=CapabilitiesResponse)
+def capabilities() -> CapabilitiesResponse:
+    """Report independent runtime availability without requiring readiness."""
+    pipeline_ready = pipeline is not None
+    agent_runtime_ready = agent_runtime is not None
+    tool_agent_runtime_ready = tool_agent_runtime is not None
+    return CapabilitiesResponse(
+        schema_version="capabilities_response_v1",
+        pipeline_ready=pipeline_ready,
+        agent_runtime_ready=agent_runtime_ready,
+        tool_agent_runtime_ready=tool_agent_runtime_ready,
+        features=FeatureCapabilities(
+            indexing=pipeline_ready,
+            basic_rag=pipeline_ready,
+            agentic_rag=agent_runtime_ready,
+            structured_tool_agent=tool_agent_runtime_ready,
+            engineering_agent=engineering_agent_facade is not None,
+        ),
+    )

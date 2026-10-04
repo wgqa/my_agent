@@ -1,0 +1,405 @@
+{
+  "provider_calls": 0,
+  "frozen_inputs": {
+    "evaluation/task_completion_20261003": {
+      "manifest_sha256": "89caf7f8221c70ba87cfd55f2956ef0c6d0f6e88f183a7c45288b4df3a574b9d",
+      "manifest_and_helpers_unchanged": true,
+      "recorded_requests": 24
+    },
+    "evaluation/task_completion_20261003/document_source_slice": {
+      "manifest_sha256": "c445e10d1e0258b6cf831065c2a450b36a2a3283d88eeb1c6815006cfeba19cd",
+      "manifest_and_helpers_unchanged": true,
+      "recorded_requests": 24
+    }
+  },
+  "paid_candidate_sha256": "04ed5bfbd89cedcc2fd897fdf63745effa7261e2dc568adcffcada4ce576ea1c",
+  "retained_candidate_sha256": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+  "post_live_change": "Mask literal filenames before interpreting request signals; additional filename/path boundaries verified offline only.",
+  "live_catalog_routing_identical": [
+    {
+      "id": "S01",
+      "paid": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "S02",
+      "paid": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "S03",
+      "paid": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "S04",
+      "paid": {
+        "profile": "NO_ADDITIONAL_REQUIREMENT",
+        "required_evidence_groups": [],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "NO_ADDITIONAL_REQUIREMENT",
+        "required_evidence_groups": [],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "R01",
+      "paid": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "R02",
+      "paid": {
+        "profile": "NO_ADDITIONAL_REQUIREMENT",
+        "required_evidence_groups": [],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "NO_ADDITIONAL_REQUIREMENT",
+        "required_evidence_groups": [],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "R03",
+      "paid": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_CODE_V1",
+        "required_evidence_groups": [
+          [
+            "project_code"
+          ]
+        ],
+        "min_distinct_project_code_paths": 1,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "R04",
+      "paid": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "D01",
+      "paid": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "D02",
+      "paid": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "D03",
+      "paid": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "PROJECT_DOC_V1",
+        "required_evidence_groups": [
+          [
+            "project_doc"
+          ]
+        ],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    },
+    {
+      "id": "K01",
+      "paid": {
+        "profile": "NO_ADDITIONAL_REQUIREMENT",
+        "required_evidence_groups": [],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "retained": {
+        "profile": "NO_ADDITIONAL_REQUIREMENT",
+        "required_evidence_groups": [],
+        "min_distinct_project_code_paths": 0,
+        "router_version": "engineering_requirement_router_v3"
+      },
+      "identical": true
+    }
+  ],
+  "legacy_profile_shapes_unchanged": {
+    "THEORY_CODE_V1": [
+      [
+        [
+          "knowledge"
+        ],
+        [
+          "project_code",
+          "project_doc"
+        ]
+      ],
+      1
+    ],
+    "CHANGE_TEST_V1": [
+      [
+        [
+          "project_change"
+        ],
+        [
+          "project_test"
+        ]
+      ],
+      0
+    ],
+    "DIAGNOSIS_SINGLE_V1": [
+      [
+        [
+          "project_code"
+        ]
+      ],
+      1
+    ],
+    "DIAGNOSIS_CROSS_FILE_V1": [
+      [
+        [
+          "project_code"
+        ]
+      ],
+      2
+    ],
+    "DOCS_CODE_V1": [
+      [
+        [
+          "project_doc"
+        ],
+        [
+          "project_code"
+        ]
+      ],
+      1
+    ],
+    "PROJECT_CODE_V1": [
+      [
+        [
+          "project_code"
+        ]
+      ],
+      1
+    ],
+    "NO_ADDITIONAL_REQUIREMENT": [
+      [],
+      0
+    ]
+  },
+  "protected_files": {
+    "api/app.py": {
+      "sha256": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+      "unchanged": true
+    },
+    "core/tool_agent/decision_prompt.py": {
+      "sha256": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+      "unchanged": true
+    },
+    "core/tool_agent/runtime.py": {
+      "sha256": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+      "unchanged": true
+    },
+    "core/tool_agent/runtime_models.py": {
+      "sha256": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+      "unchanged": true
+    },
+    "core/unified_engineering_runtime.py": {
+      "sha256": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+      "unchanged": true
+    },
+    "core/engineering_planning.py": {
+      "sha256": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+      "unchanged": true
+    },
+    "core/engineering_retrieval.py": {
+      "sha256": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+      "unchanged": true
+    },
+    "core/engineering_verification.py": {
+      "sha256": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+      "unchanged": true
+    },
+    "core/tool_agent/integration.py": {
+      "sha256": "39963b96bfad7ad6749a39b02d135d589a0e5ac90ba53c75d1801b83d7acf717",
+      "unchanged": true
+    },
+    "core/tool_agent/openai_compatible.py": {
+      "sha256": "9275773f891e28b9eaeeae469459c039db7d2d21fa1677de3ae014f2fd29b8d9",
+      "unchanged": true
+    },
+    "core/tool_agent/tools/code_search.py": {
+      "sha256": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+      "unchanged": true
+    },
+    "core/tool_agent/tools/read_project_context.py": {
+      "sha256": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+      "unchanged": true
+    },
+    "core/query_planning/prompt.py": {
+      "sha256": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+      "unchanged": true
+    }
+  },
+  "ci_and_runbook_test_lists_identical": true,
+  "ci_selected_test_files": 35,
+  "limit": "Identical routing is not a second live run of the retained file and does not establish model answer reproducibility."
+}

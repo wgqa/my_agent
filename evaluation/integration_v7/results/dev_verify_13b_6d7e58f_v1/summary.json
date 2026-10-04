@@ -1,0 +1,444 @@
+{
+  "cases": [
+    {
+      "activity": [
+        {
+          "available_tool_count": 6,
+          "execution_model": "single_agent",
+          "type": "run_started"
+        },
+        {
+          "evidence_id": "E1",
+          "kind": "knowledge",
+          "source_name": "prompt/评估与优化.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E2",
+          "kind": "knowledge",
+          "source_name": "finetuning/数据工程.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E3",
+          "kind": "knowledge",
+          "source_name": "deployment/部署架构.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E4",
+          "kind": "knowledge",
+          "source_name": "prompt/提示工程高级技巧.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E5",
+          "kind": "knowledge",
+          "source_name": "rag/检索与生成.md",
+          "type": "evidence_added"
+        },
+        {
+          "activity_id": "A1",
+          "iteration": 1,
+          "purpose": "定位与指定目标相关的项目代码",
+          "state": "started",
+          "target": {
+            "artifact_kind": "project_code",
+            "query": "facade"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A1",
+          "iteration": 1,
+          "purpose": "定位与指定目标相关的项目代码",
+          "result_summary": {
+            "match_count": 10,
+            "top_paths": [
+              "api/app.py"
+            ]
+          },
+          "state": "completed",
+          "target": {
+            "artifact_kind": "project_code",
+            "query": "facade"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A2",
+          "iteration": 2,
+          "purpose": "读取项目上下文，确认实际实现",
+          "state": "started",
+          "target": {
+            "context_lines": 20,
+            "line": 359,
+            "path": "api/app.py"
+          },
+          "tool_name": "read_project_context",
+          "type": "activity"
+        },
+        {
+          "end_line": 379,
+          "evidence_id": "E6",
+          "kind": "project_code",
+          "path": "api/app.py",
+          "start_line": 339,
+          "type": "evidence_added"
+        },
+        {
+          "activity_id": "A2",
+          "evidence_ids_added": [
+            "E6"
+          ],
+          "iteration": 2,
+          "purpose": "读取项目上下文，确认实际实现",
+          "result_summary": {
+            "end_line": 379,
+            "path": "api/app.py",
+            "start_line": 339
+          },
+          "state": "completed",
+          "target": {
+            "context_lines": 20,
+            "line": 359,
+            "path": "api/app.py"
+          },
+          "tool_name": "read_project_context",
+          "type": "activity"
+        }
+      ],
+      "case_id": "v7d003",
+      "final_evidence_kinds": [
+        "knowledge",
+        "project_code"
+      ],
+      "infrastructure_code": null,
+      "iterations": 3,
+      "missing_evidence_groups": [],
+      "reason_code": null,
+      "run_validity": "VALID",
+      "status": "completed",
+      "tool_calls": 2,
+      "tool_sequence": [
+        "code_search",
+        "read_project_context"
+      ]
+    },
+    {
+      "activity": [
+        {
+          "available_tool_count": 6,
+          "execution_model": "single_agent",
+          "type": "run_started"
+        },
+        {
+          "evidence_id": "E1",
+          "kind": "knowledge",
+          "source_name": "rag/文档处理.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E2",
+          "kind": "knowledge",
+          "source_name": "tool_calling/Function-Calling原理.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E3",
+          "kind": "knowledge",
+          "source_name": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E4",
+          "kind": "knowledge",
+          "source_name": "llm/预训练.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E5",
+          "kind": "knowledge",
+          "source_name": "rag/检索与生成.md",
+          "type": "evidence_added"
+        },
+        {
+          "activity_id": "A1",
+          "iteration": 1,
+          "purpose": "定位与指定目标相关的项目代码",
+          "state": "started",
+          "target": {
+            "artifact_kind": "project_doc",
+            "query": "evidence sufficiency"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A1",
+          "iteration": 1,
+          "purpose": "定位与指定目标相关的项目代码",
+          "result_summary": {
+            "match_count": 10,
+            "top_paths": [
+              "README.md",
+              "docs/adr/ADR-002-unified-engineering-runtime-migration.md",
+              "docs/archive/roadmap-v4-2026-08-15.md",
+              "docs/design/g12-engineering-evaluation-2.0.md"
+            ]
+          },
+          "state": "completed",
+          "target": {
+            "artifact_kind": "project_doc",
+            "query": "evidence sufficiency"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A2",
+          "iteration": 2,
+          "purpose": "读取项目上下文，确认实际实现",
+          "state": "started",
+          "target": {
+            "context_lines": 30,
+            "line": 111,
+            "path": "docs/design/g12-engineering-evaluation-2.0.md"
+          },
+          "tool_name": "read_project_context",
+          "type": "activity"
+        },
+        {
+          "end_line": 141,
+          "evidence_id": "E6",
+          "kind": "project_doc",
+          "path": "docs/design/g12-engineering-evaluation-2.0.md",
+          "start_line": 81,
+          "type": "evidence_added"
+        },
+        {
+          "activity_id": "A2",
+          "evidence_ids_added": [
+            "E6"
+          ],
+          "iteration": 2,
+          "purpose": "读取项目上下文，确认实际实现",
+          "result_summary": {
+            "end_line": 141,
+            "path": "docs/design/g12-engineering-evaluation-2.0.md",
+            "start_line": 81
+          },
+          "state": "completed",
+          "target": {
+            "context_lines": 30,
+            "line": 111,
+            "path": "docs/design/g12-engineering-evaluation-2.0.md"
+          },
+          "tool_name": "read_project_context",
+          "type": "activity"
+        },
+        {
+          "iteration": 3,
+          "missing_evidence_kinds": [
+            "project_code"
+          ],
+          "state": "blocked",
+          "type": "verification"
+        }
+      ],
+      "case_id": "v7d012",
+      "final_evidence_kinds": [
+        "knowledge",
+        "project_doc"
+      ],
+      "infrastructure_code": null,
+      "iterations": 4,
+      "missing_evidence_groups": [
+        [
+          "project_code"
+        ]
+      ],
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "run_validity": "VALID",
+      "status": "refused",
+      "tool_calls": 2,
+      "tool_sequence": [
+        "code_search",
+        "read_project_context"
+      ]
+    },
+    {
+      "activity": [
+        {
+          "available_tool_count": 6,
+          "execution_model": "single_agent",
+          "type": "run_started"
+        },
+        {
+          "evidence_id": "E1",
+          "kind": "knowledge",
+          "source_name": "prompt/提示工程高级技巧.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E2",
+          "kind": "knowledge",
+          "source_name": "prompt/评估与优化.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E3",
+          "kind": "knowledge",
+          "source_name": "vector_db/核心概念.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E4",
+          "kind": "knowledge",
+          "source_name": "prompt/提示工程基础.md",
+          "type": "evidence_added"
+        },
+        {
+          "evidence_id": "E5",
+          "kind": "knowledge",
+          "source_name": "agent_frameworks/LangChain-LangGraph-04-并行错误处理与测试.md",
+          "type": "evidence_added"
+        },
+        {
+          "activity_id": "A1",
+          "iteration": 1,
+          "purpose": "定位与指定目标相关的项目代码",
+          "state": "started",
+          "target": {
+            "artifact_kind": "project_code",
+            "query": "Budget Owner"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A1",
+          "iteration": 1,
+          "purpose": "定位与指定目标相关的项目代码",
+          "result_summary": {
+            "match_count": 0,
+            "top_paths": []
+          },
+          "state": "completed",
+          "target": {
+            "artifact_kind": "project_code",
+            "query": "Budget Owner"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A2",
+          "iteration": 2,
+          "purpose": "定位与指定目标相关的项目代码",
+          "state": "started",
+          "target": {
+            "artifact_kind": "project_code",
+            "query": "budget"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A2",
+          "iteration": 2,
+          "purpose": "定位与指定目标相关的项目代码",
+          "result_summary": {
+            "match_count": 10,
+            "top_paths": [
+              "api/app.py",
+              "api/schemas.py",
+              "core/agent_runtime/__init__.py",
+              "core/agent_runtime/models.py",
+              "core/agent_runtime/runtime.py"
+            ]
+          },
+          "state": "completed",
+          "target": {
+            "artifact_kind": "project_code",
+            "query": "budget"
+          },
+          "tool_name": "code_search",
+          "type": "activity"
+        },
+        {
+          "activity_id": "A3",
+          "iteration": 3,
+          "purpose": "读取项目上下文，确认实际实现",
+          "state": "started",
+          "target": {
+            "context_lines": 30,
+            "line": 166,
+            "path": "core/agent_runtime/models.py"
+          },
+          "tool_name": "read_project_context",
+          "type": "activity"
+        },
+        {
+          "end_line": 196,
+          "evidence_id": "E6",
+          "kind": "project_code",
+          "path": "core/agent_runtime/models.py",
+          "start_line": 136,
+          "type": "evidence_added"
+        },
+        {
+          "activity_id": "A3",
+          "evidence_ids_added": [
+            "E6"
+          ],
+          "iteration": 3,
+          "purpose": "读取项目上下文，确认实际实现",
+          "result_summary": {
+            "end_line": 196,
+            "path": "core/agent_runtime/models.py",
+            "start_line": 136
+          },
+          "state": "completed",
+          "target": {
+            "context_lines": 30,
+            "line": 166,
+            "path": "core/agent_runtime/models.py"
+          },
+          "tool_name": "read_project_context",
+          "type": "activity"
+        }
+      ],
+      "case_id": "v7d014",
+      "final_evidence_kinds": [
+        "knowledge",
+        "project_code"
+      ],
+      "infrastructure_code": null,
+      "iterations": 4,
+      "missing_evidence_groups": [],
+      "reason_code": null,
+      "run_validity": "VALID",
+      "status": "completed",
+      "tool_calls": 3,
+      "tool_sequence": [
+        "code_search",
+        "code_search",
+        "read_project_context"
+      ]
+    }
+  ],
+  "holdout": "NOT RUN / DENY",
+  "manual_scoring": "NOT DONE",
+  "run_counts": {
+    "expected": 3,
+    "invalid": 0,
+    "observed": 3,
+    "valid": 3
+  },
+  "schema_version": "arch_integration_13b_real_verification_v1",
+  "scope": "three cases / one attempt each / safe Activity only",
+  "system_a": "NOT RUN"
+}

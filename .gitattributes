@@ -7,4 +7,9 @@ evaluation/gate4/data/*.jsonl text eol=crlf
 # Keep archived bytes intact: manifests hash the original diagnostic artifacts.
 evaluation/source_reading_v2_20261002/** -text
 evaluation/source_search_v6_20261003/** -text
+evaluation/task_completion_20261003/** -text
+evaluation/evidence_excerpt_20261003/** -text
+evaluation/no_retrieval_alignment_20261003/** -text
+evaluation/project_test_acquisition_20261003/** -text
 evaluation/system_assessment_20261002/** -text
+evaluation/core_workflows_20261004/** -text

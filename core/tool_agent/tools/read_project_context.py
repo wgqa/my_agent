@@ -15,6 +15,7 @@ from core.tool_agent.models import (
     ToolExecutionError,
     ToolSpec,
 )
+from core.tool_agent.source_excerpt import MAX_CONTEXT_LINES
 from core.tool_agent.tools.code_search import (
     ALLOWED_SUFFIXES,
     MAX_FILE_SIZE,
@@ -30,7 +31,6 @@ from core.tool_agent.tools.source_navigation import (
 )
 
 READ_PROJECT_CONTEXT_VERSION = "read_project_context_v2"
-MAX_CONTEXT_LINES = 30
 MAX_PATH_LENGTH = 500
 
 READ_PROJECT_CONTEXT_INPUT_SCHEMA = {
@@ -203,7 +203,31 @@ class ReadProjectContextHandler:
         ):
             raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
 
-        relative_parts = _relative_parts(arguments["path"])
+        candidate, source_lines = self._load_source(arguments["path"])
+        if requested_line > len(source_lines):
+            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
+        if mode == "definition":
+            return self._read_definition(
+                candidate, source_lines, requested_line, continuation_line,
+            )
+        start_line = max(1, requested_line - context_lines)
+        end_line = min(len(source_lines), requested_line + context_lines)
+        return {
+            "path": candidate.relative_to(self._root).as_posix(),
+            "start_line": start_line,
+            "end_line": end_line,
+            "lines": [
+                {
+                    "line": line_number,
+                    "text": source_lines[line_number - 1][:MAX_LINE_LENGTH],
+                }
+                for line_number in range(start_line, end_line + 1)
+            ],
+        }
+
+    def _load_source(self, raw_path: object) -> tuple[Path, list[str]]:
+        """Use the same access checks for all system-selected Reader contracts."""
+        relative_parts = _relative_parts(raw_path)
         candidate = self._root.joinpath(*relative_parts)
         if candidate.is_symlink():
             raise ToolExecutionError(PROJECT_CONTEXT_PATH_NOT_ALLOWED)
@@ -232,26 +256,7 @@ class ReadProjectContextHandler:
         except (OSError, UnicodeDecodeError):
             raise ToolExecutionError(PROJECT_CONTEXT_FILE_UNREADABLE) from None
 
-        if requested_line > len(source_lines):
-            raise ToolExecutionError(PROJECT_CONTEXT_LINE_OUT_OF_RANGE)
-        if mode == "definition":
-            return self._read_definition(
-                candidate, source_lines, requested_line, continuation_line,
-            )
-        start_line = max(1, requested_line - context_lines)
-        end_line = min(len(source_lines), requested_line + context_lines)
-        return {
-            "path": candidate.relative_to(self._root).as_posix(),
-            "start_line": start_line,
-            "end_line": end_line,
-            "lines": [
-                {
-                    "line": line_number,
-                    "text": source_lines[line_number - 1][:MAX_LINE_LENGTH],
-                }
-                for line_number in range(start_line, end_line + 1)
-            ],
-        }
+        return candidate, source_lines
 
     def _read_definition(
         self, candidate: Path, source_lines: list[str], requested_line: int,

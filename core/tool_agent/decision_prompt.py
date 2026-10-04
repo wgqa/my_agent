@@ -383,6 +383,35 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_SHA256 = hashlib.sha256(
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_TEMPLATE.encode("utf-8")
 ).hexdigest()
 
+# Align test acquisition with Engineering's test-aware search contract. Keep
+# every historical profile and its hash intact; grounding/termination stay the
+# same. This is a prompt revision, not the deferred Task/Evidence v2 contract.
+_LEGACY_TEST_DISCOVERY_POLICY = (
+    "- project_test 仍使用 find_tests → read_project_context；不要用 code_search 的"
+    " artifact_kind 模拟 project_test discovery。\n"
+)
+_TEST_DISCOVERY_POLICY = (
+    "- 为缺失的 project_test 定位已有测试时，可用 code_search，artifact_kind 必须为"
+    " project_test，query 使用测试名称、被测 symbol 或断言中的简短 literal。定位后"
+    "必须 read_project_context 读取相关测试及断言；搜索命中不等于测试证据。\n"
+    "- 阅读测试函数/方法时，优先用现有 mode=definition 取得定义、构造输入与断言。"
+    "窗口碰到函数头或断言不等于已读取完整测试；遵守 content_complete 和续读边界。\n"
+    "- 已知源码路径、需要找关联测试时仍可用 find_tests → read_project_context。"
+    "测试证据只证明测试如何定义；只能建议运行命令，不能声称测试已执行或已通过。\n"
+    "- pytest 命令只选择实际读取或 definition.name 返回的测试名称；只有取得类名/"
+    "限定名后才建议完整 node ID。不要用占位符命令或宽泛关键词替代用户要求的单测试命令。\n"
+)
+if ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_TEMPLATE.count(_LEGACY_TEST_DISCOVERY_POLICY) != 1:
+    raise RuntimeError("test acquisition policy must occur exactly once")
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE = (
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_TEMPLATE.replace(
+        _LEGACY_TEST_DISCOVERY_POLICY, _TEST_DISCOVERY_POLICY,
+    )
+)
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_SHA256 = hashlib.sha256(
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE.encode("utf-8")
+).hexdigest()
+
 ENGINEERING_DECISION_PROMPT_V3_TEMPLATE = ENGINEERING_DECISION_PROMPT_V2_TEMPLATE + (
     "\nGrounded evidence policy：\n"
     "- 当用户询问当前实现、源码行为、算法细节、调用关系、配置行为或返回字段时，"
@@ -502,6 +531,39 @@ ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE = DecisionPrompt
     render_control_state=True,
     render_evidence_reference_control=True,
 )
+ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_unified_kind_aware_grounded_v2",
+    sha256=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_SHA256,
+    template=ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE,
+    render_control_state=True,
+    render_evidence_reference_control=True,
+)
+# Engineering's object Reader has an exclusive target schema. Replace the
+# old Reader parameter guidance rather than stack a second acquisition policy.
+_OBJECT_READER_POLICY = (
+    "- 已知项目相对文件路径时直接 read_project_context，不要搜索文件名作为正文。"
+    "不知道 path 时才用 code_search 定位。Reader 参数只用 path 与 target，"
+    "按 registry 的 file/window/definition/symbols/matching 互斥契约选择。\n"
+    "- 配置、调用或文档核对需取得问题要求的实际定义；同文件的具名方法/默认常量"
+    "可以一起用 symbols 读取，regions 各自引用，缺失/歧义/截断不能假装已取得。\n"
+    "- 查找已有测试时可用 code_search artifact_kind=project_test，或 find_tests。"
+    "候选 path/导入行不是测试正文；已知测试名用 symbols，不知道名称时用该文件的"
+    "matching，以被测标识符或断言的短 literal 定位并读取定义。\n"
+    "- 实际函数限定名来自 Reader 的 definition.name；只有取得限定名才建议完整"
+    "pytest node ID。selection_truncated 或 content_complete=false 必须说明缺口。"
+    "只能建议命令，不能声称测试已执行或通过。\n"
+)
+ENGINEERING_DECISION_PROMPT_OBJECT_READER_TEMPLATE = (
+    ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_TEMPLATE
+    .replace(_TEST_DISCOVERY_POLICY, _OBJECT_READER_POLICY)
+    .replace("使用 code_search → read_project_context；", "已知路径直接读取，否则使用 code_search → read_project_context；")
+)
+ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_unified_kind_aware_grounded_v4",
+    sha256=hashlib.sha256(ENGINEERING_DECISION_PROMPT_OBJECT_READER_TEMPLATE.encode("utf-8")).hexdigest(),
+    template=ENGINEERING_DECISION_PROMPT_OBJECT_READER_TEMPLATE,
+    render_control_state=True, render_evidence_reference_control=True,
+)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -515,6 +577,8 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
@@ -526,6 +590,8 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }

@@ -60,6 +60,7 @@ from core.tool_agent.runtime_models import (
     ToolAgentExecutionMetrics,
     ToolAgentRunResult,
 )
+from core.tool_agent.source_excerpt import project_context_fragments, project_context_snippet
 
 _EVIDENCE_PRODUCER_TOOLS = {
     "knowledge": ("knowledge_search",),
@@ -164,16 +165,8 @@ def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
     path = result.get("path")
     start_line = result.get("start_line")
     end_line = result.get("end_line")
-    lines = result.get("lines")
-    if type(lines) is not list:
-        return None
-    texts: list[str] = []
-    for item in lines:
-        if type(item) is not dict or type(item.get("text")) is not str:
-            return None
-        texts.append(item["text"])
-    snippet = "\n".join(texts)[:MAX_EVIDENCE_SNIPPET_LENGTH]
-    if not snippet:
+    snippet = project_context_snippet(result)
+    if snippet is None:
         return None
     try:
         kind = classify_project_evidence_path(path)
@@ -187,6 +180,19 @@ def _evidence_from_project_context(observation) -> EngineeringEvidence | None:
         )
     except (TypeError, ValueError):
         return None
+
+
+def _evidence_from_project_context_regions(observation) -> tuple[EngineeringEvidence, ...]:
+    """One public source per actual Reader region, preserving legacy reads."""
+    if observation.status != "ok" or observation.tool_name != "read_project_context" or type(observation.result) is not dict:
+        return ()
+    evidence = []
+    for fragment in project_context_fragments(observation.result):
+        item = _evidence_from_project_context(replace(observation, result=fragment))
+        if item is None:
+            return ()
+        evidence.append(item)
+    return tuple(evidence)
 
 
 def _evidence_from_git_diff(observation) -> EngineeringEvidence | None:
@@ -1096,10 +1102,10 @@ class ToolAgentRuntime:
                 )
             )
             observed_evidence = list(_evidence_from_knowledge_search(observation))
+            observed_evidence.extend(_evidence_from_project_context_regions(observation))
             observed_evidence.extend(
                 item
                 for item in (
-                    _evidence_from_project_context(observation),
                     _evidence_from_git_diff(observation),
                 )
                 if item is not None

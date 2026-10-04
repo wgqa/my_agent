@@ -1,0 +1,804 @@
+"""G4-RUNTIME-05：Bounded Tool Agent Loop 的强类型模型。
+
+定义 ToolAgentBudget（v1 冻结 5/4/2）、DecisionContextItem（Observation
+事实，非 CoT）、RuntimeTraceEvent（结构化 Trace）、ToolAgentRunResult
+（跨字段不变量）与 AgentDecisionProvider 最小协议。本模块不调用 LLM、
+不执行 Tool。
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from pathlib import PurePosixPath, PureWindowsPath
+from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
+
+from core.tool_agent.actions import (
+    AGENT_DECISION_FAILURE_CODES,
+    REFUSE_REASON_CODES,
+    AgentDecisionOutcome,
+)
+from core.tool_agent.models import (
+    AGENT_BUDGET_EXCEEDED,
+    TOOL_ERROR_CODES,
+    TOOL_OBSERVATION_STATUSES,
+    json_deep_copy,
+)
+from core.tool_agent.source_excerpt import (
+    MAX_PROJECT_CHANGE_CHARACTERS,
+    project_evidence_character_limit,
+)
+
+_TOOL_ERROR_CODES_SET = frozenset(TOOL_ERROR_CODES)
+_REFUSE_REASON_CODES_SET = frozenset(REFUSE_REASON_CODES)
+_DECISION_FAILURE_CODES_SET = frozenset(AGENT_DECISION_FAILURE_CODES)
+
+# Agent-level termination codes（系统硬停止，非模型 RefuseAction、非 ToolObservation）。
+AGENT_DUPLICATE_TOOL_CALL = "AGENT_DUPLICATE_TOOL_CALL"
+AGENT_TOOL_ERROR_LIMIT = "AGENT_TOOL_ERROR_LIMIT"
+INSUFFICIENT_EVIDENCE_TO_FINALIZE = "INSUFFICIENT_EVIDENCE_TO_FINALIZE"
+ENGINEERING_RUN_DEADLINE_EXCEEDED = "ENGINEERING_RUN_DEADLINE_EXCEEDED"
+ENGINEERING_RUN_CANCELLED = "ENGINEERING_RUN_CANCELLED"
+AGENT_TERMINATION_CODES = (
+    AGENT_BUDGET_EXCEEDED,
+    AGENT_DUPLICATE_TOOL_CALL,
+    AGENT_TOOL_ERROR_LIMIT,
+    INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+    ENGINEERING_RUN_DEADLINE_EXCEEDED,
+    ENGINEERING_RUN_CANCELLED,
+)
+
+# PRODUCT-ENGINEERING-24B: system-owned cooperative deadline for one
+# Engineering run. Clients cannot change it. It is checked at safe
+# boundaries (before each Decision and before each Tool execution); it does
+# not preempt an in-flight provider call, which stays bounded by the
+# existing per-call provider timeout.
+ENGINEERING_RUN_DEADLINE_SECONDS = 60
+
+_TERMINATION_CODES_SET = frozenset(AGENT_TERMINATION_CODES)
+
+RUN_STATUSES = ("completed", "refused", "failed")
+TRACE_EVENT_TYPES = (
+    "decision_completed",
+    "tool_call_created",
+    "tool_observation",
+    "finalization_guard_blocked",
+    "runtime_stopped",
+)
+
+EVIDENCE_KINDS = (
+    "knowledge",
+    "project_code",
+    "project_doc",
+    "project_change",
+    "project_test",
+)
+PROJECT_EVIDENCE_KINDS = frozenset(
+    {"project_code", "project_doc", "project_change", "project_test"}
+)
+# Legacy name retained for git-diff/evaluator imports. Project Reader excerpts
+# use their own bound, shared with the actual Reader output limits.
+MAX_EVIDENCE_SNIPPET_LENGTH = MAX_PROJECT_CHANGE_CHARACTERS
+MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH = 500
+
+
+def _require_non_negative_int(value: object, label: str) -> None:
+    if type(value) is not int or isinstance(value, bool):
+        raise TypeError(f"{label} 必须是严格 int（不允许 bool）")
+    if value < 0:
+        raise ValueError(f"{label} 必须非负")
+
+
+def _normalize_evidence_groups(
+    value: object, label: str
+) -> tuple[tuple[str, ...], ...]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise TypeError(f"{label} 必须是 evidence group 序列")
+    groups: list[tuple[str, ...]] = []
+    for group in value:
+        if isinstance(group, (str, bytes)) or not isinstance(group, Sequence):
+            raise TypeError(f"{label} 的每一组必须是序列")
+        normalized = tuple(group)
+        if not normalized:
+            raise ValueError(f"{label} 不允许空 group")
+        if any(kind not in EVIDENCE_KINDS for kind in normalized):
+            raise ValueError(f"{label} 含未知 evidence kind")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError(f"{label} 内 kind 不得重复")
+        if normalized in groups:
+            raise ValueError(f"{label} 不得重复")
+        groups.append(normalized)
+    return tuple(groups)
+
+
+@dataclass(frozen=True)
+class DecisionEvidenceReference:
+    """Metadata-only locator for one current-run public Evidence.
+
+    The trusted catalog carries E-ID ↔ locator identity only. Snippets,
+    observation results, and document content stay untrusted Observation
+    data in the user role and must never enter this control state.
+    """
+
+    evidence_id: str
+    kind: str
+    source_name: Optional[str] = None
+    chunk_id: Optional[str] = None
+    rank: Optional[int] = None
+    path: Optional[str] = None
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.evidence_id) is not str
+            or not self.evidence_id.startswith("E")
+            or not self.evidence_id[1:].isdigit()
+            or int(self.evidence_id[1:]) < 1
+        ):
+            raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
+        if self.kind not in EVIDENCE_KINDS:
+            raise ValueError(f"kind 必须是 {'、'.join(EVIDENCE_KINDS)} 之一")
+        if self.kind == "knowledge":
+            if type(self.source_name) is not str or not self.source_name.strip():
+                raise ValueError("knowledge reference 必须携带非空 source_name")
+            if (
+                type(self.rank) is not int
+                or isinstance(self.rank, bool)
+                or self.rank < 1
+            ):
+                raise ValueError("knowledge reference 必须携带 >=1 的严格 rank")
+            if self.chunk_id is not None and (
+                type(self.chunk_id) is not str or not self.chunk_id.strip()
+            ):
+                raise ValueError("chunk_id 必须是非空字符串或 None")
+            for label in ("path", "start_line", "end_line"):
+                if getattr(self, label) is not None:
+                    raise ValueError("knowledge reference 不允许 project locator 字段")
+        else:
+            if type(self.path) is not str or not self.path.strip():
+                raise ValueError("project reference 必须携带非空 path")
+            for label in ("start_line", "end_line"):
+                value = getattr(self, label)
+                if type(value) is not int or isinstance(value, bool) or value < 1:
+                    raise ValueError("project reference 行号必须是 >=1 的严格 int")
+            if self.end_line < self.start_line:
+                raise ValueError("project reference 行号范围无效")
+            for label in ("source_name", "chunk_id", "rank"):
+                if getattr(self, label) is not None:
+                    raise ValueError("project reference 不允许 knowledge locator 字段")
+
+    def to_dict(self) -> dict:
+        if self.kind == "knowledge":
+            return {
+                "evidence_id": self.evidence_id,
+                "kind": self.kind,
+                "source_name": self.source_name,
+                "chunk_id": self.chunk_id,
+                "rank": self.rank,
+            }
+        return {
+            "evidence_id": self.evidence_id,
+            "kind": self.kind,
+            "path": self.path,
+            "start_line": self.start_line,
+            "end_line": self.end_line,
+        }
+
+
+@dataclass(frozen=True)
+class ToolAgentBudget:
+    """v1 冻结硬预算；系统控制，LLM 无权查看或修改。"""
+
+    max_agent_iterations: int = 5
+    max_tool_calls: int = 4
+    max_tool_errors: int = 2
+
+    def __post_init__(self) -> None:
+        for label, value, cap in (
+            ("max_agent_iterations", self.max_agent_iterations, 5),
+            ("max_tool_calls", self.max_tool_calls, 4),
+            ("max_tool_errors", self.max_tool_errors, 2),
+        ):
+            if type(value) is not int or isinstance(value, bool):
+                raise TypeError(f"{label} 必须是严格 int（不允许 bool）")
+            if value <= 0:
+                raise ValueError(f"{label} 必须 > 0，实际 {value}")
+            if value > cap:
+                raise ValueError(
+                    f"{label} 不允许超过冻结上限 {cap}（v1 冻结 5/4/2，实际 {value}）"
+                )
+
+
+@dataclass(frozen=True)
+class DecisionControlState:
+    """Trusted, immutable budget state owned by the Runtime.
+
+    This is control metadata for one provider decision, not a Tool
+    observation. The provider may use it to stop requesting work, but it
+    cannot change the Runtime's hard budget enforcement.
+    """
+
+    iteration: int
+    remaining_iterations: int
+    remaining_tool_calls: int
+    tool_call_allowed: bool
+    must_terminate: bool
+    finalization_blocked: Optional[bool] = None
+    missing_evidence_groups: tuple[tuple[str, ...], ...] = ()
+    current_distinct_project_code_paths: Optional[int] = None
+    required_min_distinct_project_code_paths: Optional[int] = None
+    available_evidence_refs: tuple[DecisionEvidenceReference, ...] = ()
+    citation_required_evidence_groups: tuple[tuple[str, ...], ...] = ()
+    citation_required_min_distinct_project_code_paths: int = 0
+
+    def __post_init__(self) -> None:
+        _require_non_negative_int(self.iteration, "iteration")
+        if self.iteration < 1:
+            raise ValueError("iteration 必须 >= 1")
+        _require_non_negative_int(self.remaining_iterations, "remaining_iterations")
+        _require_non_negative_int(self.remaining_tool_calls, "remaining_tool_calls")
+        for label, value in (
+            ("tool_call_allowed", self.tool_call_allowed),
+            ("must_terminate", self.must_terminate),
+        ):
+            if type(value) is not bool:
+                raise TypeError(f"{label} 必须是严格 bool")
+        if self.tool_call_allowed and self.must_terminate:
+            raise ValueError("tool_call_allowed=True 时 must_terminate 必须为 False")
+        if self.must_terminate and self.tool_call_allowed:
+            raise ValueError("must_terminate=True 时禁止 Tool call")
+
+        if self.finalization_blocked is not None and type(self.finalization_blocked) is not bool:
+            raise TypeError("finalization_blocked 必须是 bool 或 None")
+        normalized_groups = _normalize_evidence_groups(
+            self.missing_evidence_groups, "missing_evidence_groups"
+        )
+        object.__setattr__(self, "missing_evidence_groups", normalized_groups)
+        groups = list(normalized_groups)
+        if not self.finalization_blocked and (
+            groups
+            or self.current_distinct_project_code_paths is not None
+            or self.required_min_distinct_project_code_paths is not None
+        ):
+            raise ValueError("recovery fields 只能在 finalization_blocked=True 时存在")
+        for label, value in (
+            ("current_distinct_project_code_paths", self.current_distinct_project_code_paths),
+            (
+                "required_min_distinct_project_code_paths",
+                self.required_min_distinct_project_code_paths,
+            ),
+        ):
+            if value is not None:
+                _require_non_negative_int(value, label)
+        if isinstance(self.available_evidence_refs, (str, bytes)) or not isinstance(
+            self.available_evidence_refs, Sequence
+        ):
+            raise TypeError("available_evidence_refs 必须是 DecisionEvidenceReference 序列")
+        evidence_refs = tuple(self.available_evidence_refs)
+        if any(type(item) is not DecisionEvidenceReference for item in evidence_refs):
+            raise TypeError("available_evidence_refs 必须全部是 DecisionEvidenceReference")
+        if len({ref.evidence_id for ref in evidence_refs}) != len(evidence_refs):
+            raise ValueError("available_evidence_refs 的 evidence_id 不得重复")
+        object.__setattr__(self, "available_evidence_refs", evidence_refs)
+        object.__setattr__(
+            self,
+            "citation_required_evidence_groups",
+            _normalize_evidence_groups(
+                self.citation_required_evidence_groups,
+                "citation_required_evidence_groups",
+            ),
+        )
+        _require_non_negative_int(
+            self.citation_required_min_distinct_project_code_paths,
+            "citation_required_min_distinct_project_code_paths",
+        )
+
+    def to_dict(self, *, include_evidence_reference_control: bool = False) -> dict:
+        result = {
+            "iteration": self.iteration,
+            "remaining_iterations": self.remaining_iterations,
+            "remaining_tool_calls": self.remaining_tool_calls,
+            "tool_call_allowed": self.tool_call_allowed,
+            "must_terminate": self.must_terminate,
+        }
+        if include_evidence_reference_control:
+            result.update(
+                {
+                    "available_evidence_refs": [
+                        ref.to_dict() for ref in self.available_evidence_refs
+                    ],
+                    "citation_required_evidence_groups": [
+                        list(group) for group in self.citation_required_evidence_groups
+                    ],
+                    "citation_required_min_distinct_project_code_paths": (
+                        self.citation_required_min_distinct_project_code_paths
+                    ),
+                }
+            )
+        if self.finalization_blocked is True:
+            result.update(
+                {
+                    "finalization_blocked": True,
+                    "missing_evidence_groups": [
+                        list(group) for group in self.missing_evidence_groups
+                    ],
+                    "current_distinct_project_code_paths": (
+                        self.current_distinct_project_code_paths
+                    ),
+                    "required_min_distinct_project_code_paths": (
+                        self.required_min_distinct_project_code_paths
+                    ),
+                }
+            )
+        return result
+
+
+@dataclass(frozen=True)
+class DecisionContextItem:
+    """一次 Tool 执行的事实反馈给模型。
+
+    只含"模型动作事实 + Tool 执行事实"：tool_name / arguments / call_id /
+    observation.status / result / error_code。不是 CoT，不含 thought/raw
+    output/system prompt。arguments 与 result 是 detached 深拷贝。
+    """
+
+    tool_name: str
+    arguments: Mapping[str, Any]
+    call_id: str
+    observation_status: str
+    observation_result: Optional[Any]
+    observation_error_code: Optional[str]
+
+    def __post_init__(self) -> None:
+        for label in ("tool_name", "call_id"):
+            value = getattr(self, label)
+            if type(value) is not str or not value.strip():
+                raise ValueError(f"{label} 必须是非空字符串")
+        if self.observation_status not in TOOL_OBSERVATION_STATUSES:
+            raise ValueError(
+                f"observation_status 必须是 "
+                f"{'、'.join(TOOL_OBSERVATION_STATUSES)} 之一"
+            )
+        # 镜像 ToolObservation 的跨字段不变量：交给 LLM 的 snapshot 必须是
+        # 系统真实可能产生的事实。
+        if self.observation_status == "ok":
+            if self.observation_result is None:
+                raise ValueError("ok 要求 observation_result 非 None")
+            if self.observation_error_code is not None:
+                raise ValueError("ok 要求 observation_error_code 为 None")
+        else:  # error / refused
+            if self.observation_result is not None:
+                raise ValueError("error/refused 要求 observation_result 为 None")
+            if (
+                self.observation_error_code is None
+                or self.observation_error_code not in _TOOL_ERROR_CODES_SET
+            ):
+                raise ValueError(
+                    "error/refused 要求 observation_error_code 是合法 Tool error code"
+                )
+        object.__setattr__(self, "arguments", json_deep_copy(self.arguments))
+        object.__setattr__(
+            self,
+            "observation_result",
+            None if self.observation_result is None else json_deep_copy(self.observation_result),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "tool_name": self.tool_name,
+            "arguments": json_deep_copy(self.arguments),
+            "call_id": self.call_id,
+            "observation_status": self.observation_status,
+            "observation_result": None
+            if self.observation_result is None
+            else json_deep_copy(self.observation_result),
+            "observation_error_code": self.observation_error_code,
+        }
+
+
+@dataclass(frozen=True)
+class RuntimeTraceEvent:
+    """结构化 Trace 事件。Trace ≠ CoT：只记"发生了什么"，不记模型推理。
+
+    不保存 raw LLM output / CoT / 完整 Prompt / API key / traceback /
+    exception repr / 环境变量 / 本地绝对敏感路径。
+    """
+
+    iteration: int
+    event_type: str
+    action_type: Optional[str] = None
+    tool_name: Optional[str] = None
+    call_id: Optional[str] = None
+    tool_status: Optional[str] = None
+    error_code: Optional[str] = None
+    iterations_used: int = 0
+    tool_calls_used: int = 0
+    tool_errors_used: int = 0
+    provider_call_count: Optional[int] = None
+    repair_attempted: Optional[bool] = None
+    repair_succeeded: Optional[bool] = None
+    parse_failure_category: Optional[str] = None
+    guard_status: Optional[str] = None
+    missing_evidence_groups: tuple[tuple[str, ...], ...] = ()
+    distinct_project_code_paths: Optional[int] = None
+    required_min_distinct_project_code_paths: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if self.event_type not in TRACE_EVENT_TYPES:
+            raise ValueError(f"event_type 必须是 {'、'.join(TRACE_EVENT_TYPES)} 之一")
+        _require_non_negative_int(self.iteration, "iteration")
+        _require_non_negative_int(self.iterations_used, "iterations_used")
+        _require_non_negative_int(self.tool_calls_used, "tool_calls_used")
+        _require_non_negative_int(self.tool_errors_used, "tool_errors_used")
+        if self.provider_call_count is not None:
+            if self.provider_call_count not in (1, 2):
+                raise ValueError("provider_call_count 必须是 1 或 2")
+        for label, value in (
+            ("repair_attempted", self.repair_attempted),
+            ("repair_succeeded", self.repair_succeeded),
+        ):
+            if value is not None and type(value) is not bool:
+                raise TypeError(f"{label} 必须是 bool 或 None")
+        if self.repair_succeeded and not self.repair_attempted:
+            raise ValueError("repair_succeeded=True 要求 repair_attempted=True")
+        if self.parse_failure_category is not None and self.parse_failure_category not in {
+            "EMPTY_OUTPUT",
+            "OUTPUT_TRUNCATED",
+            "INVALID_JSON",
+            "DUPLICATE_KEY",
+            "ACTION_SCHEMA_INVALID",
+            "UNKNOWN_TOOL",
+            "ARGUMENTS_SCHEMA_INVALID",
+        }:
+            raise ValueError("parse_failure_category 不是安全 enum")
+        if self.event_type == "finalization_guard_blocked":
+            if self.guard_status != "blocked":
+                raise ValueError("Guard trace event 必须是 blocked 状态")
+            if isinstance(self.missing_evidence_groups, (str, bytes)) or not isinstance(
+                self.missing_evidence_groups, Sequence
+            ):
+                raise TypeError("missing_evidence_groups 必须是 evidence group 序列")
+            groups: list[tuple[str, ...]] = []
+            for group in self.missing_evidence_groups:
+                if isinstance(group, (str, bytes)) or not isinstance(group, Sequence):
+                    raise TypeError("missing_evidence_groups 的每一组必须是序列")
+                normalized = tuple(group)
+                if not normalized or any(kind not in EVIDENCE_KINDS for kind in normalized):
+                    raise ValueError("Guard trace 含无效 evidence group")
+                groups.append(normalized)
+            object.__setattr__(self, "missing_evidence_groups", tuple(groups))
+            for label, value in (
+                ("distinct_project_code_paths", self.distinct_project_code_paths),
+                (
+                    "required_min_distinct_project_code_paths",
+                    self.required_min_distinct_project_code_paths,
+                ),
+            ):
+                _require_non_negative_int(value, label)
+        elif (
+            self.guard_status is not None
+            or self.missing_evidence_groups
+            or self.distinct_project_code_paths is not None
+            or self.required_min_distinct_project_code_paths is not None
+        ):
+            raise ValueError("Guard fields 只能出现在 finalization_guard_blocked event")
+
+    def to_dict(self) -> dict:
+        result = {
+            "iteration": self.iteration,
+            "event_type": self.event_type,
+            "action_type": self.action_type,
+            "tool_name": self.tool_name,
+            "call_id": self.call_id,
+            "tool_status": self.tool_status,
+            "error_code": self.error_code,
+            "iterations_used": self.iterations_used,
+            "tool_calls_used": self.tool_calls_used,
+            "tool_errors_used": self.tool_errors_used,
+        }
+        if self.provider_call_count is not None:
+            result["provider_call_count"] = self.provider_call_count
+        if self.repair_attempted is not None:
+            result["repair_attempted"] = self.repair_attempted
+        if self.repair_succeeded is not None:
+            result["repair_succeeded"] = self.repair_succeeded
+        if self.parse_failure_category is not None:
+            result["parse_failure_category"] = self.parse_failure_category
+        if self.event_type == "finalization_guard_blocked":
+            result.update(
+                {
+                    "guard_status": self.guard_status,
+                    "missing_evidence_groups": [
+                        list(group) for group in self.missing_evidence_groups
+                    ],
+                    "distinct_project_code_paths": self.distinct_project_code_paths,
+                    "required_min_distinct_project_code_paths": (
+                        self.required_min_distinct_project_code_paths
+                    ),
+                }
+            )
+        return result
+
+
+@dataclass(frozen=True)
+class EngineeringEvidence:
+    """A bounded, public fact read from a successful project-context Tool call.
+
+    This is deliberately not an observation dump: it exposes only the
+    repo-relative location and a bounded source excerpt that the Tool actually
+    read. It contains no model reasoning, prompt, or machine-local path.
+    """
+
+    evidence_id: str
+    kind: str
+    path: str
+    start_line: int
+    end_line: int
+    snippet: str
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.evidence_id) is not str
+            or not self.evidence_id.startswith("E")
+            or not self.evidence_id[1:].isdigit()
+            or int(self.evidence_id[1:]) < 1
+        ):
+            raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
+        if self.kind not in PROJECT_EVIDENCE_KINDS:
+            raise ValueError(
+                f"kind 必须是 {'、'.join(sorted(PROJECT_EVIDENCE_KINDS))} 之一"
+            )
+        if type(self.path) is not str or not self.path.strip() or self.path != self.path.strip():
+            raise ValueError("path 必须是非空 repo-relative 路径")
+        windows_path = PureWindowsPath(self.path)
+        posix_path = PurePosixPath(self.path)
+        if (
+            "\\" in self.path
+            or windows_path.is_absolute()
+            or windows_path.drive
+            or posix_path.is_absolute()
+            or any(part in (".", "..") for part in windows_path.parts)
+            or any(part in (".", "..") for part in posix_path.parts)
+        ):
+            raise ValueError("path 必须是安全的 POSIX repo-relative 路径")
+        _require_non_negative_int(self.start_line, "start_line")
+        _require_non_negative_int(self.end_line, "end_line")
+        if self.start_line < 1 or self.end_line < self.start_line:
+            raise ValueError("Evidence 行号范围无效")
+        if type(self.snippet) is not str or not self.snippet:
+            raise ValueError("snippet 必须是非空字符串")
+        snippet_limit = project_evidence_character_limit(self.kind)
+        if len(self.snippet) > snippet_limit:
+            raise ValueError(
+                f"{self.kind} snippet 不允许超过 {snippet_limit} 个字符"
+            )
+
+    def to_dict(self) -> dict:
+        return {
+            "evidence_id": self.evidence_id,
+            "kind": self.kind,
+            "path": self.path,
+            "start_line": self.start_line,
+            "end_line": self.end_line,
+            "snippet": self.snippet,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeEvidence:
+    """A bounded fact extracted from one successful knowledge_search match."""
+
+    evidence_id: str
+    kind: str
+    source_name: str
+    chunk_id: Optional[str]
+    score: Optional[float]
+    rank: int
+    snippet: str
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.evidence_id) is not str
+            or not self.evidence_id.startswith("E")
+            or not self.evidence_id[1:].isdigit()
+            or int(self.evidence_id[1:]) < 1
+        ):
+            raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
+        if self.kind != "knowledge":
+            raise ValueError("KnowledgeEvidence.kind 必须是 knowledge")
+        if (
+            type(self.source_name) is not str
+            or not self.source_name.strip()
+            or self.source_name != self.source_name.strip()
+        ):
+            raise ValueError("source_name 必须是非空安全身份")
+        windows_path = PureWindowsPath(self.source_name)
+        posix_path = PurePosixPath(self.source_name)
+        if (
+            windows_path.is_absolute()
+            or windows_path.drive
+            or posix_path.is_absolute()
+            or self.source_name.startswith("\\")
+            or any(part in (".", "..") for part in windows_path.parts)
+            or any(part in (".", "..") for part in posix_path.parts)
+        ):
+            raise ValueError("source_name 必须是安全的相对身份")
+        if self.chunk_id is not None and (
+            type(self.chunk_id) is not str
+            or not self.chunk_id.strip()
+            or self.chunk_id != self.chunk_id.strip()
+        ):
+            raise ValueError("chunk_id 必须是非空字符串或 None")
+        if self.score is not None and (
+            type(self.score) not in (int, float)
+            or isinstance(self.score, bool)
+            or not math.isfinite(float(self.score))
+        ):
+            raise ValueError("score 必须是有限数字或 None")
+        _require_non_negative_int(self.rank, "rank")
+        if self.rank < 1:
+            raise ValueError("rank 必须 >= 1")
+        if type(self.snippet) is not str or not self.snippet:
+            raise ValueError("snippet 必须是非空字符串")
+        if len(self.snippet) > MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH:
+            raise ValueError(
+                f"snippet 不允许超过 {MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH} 个字符"
+            )
+
+    def to_dict(self) -> dict:
+        return {
+            "evidence_id": self.evidence_id,
+            "kind": self.kind,
+            "source_name": self.source_name,
+            "chunk_id": self.chunk_id,
+            "score": self.score,
+            "rank": self.rank,
+            "snippet": self.snippet,
+        }
+
+
+@dataclass(frozen=True)
+class ToolAgentExecutionMetrics:
+    """Safe, product-visible execution summary for one Engineering run.
+
+    Values come only from the existing per-decision call metadata and one
+    wall-clock measurement: no price estimation, no raw provider response,
+    no prompt/CoT content. ``input_tokens``/``output_tokens`` aggregate the
+    provider-reported usage of calls that reported it and are ``None`` when
+    no call reported usage (usage is never fabricated).
+    """
+
+    elapsed_ms: int
+    decision_llm_calls: int
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        for label in (
+            "elapsed_ms",
+            "decision_llm_calls",
+            "input_tokens",
+            "output_tokens",
+        ):
+            value = getattr(self, label)
+            if value is None:
+                if label in ("input_tokens", "output_tokens"):
+                    continue
+                raise TypeError(f"{label} 必须是严格 int")
+            if type(value) is not int or isinstance(value, bool):
+                raise TypeError(f"{label} 必须是严格 int")
+            if value < 0:
+                raise ValueError(f"{label} 必须非负")
+
+    def to_dict(self) -> dict:
+        return {
+            "elapsed_ms": self.elapsed_ms,
+            "decision_llm_calls": self.decision_llm_calls,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+        }
+
+
+@dataclass(frozen=True)
+class ToolAgentRunResult:
+    """Bounded Loop 的一次运行结果。
+
+    跨字段不变量：
+    - completed → answer 非空，reason_code/failure_code 为 None；
+    - refused   → answer None，reason_code（模型 reason 或系统 termination code）非空；
+    - failed    → answer None，failure_code 非空。
+    """
+
+    status: str
+    answer: Optional[str]
+    reason_code: Optional[str]
+    failure_code: Optional[str]
+    iterations_used: int
+    tool_calls_used: int
+    tool_errors_used: int
+    trace: Sequence[RuntimeTraceEvent]
+    evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = ()
+    execution: Optional[ToolAgentExecutionMetrics] = None
+
+    def __post_init__(self) -> None:
+        if self.status not in RUN_STATUSES:
+            raise ValueError(f"status 必须是 {'、'.join(RUN_STATUSES)} 之一")
+        _require_non_negative_int(self.iterations_used, "iterations_used")
+        _require_non_negative_int(self.tool_calls_used, "tool_calls_used")
+        _require_non_negative_int(self.tool_errors_used, "tool_errors_used")
+        if self.tool_errors_used > self.tool_calls_used:
+            raise ValueError("tool_errors_used 不得超过 tool_calls_used")
+        if self.tool_calls_used > self.iterations_used:
+            raise ValueError("tool_calls_used 不得超过 iterations_used")
+        if self.status == "completed":
+            if type(self.answer) is not str or not self.answer.strip():
+                raise ValueError("completed 要求 answer 非空")
+            if self.reason_code is not None or self.failure_code is not None:
+                raise ValueError("completed 要求 reason_code/failure_code 为 None")
+        elif self.status == "refused":
+            if self.answer is not None:
+                raise ValueError("refused 要求 answer 为 None")
+            if self.reason_code is None or (
+                self.reason_code not in _REFUSE_REASON_CODES_SET
+                and self.reason_code not in _TERMINATION_CODES_SET
+            ):
+                raise ValueError(
+                    "refused 要求 reason_code ∈ REFUSE_REASON_CODES ∪ AGENT_TERMINATION_CODES"
+                )
+            if self.failure_code is not None:
+                raise ValueError("refused 要求 failure_code 为 None")
+        else:  # failed
+            if self.answer is not None:
+                raise ValueError("failed 要求 answer 为 None")
+            if self.reason_code is not None:
+                raise ValueError("failed 要求 reason_code 为 None")
+            if (
+                self.failure_code is None
+                or self.failure_code not in _DECISION_FAILURE_CODES_SET
+            ):
+                raise ValueError("failed 要求 failure_code 是已定义 Agent Decision failure code")
+        if isinstance(self.evidence, (str, bytes)):
+            raise TypeError("evidence 必须是统一 Evidence 序列")
+        normalized_evidence = tuple(self.evidence)
+        for item in normalized_evidence:
+            if type(item) not in (EngineeringEvidence, KnowledgeEvidence):
+                raise TypeError(
+                    "evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
+                )
+        object.__setattr__(self, "evidence", normalized_evidence)
+        if self.execution is not None and not isinstance(
+            self.execution, ToolAgentExecutionMetrics
+        ):
+            raise TypeError("execution 必须是 ToolAgentExecutionMetrics 或 None")
+
+    def to_dict(self) -> dict:
+        return {
+            "status": self.status,
+            "answer": self.answer,
+            "reason_code": self.reason_code,
+            "failure_code": self.failure_code,
+            "iterations_used": self.iterations_used,
+            "tool_calls_used": self.tool_calls_used,
+            "tool_errors_used": self.tool_errors_used,
+            "trace": [event.to_dict() for event in self.trace],
+            "evidence": [item.to_dict() for item in self.evidence],
+            "execution": None
+            if self.execution is None
+            else self.execution.to_dict(),
+        }
+
+
+@runtime_checkable
+class AgentDecisionProvider(Protocol):
+    """最小 Decision Provider 协议：Runtime 只依赖它，不写死具体实现。"""
+
+    def decide(
+        self,
+        registry: object,
+        user_query: str,
+        *,
+        context: Sequence[Any] = (),
+        control_state: DecisionControlState | None = None,
+    ) -> AgentDecisionOutcome:
+        ...

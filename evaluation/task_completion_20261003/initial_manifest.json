@@ -1,0 +1,33 @@
+{
+  "created_utc": "2026-10-03T03:44:41.279762+00:00",
+  "baseline_head": "d937046d2c0c8d41a74693f879ff41091a861ab9",
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "protected_files_sha256": {
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "core/engineering_requirements.py": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/tool_agent/runtime.py": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+    "core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "core/tool_agent/integration.py": "39963b96bfad7ad6749a39b02d135d589a0e5ac90ba53c75d1801b83d7acf717",
+    "core/tool_agent/openai_compatible.py": "9275773f891e28b9eaeeae469459c039db7d2d21fa1677de3ae014f2fd29b8d9",
+    "core/tool_agent/tools/code_search.py": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "core/tool_agent/tools/read_project_context.py": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187"
+  },
+  "baseline_decision_prompt_sha256": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+  "baseline_profile": {
+    "version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+    "sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+  },
+  "catalog_sha256": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+  "planned_requests": 24,
+  "no_promote_before_live": true,
+  "experiment_kind": "product diagnostic, not independent acceptance"
+}

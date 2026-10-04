@@ -1,0 +1,156 @@
+{
+  "kind": "Offline deterministic reconstruction, zero provider calls",
+  "plan": {
+    "schema_version": "query_plan_v1",
+    "plan_id": "c1ecf5657767",
+    "original_query": "解释 BM25 与稠密检索的主要区别，引用知识库证据。",
+    "query_type": "comparison",
+    "retrieval_required": true,
+    "action": "decomposed_retrieval",
+    "reason_code": "COMPARISON_EVIDENCE",
+    "subqueries": [
+      {
+        "id": "sq1",
+        "query": "BM25 检索的原理与主要特点是什么？",
+        "evidence_target": "知识库中关于 BM25 检索机制、评分方式与特点的说明",
+        "required": true
+      },
+      {
+        "id": "sq2",
+        "query": "稠密检索的原理与主要特点是什么？",
+        "evidence_target": "知识库中关于稠密检索机制、向量表示与特点的说明",
+        "required": true
+      },
+      {
+        "id": "sq3",
+        "query": "BM25 与稠密检索在检索方式、表示形式和适用场景上有哪些主要区别？",
+        "evidence_target": "知识库中对 BM25 与稠密检索进行对比或分别描述两者差异的证据",
+        "required": true
+      }
+    ],
+    "fallback_policy": "single_bm25_original_query"
+  },
+  "context": [
+    {
+      "tool_name": "knowledge_search",
+      "arguments": {
+        "query": "BM25 检索的原理与主要特点是什么？"
+      },
+      "call_id": "planned-retrieval-sq1",
+      "observation_status": "ok",
+      "observation_result": {
+        "matches": [
+          {
+            "rank": 1,
+            "source_name": "vector_db/核心概念.md",
+            "chunk_id": "1efafeff99da5b37a79f89848a524387",
+            "score": 12.2962,
+            "snippet": "### V2：可写进简历\n\n- [ ] 幂等增量导入；\n- [ ] Embedding/索引版本化；\n- [ ] 蓝绿重建与回滚；\n- [ ] 备份恢复演练；\n- [ ] 并发压测与容量估算；\n- [ ] 记录一次真实故障和修复。\n\n---\n\n## 十四、面试自检\n\n1. Cosine、Inner Product、L2 有什么区别，归一化后有什么关系？\n2. Exact Search 和 ANN 分别适用于什么？\n3. ANN Recall 和业务检索 Recall 为什么不是一回事？\n4. HNSW 的 M、efConstruction、efSearch如何影响效果？\n5. IVF 的 nlist、nprobe分别是什么？\n6. PQ 压缩的是什么，与模型量化有何区别？\n7. Pre-filter 与 Post-filter 有什么风险？\n8. 为什么权限过滤不能只依赖 LLM 或 Post-filter？\n9. 混合检索为什么不能直接把 BM25 和向量分数相加？\n10. Embedding 模型升级时为什么要建新索引？\n11. 如何做向量库基准测试才可信？\n12. 向量原始大小之"
+          },
+          {
+            "rank": 2,
+            "source_name": "rag/检索与生成.md",
+            "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+            "score": 12.1226,
+            "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+          },
+          {
+            "rank": 3,
+            "source_name": "vector_db/产品对比.md",
+            "chunk_id": "338fef2c0fbea91fbcd021e606d24c66",
+            "score": 10.226,
+            "snippet": "|\n\n不要使用“某产品一定最快”作为结论。性能由：\n\n- 数据规模与维度；\n- 索引和参数；\n- Filter 选择性；\n- Top-K；\n- 并发；\n- 硬件和网络；\n- 副本与一致性；\n- 客户端实现\n\n共同决定。\n\n---\n\n## 三、选型前必须回答的问题\n\n### 1. 数据与流量\n\n- 现在和一年后的向量数量？\n- 向量维度、精度、原文大小？\n- 每日新增、更新、删除多少？\n- 查询 QPS、峰值并发和延迟目标？\n- Top-K 与过滤条件？\n- 是否需要多地域或跨机房？\n\n### 2. 检索能力\n\n- Dense、Sparse、BM25 是否都需要？\n- 是否支持高选择性 metadata 过滤？\n- 需要 HNSW、IVF-PQ 还是 Exact 即可？\n- 是否需要多向量字段？\n- 是否需要按租户分区？\n- 混合检索在哪一层融合？\n\n### 3. 数据与安全\n\n- 权限能否在服务端强制过滤？\n- 多租户如何隔离？\n- 删除是否能覆盖索引、缓存和备份？\n- 数据是否允许进入第三方托管服务？\n- 审计日志和加密要求是什么？\n\n### 4. 运维\n\n- 团队现有 Postgr"
+          }
+        ]
+      },
+      "observation_error_code": null
+    },
+    {
+      "tool_name": "knowledge_search",
+      "arguments": {
+        "query": "稠密检索的原理与主要特点是什么？"
+      },
+      "call_id": "planned-retrieval-sq2",
+      "observation_status": "ok",
+      "observation_result": {
+        "matches": [
+          {
+            "rank": 1,
+            "source_name": "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+            "chunk_id": "7e7722eaff50851281d12aeeeda299fd",
+            "score": 9.9317,
+            "snippet": "# LangChain 与 LangGraph：可恢复 Agent 工作流\n\n> 目标：不用“框架帮我做了”掩盖原理；能设计 State、Node、Edge、Checkpoint 和人工确认，并解释一次工具调用如何持久化、失败和恢复。  \n> 前置：[Function Calling 原理](../04-工具调用与Function Calling/01-Function-Calling原理.md)与[工具设计](../04-工具调用与Function Calling/02-工具设计.md)。\n\n## 一、LangChain 与 LangGraph 分别解决什么\n\n### LangChain\n\n主要提供可组合组件：\n\n- 模型与消息封装；\n- Prompt Template；\n- Retriever、Document与向量库适配；\n- Tool 与结构化输出；\n- Runnable、回调和流式接口；\n- 与模型、数据库、观测平台的集成。\n\n它减少 API 胶水代码，但不会自动保证：\n\n- 工具权限安全；\n- 任务一定完成；\n- 不出现死循环；\n- 状态能正确恢复；\n- 评测有效；\n- 线"
+          }
+        ]
+      },
+      "observation_error_code": null
+    },
+    {
+      "tool_name": "knowledge_search",
+      "arguments": {
+        "query": "BM25 与稠密检索在检索方式、表示形式和适用场景上有哪些主要区别？"
+      },
+      "call_id": "planned-retrieval-sq3",
+      "observation_status": "ok",
+      "observation_result": {
+        "matches": [
+          {
+            "rank": 2,
+            "source_name": "deployment/量化技术.md",
+            "chunk_id": "6accab0fdd35cd502872a89b3c7415e3",
+            "score": 20.528,
+            "snippet": "] 验证量化Kernel实际启用；\n- [ ] 记录不适用样本；\n- [ ] 支持回滚到高精度模型；\n- [ ] 用模型版本明确区分量化产物。\n\n---\n\n## 十四、面试自检\n\n1. Weight-only量化不会减少哪些显存？\n2. W4A16和W8A8分别表示什么？\n3. PTQ与QAT有什么区别？\n4. Per-tensor、Per-channel和Per-group如何取舍？\n5. GPTQ与AWQ大致利用什么信息减少误差？\n6. bitsandbytes 4-bit为什么常用于QLoRA？\n7. GGUF是量化算法还是文件格式？\n8. QLoRA与部署量化的目标有什么不同？\n9. 模型文件变小为什么不保证推理变快？\n10. 校准集为什么要匹配真实Chat Template和任务？\n11. 如何判断一个4-bit模型可以上线？\n12. 长上下文场景为什么还要考虑KV Cache量化？\n\n能回答10/12，并完成项目验收，才算掌握实用量化。\n\n---\n"
+          }
+        ]
+      },
+      "observation_error_code": null
+    }
+  ],
+  "public_evidence": [
+    {
+      "evidence_id": "E1",
+      "kind": "knowledge",
+      "source_name": "vector_db/核心概念.md",
+      "chunk_id": "1efafeff99da5b37a79f89848a524387",
+      "score": 12.2962,
+      "rank": 1,
+      "snippet": "### V2：可写进简历\n\n- [ ] 幂等增量导入；\n- [ ] Embedding/索引版本化；\n- [ ] 蓝绿重建与回滚；\n- [ ] 备份恢复演练；\n- [ ] 并发压测与容量估算；\n- [ ] 记录一次真实故障和修复。\n\n---\n\n## 十四、面试自检\n\n1. Cosine、Inner Product、L2 有什么区别，归一化后有什么关系？\n2. Exact Search 和 ANN 分别适用于什么？\n3. ANN Recall 和业务检索 Recall 为什么不是一回事？\n4. HNSW 的 M、efConstruction、efSearch如何影响效果？\n5. IVF 的 nlist、nprobe分别是什么？\n6. PQ 压缩的是什么，与模型量化有何区别？\n7. Pre-filter 与 Post-filter 有什么风险？\n8. 为什么权限过滤不能只依赖 LLM 或 Post-filter？\n9. 混合检索为什么不能直接把 BM25 和向量分数相加？\n10. Embedding 模型升级时为什么要建新索引？\n11. 如何做向量库基准测试才可信？\n12. 向量原始大小之"
+    },
+    {
+      "evidence_id": "E2",
+      "kind": "knowledge",
+      "source_name": "agent_frameworks/LangChain-LangGraph-01-定位与State设计.md",
+      "chunk_id": "7e7722eaff50851281d12aeeeda299fd",
+      "score": 9.9317,
+      "rank": 1,
+      "snippet": "# LangChain 与 LangGraph：可恢复 Agent 工作流\n\n> 目标：不用“框架帮我做了”掩盖原理；能设计 State、Node、Edge、Checkpoint 和人工确认，并解释一次工具调用如何持久化、失败和恢复。  \n> 前置：[Function Calling 原理](../04-工具调用与Function Calling/01-Function-Calling原理.md)与[工具设计](../04-工具调用与Function Calling/02-工具设计.md)。\n\n## 一、LangChain 与 LangGraph 分别解决什么\n\n### LangChain\n\n主要提供可组合组件：\n\n- 模型与消息封装；\n- Prompt Template；\n- Retriever、Document与向量库适配；\n- Tool 与结构化输出；\n- Runnable、回调和流式接口；\n- 与模型、数据库、观测平台的集成。\n\n它减少 API 胶水代码，但不会自动保证：\n\n- 工具权限安全；\n- 任务一定完成；\n- 不出现死循环；\n- 状态能正确恢复；\n- 评测有效；\n- 线"
+    },
+    {
+      "evidence_id": "E3",
+      "kind": "knowledge",
+      "source_name": "rag/检索与生成.md",
+      "chunk_id": "3c7794164515f5b573d64baf7ee5d571",
+      "score": 12.1226,
+      "rank": 2,
+      "snippet": "| 使用融合后的召回排序并标记降级 |\n| LLM 超时 | 支持取消、超时和可控重试 |\n| 检索为空 | 澄清或明确无证据，不伪造答案 |\n| 流式连接断开 | 取消下游生成，释放资源 |\n\n重试只适合可能瞬时恢复且具备幂等性的操作。参数错误、越权和内容违规不应重试。\n\n---\n\n## 十三、当前项目的实现顺序\n\n### V0：Dense 基线\n\n- [ ] 原问题直接向量检索；\n- [ ] 返回 Top-K Chunk 和来源；\n- [ ] 基于来源回答并引用；\n- [ ] 记录每阶段耗时。\n\n### V1：混合与评测\n\n- [ ] 加 BM25；\n- [ ] 使用 RRF 融合；\n- [ ] 建 30～50 道固定问题；\n- [ ] 比较 Dense 与 Hybrid 的 Recall@K。\n\n### V2：工程化\n\n- [ ] 加 Rerank；\n- [ ] 加权限过滤、去重和 Token 预算；\n- [ ] 加无答案策略和引用校验；\n- [ ] 加 Redis 缓存、超时、降级和 Trace；\n- [ ] 压测 P50/P95，并记录成本。\n\n一次只引入一个变量，保留基线，"
+    },
+    {
+      "evidence_id": "E4",
+      "kind": "knowledge",
+      "source_name": "vector_db/产品对比.md",
+      "chunk_id": "338fef2c0fbea91fbcd021e606d24c66",
+      "score": 10.226,
+      "rank": 3,
+      "snippet": "|\n\n不要使用“某产品一定最快”作为结论。性能由：\n\n- 数据规模与维度；\n- 索引和参数；\n- Filter 选择性；\n- Top-K；\n- 并发；\n- 硬件和网络；\n- 副本与一致性；\n- 客户端实现\n\n共同决定。\n\n---\n\n## 三、选型前必须回答的问题\n\n### 1. 数据与流量\n\n- 现在和一年后的向量数量？\n- 向量维度、精度、原文大小？\n- 每日新增、更新、删除多少？\n- 查询 QPS、峰值并发和延迟目标？\n- Top-K 与过滤条件？\n- 是否需要多地域或跨机房？\n\n### 2. 检索能力\n\n- Dense、Sparse、BM25 是否都需要？\n- 是否支持高选择性 metadata 过滤？\n- 需要 HNSW、IVF-PQ 还是 Exact 即可？\n- 是否需要多向量字段？\n- 是否需要按租户分区？\n- 混合检索在哪一层融合？\n\n### 3. 数据与安全\n\n- 权限能否在服务端强制过滤？\n- 多租户如何隔离？\n- 删除是否能覆盖索引、缓存和备份？\n- 数据是否允许进入第三方托管服务？\n- 审计日志和加密要求是什么？\n\n### 4. 运维\n\n- 团队现有 Postgr"
+    },
+    {
+      "evidence_id": "E5",
+      "kind": "knowledge",
+      "source_name": "deployment/量化技术.md",
+      "chunk_id": "6accab0fdd35cd502872a89b3c7415e3",
+      "score": 20.528,
+      "rank": 2,
+      "snippet": "] 验证量化Kernel实际启用；\n- [ ] 记录不适用样本；\n- [ ] 支持回滚到高精度模型；\n- [ ] 用模型版本明确区分量化产物。\n\n---\n\n## 十四、面试自检\n\n1. Weight-only量化不会减少哪些显存？\n2. W4A16和W8A8分别表示什么？\n3. PTQ与QAT有什么区别？\n4. Per-tensor、Per-channel和Per-group如何取舍？\n5. GPTQ与AWQ大致利用什么信息减少误差？\n6. bitsandbytes 4-bit为什么常用于QLoRA？\n7. GGUF是量化算法还是文件格式？\n8. QLoRA与部署量化的目标有什么不同？\n9. 模型文件变小为什么不保证推理变快？\n10. 校准集为什么要匹配真实Chat Template和任务？\n11. 如何判断一个4-bit模型可以上线？\n12. 长上下文场景为什么还要考虑KV Cache量化？\n\n能回答10/12，并完成项目验收，才算掌握实用量化。\n\n---\n"
+    }
+  ]
+}

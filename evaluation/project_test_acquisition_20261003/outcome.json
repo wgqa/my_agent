@@ -1,0 +1,100 @@
+{
+  "phase1": {
+    "requests": 16,
+    "repairs": [
+      {
+        "id": "R06",
+        "arm": "baseline",
+        "category": "ARGUMENTS_SCHEMA_INVALID",
+        "succeeded": true,
+        "initial_finish_reason": "stop"
+      },
+      {
+        "id": "T02",
+        "arm": "candidate",
+        "category": "ARGUMENTS_SCHEMA_INVALID",
+        "succeeded": false,
+        "initial_finish_reason": "stop"
+      },
+      {
+        "id": "T03",
+        "arm": "baseline",
+        "category": "ARGUMENTS_SCHEMA_INVALID",
+        "succeeded": false,
+        "initial_finish_reason": "stop"
+      }
+    ],
+    "arms": {
+      "baseline": {
+        "status_counts": {
+          "refused": 3,
+          "failed": 1,
+          "completed": 4
+        },
+        "review_counts": {
+          "FAIL": 3,
+          "PASS": 5
+        },
+        "provider_calls": 33,
+        "input_tokens": 148647,
+        "output_tokens": 1949,
+        "tool_calls": 15
+      },
+      "candidate": {
+        "status_counts": {
+          "completed": 6,
+          "failed": 1,
+          "refused": 1
+        },
+        "review_counts": {
+          "PASS": 6,
+          "FAIL": 1,
+          "PARTIAL": 1
+        },
+        "provider_calls": 33,
+        "input_tokens": 150417,
+        "output_tokens": 2539,
+        "tool_calls": 15
+      }
+    }
+  },
+  "definition_policy_followup": {
+    "requests": 16,
+    "repairs": [],
+    "arms": {
+      "baseline": {
+        "status_counts": {
+          "completed": 7,
+          "refused": 1
+        },
+        "review_counts": {
+          "PARTIAL": 2,
+          "PASS": 6
+        },
+        "provider_calls": 31,
+        "input_tokens": 136298,
+        "output_tokens": 2450,
+        "tool_calls": 14
+      },
+      "candidate": {
+        "status_counts": {
+          "completed": 7,
+          "refused": 1
+        },
+        "review_counts": {
+          "PASS": 7,
+          "PARTIAL": 1
+        },
+        "provider_calls": 33,
+        "input_tokens": 151062,
+        "output_tokens": 2808,
+        "tool_calls": 16
+      }
+    }
+  },
+  "total_requests": 32,
+  "total_provider_calls": 130,
+  "independent_formal_acceptance": false,
+  "source_test_execution_performed": false,
+  "all_frozen_boundaries_verified": true
+}

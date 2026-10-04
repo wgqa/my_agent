@@ -180,7 +180,6 @@ def test_empty_conversation_renderer_has_no_debug_sections(monkeypatch):
     assert "Suggested" in joined
     # Starter prompts surface as buttons.
     assert any("Trace a configuration value" in b for b in buttons)
-    assert any("Planner → Retrieval → Verifier" in b for b in buttons)
     assert any("recommend regression tests" in b for b in buttons)
     assert any("documentation with the current implementation" in b for b in buttons)
 

@@ -14,6 +14,7 @@ Usage::
 from __future__ import annotations
 
 import os
+import argparse
 import shutil
 import subprocess
 import sys
@@ -66,7 +67,7 @@ def _wait_for_status(proc, url: str, expected: int) -> tuple[bool, str]:
     return False, diagnostics
 
 
-def _assert_app_test(backend_base: str) -> None:
+def _assert_app_test(backend_base: str, engineering_required: bool = False) -> None:
     """Execute the page and check only non-query integration behavior."""
     from streamlit.testing.v1 import AppTest
 
@@ -99,6 +100,23 @@ def _assert_app_test(backend_base: str) -> None:
                 f"backend /capabilities status={capability_status}"
             )
         features = capabilities.get("features", {})
+        _, identity = _http_get(f"{backend_base}/version")
+        if app_test.session_state["backend_version"] != identity:
+            raise AssertionError("UI did not consume backend version identity")
+        if not any(f"UI {identity['version']} · API {identity['version']}" in value for value in captions):
+            raise AssertionError("UI/API version label differs")
+        if engineering_required:
+            from scripts.demo_engineering import preflight
+            from ui.api_client import ApiClient
+            preflight(ApiClient(backend_base), "engineering-demo")
+            _, knowledge = _http_get(f"{backend_base}/engineering/knowledge")
+            if not knowledge.get("ready") or not knowledge.get("verified") or features.get("engineering_agent") is not True:
+                raise AssertionError("verified Engineering runtime is unavailable")
+            for key in ("starter_0", "starter_1", "starter_2"):
+                if not any(item.key == key for item in app_test.button):
+                    raise AssertionError(f"Engineering task card missing: {key}")
+            if len(app_test.chat_input) != 1 or app_test.chat_input[0].disabled:
+                raise AssertionError("Engineering chat input unavailable")
         for label, feature in (
             ("Basic RAG", "basic_rag"),
             ("Agentic RAG", "agentic_rag"),
@@ -147,6 +165,9 @@ def _assert_app_test(backend_base: str) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--corpus-root", type=Path, help="Existing verified corpus; also require Engineering readiness")
+    args = parser.parse_args()
     if not CONFIG_YAML.is_file() or not APP_FILE.is_file():
         print("[FAIL] missing config.yaml or ui/app.py", file=sys.stderr)
         return 1
@@ -163,6 +184,11 @@ def main() -> int:
         tmp_dir = Path(tmp)
         shutil.copy2(CONFIG_YAML, tmp_dir / "config.yaml")
         backend_env = _build_env(tmp_dir)
+        if args.corpus_root:
+            from demo_engineering import prepare_project
+            demo_project = prepare_project(tmp_dir / "engineering-demo")
+            backend_env["ENGINEERING_PROJECT_ROOT"] = str(demo_project)
+            backend_env["ENGINEERING_KNOWLEDGE_CORPUS_ROOT"] = str(args.corpus_root.resolve(strict=True))
         backend_cmd = [
             sys.executable,
             "-m",
@@ -240,13 +266,15 @@ def main() -> int:
                     print(_redact(streamlit_diag[-4000:]), file=sys.stderr)
                 return 1
 
-            _assert_app_test(backend_base)
+            _assert_app_test(backend_base, engineering_required=bool(args.corpus_root))
 
             print("FULL_APP_SMOKE_OK")
             print(f"backend_health={health_status}")
             print("streamlit_health=200")
             print("ui_backend_connection=ok")
             print("required_modes=present")
+            print(f"engineering_readiness_checked={bool(args.corpus_root)}")
+            print("provider_calls=0; version_identity_checked=true")
             return 0
         except (AssertionError, OSError, urllib.error.URLError, ValueError) as exc:
             print(f"[FAIL] {_redact(str(exc))}", file=sys.stderr)

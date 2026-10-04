@@ -56,6 +56,14 @@ def _build_env(temp_dir: Path) -> dict:
     env["HF_HOME"] = str(hf_home)
     env["HF_HUB_OFFLINE"] = "1"
     env["TRANSFORMERS_OFFLINE"] = "1"
+    # Do not inherit the developer's mounted project, corpus or conversation
+    # database via the environment or dotenv. Explicit smoke variants may
+    # replace these bindings with their own isolated fixtures.
+    project = temp_dir / "project"
+    project.mkdir(exist_ok=True)
+    env["ENGINEERING_PROJECT_ROOT"] = str(project)
+    env["ENGINEERING_KNOWLEDGE_CORPUS_ROOT"] = str(temp_dir / "unconfigured_corpus")
+    env["ENGINEERING_CONVERSATION_DB"] = str(temp_dir / "engineering_conversations.sqlite3")
     # PYTHONPATH 指向 repo root：即使 cwd 是临时目录也能 import api.app
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = str(REPO_ROOT) + (os.pathsep + existing if existing else "")
@@ -161,17 +169,24 @@ def main() -> int:
             if o_status != 200:
                 print(f"[FAIL] /openapi.json 状态 {o_status}", file=sys.stderr)
                 return 1
-            required = ["/health", "/query", "/agent/query", "/tool-agent/query"]
+            required = ["/health", "/version", "/query", "/agent/query", "/tool-agent/query",
+                        "/engineering/query", "/engineering/conversations",
+                        "/engineering/conversations/{conversation_id}/messages/stream/v1"]
             paths = openapi.get("paths", {})
             missing = [r for r in required if r not in paths]
             if missing:
                 print(f"[FAIL] OpenAPI 缺路由: {missing}", file=sys.stderr)
+                return 1
+            identity_status, identity = _http_get(f"{base}/version")
+            if identity_status != 200 or identity.get("version") != openapi.get("info", {}).get("version"):
+                print("[FAIL] API/OpenAPI version mismatch", file=sys.stderr)
                 return 1
 
             print("STARTUP_SMOKE_OK")
             print(f"health={h_status}")
             print(f"openapi={o_status}")
             print("required_routes=present")
+            print(f"product_version={identity['version']}")
             print("model_network_not_required=true")
             return 0
         finally:

@@ -1,0 +1,2166 @@
+{
+  "automatic_pairwise": {
+    "context_resolution_correct": {
+      "counts": {
+        "A better": 0,
+        "B better": 0,
+        "equal": 0
+      },
+      "pairs": []
+    },
+    "knowledge_source_hit_at_5": {
+      "counts": {
+        "A better": 1,
+        "B better": 3,
+        "equal": 0
+      },
+      "pairs": [
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d005",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d006",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d015",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d016",
+          "winner": "B better"
+        }
+      ]
+    },
+    "latency_e2e_ms": {
+      "counts": {
+        "A better": 13,
+        "B better": 2,
+        "equal": 0
+      },
+      "pairs": [
+        {
+          "A": 2970.66,
+          "B": 3415.676,
+          "case_id": "v7d003",
+          "winner": "A better"
+        },
+        {
+          "A": 6654.542,
+          "B": 3848.698,
+          "case_id": "v7d004",
+          "winner": "B better"
+        },
+        {
+          "A": 5021.126,
+          "B": 7492.117,
+          "case_id": "v7d005",
+          "winner": "A better"
+        },
+        {
+          "A": 1304.891,
+          "B": 9230.018,
+          "case_id": "v7d006",
+          "winner": "A better"
+        },
+        {
+          "A": 1773.78,
+          "B": 5875.334,
+          "case_id": "v7d007",
+          "winner": "A better"
+        },
+        {
+          "A": 3775.351,
+          "B": 6721.242,
+          "case_id": "v7d008",
+          "winner": "A better"
+        },
+        {
+          "A": 10919.768,
+          "B": 3963.5,
+          "case_id": "v7d009",
+          "winner": "B better"
+        },
+        {
+          "A": 3904.854,
+          "B": 4889.148,
+          "case_id": "v7d011",
+          "winner": "A better"
+        },
+        {
+          "A": 6686.182,
+          "B": 8304.36,
+          "case_id": "v7d012",
+          "winner": "A better"
+        },
+        {
+          "A": 1291.412,
+          "B": 7535.315,
+          "case_id": "v7d013",
+          "winner": "A better"
+        },
+        {
+          "A": 7194.128,
+          "B": 12231.299,
+          "case_id": "v7d014",
+          "winner": "A better"
+        },
+        {
+          "A": 2516.437,
+          "B": 4787.033,
+          "case_id": "v7d015",
+          "winner": "A better"
+        },
+        {
+          "A": 1555.287,
+          "B": 6463.947,
+          "case_id": "v7d016",
+          "winner": "A better"
+        },
+        {
+          "A": 3332.453,
+          "B": 3801.392,
+          "case_id": "v7d017",
+          "winner": "A better"
+        },
+        {
+          "A": 1288.152,
+          "B": 3313.064,
+          "case_id": "v7d018",
+          "winner": "A better"
+        }
+      ]
+    },
+    "llm_calls_total": {
+      "counts": {
+        "A better": 8,
+        "B better": 3,
+        "equal": 4
+      },
+      "pairs": [
+        {
+          "A": 2.0,
+          "B": 2.0,
+          "case_id": "v7d003",
+          "winner": "equal"
+        },
+        {
+          "A": 3.0,
+          "B": 2.0,
+          "case_id": "v7d004",
+          "winner": "B better"
+        },
+        {
+          "A": 2.0,
+          "B": 2.0,
+          "case_id": "v7d005",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d006",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 3.0,
+          "case_id": "v7d007",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 3.0,
+          "case_id": "v7d008",
+          "winner": "A better"
+        },
+        {
+          "A": 4.0,
+          "B": 2.0,
+          "case_id": "v7d009",
+          "winner": "B better"
+        },
+        {
+          "A": 2.0,
+          "B": 2.0,
+          "case_id": "v7d011",
+          "winner": "equal"
+        },
+        {
+          "A": 3.0,
+          "B": 2.0,
+          "case_id": "v7d012",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d013",
+          "winner": "A better"
+        },
+        {
+          "A": 2.0,
+          "B": 2.0,
+          "case_id": "v7d014",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d015",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d016",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d017",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d018",
+          "winner": "A better"
+        }
+      ]
+    },
+    "premature_finalization": {
+      "counts": {
+        "A better": 3,
+        "B better": 0,
+        "equal": 12
+      },
+      "pairs": [
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d003",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d004",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d005",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d006",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d007",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d008",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d009",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d011",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d012",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d013",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d014",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d015",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d016",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d018",
+          "winner": "equal"
+        }
+      ]
+    },
+    "refusal_correctness": {
+      "counts": {
+        "A better": 0,
+        "B better": 3,
+        "equal": 12
+      },
+      "pairs": [
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d003",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d004",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d005",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d006",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d007",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d008",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d009",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d011",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d012",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d013",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d014",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d015",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d016",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d018",
+          "winner": "equal"
+        }
+      ]
+    },
+    "required_evidence_coverage": {
+      "counts": {
+        "A better": 2,
+        "B better": 3,
+        "equal": 10
+      },
+      "pairs": [
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d003",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d004",
+          "winner": "equal"
+        },
+        {
+          "A": 0.5,
+          "B": 0.5,
+          "case_id": "v7d005",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.5,
+          "case_id": "v7d006",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d007",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d008",
+          "winner": "equal"
+        },
+        {
+          "A": 0.5,
+          "B": 0.0,
+          "case_id": "v7d009",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d011",
+          "winner": "equal"
+        },
+        {
+          "A": 0.5,
+          "B": 0.0,
+          "case_id": "v7d012",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d013",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d014",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d015",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d016",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d018",
+          "winner": "equal"
+        }
+      ]
+    },
+    "retrieval_call_count": {
+      "counts": {
+        "A better": 14,
+        "B better": 0,
+        "equal": 1
+      },
+      "pairs": [
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d003",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d004",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 2.0,
+          "case_id": "v7d005",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 3.0,
+          "case_id": "v7d006",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d007",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d008",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 3.0,
+          "case_id": "v7d009",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d011",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 3.0,
+          "case_id": "v7d012",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 3.0,
+          "case_id": "v7d013",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 3.0,
+          "case_id": "v7d014",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 2.0,
+          "case_id": "v7d015",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 2.0,
+          "case_id": "v7d016",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d018",
+          "winner": "A better"
+        }
+      ]
+    },
+    "subquery_coverage": {
+      "counts": {
+        "A better": 0,
+        "B better": 0,
+        "equal": 0
+      },
+      "pairs": []
+    },
+    "task_completion": {
+      "counts": {
+        "A better": 0,
+        "B better": 3,
+        "equal": 12
+      },
+      "pairs": [
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d003",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d004",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d005",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d006",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d007",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d008",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d009",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d011",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d012",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d013",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d014",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d015",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d016",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 1.0,
+          "case_id": "v7d018",
+          "winner": "equal"
+        }
+      ]
+    },
+    "tool_calls": {
+      "counts": {
+        "A better": 0,
+        "B better": 7,
+        "equal": 8
+      },
+      "pairs": [
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d003",
+          "winner": "B better"
+        },
+        {
+          "A": 2.0,
+          "B": 0.0,
+          "case_id": "v7d004",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d005",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d006",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d007",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d008",
+          "winner": "equal"
+        },
+        {
+          "A": 2.0,
+          "B": 0.0,
+          "case_id": "v7d009",
+          "winner": "B better"
+        },
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d011",
+          "winner": "B better"
+        },
+        {
+          "A": 2.0,
+          "B": 0.0,
+          "case_id": "v7d012",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d013",
+          "winner": "equal"
+        },
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d014",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d015",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d016",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d018",
+          "winner": "equal"
+        }
+      ]
+    },
+    "tool_coverage": {
+      "counts": {
+        "A better": 6,
+        "B better": 2,
+        "equal": 7
+      },
+      "pairs": [
+        {
+          "A": 0.5,
+          "B": 0.0,
+          "case_id": "v7d003",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d004",
+          "winner": "A better"
+        },
+        {
+          "A": 0.5,
+          "B": 0.0,
+          "case_id": "v7d005",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d006",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d007",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d008",
+          "winner": "equal"
+        },
+        {
+          "A": 0.6666666666666666,
+          "B": 0.0,
+          "case_id": "v7d009",
+          "winner": "A better"
+        },
+        {
+          "A": 0.5,
+          "B": 0.0,
+          "case_id": "v7d011",
+          "winner": "A better"
+        },
+        {
+          "A": 1.0,
+          "B": 0.0,
+          "case_id": "v7d012",
+          "winner": "A better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d013",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d014",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d015",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 1.0,
+          "case_id": "v7d016",
+          "winner": "B better"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d017",
+          "winner": "equal"
+        },
+        {
+          "A": 0.0,
+          "B": 0.0,
+          "case_id": "v7d018",
+          "winner": "equal"
+        }
+      ]
+    }
+  },
+  "by_system": {
+    "A": {
+      "invalid_runs_excluded": 1,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 0.2,
+          "n": 5
+        },
+        "latency_context_ms": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "latency_e2e_ms": {
+          "mean": 4231.151117647059,
+          "n": 17
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "latency_planner_ms": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "latency_toolagent_ms": {
+          "mean": 3835.312882352941,
+          "n": 17
+        },
+        "latency_verifier_ms": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "llm_calls_planner": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 17
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.8235294117647058,
+          "n": 17
+        },
+        "llm_calls_total": {
+          "mean": 1.8235294117647058,
+          "n": 17
+        },
+        "merged_evidence_count": {
+          "mean": 0.8823529411764706,
+          "n": 17
+        },
+        "premature_finalization": {
+          "mean": 0.5882352941176471,
+          "n": 17
+        },
+        "refusal_correctness": {
+          "mean": 0.6470588235294118,
+          "n": 17
+        },
+        "required_evidence_coverage": {
+          "mean": 0.2647058823529412,
+          "n": 17
+        },
+        "retrieval_call_count": {
+          "mean": 0.17647058823529413,
+          "n": 17
+        },
+        "task_completion": {
+          "mean": 0.6470588235294118,
+          "n": 17
+        },
+        "tool_calls": {
+          "mean": 0.7058823529411765,
+          "n": 17
+        },
+        "tool_coverage": {
+          "mean": 0.3235294117647059,
+          "n": 17
+        }
+      },
+      "valid_runs": 17
+    },
+    "B": {
+      "invalid_runs_excluded": 2,
+      "metrics": {
+        "context_resolution_correct": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 16
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 16
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 0.8,
+          "n": 5
+        },
+        "latency_context_ms": {
+          "mean": 117.3994375,
+          "n": 16
+        },
+        "latency_e2e_ms": {
+          "mean": 6160.866,
+          "n": 16
+        },
+        "latency_finalization_ms": {
+          "mean": 0.1145,
+          "n": 16
+        },
+        "latency_planner_ms": {
+          "mean": 1529.175625,
+          "n": 16
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.9996874999999998,
+          "n": 16
+        },
+        "latency_toolagent_ms": {
+          "mean": 3368.1706249999997,
+          "n": 16
+        },
+        "latency_verifier_ms": {
+          "mean": 0.196625,
+          "n": 16
+        },
+        "llm_calls_context": {
+          "mean": 0.125,
+          "n": 16
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 16
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 16
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 16
+        },
+        "llm_calls_total": {
+          "mean": 2.125,
+          "n": 16
+        },
+        "merged_evidence_count": {
+          "mean": 4.6875,
+          "n": 16
+        },
+        "premature_finalization": {
+          "mean": 0.8125,
+          "n": 16
+        },
+        "refusal_correctness": {
+          "mean": 0.875,
+          "n": 16
+        },
+        "required_evidence_coverage": {
+          "mean": 0.375,
+          "n": 16
+        },
+        "retrieval_call_count": {
+          "mean": 1.8125,
+          "n": 16
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 16
+        },
+        "task_completion": {
+          "mean": 0.875,
+          "n": 16
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 16
+        },
+        "tool_coverage": {
+          "mean": 0.1875,
+          "n": 16
+        }
+      },
+      "valid_runs": 16
+    }
+  },
+  "by_task_family": {
+    "change_test": {
+      "invalid_runs_excluded": 1,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "latency_context_ms": {
+          "mean": 0.012666666666666666,
+          "n": 3
+        },
+        "latency_e2e_ms": {
+          "mean": 6653.930666666667,
+          "n": 3
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "latency_planner_ms": {
+          "mean": 619.9966666666667,
+          "n": 3
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.6766666666666666,
+          "n": 3
+        },
+        "latency_toolagent_ms": {
+          "mean": 5373.115666666667,
+          "n": 3
+        },
+        "latency_verifier_ms": {
+          "mean": 0.035333333333333335,
+          "n": 3
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "llm_calls_planner": {
+          "mean": 0.3333333333333333,
+          "n": 3
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 2.6666666666666665,
+          "n": 3
+        },
+        "llm_calls_total": {
+          "mean": 3.0,
+          "n": 3
+        },
+        "merged_evidence_count": {
+          "mean": 1.6666666666666667,
+          "n": 3
+        },
+        "premature_finalization": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "refusal_correctness": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "required_evidence_coverage": {
+          "mean": 0.16666666666666666,
+          "n": 3
+        },
+        "retrieval_call_count": {
+          "mean": 1.0,
+          "n": 3
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "task_completion": {
+          "mean": 0.0,
+          "n": 3
+        },
+        "tool_calls": {
+          "mean": 1.0,
+          "n": 3
+        },
+        "tool_coverage": {
+          "mean": 0.3333333333333333,
+          "n": 3
+        }
+      },
+      "valid_runs": 3
+    },
+    "context_followup": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "context_resolution_correct": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 469.472,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 4536.42675,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0795,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 377.49474999999995,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.696,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 2912.6185,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.12025,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 2.0,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 2.5,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.0,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    },
+    "decomposed_knowledge": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 0.017750000000000002,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 3830.676,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.064,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 816.3309999999999,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.00325,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 2245.842,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.10275,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 1.5,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 2.5,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.5,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    },
+    "diagnosis": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 0.018750000000000003,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 7063.0385,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.065,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 1071.6205,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.71725,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 5212.92275,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.11725,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.25,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 1.75,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 3.75,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 1.75,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.25,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.0,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    },
+    "docs_code": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 0.017750000000000002,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 5946.136,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0635,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 855.80025,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.0939999999999999,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 4313.4105,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.10425,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.75,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 2.25,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 2.5,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 0.125,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.375,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    },
+    "insufficient_refusal": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 0.0175,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 2933.76525,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0255,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 675.5025,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.46950000000000003,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 1493.9125,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.05975,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 1.5,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 1.25,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 0.25,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.0,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    },
+    "knowledge_only": {
+      "invalid_runs_excluded": 2,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 0.0155,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 6681.8675,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.064,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 719.035,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.69,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 5203.3875,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.1025,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.5,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 1.5,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 1.0,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    },
+    "repo_only": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 0.017,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 4222.394,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0635,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 565.2835,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.89,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 2897.5275,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.10175000000000001,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.75,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 2.25,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 2.5,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.375,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    },
+    "theory_code": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "latency_context_ms": {
+          "mean": 0.01975,
+          "n": 4
+        },
+        "latency_e2e_ms": {
+          "mean": 5762.0380000000005,
+          "n": 4
+        },
+        "latency_finalization_ms": {
+          "mean": 0.065,
+          "n": 4
+        },
+        "latency_planner_ms": {
+          "mean": 930.155,
+          "n": 4
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.27625,
+          "n": 4
+        },
+        "latency_toolagent_ms": {
+          "mean": 4064.998,
+          "n": 4
+        },
+        "latency_verifier_ms": {
+          "mean": 0.10275,
+          "n": 4
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_planner": {
+          "mean": 0.5,
+          "n": 4
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 4
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.25,
+          "n": 4
+        },
+        "llm_calls_total": {
+          "mean": 1.75,
+          "n": 4
+        },
+        "merged_evidence_count": {
+          "mean": 3.75,
+          "n": 4
+        },
+        "premature_finalization": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "refusal_correctness": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "required_evidence_coverage": {
+          "mean": 0.375,
+          "n": 4
+        },
+        "retrieval_call_count": {
+          "mean": 1.5,
+          "n": 4
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 0.75,
+          "n": 4
+        },
+        "tool_calls": {
+          "mean": 0.25,
+          "n": 4
+        },
+        "tool_coverage": {
+          "mean": 0.125,
+          "n": 4
+        }
+      },
+      "valid_runs": 4
+    }
+  },
+  "execution_scope": "Integration Dev only / automatic metrics only",
+  "holdout": "NOT_RUN",
+  "manual_scoring": "NOT_DONE",
+  "overall": {
+    "invalid_runs_excluded": 3,
+    "metrics": {
+      "context_resolution_correct": {
+        "mean": 0.0,
+        "n": 2
+      },
+      "hybrid_rescue_attempted": {
+        "mean": 0.0,
+        "n": 33
+      },
+      "hybrid_rescue_used": {
+        "mean": 0.0,
+        "n": 33
+      },
+      "knowledge_source_hit_at_5": {
+        "mean": 0.5,
+        "n": 10
+      },
+      "latency_context_ms": {
+        "mean": 56.9209393939394,
+        "n": 33
+      },
+      "latency_e2e_ms": {
+        "mean": 5166.770454545454,
+        "n": 33
+      },
+      "latency_finalization_ms": {
+        "mean": 0.05551515151515152,
+        "n": 33
+      },
+      "latency_planner_ms": {
+        "mean": 741.4184848484849,
+        "n": 33
+      },
+      "latency_retrieval_ms": {
+        "mean": 0.9695454545454545,
+        "n": 33
+      },
+      "latency_toolagent_ms": {
+        "mean": 3608.8196666666668,
+        "n": 33
+      },
+      "latency_verifier_ms": {
+        "mean": 0.09533333333333333,
+        "n": 33
+      },
+      "llm_calls_context": {
+        "mean": 0.06060606060606061,
+        "n": 33
+      },
+      "llm_calls_planner": {
+        "mean": 0.48484848484848486,
+        "n": 33
+      },
+      "llm_calls_repair": {
+        "mean": 0.0,
+        "n": 33
+      },
+      "llm_calls_toolagent_decision": {
+        "mean": 1.4242424242424243,
+        "n": 33
+      },
+      "llm_calls_total": {
+        "mean": 1.9696969696969697,
+        "n": 33
+      },
+      "merged_evidence_count": {
+        "mean": 2.727272727272727,
+        "n": 33
+      },
+      "premature_finalization": {
+        "mean": 0.696969696969697,
+        "n": 33
+      },
+      "refusal_correctness": {
+        "mean": 0.7575757575757576,
+        "n": 33
+      },
+      "required_evidence_coverage": {
+        "mean": 0.3181818181818182,
+        "n": 33
+      },
+      "retrieval_call_count": {
+        "mean": 0.9696969696969697,
+        "n": 33
+      },
+      "subquery_coverage": {
+        "mean": 1.0,
+        "n": 16
+      },
+      "task_completion": {
+        "mean": 0.7575757575757576,
+        "n": 33
+      },
+      "tool_calls": {
+        "mean": 0.36363636363636365,
+        "n": 33
+      },
+      "tool_coverage": {
+        "mean": 0.25757575757575757,
+        "n": 33
+      }
+    },
+    "valid_runs": 33
+  },
+  "run_counts": {
+    "expected_system_runs": 36,
+    "infrastructure_invalid_system_runs": 3,
+    "observed_system_runs": 36,
+    "valid_system_runs": 33
+  },
+  "schema_version": "integration_v7_real_dev_runner_v1"
+}

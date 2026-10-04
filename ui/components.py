@@ -28,14 +28,43 @@ EVIDENCE_KIND_LABELS = {
     "project_test": "TEST",
 }
 
-# Starter cards for the empty state. Clicking never bypasses the standard
-# chat path — the text is sent as the user's first question.
+# Core workflow cards collect a concrete target before submitting a question
+# through the ordinary chat path. They do not claim independent execution.
 STARTER_PROMPTS = (
-    ("Trace a configuration value to runtime behavior", "Trace a config value to how the runtime behaves at launch"),
-    ("Explain how Planner → Retrieval → Verifier works", "Explain the Planner → Retrieval → Verifier pipeline"),
-    ("Analyze a code change and recommend regression tests", "Analyze this code change and suggest regression tests"),
-    ("Compare documentation with the current implementation", "Compare the docs with the current implementation"),
+    ("Trace a configuration value to runtime behavior", "configuration"),
+    ("Analyze a code change and recommend regression tests", "change_test"),
+    ("Compare documentation with the current implementation", "docs_code"),
 )
+
+
+def build_core_workflow_question(workflow: str, subject: str, reference: str = "") -> str | None:
+    """Require a user-supplied target; generate an ordinary bounded question."""
+    subject = subject.strip()
+    reference = reference.strip()
+    if not subject or workflow not in {"configuration", "change_test", "docs_code"}:
+        return None
+    if workflow == "configuration":
+        hint = f"已知相关源码位置：{reference}。" if reference else ""
+        return (
+            f"请在当前仓库追踪配置 {subject} 的默认值、覆盖与校验规则，以及它如何影响调用行为。"
+            f"{hint}读取所需的实际默认值定义和调用点，引用源码；未取得的部分明确说明，"
+            "不要把常量名当作默认数值，也不要用未读方法补全结论。"
+        )
+    if workflow == "change_test":
+        return (
+            f"变更文件已明确为当前仓库的 {subject}。请直接取得该文件的未提交 Git diff，"
+            "分析行为影响，再按这个源码路径寻找关联的已有测试并读取实际测试定义；"
+            "无需重新发现变更文件，也不要反复猜测改动常量名来搜索测试。"
+            "指出实际读到的输入与断言如何覆盖该变更，给出基于真实测试名称的建议命令；"
+            "找不到具体测试时说明缺口。只做静态分析，不执行测试，不声称已经通过。"
+        )
+    if not reference:
+        return None
+    return (
+        f"请核对当前仓库文档 {subject} 与源码实现 {reference} 是否一致。"
+        "读取文档和决定所问行为的实际实现，分别引用两边；逐项区分一致、冲突与未核实。"
+        "只读到局部实现时不能断言整个调用链与文档矛盾。"
+    )
 
 
 def group_evidence_by_kind(evidence: Iterable[dict]) -> dict[str, list[dict]]:
@@ -247,6 +276,7 @@ __all__ = [
     "EVIDENCE_KIND_LABELS",
     "EVIDENCE_KIND_ORDER",
     "STARTER_PROMPTS",
+    "build_core_workflow_question",
     "activity_icon",
     "activity_timeline_html",
     "evidence_card_html",

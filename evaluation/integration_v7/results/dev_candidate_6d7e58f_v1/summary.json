@@ -1,0 +1,271 @@
+{
+  "automatic_metrics": {
+    "invalid_runs_excluded": 2,
+    "metrics": {
+      "context_resolution_correct": {
+        "mean": 0.0,
+        "n": 2
+      },
+      "hybrid_rescue_attempted": {
+        "mean": 0.0,
+        "n": 16
+      },
+      "hybrid_rescue_used": {
+        "mean": 0.0,
+        "n": 16
+      },
+      "knowledge_source_hit_at_5": {
+        "mean": 0.8,
+        "n": 5
+      },
+      "latency_context_ms": {
+        "mean": 136.0144375,
+        "n": 16
+      },
+      "latency_e2e_ms": {
+        "mean": 7539.8191875,
+        "n": 16
+      },
+      "latency_finalization_ms": {
+        "mean": 0.1268125,
+        "n": 16
+      },
+      "latency_planner_ms": {
+        "mean": 1557.82375,
+        "n": 16
+      },
+      "latency_retrieval_ms": {
+        "mean": 1.99125,
+        "n": 16
+      },
+      "latency_toolagent_ms": {
+        "mean": 4652.355625,
+        "n": 16
+      },
+      "latency_verifier_ms": {
+        "mean": 0.340875,
+        "n": 16
+      },
+      "llm_calls_context": {
+        "mean": 0.125,
+        "n": 16
+      },
+      "llm_calls_planner": {
+        "mean": 1.0,
+        "n": 16
+      },
+      "llm_calls_repair": {
+        "mean": 0.0,
+        "n": 16
+      },
+      "llm_calls_toolagent_decision": {
+        "mean": 2.3125,
+        "n": 16
+      },
+      "llm_calls_total": {
+        "mean": 3.4375,
+        "n": 16
+      },
+      "merged_evidence_count": {
+        "mean": 4.6875,
+        "n": 16
+      },
+      "premature_finalization": {
+        "mean": 0.6875,
+        "n": 16
+      },
+      "refusal_correctness": {
+        "mean": 0.9375,
+        "n": 16
+      },
+      "required_evidence_coverage": {
+        "mean": 0.71875,
+        "n": 16
+      },
+      "retrieval_call_count": {
+        "mean": 1.8125,
+        "n": 16
+      },
+      "subquery_coverage": {
+        "mean": 1.0,
+        "n": 16
+      },
+      "task_completion": {
+        "mean": 0.9375,
+        "n": 16
+      },
+      "tool_calls": {
+        "mean": 1.125,
+        "n": 16
+      },
+      "tool_coverage": {
+        "mean": 0.625,
+        "n": 16
+      }
+    },
+    "valid_runs": 16
+  },
+  "descriptive_counts": {
+    "code_search_calls": 8,
+    "code_search_with_any": 0,
+    "code_search_with_project_code": 6,
+    "code_search_with_project_doc": 2,
+    "code_search_without_artifact_kind": 0,
+    "completed_cases": 13,
+    "failed_cases": 0,
+    "invalid_cases": 2,
+    "project_change_evidence_cases": 1,
+    "project_code_evidence_cases": 4,
+    "project_doc_evidence_cases": 2,
+    "project_test_evidence_cases": 1,
+    "refused_cases": 3
+  },
+  "descriptive_counts_by_task_family": {
+    "change_test": {
+      "code_search_calls": 0,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 0,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 1,
+      "failed_cases": 0,
+      "invalid_cases": 1,
+      "project_change_evidence_cases": 1,
+      "project_code_evidence_cases": 0,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 1,
+      "refused_cases": 0
+    },
+    "context_followup": {
+      "code_search_calls": 0,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 0,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 2,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 0,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 0
+    },
+    "decomposed_knowledge": {
+      "code_search_calls": 0,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 0,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 2,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 0,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 0
+    },
+    "diagnosis": {
+      "code_search_calls": 2,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 2,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 2,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 2,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 0
+    },
+    "docs_code": {
+      "code_search_calls": 2,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 0,
+      "code_search_with_project_doc": 2,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 1,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 0,
+      "project_doc_evidence_cases": 2,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 1
+    },
+    "insufficient_refusal": {
+      "code_search_calls": 0,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 0,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 0,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 0,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 2
+    },
+    "knowledge_only": {
+      "code_search_calls": 0,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 0,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 1,
+      "failed_cases": 0,
+      "invalid_cases": 1,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 0,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 0
+    },
+    "repo_only": {
+      "code_search_calls": 1,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 1,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 2,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 1,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 0
+    },
+    "theory_code": {
+      "code_search_calls": 3,
+      "code_search_with_any": 0,
+      "code_search_with_project_code": 3,
+      "code_search_with_project_doc": 0,
+      "code_search_without_artifact_kind": 0,
+      "completed_cases": 2,
+      "failed_cases": 0,
+      "invalid_cases": 0,
+      "project_change_evidence_cases": 0,
+      "project_code_evidence_cases": 1,
+      "project_doc_evidence_cases": 0,
+      "project_test_evidence_cases": 0,
+      "refused_cases": 0
+    }
+  },
+  "holdout": "NOT_RUN / DENY",
+  "manual_scoring": "NOT_DONE",
+  "run_counts": {
+    "expected": 18,
+    "invalid": 2,
+    "observed": 18,
+    "valid": 16
+  },
+  "schema_version": "integration_v7_end_to_end_candidate_runner_v1",
+  "scope": "Integration Dev only / kind-aware Unified candidate / automatic metrics only",
+  "system_a": "NOT_RUN"
+}

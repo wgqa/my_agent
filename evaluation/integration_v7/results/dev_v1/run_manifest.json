@@ -1,0 +1,51 @@
+{
+  "artifact_files": [
+    "run_manifest.json",
+    "raw_runs.jsonl",
+    "automatic_scores.jsonl",
+    "summary.json",
+    "manual_review_template.jsonl"
+  ],
+  "context_contract": {
+    "A": "current_question_only",
+    "B": "frozen_conversation_context"
+  },
+  "corpus_identity": {
+    "chunk_count": 215,
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "manifest_experiment_id": "dbc497c796d5",
+    "repository": "wgqa/agent_data",
+    "retrieval_strategy": "bm25",
+    "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "verified": true
+  },
+  "expected_system_runs": 36,
+  "holdout": "NOT_RUN / DENY",
+  "infrastructure_invalid_count": 3,
+  "manual_scoring": "NOT_DONE",
+  "observed_system_runs": 36,
+  "order_contract": "deterministic_alternation_A_then_B_on_odd_case_and_B_then_A_on_even_case",
+  "protocol": {
+    "sha256": "281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d",
+    "version": "v7_architecture_integration_evaluation_v1"
+  },
+  "provider": {
+    "model": "deepseek-chat",
+    "name": "deepseek"
+  },
+  "run_id": "arch-eval-08b-dev-20260901T060956Z",
+  "runner_baseline": "155ee71a2a39efb74a524232c97699e773f65655",
+  "schema_version": "integration_v7_real_dev_runner_v1",
+  "split": "integration_dev",
+  "status": "COMPLETE",
+  "system_identity": {
+    "A": "0eef8ef9d6decdaa10efebe04087b06611654670",
+    "B": "385b7795eafde7c114efc382e95c0d18ec273f54"
+  },
+  "target_project": {
+    "project_id": "my_agent",
+    "repository": "wgqa/my_agent",
+    "source_sha": "385b7795eafde7c114efc382e95c0d18ec273f54"
+  }
+}

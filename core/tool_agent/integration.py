@@ -19,6 +19,8 @@ from core.tool_agent.decision_prompt import (
     max_parse_repairs_for_profile,
 )
 from core.tool_agent.default_tools import build_readonly_tool_registry
+from core.tool_agent.tools.code_search import CODE_SEARCH_VERSION
+from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_VERSION
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget
 
@@ -40,6 +42,8 @@ def build_tool_agent_runtime(
     model: Optional[str] = None,
     extra_headers: Optional[Mapping[str, str]] = None,
     provider_config: Optional[OpenAICompatibleProviderConfig] = None,
+    code_search_version: str = CODE_SEARCH_VERSION,
+    read_project_context_version: str = READ_PROJECT_CONTEXT_VERSION,
 ) -> ToolAgentRuntime:
     """把七个只读 Tool + Decision Provider + Bounded Runtime 装配成 Tool Agent。
 
@@ -56,6 +60,8 @@ def build_tool_agent_runtime(
         retrieval_port,
         knowledge_strategy=knowledge_strategy,
         knowledge_top_k=knowledge_top_k,
+        code_search_version=code_search_version,
+        read_project_context_version=read_project_context_version,
     )
     if provider is None:
         from core.tool_agent.openai_compatible import (

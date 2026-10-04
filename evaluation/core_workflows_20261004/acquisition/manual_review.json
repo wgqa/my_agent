@@ -1,0 +1,140 @@
+{
+  "independent_acceptance": false,
+  "method": "Same developer source/range/claim review, whole-answer criteria; no automatic status/keyword scoring. Explicit changed-input/revision checks kept separately.",
+  "phases": {
+    "development": {
+      "results_sha256": "d9c18639869e728484852ad709c50e199fd5a976f47d869612314f534e300f3b",
+      "reviews": [
+        {
+          "id": "F-C1",
+          "score": "PASS",
+          "reason": "实际默认6、环境覆盖、范围与service调用点均取得并正确引用。",
+          "boundary_control": false
+        },
+        {
+          "id": "F-D1",
+          "score": "FAIL",
+          "reason": "已知README仍按正文搜索文件名/中文文本，未读取两边。",
+          "boundary_control": false
+        },
+        {
+          "id": "F-X1",
+          "score": "FAIL",
+          "reason": "changed_files/diff后两次猜标识符搜索，预算耗尽未读取测试。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-C1",
+          "score": "PASS",
+          "reason": "同文件实际默认常量、构造方法与init_poolmanager均取得，参数映射正确。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-D1",
+          "score": "PASS",
+          "reason": "实际读到mount/get_adapter及文档最长前缀段落，正确核对排序与首次匹配。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-X1",
+          "score": "PARTIAL",
+          "reason": "读取两个真实限定测试名、输入与断言；未取得无匹配分支和默认前缀，却加入回退或异常行为推断。",
+          "boundary_control": false
+        }
+      ]
+    },
+    "confirmation": {
+      "results_sha256": "69c5033b03b7474c02eaabdad376ad1b16802cb044a8b839738e5a924bf0f724",
+      "reviews": [
+        {
+          "id": "F-AC",
+          "score": "PASS",
+          "reason": "取得settings/service，两边支撑未设置、9和越界0的参数或异常传播。",
+          "boundary_control": false
+        },
+        {
+          "id": "F-AD",
+          "score": "PASS",
+          "reason": "README与settings均实际读取，正确区分默认4/6冲突与覆盖/范围一致。",
+          "boundary_control": false
+        },
+        {
+          "id": "F-AX",
+          "score": "PASS",
+          "reason": "diff及实际三个测试取得，正确指出默认断言4受影响、显式9不受影响，真实建议命令、未执行。",
+          "boundary_control": false
+        },
+        {
+          "id": "F-AB",
+          "score": "PASS",
+          "reason": "请求文件内具名对象未匹配，零源码证据后明确拒答，没有替换成其他对象。",
+          "boundary_control": true
+        },
+        {
+          "id": "R-AC",
+          "score": "PASS",
+          "reason": "实际读取构造与init_poolmanager，正确映射显式3/5/True到num_pools/maxsize/block。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-AD",
+          "score": "PARTIAL",
+          "reason": "三个具名方法读取完整且结论正确；文档matching当时不支持rst，改读文件头而非承诺段落，并误建议另找API文档。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-AX",
+          "score": "PARTIAL",
+          "reason": "实际测试类名/输入/断言/命令正确，仍错误断言该混合大小写URL回落默认适配器；本场景应抛InvalidSchema。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-AB",
+          "score": "PASS",
+          "reason": "零工具明确拒绝执行要求，没有伪造实际通过/失败数。",
+          "boundary_control": true
+        }
+      ]
+    },
+    "entry_confirmation": {
+      "results_sha256": "23e239f65c0a24991cf006227dd15cfd137bd891c7e12656f86d1ed54cfc3d3a",
+      "reviews": [
+        {
+          "id": "E-C",
+          "score": "PARTIAL",
+          "reason": "默认值、覆盖校验、实际调用点均正确取得；未读取retriever实现却把limit解释为结果条数上限，后文又承认该语义未验证。",
+          "boundary_control": false
+        },
+        {
+          "id": "E-D",
+          "score": "PASS",
+          "reason": "两边实际取得，准确核对默认值、范围、覆盖；其他文档承诺明确未核实。",
+          "boundary_control": false
+        },
+        {
+          "id": "E-X",
+          "score": "FAIL",
+          "reason": "原变更表单仍耗费发现与搜索，缺实际测试证据而拒答。",
+          "boundary_control": false
+        },
+        {
+          "id": "R-AD-TEXT",
+          "score": "PASS",
+          "reason": "通用文本matching实际取得晚于文件头的承诺段落，加三个真实方法，文档/代码两项核对正确。",
+          "boundary_control": false
+        }
+      ]
+    },
+    "change_entry_confirmation": {
+      "results_sha256": "c7c9e8a8d44a8052714ac10bba96d7014181bafab5755e741cbf7d154e66ffc2",
+      "reviews": [
+        {
+          "id": "E-X-PATH",
+          "score": "PARTIAL",
+          "reason": "明确路径后直接diff/find_tests并取得真实测试/命令，误拒答消除；仍从未读调用方推断检索返回语义，并把单文件未见表述为测试全量缺口。",
+          "boundary_control": false
+        }
+      ]
+    }
+  }
+}

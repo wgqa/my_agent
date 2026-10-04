@@ -15,10 +15,16 @@ import os
 from core.agent_runtime import RetrievalPort
 from core.tool_agent.registry import ToolRegistry
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
-from core.tool_agent.tools.code_search import CODE_SEARCH_SPEC, CodeSearchHandler
+from core.tool_agent.tools.code_search import (
+    CODE_SEARCH_SPEC, CODE_SEARCH_VERSION, CodeSearchHandler, code_search_spec,
+)
 from core.tool_agent.tools.read_project_context import (
     READ_PROJECT_CONTEXT_SPEC,
+    READ_PROJECT_CONTEXT_VERSION,
     ReadProjectContextHandler,
+)
+from core.tool_agent.tools.read_project_targets import (
+    READ_PROJECT_TARGETS_SPEC, READ_PROJECT_TARGETS_VERSION, ReadProjectTargetsHandler,
 )
 from core.tool_agent.tools.knowledge_search import (
     KNOWLEDGE_SEARCH_SPEC,
@@ -39,6 +45,8 @@ def build_readonly_tool_registry(
     *,
     knowledge_strategy: str = "bm25",
     knowledge_top_k: int = 5,
+    code_search_version: str = CODE_SEARCH_VERSION,
+    read_project_context_version: str = READ_PROJECT_CONTEXT_VERSION,
 ) -> ToolRegistry:
     """构造并注册七个真实 read-only Tool；所有依赖经参数显式传入。
 
@@ -49,11 +57,17 @@ def build_readonly_tool_registry(
     """
     registry = ToolRegistry()
     registry.register(CALCULATOR_SPEC, CalculatorHandler())
-    registry.register(CODE_SEARCH_SPEC, CodeSearchHandler(repo_root=repo_root))
     registry.register(
-        READ_PROJECT_CONTEXT_SPEC,
-        ReadProjectContextHandler(repo_root=repo_root),
+        code_search_spec(code_search_version),
+        CodeSearchHandler(repo_root=repo_root, version=code_search_version),
     )
+    if read_project_context_version == READ_PROJECT_CONTEXT_VERSION:
+        reader_spec, reader_handler = READ_PROJECT_CONTEXT_SPEC, ReadProjectContextHandler
+    elif read_project_context_version == READ_PROJECT_TARGETS_VERSION:
+        reader_spec, reader_handler = READ_PROJECT_TARGETS_SPEC, ReadProjectTargetsHandler
+    else:
+        raise ValueError(f"Unsupported read_project_context version: {read_project_context_version!r}")
+    registry.register(reader_spec, reader_handler(repo_root=repo_root))
     registry.register(
         KNOWLEDGE_SEARCH_SPEC,
         KnowledgeSearchHandler(

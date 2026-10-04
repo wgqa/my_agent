@@ -1,0 +1,74 @@
+{
+  "created_before_live": true,
+  "planned_requests": 24,
+  "max_live_requests": 24,
+  "rounds": 1,
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "independent_formal_acceptance": false,
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "source_pins": {
+    "smolagents": "c30b115286e000e98711fae5e85993547b73d826",
+    "requests": "b25c87d7cb8d6a18a37fa12442b5f883f9e41741"
+  },
+  "source_file_sha256": {
+    "smolagents/src/smolagents/agents.py": "d4f40408e0e55dc4ad20b6a92bb166285b6624dfbdce6ef55b511b7bd1e94c33",
+    "requests/src/requests/sessions.py": "42f72303ecde0cca0e8479b2f95845d2f7280d99ca0cf865b1dda8d0433cf662",
+    "requests/src/requests/models.py": "df0f615771b4d6bc1eaccabe30639643f8e32dd5a447f7cdaae8354b539b324c",
+    "requests/src/requests/utils.py": "cc378c150377aea0b406b73a4c904c2f17e8cb202821f278ee833735a4128025",
+    "smolagents/src/smolagents/default_tools.py": "82de8b3999e6d18e6b864109e64c9bf67fb6fe07b45e39f6d0690f9870b3bb54",
+    "smolagents/examples/text_to_sql.py": "5399008a07baee57003cedc4991bcce93ef2bc0306cafdd02db055b6204718cb",
+    "requests/README.md": "0f245a57cbb58dbd024aefafbef5843b577ae3f62ca674512358fd3b1c7c8f33",
+    "smolagents/README.md": "6870e1a62fda6f828ebe3c61bea1c1b5670ba7bee2e43fcb74b4260e7e709e4b"
+  },
+  "profiles": {
+    "baseline": {
+      "version": "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+      "sha256": "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf",
+      "output_cap": 1200,
+      "max_parse_repairs": 1
+    },
+    "candidate": {
+      "version": "engineering_agent_decision_prompt_task_completion_v1",
+      "sha256": "8cbfe1edea5430451f8b327529b029b5bb016640ec3ba7bc33ffc218bbbc0961",
+      "output_cap": 1200,
+      "max_parse_repairs": 1
+    }
+  },
+  "runtime_file_sha256": {
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "core/engineering_requirements.py": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "core/tool_agent/runtime.py": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+    "core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "core/tool_agent/integration.py": "39963b96bfad7ad6749a39b02d135d589a0e5ac90ba53c75d1801b83d7acf717",
+    "core/tool_agent/openai_compatible.py": "9275773f891e28b9eaeeae469459c039db7d2d21fa1677de3ae014f2fd29b8d9",
+    "core/tool_agent/tools/code_search.py": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "core/tool_agent/tools/read_project_context.py": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+    "core/tool_agent/decision_prompt.py": "33a9fb6e431ab16ed9a075951e5301dd4838c71c2c33bc6fb24201fd2ee9b98f"
+  },
+  "artifacts_sha256": {
+    "catalog.json": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+    "initial_manifest.json": "0acdd143cc35dc5e092d05ca881db4572360b3f80a27c8d931098a53dbd73b85",
+    "baseline_decision_prompt.snapshot": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "harness/comparison_server.py": "cb8ddeefa98eb1c420bdd04d9a8e38f274ef6a69ace3e7de87d5bbbad06d8048",
+    "harness/run_comparison.py": "3c3a462cec0ba176bc62527d5c8606bea5d457c5dfa05de6bd10bc54b3db77c9"
+  },
+  "reused_harness_files_sha256": {
+    "evaluation/source_search_v6_20261003/harness/passive_observer.py": "9d4a05d333c6b4ef1f4578dbb7ef16aa7c5206762c1fa1dc215487cbfb908d76",
+    "evaluation/source_search_v6_20261003/harness/run_comparison.py": "320b051f63c1332a17ec9c0ab73fbbb7c1c7a394040af505e8de65554d3be7ed"
+  },
+  "promotion_gate": {
+    "required": "R04 answered from actual README; no substitution for missing document; no forced repository reading for knowledge control; semantic review of both arms for all cases",
+    "known_limit": "one paired round, same assistant review, no independent quality claim"
+  },
+  "change": "two generic terminal rules plus task completion guidance; no Router/Planner/Verifier/Runtime/tool changes"
+}

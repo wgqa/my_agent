@@ -1,0 +1,1028 @@
+{
+  "by_task_family": {
+    "change_test": {
+      "invalid_runs_excluded": 1,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "latency_context_ms": {
+          "mean": 0.036,
+          "n": 1
+        },
+        "latency_e2e_ms": {
+          "mean": 12214.49,
+          "n": 1
+        },
+        "latency_finalization_ms": {
+          "mean": 0.242,
+          "n": 1
+        },
+        "latency_planner_ms": {
+          "mean": 2582.6,
+          "n": 1
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.996,
+          "n": 1
+        },
+        "latency_toolagent_ms": {
+          "mean": 8448.308,
+          "n": 1
+        },
+        "latency_verifier_ms": {
+          "mean": 0.409,
+          "n": 1
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 3.0,
+          "n": 1
+        },
+        "llm_calls_total": {
+          "mean": 4.0,
+          "n": 1
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 1
+        },
+        "premature_finalization": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "refusal_correctness": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "required_evidence_coverage": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "retrieval_call_count": {
+          "mean": 3.0,
+          "n": 1
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "task_completion": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "tool_calls": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "tool_coverage": {
+          "mean": 0.3333333333333333,
+          "n": 1
+        }
+      },
+      "valid_runs": 1
+    },
+    "context_followup": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "context_resolution_correct": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 1993.268,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 9609.9635,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.133,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 1427.7795,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.488,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 5040.823,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.21100000000000002,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 3.0,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 0.0,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    },
+    "decomposed_knowledge": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 0.031,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 8603.806,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.1265,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 2237.121,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.9175,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 5218.508,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.20500000000000002,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 1.0,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    },
+    "diagnosis": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 0.033,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 17330.9745,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.161,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 2994.605,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 2.674,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 13188.7575,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.447,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 3.5,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 4.5,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 2.5,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 1.0,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    },
+    "docs_code": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 0.031,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 15007.0665,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.161,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 2333.2655,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 2.176,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 11530.048999999999,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.48150000000000004,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 3.5,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 4.5,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 1.0,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    },
+    "insufficient_refusal": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 0.032,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 6148.916499999999,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 1976.1415,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 0.927,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 3027.0175,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.15400000000000003,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 3.0,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 2.5,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 0.0,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    },
+    "knowledge_only": {
+      "invalid_runs_excluded": 1,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "latency_context_ms": {
+          "mean": 0.031,
+          "n": 1
+        },
+        "latency_e2e_ms": {
+          "mean": 10352.256,
+          "n": 1
+        },
+        "latency_finalization_ms": {
+          "mean": 0.131,
+          "n": 1
+        },
+        "latency_planner_ms": {
+          "mean": 2759.635,
+          "n": 1
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.265,
+          "n": 1
+        },
+        "latency_toolagent_ms": {
+          "mean": 6459.408,
+          "n": 1
+        },
+        "latency_verifier_ms": {
+          "mean": 0.202,
+          "n": 1
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "llm_calls_total": {
+          "mean": 2.0,
+          "n": 1
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 1
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "required_evidence_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "retrieval_call_count": {
+          "mean": 2.0,
+          "n": 1
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "tool_calls": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "tool_coverage": {
+          "mean": 1.0,
+          "n": 1
+        }
+      },
+      "valid_runs": 1
+    },
+    "repo_only": {
+      "invalid_runs_excluded": 1,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "latency_context_ms": {
+          "mean": 0.029,
+          "n": 1
+        },
+        "latency_e2e_ms": {
+          "mean": 10623.5,
+          "n": 1
+        },
+        "latency_finalization_ms": {
+          "mean": 0.117,
+          "n": 1
+        },
+        "latency_planner_ms": {
+          "mean": 2083.137,
+          "n": 1
+        },
+        "latency_retrieval_ms": {
+          "mean": 1.645,
+          "n": 1
+        },
+        "latency_toolagent_ms": {
+          "mean": 7398.262,
+          "n": 1
+        },
+        "latency_verifier_ms": {
+          "mean": 0.4,
+          "n": 1
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 3.0,
+          "n": 1
+        },
+        "llm_calls_total": {
+          "mean": 4.0,
+          "n": 1
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 1
+        },
+        "premature_finalization": {
+          "mean": 0.0,
+          "n": 1
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "required_evidence_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "retrieval_call_count": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 1
+        },
+        "tool_calls": {
+          "mean": 2.0,
+          "n": 1
+        },
+        "tool_coverage": {
+          "mean": 1.0,
+          "n": 1
+        }
+      },
+      "valid_runs": 1
+    },
+    "theory_code": {
+      "invalid_runs_excluded": 0,
+      "metrics": {
+        "hybrid_rescue_attempted": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "hybrid_rescue_used": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "knowledge_source_hit_at_5": {
+          "mean": 0.5,
+          "n": 2
+        },
+        "latency_context_ms": {
+          "mean": 0.0335,
+          "n": 2
+        },
+        "latency_e2e_ms": {
+          "mean": 15047.2735,
+          "n": 2
+        },
+        "latency_finalization_ms": {
+          "mean": 0.1265,
+          "n": 2
+        },
+        "latency_planner_ms": {
+          "mean": 2503.927,
+          "n": 2
+        },
+        "latency_retrieval_ms": {
+          "mean": 3.245,
+          "n": 2
+        },
+        "latency_toolagent_ms": {
+          "mean": 11384.156500000001,
+          "n": 2
+        },
+        "latency_verifier_ms": {
+          "mean": 0.394,
+          "n": 2
+        },
+        "llm_calls_context": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_planner": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "llm_calls_repair": {
+          "mean": 0.0,
+          "n": 2
+        },
+        "llm_calls_toolagent_decision": {
+          "mean": 3.0,
+          "n": 2
+        },
+        "llm_calls_total": {
+          "mean": 4.0,
+          "n": 2
+        },
+        "merged_evidence_count": {
+          "mean": 5.0,
+          "n": 2
+        },
+        "premature_finalization": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "refusal_correctness": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "required_evidence_coverage": {
+          "mean": 0.75,
+          "n": 2
+        },
+        "retrieval_call_count": {
+          "mean": 3.0,
+          "n": 2
+        },
+        "subquery_coverage": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "task_completion": {
+          "mean": 1.0,
+          "n": 2
+        },
+        "tool_calls": {
+          "mean": 2.0,
+          "n": 2
+        },
+        "tool_coverage": {
+          "mean": 0.5,
+          "n": 2
+        }
+      },
+      "valid_runs": 2
+    }
+  },
+  "candidate_identity": {
+    "candidate_runtime_commit": "0abdb563583934cc5c7e092d99648f94809939e1",
+    "corpus_source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+    "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+    "protocol_sha256": "281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d",
+    "runtime_variant": "repaired_recovery_candidate_b_double_prime",
+    "system_identity": "B_double_prime",
+    "target_project_commit": "385b7795eafde7c114efc382e95c0d18ec273f54"
+  },
+  "execution_scope": "Integration Dev only / repaired recovery candidate B'' / automatic metrics only",
+  "holdout": "NOT_RUN / DENY",
+  "manual_scoring": "NOT_DONE",
+  "overall": {
+    "invalid_runs_excluded": 3,
+    "metrics": {
+      "context_resolution_correct": {
+        "mean": 0.0,
+        "n": 2
+      },
+      "hybrid_rescue_attempted": {
+        "mean": 0.0,
+        "n": 15
+      },
+      "hybrid_rescue_used": {
+        "mean": 0.0,
+        "n": 15
+      },
+      "knowledge_source_hit_at_5": {
+        "mean": 0.8,
+        "n": 5
+      },
+      "latency_context_ms": {
+        "mean": 265.7968666666667,
+        "n": 15
+      },
+      "latency_e2e_ms": {
+        "mean": 11779.083133333334,
+        "n": 15
+      },
+      "latency_finalization_ms": {
+        "mean": 0.12706666666666666,
+        "n": 15
+      },
+      "latency_planner_ms": {
+        "mean": 2291.4034,
+        "n": 15
+      },
+      "latency_retrieval_ms": {
+        "mean": 1.9840666666666666,
+        "n": 15
+      },
+      "latency_toolagent_ms": {
+        "mean": 8072.306733333333,
+        "n": 15
+      },
+      "latency_verifier_ms": {
+        "mean": 0.31973333333333337,
+        "n": 15
+      },
+      "llm_calls_context": {
+        "mean": 0.13333333333333333,
+        "n": 15
+      },
+      "llm_calls_planner": {
+        "mean": 1.0,
+        "n": 15
+      },
+      "llm_calls_repair": {
+        "mean": 0.0,
+        "n": 15
+      },
+      "llm_calls_toolagent_decision": {
+        "mean": 2.3333333333333335,
+        "n": 15
+      },
+      "llm_calls_total": {
+        "mean": 3.466666666666667,
+        "n": 15
+      },
+      "merged_evidence_count": {
+        "mean": 4.666666666666667,
+        "n": 15
+      },
+      "premature_finalization": {
+        "mean": 0.6,
+        "n": 15
+      },
+      "refusal_correctness": {
+        "mean": 0.8,
+        "n": 15
+      },
+      "required_evidence_coverage": {
+        "mean": 0.6333333333333333,
+        "n": 15
+      },
+      "retrieval_call_count": {
+        "mean": 1.8666666666666667,
+        "n": 15
+      },
+      "subquery_coverage": {
+        "mean": 1.0,
+        "n": 15
+      },
+      "task_completion": {
+        "mean": 0.8,
+        "n": 15
+      },
+      "tool_calls": {
+        "mean": 1.0,
+        "n": 15
+      },
+      "tool_coverage": {
+        "mean": 0.6222222222222222,
+        "n": 15
+      }
+    },
+    "valid_runs": 15
+  },
+  "run_counts": {
+    "expected_candidate_runs": 18,
+    "infrastructure_invalid_candidate_runs": 3,
+    "observed_candidate_runs": 18,
+    "valid_candidate_runs": 15
+  },
+  "schema_version": "integration_v7_recovery_candidate_dev_runner_v1"
+}

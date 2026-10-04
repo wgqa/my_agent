@@ -16,6 +16,7 @@ import streamlit as st
 
 from ui import components, renderers, styles
 from ui.api_client import ApiClient, ApiError
+from core.product_version import PRODUCT_VERSION
 from ui.streaming import (
     EngineeringStreamState,
     StreamProtocolError,
@@ -95,6 +96,8 @@ def _init_state() -> None:
         st.session_state.runtime_capabilities = None
     if not hasattr(st.session_state, "runtime_health"):
         st.session_state.runtime_health = None
+    if not hasattr(st.session_state, "backend_version"):
+        st.session_state.backend_version = None
     if not hasattr(st.session_state, "project_identity"):
         st.session_state.project_identity = None
     if not hasattr(st.session_state, "engineering_knowledge_status"):
@@ -337,13 +340,22 @@ def _read_engineering_knowledge(client: ApiClient) -> dict | None:
 def _refresh_runtime(client: ApiClient) -> None:
     try:
         st.session_state.runtime_health = client.health()
-        st.session_state.api_available = True
     except ApiError:
         st.session_state.runtime_health = None
-        st.session_state.api_available = False
     st.session_state.runtime_capabilities = _read_capabilities(client)
+    # /health describes the legacy Pipeline; /capabilities remains available
+    # when that Demo fails. Individual features keep their own readiness gate.
+    st.session_state.api_available = (
+        st.session_state.runtime_capabilities is not None
+        or isinstance(st.session_state.runtime_health, dict)
+    )
     st.session_state.project_identity = _read_project(client)
     st.session_state.engineering_knowledge_status = _read_engineering_knowledge(client)
+    try:
+        identity = client.version()
+        st.session_state.backend_version = identity if isinstance(identity, dict) else None
+    except (ApiError, AttributeError):
+        st.session_state.backend_version = None
 
 
 def _render_project_identity(project: dict) -> None:
@@ -578,6 +590,7 @@ def _render_settings(client: ApiClient) -> None:
             client.base_url = api_url.rstrip("/")
             _refresh_runtime(client)
         st.markdown("##### System Status")
+        _render_version_status()
         health = getattr(st.session_state, "runtime_health", None)
         if isinstance(health, dict):
             st.caption(
@@ -589,7 +602,7 @@ def _render_settings(client: ApiClient) -> None:
                 f"retriever {health.get('retriever_strategy', '?')}"
             )
         else:
-            st.caption("API unavailable")
+            st.caption("Legacy Pipeline unavailable" if getattr(st.session_state, "api_available", False) else "API unavailable")
         capabilities = getattr(st.session_state, "runtime_capabilities", None)
         if isinstance(capabilities, dict):
             feature_state = capabilities.get("features") or {}
@@ -613,6 +626,14 @@ def _render_settings(client: ApiClient) -> None:
             )
         )
         _render_knowledge_base(client)
+
+
+def _render_version_status() -> None:
+    identity = getattr(st.session_state, "backend_version", None)
+    backend = identity.get("version") if isinstance(identity, dict) else None
+    st.caption(f"UI {PRODUCT_VERSION} · API {backend or 'unknown'} · 开发版")
+    if backend and backend != PRODUCT_VERSION:
+        st.warning("前后端版本不一致，请使用同一版本的代码重新启动服务。")
 
 
 def _render_compact_workspace_status() -> None:
@@ -726,7 +747,7 @@ def _sidebar() -> int:
 
 
 def _render_starter_prompt_prompts(mode: str) -> None:
-    """Show clickable prompt cards; clicking one replaces the pending input."""
+    """Select a core workflow, then collect its target before submitting."""
 
     if mode != DEFAULT_MODE:
         return
@@ -736,9 +757,39 @@ def _render_starter_prompt_prompts(mode: str) -> None:
     )
     cols = st.columns(2)
     half = (len(components.STARTER_PROMPTS) + 1) // 2
-    for idx, (display, question) in enumerate(components.STARTER_PROMPTS):
+    for idx, (display, workflow) in enumerate(components.STARTER_PROMPTS):
         with cols[idx // half]:
             if st.button(display, key=f"starter_{idx}", use_container_width=True):
+                st.session_state["selected_core_workflow"] = workflow
+                st.rerun()
+    workflow = getattr(st.session_state, "selected_core_workflow", None)
+    if workflow in {"configuration", "change_test", "docs_code"}:
+        _render_core_workflow_form(workflow)
+
+
+def _render_core_workflow_form(workflow: str) -> None:
+    """The form only prepares the same question used by normal chat."""
+    labels = {
+        "configuration": ("配置名或键名", "相关源码路径或方法（可选）"),
+        "change_test": ("要分析的变更文件（项目相对路径）", None),
+        "docs_code": ("文档路径及要核对的内容", "实现文件或方法"),
+    }
+    subject_label, reference_label = labels[workflow]
+    st.caption("每次聚焦一个配置、小范围变更或一项文档承诺；只读分析，测试命令为建议。")
+    with st.form(f"core_workflow_{workflow}"):
+        subject = st.text_input(subject_label, max_chars=500, key=f"core_subject_{workflow}")
+        reference = (
+            st.text_input(reference_label, max_chars=500, key=f"core_reference_{workflow}")
+            if reference_label else ""
+        )
+        submitted = st.form_submit_button(
+            "开始调查", disabled=not getattr(st.session_state, "api_available", False),
+        )
+        if submitted:
+            question = components.build_core_workflow_question(workflow, subject, reference)
+            if question is None:
+                st.warning("请填写调查对象；文档核对还需要指定对应的实现目标。")
+            else:
                 st.session_state["pending_starter_question"] = question
                 st.rerun()
 

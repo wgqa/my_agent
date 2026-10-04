@@ -1,0 +1,56 @@
+{
+  "artifact_files": [
+    "run_manifest.json",
+    "raw_runs.jsonl",
+    "summary.json"
+  ],
+  "candidate": {
+    "commit": "6d7e58f1e8c1f2bdaab091c453855b6eee53036b",
+    "decision_profile": "engineering_agent_decision_prompt_unified_kind_aware_v1",
+    "decision_profile_sha256": "de7a0eeb4beaea5ed93e0e4196f55b5253f73408c3e5216379aba0d8a7abd85f",
+    "runtime": "Unified Engineering Runtime",
+    "system": "B"
+  },
+  "case_ids": [
+    "v7d003",
+    "v7d012",
+    "v7d014"
+  ],
+  "corpus": {
+    "chunk_count": 215,
+    "commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "manifest_experiment_id": "dbc497c796d5",
+    "repository": "wgqa/agent_data",
+    "retrieval_strategy": "bm25",
+    "verified": true
+  },
+  "dataset": {
+    "sha256": "fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9",
+    "split": "integration_dev"
+  },
+  "expected_runs": 3,
+  "holdout": "NOT RUN / DENY",
+  "invalid_runs": 0,
+  "manual_scoring": "NOT DONE",
+  "observed_runs": 3,
+  "protocol": {
+    "sha256": "281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d",
+    "version": "v7_architecture_integration_evaluation_v1"
+  },
+  "provider": {
+    "model": "deepseek-chat",
+    "name": "deepseek"
+  },
+  "retry": 0,
+  "run_id": "arch-integration-13b-20260906T130745Z",
+  "schema_version": "arch_integration_13b_real_verification_v1",
+  "system_a": "NOT RUN",
+  "target_project": {
+    "commit": "385b7795eafde7c114efc382e95c0d18ec273f54",
+    "project_id": "my_agent",
+    "repository": "wgqa/my_agent"
+  },
+  "valid_runs": 3
+}

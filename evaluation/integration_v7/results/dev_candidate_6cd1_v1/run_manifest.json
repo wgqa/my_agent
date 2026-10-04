@@ -1,0 +1,296 @@
+{
+  "artifact_files": [
+    "run_manifest.json",
+    "raw_runs.jsonl",
+    "automatic_scores.jsonl",
+    "summary.json"
+  ],
+  "automatic_metrics_only": true,
+  "candidate_runtime": {
+    "candidate_runtime_commit": "6cd1d8248cb939ba2e15e883c04859fbd835a671",
+    "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+    "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+    "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+    "label": "kind_aware_code_search_v5_candidate",
+    "repo_tool_contract": {
+      "artifact_kind": {
+        "optional": true,
+        "values": [
+          "any",
+          "project_code",
+          "project_doc"
+        ]
+      },
+      "spec_version": "code_search_v5",
+      "tool": "code_search",
+      "version": "code_search_v5"
+    },
+    "runtime_variant": "kind_aware_code_search_v5_candidate",
+    "source_commit": "6cd1d8248cb939ba2e15e883c04859fbd835a671",
+    "system_identity": "B_kind_aware_candidate"
+  },
+  "corpus_identity": {
+    "chunk_count": 215,
+    "corpus_id": "870e5864df67",
+    "file_count": 37,
+    "manifest_experiment_id": "dbc497c796d5",
+    "repository": "wgqa/agent_data",
+    "retrieval_strategy": "bm25",
+    "source_commit": "179f18e812ad63c36c5569de8e86c5ff9a931cb5",
+    "verified": true
+  },
+  "dataset": {
+    "case_count": 18,
+    "sha256": "fb756df4ebd688312c695b4a212d9ccf66b59eef92dec648e63d99a83a4343a9",
+    "split": "integration_dev"
+  },
+  "execution_scope": "Integration Dev only / code_search_v5 candidate B_kind_aware_candidate",
+  "expected_candidate_runs": 18,
+  "frozen_system_identity_preserved": {
+    "candidate_b_double_prime_10b": "not executed or overwritten",
+    "candidate_b_prime_09b": "not executed or overwritten",
+    "candidate_b_triple_prime_11b": "not executed or overwritten",
+    "system_a_08b": "not executed",
+    "system_b_08b": "not executed as frozen B; 12B candidate only"
+  },
+  "holdout": "NOT_RUN / DENY",
+  "infrastructure_invalid_count": 2,
+  "manual_scoring": "NOT_DONE",
+  "observed_candidate_runs": 18,
+  "protected_result_directories": [
+    "evaluation/integration_v7/results/dev_v1",
+    "evaluation/integration_v7/results/dev_candidate_e374_v1",
+    "evaluation/integration_v7/results/dev_candidate_0abdb_v1",
+    "evaluation/integration_v7/results/dev_candidate_d001_v1"
+  ],
+  "protocol": {
+    "sha256": "281dba7b098535fd508971bfdd98d53ae188c8efa204b5c1fa929c3a40d6a40d",
+    "version": "v7_architecture_integration_evaluation_v1"
+  },
+  "provider": {
+    "model": "deepseek-chat",
+    "name": "deepseek"
+  },
+  "repo_tool_contract": {
+    "artifact_kind": {
+      "optional": true,
+      "values": [
+        "any",
+        "project_code",
+        "project_doc"
+      ]
+    },
+    "backend": "Repo Evidence Backend",
+    "tool": "code_search",
+    "version": "code_search_v5"
+  },
+  "run_id": "arch-integration-12b-dev-candidate-6cd1-20260906T054914Z",
+  "run_plan": [
+    {
+      "case_id": "v7d001",
+      "case_order": 1,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 1,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d002",
+      "case_order": 2,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 2,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d003",
+      "case_order": 3,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 3,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d004",
+      "case_order": 4,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 4,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d005",
+      "case_order": 5,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 5,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d006",
+      "case_order": 6,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 6,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d007",
+      "case_order": 7,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 7,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d008",
+      "case_order": 8,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 8,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d009",
+      "case_order": 9,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 9,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d010",
+      "case_order": 10,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 10,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d011",
+      "case_order": 11,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 11,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d012",
+      "case_order": 12,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 12,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d013",
+      "case_order": 13,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 13,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d014",
+      "case_order": 14,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 14,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d015",
+      "case_order": 15,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 15,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d016",
+      "case_order": 16,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 16,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d017",
+      "case_order": 17,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 17,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    },
+    {
+      "case_id": "v7d018",
+      "case_order": 18,
+      "decision_prompt_profile": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_profile_selector": "engineering_agent_decision_prompt_unified_v1",
+      "decision_prompt_sha256": "0a060a3f05840a1387aa0f438edfbff37f4c9534955a4cdb834375c9c81fb19b",
+      "run_order": 18,
+      "runtime_variant": "kind_aware_code_search_v5_candidate",
+      "system": "B_kind_aware_candidate",
+      "worker_system": "B"
+    }
+  ],
+  "schema_version": "integration_v7_kind_aware_candidate_dev_runner_v1",
+  "split": "integration_dev",
+  "status": "COMPLETE",
+  "target_project": {
+    "project_id": "my_agent",
+    "repository": "wgqa/my_agent",
+    "source_sha": "385b7795eafde7c114efc382e95c0d18ec273f54"
+  }
+}

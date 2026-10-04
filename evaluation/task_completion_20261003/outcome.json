@@ -1,0 +1,257 @@
+{
+  "baseline_head": "d937046d2c0c8d41a74693f879ff41091a861ab9",
+  "user_requests": 48,
+  "actual_provider_calls": 187,
+  "quality_rates_pooled_across_phases": false,
+  "phases": [
+    {
+      "phase": "generic_task_completion_prompt",
+      "decision": "NOT_PROMOTED",
+      "user_requests": 24,
+      "actual_provider_calls": 92,
+      "metrics": {
+        "baseline": {
+          "requests": 12,
+          "transport_ok": 12,
+          "stream_v2_requests": 5,
+          "statuses": {
+            "completed": 8,
+            "refused": 4
+          },
+          "iterations": 33,
+          "tools": 21,
+          "tool_errors": 0,
+          "budget_valid": true,
+          "planner_calls": 12,
+          "decision_calls": 33,
+          "format_repairs": 0,
+          "input_tokens": 199477,
+          "output_tokens": 7167,
+          "query_seconds": 54.442,
+          "decision_prompt_identities": [
+            [
+              "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+              "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+            ]
+          ],
+          "toolset_identities": [
+            "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+          ]
+        },
+        "candidate": {
+          "requests": 12,
+          "transport_ok": 12,
+          "stream_v2_requests": 5,
+          "statuses": {
+            "failed": 1,
+            "completed": 7,
+            "refused": 4
+          },
+          "iterations": 33,
+          "tools": 21,
+          "tool_errors": 0,
+          "budget_valid": true,
+          "planner_calls": 12,
+          "decision_calls": 35,
+          "format_repairs": 2,
+          "input_tokens": 224442,
+          "output_tokens": 6265,
+          "query_seconds": 51.93,
+          "decision_prompt_identities": [
+            [
+              "engineering_agent_decision_prompt_task_completion_v1",
+              "8cbfe1edea5430451f8b327529b029b5bb016640ec3ba7bc33ffc218bbbc0961"
+            ]
+          ],
+          "toolset_identities": [
+            "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+          ]
+        }
+      },
+      "independent_formal_acceptance": false,
+      "holdout": false,
+      "rounds": 1
+    },
+    {
+      "phase": "project_document_evidence_domain",
+      "decision": "RETAINED_BOUNDED_SLICE",
+      "user_requests": 24,
+      "actual_provider_calls": 95,
+      "metrics": {
+        "baseline": {
+          "requests": 12,
+          "transport_ok": 12,
+          "stream_v2_requests": 5,
+          "statuses": {
+            "completed": 7,
+            "refused": 5
+          },
+          "iterations": 29,
+          "tools": 17,
+          "tool_errors": 0,
+          "budget_valid": true,
+          "planner_calls": 12,
+          "decision_calls": 31,
+          "format_repairs": 2,
+          "input_tokens": 187919,
+          "output_tokens": 7416,
+          "query_seconds": 54.255,
+          "decision_prompt_identities": [
+            [
+              "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+              "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+            ]
+          ],
+          "toolset_identities": [
+            "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+          ]
+        },
+        "candidate": {
+          "requests": 12,
+          "transport_ok": 12,
+          "stream_v2_requests": 5,
+          "statuses": {
+            "completed": 10,
+            "refused": 2
+          },
+          "iterations": 39,
+          "tools": 26,
+          "tool_errors": 0,
+          "budget_valid": true,
+          "planner_calls": 12,
+          "decision_calls": 40,
+          "format_repairs": 1,
+          "input_tokens": 242846,
+          "output_tokens": 7396,
+          "query_seconds": 58.115,
+          "decision_prompt_identities": [
+            [
+              "engineering_agent_decision_prompt_unified_kind_aware_grounded_v1",
+              "c465defe7f9504d7cfb137748ba96fb90cf7bf049c7ca7a93d3f7f56945ebcdf"
+            ]
+          ],
+          "toolset_identities": [
+            "30846e05d9fbead31244a262d3b6bf1d6429fcdc5528316428810e5dd6c189ab"
+          ]
+        }
+      },
+      "independent_formal_acceptance": false,
+      "holdout": false,
+      "rounds": 1
+    }
+  ],
+  "retained_change": {
+    "file": "core/engineering_requirements.py",
+    "router_version": "engineering_requirement_router_v3",
+    "new_profile": "PROJECT_DOC_V1",
+    "required_groups": [
+      [
+        "project_doc"
+      ]
+    ],
+    "min_code_paths": 0,
+    "existing_profile_shapes_unchanged": 7,
+    "main_decision_prompt_restored_byte_for_byte": true,
+    "protected_files_unchanged": 13,
+    "default_search": "code_search_v5",
+    "budget": {
+      "max_agent_iterations": 5,
+      "max_tool_calls": 4,
+      "max_tool_errors": 2
+    },
+    "historical_system_b_router": "engineering_requirement_router_v1"
+  },
+  "document_acquisition_gate": {
+    "answerable_document_ids": [
+      "R04",
+      "D01",
+      "D02"
+    ],
+    "baseline_completed": 0,
+    "candidate_completed": 3,
+    "candidate_asked_content_supported_by_actual_read": 3,
+    "candidate_full_public_support_pass": 2,
+    "source_pairs_with_identical_tool_and_argument_span_status_chains": 7,
+    "missing_document_substitution": false,
+    "knowledge_control_new_repo_obligation": false
+  },
+  "post_live_filename_masking": {
+    "paid_snapshot_sha256": "04ed5bfbd89cedcc2fd897fdf63745effa7261e2dc568adcffcada4ce576ea1c",
+    "retained_snapshot_sha256": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+    "catalog_routing_identities_equal": 12,
+    "additional_live_provider_calls": 0,
+    "additional_filename_boundaries_tested_offline_only": true
+  },
+  "known_limits": [
+    "One paired round per distinct intervention; same assistant semantic review; no independent acceptance or holdout.",
+    "D02 raw read supports Quick demo but public E6 snippet is clipped before the demo.",
+    "S01 method tail and S02 helper not acquired; S04 cites unread tool registration.",
+    "R03 candidate wording incorrectly generalizes fallback; same acquisition does not prove causation or no quality regressions.",
+    "K01 remains an unnecessary refusal in both arms.",
+    "Lexical minimum does not enforce the exact requested document path or semantic claim entailment."
+  ],
+  "local_checks": {
+    "related_suite": {
+      "passed": 278,
+      "files": 15,
+      "warnings": 3,
+      "log": "document_source_slice/raw/pytest-targeted.txt"
+    },
+    "ci_selected_document_module_after_identity_test_move": {
+      "passed": 31,
+      "warnings": 2,
+      "log": "document_source_slice/raw/pytest-final-ci-module.txt"
+    },
+    "counts_not_added_as_distinct_tests": true,
+    "ci_runbook_list_match": true,
+    "ci_selected_files": 35,
+    "comparison_statistics_recomputed_from_raw": true,
+    "tracked_diff_check": true,
+    "no_local_credential_matches_or_runtime_db_archives": true,
+    "full_ci_job_run": false,
+    "full_pytest_run": false
+  },
+  "report": "docs/validation/2026-10-03-project-document-acquisition.md",
+  "artifacts_sha256": {
+    "baseline_decision_prompt.snapshot": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "candidate_decision_prompt.snapshot": "33a9fb6e431ab16ed9a075951e5301dd4838c71c2c33bc6fb24201fd2ee9b98f",
+    "candidate_profile.json": "d239c5a48effdc22b92bf439ddab9c97e03be6154e30580841479c9f8e61b2cf",
+    "catalog.json": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+    "document_source_slice/catalog.json": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+    "document_source_slice/harness/comparison_server.py": "c96c9902d4711e3b0a4986f236ae49bb17d1075981fabf912d658d125b937036",
+    "document_source_slice/harness/run_comparison.py": "3466a434808c8570e5e0affcc1f6424a006ec7dd02942438f33b5f879e4e3b58",
+    "document_source_slice/initial_manifest.json": "c4dcd3fd2679b8c1f5bb242f1b159e5214e8abc625fddf874ead1a542fca3010",
+    "document_source_slice/manifest.json": "c445e10d1e0258b6cf831065c2a450b36a2a3283d88eeb1c6815006cfeba19cd",
+    "document_source_slice/manual_review.json": "4db718acf47ba834baa165405f7636fdd5b37f027e17b505745f0b7890576ca7",
+    "document_source_slice/raw/final_test_scope.json": "652f2e458f74e085a52ee0d23f79e8cb590d1417bc5ca2f3b0981d23851c17e2",
+    "document_source_slice/raw/paired/comparison.json": "3d1dc8f42feaec1069cd235d4eca2da5f2e06fe44794981c9b07c44185317cad",
+    "document_source_slice/raw/paired/live_results.jsonl": "2baa330da8294c22a43524862a70b73ba0b3e466c3ca22859a0b8469d7cf1857",
+    "document_source_slice/raw/paired/run_manifest.json": "5b926124d01a9d7e4e1a58c7e8b2c4e59e7bcdfbc1785988d9f02cd1c1edfff8",
+    "document_source_slice/raw/pytest-final-ci-module.txt": "f5eb2a5cae682cd6c4c2df9bbe7f62ce47d331b7991ea785f3de7f646cd01c11",
+    "document_source_slice/raw/pytest-targeted.txt": "df5c98587922e0838855286711c544407ca1284db18d3e9f149b477579cc3d39",
+    "document_source_slice/raw/retained_offline_audit.json": "b1b7f47361c933ee03c3e0281d798866d29792f1e8769f1d7c974db7529e88b8",
+    "document_source_slice/snapshots/requirements_baseline.snapshot": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "document_source_slice/snapshots/requirements_candidate.snapshot": "04ed5bfbd89cedcc2fd897fdf63745effa7261e2dc568adcffcada4ce576ea1c",
+    "document_source_slice/snapshots/requirements_retained.snapshot": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+    "harness/analyze.py": "c3338b59709cc0085efb34239690699e1e42c1c09ffb9ece13c4deca6adf7f0d",
+    "harness/comparison_server.py": "cb8ddeefa98eb1c420bdd04d9a8e38f274ef6a69ace3e7de87d5bbbad06d8048",
+    "harness/run_comparison.py": "3c3a462cec0ba176bc62527d5c8606bea5d457c5dfa05de6bd10bc54b3db77c9",
+    "harness/verify_retained_slice.py": "e669d7e84607dc56b2acf1b9b28efb3a7a7267a628409686dfddfea46067f0db",
+    "initial_manifest.json": "0acdd143cc35dc5e092d05ca881db4572360b3f80a27c8d931098a53dbd73b85",
+    "manifest.json": "89caf7f8221c70ba87cfd55f2956ef0c6d0f6e88f183a7c45288b4df3a574b9d",
+    "raw/paired/comparison.json": "a3ab1fd85b1bf998a7ce86cdfd0b3a51b9da23269517f871f9417f8ee1436fde",
+    "raw/paired/live_results.jsonl": "87437065e1db918a9b4d6a84c14f029fbf4283e5fee874791732ac617077cd9e",
+    "raw/paired/run_manifest.json": "7f532f886e2f738f50f8e29e2dc825b23d0aa478741076ea77f20d7b5de70500",
+    "raw/pytest-targeted.txt": "1109bb61c7d5f07ede7bef99cf7b8e2c88fe4887a8d2e5c3c78688efb123a76b",
+    "README.md": "1c77d307dd68a06a9820e42404c1e2cbd7e0b1f7184d5e137ee327d38e01d803",
+    "test_task_completion_policy.snapshot": "ec70782b8e3da8181aa224f394811aa3bc5573b442179e61151182004691398f"
+  },
+  "retained_code_and_test_sha256": {
+    "core/engineering_requirements.py": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+    "evaluation/integration_v7/case_contract.py": "b76f4fbf10a2f4a585d5c27e623572e7287af7d81f4ab537ebc00f2ae06e036d",
+    "tests/test_project_document_requirements.py": "b45395275b3e519f145eb7f9eba68eacac44e151254c1075d9b0820bf9154a68",
+    "tests/test_product_grounding_21.py": "827e9c2a1db1046d4b9433318b43889ad9707081376675b0927c442a1ccba965",
+    "tests/test_arch_prod_16c_recovery_rollback.py": "d9046c5c82817ae88062694797116fa58550e95ce0cf25f65be14d524363776f",
+    ".github/workflows/ci.yml": "edc95aa2defb82e504eab356efcdc18403cfe62fcd1e8bdff3112968b9981a53"
+  }
+}

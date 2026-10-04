@@ -1,0 +1,62 @@
+"""One declared round per phase, no paid task retries or changed questions."""
+
+import argparse
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from evaluation.core_workflows_20261004.run import REPO, REQUESTS_PIN, git, server
+from evaluation.source_search_v6_20261003.harness.run_comparison import emit, query, sha
+
+ARCHIVE = Path(__file__).resolve().parent
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--phase", choices=["development", "confirmation"], required=True)
+    parser.add_argument("--workspace", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--corpus-root", type=Path)
+    parser.add_argument("--live", action="store_true")
+    args = parser.parse_args()
+    catalog = json.loads((ARCHIVE/"catalog.json").read_text(encoding="utf-8"))
+    cases = [case for case in catalog["cases"] if case["phase"] == args.phase]
+    assert len(cases) == catalog["phase_limits"][args.phase] <= 8
+    projects = {"fixture": args.workspace/"support-search", "requests": args.workspace/"requests"}
+    assert git(projects["requests"], "rev-parse", "HEAD") == REQUESTS_PIN
+    if not args.live:
+        emit({"phase": args.phase, "requests": len(cases), "provider_calls": 0})
+        return
+    assert args.output_dir is not None and args.corpus_root is not None
+    output = args.output_dir.resolve()
+    assert not output.exists(), "Never overwrite results"
+    output.mkdir(parents=True)
+    load_dotenv(REPO/".env")
+    os.environ["CORE_WORKFLOW_OBJECT_READER"] = "1" if args.phase == "development" else "0"
+    inputs = [path for directory in ("api", "core", "ui") for path in (REPO/directory).rglob("*.py")]
+    inputs += list(ARCHIVE.glob("*.py"))+[ARCHIVE/"catalog.json", REPO/"config.yaml"]
+    manifest = {"started_utc": datetime.now(timezone.utc).isoformat(), "phase": args.phase,
+        "planned_requests": len(cases), "paid_task_retries": 0,
+        "object_reader_override": args.phase == "development", "independent_acceptance": False,
+        "code_head": git(REPO, "rev-parse", "HEAD"),
+        "input_sha256": {str(path.relative_to(REPO)).replace("\\", "/"): sha(path) for path in sorted(inputs)},
+        "projects": {alias: {"head": git(project, "rev-parse", "HEAD"), "status": git(project, "status", "--porcelain"),
+            "source_sha256": {str(path.relative_to(project)).replace("\\", "/"): sha(path) for directory in ("support_search", "src", "tests", "docs") if (project/directory).exists() for path in (project/directory).rglob("*") if path.is_file() and "__pycache__" not in path.parts},
+            "readme_sha256": sha(project/"README.md")} for alias, project in projects.items()}}
+    (output/"run_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+    count = 0
+    for alias, project in projects.items():
+        with server(project.resolve(), output, args.corpus_root.resolve(), observer_module="evaluation.core_workflows_20261004.acquisition.observe_server") as handle:
+            for case in cases:
+                if case["project"] == alias:
+                    count += 1
+                    query(handle, case, "object-reader-"+args.phase, count%2 == 0, count, output)
+    changed = [name for name, expected in manifest["input_sha256"].items() if sha(REPO/name) != expected]
+    assert not changed, "Runtime changed during evaluation"
+    emit({"finished_requests": count, "results_sha256": sha(output/"live_results.jsonl")})
+
+
+if __name__ == "__main__":
+    main()

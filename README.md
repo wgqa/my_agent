@@ -4,6 +4,12 @@
 
 面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent。项目以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。
 
+当前产品标识为 **2.0.0-dev / development**，尚未正式发布Release 2.0。API、OpenAPI、UI Settings与当前Demo共用版本源；历史Release 1.0冻结证据保持原身份。
+
+Engineering 主入口近期聚焦配置到行为追踪、小范围变更与已有测试定位、文档与实现核对。主页卡片先填写具体调查对象再提交；任务范围、当前可靠性限制和检查结果见 [核心任务说明](docs/core_workflows.md)。
+
+当前质量、调用量、token 消耗和开发基线集中在 [质量与成本索引](docs/validation/2026-10-04-quality-baseline.md)，可离线重新汇总；内容正确性与 completed、预期拒答分开统计。Engineering 与旧 Demo 独立初始化，旧 Pipeline 启动失败时主链仍可用，见 [启动隔离验证](docs/validation/2026-10-04-quality-and-startup.md)。
+
 ## 项目亮点
 
 | 能力 | 当前实现 |
@@ -132,7 +138,21 @@ streamlit run ui/app.py
 
 如果 API 不在默认地址，可设置 `RAG_API_URL=http://127.0.0.1:<port>` 后再启动 UI。
 
-### Release Demo
+### 当前 Engineering Demo
+
+使用独立Git样例演示配置追踪、变更/测试定位和文档核对，复用主页题目生成、Conversation API与SSE链路。准备、绑定、预检查和可选真实运行见 [演示手册](docs/demo_engineering_runbook.md)。
+
+```bash
+python scripts/demo_engineering.py prepare --workspace ../.codex-test-runs/engineering-demo
+# 按演示手册绑定并启动后端、页面后：
+python scripts/demo_engineering.py check
+# 以下才发送三条真实模型消息，每个场景一次，无任务级重试；输出必须是新文件：
+python scripts/demo_engineering.py run --live --output ../.codex-test-runs/engineering-demo-result.json
+```
+
+Demo保留实际答案、拒答、来源与保存结果，不产生正确率。三条消息仍会触发原Planner/Decision链，不能当作只有三次provider调用。开发版限制和当前质量记录见 [核心任务范围](docs/core_workflows.md) 与 [质量索引](docs/validation/2026-10-04-quality-baseline.md)。
+
+### 历史 Release 1.0 Demo
 
 ```bash
 python scripts/demo_release.py
@@ -147,8 +167,10 @@ Release Demo 是面向用户的固定演示，不是 benchmark。catalog 固定 
 | 层次 | 命令 | 证明什么 |
 |---|---|---|
 | Backend Startup Smoke | `python scripts/smoke_local_api.py` | 真实 uvicorn、`/health`、OpenAPI 路由；不调用真实模型，输出 `model_network_not_required=true` |
-| Full App Smoke | `python scripts/smoke_local_app.py` | FastAPI + Streamlit server + AppTest 页面执行 + 真实 UI → API integration + runtime capabilities |
-| Live Release Demo | `python scripts/demo_release.py` | 真实用户能力演示，需要真实 `DEEPSEEK_API_KEY` |
+| Full App Smoke | `python scripts/smoke_local_app.py` | 隔离的FastAPI + Streamlit server + AppTest页面、runtime capabilities与版本展示；零模型 |
+| Engineering App Smoke | `python scripts/smoke_local_app.py --corpus-root <verified-corpus>` | 真实Engineering装配、三个任务入口和聊天可用；dummy key、零模型 |
+| 当前Live Engineering Demo | `python scripts/demo_engineering.py run --live --output <fresh-file>` | 三次真实会话/SSE/保存演示，凭据配置在后端，结果不计作正确率 |
+| 历史Live Release 1.0 Demo | `python scripts/demo_release.py` | 旧Basic / Agentic / Tool接口演示，需真实key；保留历史入口 |
 | Formal Benchmark | 冻结 runner / evidence | 固定数据、配置、身份和指标上的可比较质量结果 |
 
 Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold-based 分数，Benchmark 也不应通过反复重跑来挑选更好看的结果。
@@ -157,6 +179,7 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 
 | Endpoint | 作用 |
 |---|---|
+| `GET /version` | 当前产品版本与development状态，独立于各runtime就绪情况 |
 | `GET /health` | 基础 Pipeline readiness 与公开运行配置 |
 | `GET /capabilities` | Basic / Agentic / Tool Agent / indexing 的 runtime capability |
 | `GET /stats` | 经过 allowlist 的运行统计与配置快照 |
@@ -174,6 +197,10 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 | `GET /project` | 当前 system-bound project 的公开 identity，不暴露本地绝对路径 |
 
 `GET /capabilities` 同时报告 `engineering_agent` 的 runtime capability 状态。完整 request/response schema 以 FastAPI `/docs` 与 OpenAPI 为准；README 只保留产品层入口，不复制每个 Pydantic 字段。
+
+Engineering Agent 支持明确依据已挂载仓库的 README 等文档回答并引用来源。文档取证的开发验证见 [文档取证验证](docs/validation/2026-10-03-project-document-acquisition.md)。
+
+公开项目读取正文保留 Reader 已返回的完整有界片段；源码与文档的语义正确性仍需核对。验证与容量变化见 [片段一致性验证](docs/validation/2026-10-03-evidence-excerpt-fidelity.md)。
 
 ## Evaluation & Evidence
 
@@ -254,6 +281,10 @@ python scripts/verify_public_corpus.py --data-root /path/to/agent_data
 - 敏感凭据只通过环境变量注入；默认服务监听 `127.0.0.1`。
 
 ## Known Limitations
+
+2026-10-03 已补齐仓库已有测试的发现与取证链路：原测试拒答和中文改写能够读取完整测试并建议准确命令，5/4/2 与单一循环保留。系统仅建议 pytest 命令，尚不执行测试；另一改写仍生成错误命令，证据存在不等于答案语义正确。见 [测试取证对照与剩余问题](docs/validation/2026-10-03-project-test-acquisition.md)。
+
+2026-10-03 已修复 Engineering Planner 的不检索字段组合冲突：两道计算、通用文档用途对比和新增排序在配对诊断中从 0/4 到 4/4 正确完成，仍保留严格证据校验与 5/4/2。源码回答的越界引用和语义错误继续开放；见 [验证与保留限制](docs/validation/2026-10-03-planner-no-retrieval-alignment.md)。
 
 - Engineering 主会话支持服务端历史与持久化，但每轮仍受 5/4/2 执行预算与 6 条 / 1200 token 上下文窗口约束。当前历史读取和会话详情没有分页，长会话容量优化仍待处理。
 - Structural/query-level evidence sufficiency 已由 deterministic verification stack 检查；claim-level semantic grounding/entailment 仍未解决。G12 冻结结果和近期系统诊断保留了这一缺口，当前检查不保证完整 factual verification 或 semantic correctness。

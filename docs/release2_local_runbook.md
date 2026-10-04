@@ -4,6 +4,10 @@
 > 健康检查与 smoke。Engineering 主会话是当前 UI 默认入口，旧模式保留在
 > Advanced / Demo。当前进度以 [status.md](status.md) 为准，历史评测保持冻结。
 
+当前开发版为 **2.0.0-dev / development**；API/OpenAPI/UI/Demo共用
+`core/product_version.py`。这不是Release 2.0正式冻结。当前三个场景的独立样例、
+UI操作与会话记录命令见 [Engineering演示手册](demo_engineering_runbook.md)。
+
 ## 1. 前置条件
 
 - Windows / Linux / macOS 均可；本项目在 **Python 3.14** 上开发与验证（CI 同版本）。
@@ -69,17 +73,36 @@ $env:DEEPSEEK_API_KEY = "your-key"
 python -m uvicorn api.app:app --host 127.0.0.1 --port 8000
 ```
 
-健康检查（都应为 200）：
+Engineering 主链检查（应为 200）：
+
+```bash
+curl http://127.0.0.1:8000/capabilities
+curl http://127.0.0.1:8000/version               # version=2.0.0-dev / stage=development
+curl http://127.0.0.1:8000/engineering/knowledge   # ready=true / verified=true / corpus_id=870e5864df67
+```
+
+`/capabilities.features.engineering_agent=true` 和 `/engineering/knowledge`
+的 `ready=true / verified=true` 表明主链已装配。`ready=false` 时先检查语料
+配置和身份，再检查DeepSeek key及后端初始化日志；已验证语料也可能因provider
+配置失败而出现 `verified=true / ready=false`。就绪检查不调用模型，不证明额度可用。
+
+`/health` 与 `/stats` 仍描述旧Pipeline；旧配置、向量库或Demo初始化失败时可返回
+503，Engineering独立初始化且页面仍按各feature判断可用性。需要使用旧Demo时再检查：
 
 ```bash
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/stats
-curl http://127.0.0.1:8000/capabilities
-curl http://127.0.0.1:8000/engineering/knowledge   # ready=true / verified=true / corpus_id=870e5864df67
 ```
 
-`/engineering/knowledge` 的 `ready=false` 基本都是 corpus 环境变量缺失或哈希
-不匹配，回到第 3 步。
+新加的故障隔离检查使用临时无效legacy配置、dummy key、临时项目与数据库，
+真实启动uvicorn并让实际页面AppTest连接，只有本地HTTP，不提交模型问题：
+
+```powershell
+python scripts/smoke_engineering_isolation.py --corpus-root "$env:ENGINEERING_KNOWLEDGE_CORPUS_ROOT"
+```
+
+成功输出 `ENGINEERING_ISOLATION_SMOKE_OK`。需要第3步已有的完整verified corpus，
+不会下载语料或模型；不重启或改写正在运行的服务、项目或数据库。
 
 ## 5. 启动 Frontend（Streamlit）
 
@@ -138,16 +161,55 @@ FULL_APP_SMOKE_OK
 
 ## 8. 离线测试
 
+2026-10-04 交付一致性切片：CI/手册清单现为 **48模块**，新增产品演示/版本与
+已有startup/full-app/legacy-demo回归。当前Full App smoke可传`--corpus-root`
+验证主Engineering装配和三个入口；默认smoke使用隔离的空语料配置，不继承真实
+项目、语料、数据库或key，不能将默认smoke当作主链ready证明。
+
+```powershell
+python scripts/smoke_local_app.py --corpus-root "$env:ENGINEERING_KNOWLEDGE_CORPUS_ROOT"
+```
+
+检查记录见 [交付验证](validation/2026-10-04-product-delivery.md)。下方44/42/38/37
+模块为前几次切片记录；本轮也只做相关局部验证，未执行完整CI或全量测试。
+
+2026-10-04 后续质量汇总/启动隔离：下列清单现为 **44模块**。本次按授权只跑
+API/UI/启动与报告六个相关模块，**122 passed**；真实故障隔离smoke通过，
+零新增付费模型调用，未执行整个CI清单、全量或GitHub Actions。
+
+质量报告可单独离线重新生成：
+
+```powershell
+python scripts/report_current_quality.py --output-prefix docs/validation/2026-10-04-quality-baseline
+```
+
+它保留内容分数与运行状态的区别，输出各阶段质量、完整token usage与耗时，
+并展示当前代码与最近真实检查的差异。见 [质量索引](validation/2026-10-04-quality-baseline.md)。
+下面42/38/37模块和其它结果均为此前切片记录。
+
+2026-10-04 核心任务入口/对象取证切片：三张卡片先填写目标，明确变更文件后直接围绕该文件调查；Engineering启用Reader v4与对应decision v4，legacy v2保留，无新增生产环境变量。前三个轻量候选未启用。下列CI/手册清单为 **42模块**；本地执行该清单加四架构模块959 passed/9 skips，随后Reader/表单局部回归通过、不累加。54真实请求包括五个实际会话SSE/持久化检查；完整答案仍有未读语义推断与一般规划缺口，第一项仍OPEN。见 [任务范围](core_workflows.md)、[验证记录](validation/2026-10-04-core-workflows.md)。下段38模块是此前切片状态。
+
+2026-10-03 最新测试取证切片：Engineering 使用测试域搜索 v7 与 grounded v2，legacy 默认 v5/v1 保留，无新增环境变量。下列 CI/手册清单现为 **38 模块**；相关23模块371 passed/7 skips，最终规则六模块184 passed（集合重叠不累加），新模块37项通过。32次真实请求中，原测试拒答与中文改写正确完成，另一个改写仍有错误 pytest 建议；系统只读取测试与建议命令，没有执行挂载仓库测试。见 [验证报告](validation/2026-10-03-project-test-acquisition.md)。下面的37模块数字是前一切片当时状态。
+
+2026-10-03：Engineering Planner 显式使用现有字段组合约束的提示词 v2，旧 Gate 3 v1 默认身份保持可用；无需新增环境变量。相关 15 模块局部 **377 passed / 3 warnings**，CI/下列手册清单为 37 模块。16 次真实旧/新请求验证了计算、通用问答与排序的误拒答修复；源码/知识语义支持仍有缺口，见 [验证报告](validation/2026-10-03-planner-no-retrieval-alignment.md)。本轮未运行完整 CI 或全量测试。
+
 与 CI（`.github/workflows/ci.yml`）同一组 provider-free 回归：
 
 ```bash
 python -m pytest -q \
   --basetemp="$TMP/my_agent_pytest" \
   tests/test_api.py \
+  tests/test_engineering_startup_isolation.py \
+  tests/test_current_quality_report.py \
+  tests/test_product_delivery.py \
+  tests/test_release_startup.py \
+  tests/test_release_app_startup.py \
+  tests/test_release_demo.py \
   tests/test_tool_agent_core.py \
   tests/test_tool_agent_decision.py \
   tests/test_tool_agent_runtime.py \
   tests/test_tool_agent_evidence.py \
+  tests/test_project_evidence_excerpt.py \
   tests/test_tool_agent_real_tools.py \
   tests/test_engineering_agent_api.py \
   tests/test_test_discovery_tools.py \
@@ -167,6 +229,13 @@ python -m pytest -q \
   tests/test_chunk_budget_infrastructure.py \
   tests/test_engineering_verification.py \
   tests/test_engineering_requirements.py \
+  tests/test_project_document_requirements.py \
+  tests/test_project_test_acquisition.py \
+  tests/test_project_target_reader.py \
+  tests/test_core_workflow_entry.py \
+  tests/test_core_workflow_streamlit.py \
+  tests/test_core_workflow_reference_paths.py \
+  tests/test_engineering_planner_alignment.py \
   tests/test_engineering_context.py \
   tests/test_engineering_retrieval.py \
   tests/test_unified_engineering_runtime.py \
@@ -200,6 +269,19 @@ clone fixture 报 `Filename too long`；改用短目录后全量通过。不要�
 局部 **193 passed / 7 skipped**，未执行完整 CI / 全量回归。16 个配对真实用户
 请求（68 次实际 provider 调用）未证明取证收益，见
 [范围搜索验证](validation/2026-10-03-source-search-v6.md)。
+
+同日文档取证切片保留 `PROJECT_DOC_V1`，相关局部 **278 passed / 3 warnings**，
+CI 所选新文档模块（含历史身份防漂移）复验 **31 passed / 2 warnings**，两者不累加。
+该阶段的 CI 与运行手册清单逐项对齐，当时共 35 个模块；没有执行完整 CI / 全量回归。
+两阶段 48 个真实用户请求 / 187 次 provider 调用保留正负结果，5/4/2 不变；
+详见 [文档取证验证](validation/2026-10-03-project-document-acquisition.md)。
+
+随后公共读取正文一致性切片，相关 15 模块 **303 passed / 6 skipped / 3 warnings**，
+最大窗口三项改用真实 Reader 的复验 **3 passed**，不与前者累加。
+当前上面的 CI / 运行手册清单共 36 模块；上一段 35 是文档切片完成时的历史清单。
+固定回放 41 次旧成功读取，二次截断 23 → 0；没有新增 provider 调用，未执行完整 CI / 全量。
+项目读取公开 snippet 上限变为 18360 字符，严格旧客户端需更新 schema；
+见 [片段一致性验证](validation/2026-10-03-evidence-excerpt-fidelity.md)。
 
 随后共享文件分类切片记录全量 **2691 passed / 7 skipped**，其中可选 provenance
 校验已单独补跑 **1 passed**，剩余 6 项为 Windows symlink 限制；见

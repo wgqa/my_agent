@@ -24,7 +24,10 @@ PUBLIC_EVIDENCE_KINDS = (
     "project_test",
 )
 _PUBLIC_EVIDENCE_KINDS = frozenset(PUBLIC_EVIDENCE_KINDS)
-ROUTER_VERSION = "engineering_requirement_router_v1"
+# v2 names an earlier, unpromoted broad-routing experiment. This revision
+# adds test-only inspection to v3's document domain; source/mixed profiles stay
+# intact. It does not activate the deferred Task/Evidence v2 contract.
+ROUTER_VERSION = "engineering_requirement_router_v4"
 
 
 class EngineeringRequirementProfile(str, Enum):
@@ -36,6 +39,8 @@ class EngineeringRequirementProfile(str, Enum):
     DIAGNOSIS_CROSS_FILE_V1 = "DIAGNOSIS_CROSS_FILE_V1"
     DOCS_CODE_V1 = "DOCS_CODE_V1"
     PROJECT_CODE_V1 = "PROJECT_CODE_V1"
+    PROJECT_DOC_V1 = "PROJECT_DOC_V1"
+    PROJECT_TEST_V1 = "PROJECT_TEST_V1"
     NO_ADDITIONAL_REQUIREMENT = "NO_ADDITIONAL_REQUIREMENT"
 
 
@@ -45,6 +50,8 @@ DIAGNOSIS_SINGLE_V1 = EngineeringRequirementProfile.DIAGNOSIS_SINGLE_V1
 DIAGNOSIS_CROSS_FILE_V1 = EngineeringRequirementProfile.DIAGNOSIS_CROSS_FILE_V1
 DOCS_CODE_V1 = EngineeringRequirementProfile.DOCS_CODE_V1
 PROJECT_CODE_V1 = EngineeringRequirementProfile.PROJECT_CODE_V1
+PROJECT_DOC_V1 = EngineeringRequirementProfile.PROJECT_DOC_V1
+PROJECT_TEST_V1 = EngineeringRequirementProfile.PROJECT_TEST_V1
 NO_ADDITIONAL_REQUIREMENT = EngineeringRequirementProfile.NO_ADDITIONAL_REQUIREMENT
 
 
@@ -62,6 +69,8 @@ _FROZEN_PROFILE_SPECS = MappingProxyType(
         DIAGNOSIS_CROSS_FILE_V1: ((("project_code",),), 2),
         DOCS_CODE_V1: ((("project_doc",), ("project_code",)), 1),
         PROJECT_CODE_V1: ((("project_code",),), 1),
+        PROJECT_DOC_V1: ((("project_doc",),), 0),
+        PROJECT_TEST_V1: ((("project_test",),), 0),
         NO_ADDITIONAL_REQUIREMENT: ((), 0),
     }
 )
@@ -523,6 +532,108 @@ def _repo_navigation_intent(normalized: str) -> bool:
     )
 
 
+_DOCUMENT_EVIDENCE_SIGNALS = (
+    "依据", "根据", "阅读", "查阅", "引用", "总结", "概括",
+    "according to", "based on", "read", "cite", "summarize", "summarise",
+)
+_REPOSITORY_DOCUMENT_SCOPE_SIGNALS = ("项目", "仓库", "工程", "project", "repository", "repo")
+_LOCAL_DOCUMENT_PATH_PATTERN = re.compile(
+    r"(?<![a-zA-Z0-9_:/.\-])(?:[a-zA-Z0-9_.\-]+/)*"
+    r"(?:[a-zA-Z0-9_.\-]+|(?<=/)[\w.\-]+)\.(?:md|rst|txt)"
+    r"(?![a-zA-Z0-9_\-]|\.[a-zA-Z0-9_\-])",
+    re.IGNORECASE,
+)
+_UNICODE_DOCUMENT_PATH_PATTERN = re.compile(
+    r"(?<![\w:/.\-])(?:[\w.\-]+/)*[\w.\-]+\.(?:md|rst|txt)"
+    r"(?![a-zA-Z0-9_\-]|\.[a-zA-Z0-9_\-])",
+    re.IGNORECASE,
+)
+
+
+def _document_reference_context(question: str) -> tuple[tuple[str, ...], str]:
+    """Separate literal document names from the surrounding request signals."""
+
+    remaining = unicodedata.normalize("NFKC", question).replace("\\", "/")
+    paths: list[str] = []
+    # ASCII starts keep an adjacent Chinese verb (根据README.md) outside the
+    # filename. The second pass supports delimited Unicode names/directories.
+    for pattern in (_LOCAL_DOCUMENT_PATH_PATTERN, _UNICODE_DOCUMENT_PATH_PATTERN):
+        matches = list(pattern.finditer(remaining))
+        paths.extend(match.group() for match in matches)
+        for match in reversed(matches):
+            remaining = remaining[:match.start()] + " " * len(match.group()) + remaining[match.end():]
+    return tuple(paths), _normalize_signal_text(remaining)
+
+
+def _repo_document_intent(question: str) -> bool:
+    """Recognize an explicit local-document evidence request, not its topic.
+
+    A read/citation operation must accompany either a local document filename
+    or a repository-scoped document reference. Generic writing/design questions
+    and abstract documentation comparisons stay outside this hard minimum.
+    This does not inspect the filesystem or presume the document exists.
+    """
+
+    paths, intent = _document_reference_context(question)
+    if not _has_any(intent, _DOCUMENT_EVIDENCE_SIGNALS):
+        return False
+    if _repo_navigation_intent(intent) or _has_any(intent, _SOURCE_SIGNALS):
+        return False
+    # Import the leaf classifier at call time: tool_agent's package facade
+    # imports this requirement module while it is being initialized.
+    from core.tool_agent.project_files import classify_project_evidence_path
+
+    for path in paths:
+        if ".." not in path.split("/") and classify_project_evidence_path(path) == "project_doc":
+            return True
+    if paths:
+        return False
+    return _has_any(intent, _REPOSITORY_DOCUMENT_SCOPE_SIGNALS) and _has_any(
+        intent, _DOC_SIGNALS
+    )
+
+
+_TEST_INSPECTION_SIGNALS = (
+    "which", "where", "read", "cite", "locate", "existing", "cover", "covers",
+    "哪些", "哪个", "哪里", "阅读", "查阅", "引用", "定位", "已有", "覆盖",
+)
+_REPOSITORY_TEST_SCOPE_SIGNALS = (
+    "repository tests", "repo tests", "project tests", "仓库测试", "项目测试",
+    "仓库里的测试", "仓库中的测试", "项目里的测试", "项目中的测试",
+)
+_LOCAL_TEST_PATH_PATTERN = re.compile(
+    r"(?<![\w:/.\-])(?:[\w.\-]+/)*[\w.\-]+\."
+    r"(?:py|rb|java|cs|go|js|jsx|ts|tsx|rs|c|cc|cpp|h|hpp|php|sh|sql)"
+    r"(?![a-zA-Z0-9_\-]|\.[a-zA-Z0-9_\-])",
+    re.IGNORECASE,
+)
+
+
+def _repo_test_intent(question: str) -> bool:
+    """Require test evidence only for inspection of the bound repo's tests.
+
+    Test design advice is not an inspection request. Existing mixed/source
+    profiles keep their precedence; no filename or symbol is hard-coded.
+    """
+    text = unicodedata.normalize("NFKC", question).replace("\\", "/")
+    matches = list(_LOCAL_TEST_PATH_PATTERN.finditer(text))
+    for match in reversed(matches):
+        text = text[:match.start()] + " " * len(match.group()) + text[match.end():]
+    intent = _normalize_signal_text(text)
+    if not _has_any(intent, _TEST_INSPECTION_SIGNALS):
+        return False
+    if _repo_navigation_intent(intent) or _has_any(intent, _SOURCE_SIGNALS):
+        return False
+    from core.tool_agent.project_files import is_test_path
+
+    if any(".." not in match.group().split("/") and is_test_path(match.group()) for match in matches):
+        return True
+    return _has_any(intent, _TEST_SIGNALS) and (
+        _has_any(intent, _PROJECT_SCOPE_SIGNALS)
+        or _has_any(intent, _REPOSITORY_TEST_SCOPE_SIGNALS)
+    )
+
+
 def route_engineering_evidence_requirement(
     question: str,
 ) -> EngineeringEvidenceRequirement:
@@ -546,6 +657,12 @@ def route_engineering_evidence_requirement(
         and _has_any(normalized, _COMPARE_SIGNALS)
     ):
         profile = THEORY_CODE_V1
+    elif _repo_document_intent(question):
+        # An explicit document source outranks a diagnosis topic. Mixed
+        # docs/code and theory/code requests retain their priorities above.
+        profile = PROJECT_DOC_V1
+    elif _repo_test_intent(question):
+        profile = PROJECT_TEST_V1
     elif _has_any(normalized, _DIAGNOSIS_SIGNALS) and _has_any(
         normalized, _DIAGNOSIS_DETAIL_SIGNALS
     ):
@@ -585,6 +702,8 @@ __all__ = [
     "DIAGNOSIS_CROSS_FILE_V1",
     "DOCS_CODE_V1",
     "PROJECT_CODE_V1",
+    "PROJECT_DOC_V1",
+    "PROJECT_TEST_V1",
     "NO_ADDITIONAL_REQUIREMENT",
     "route_engineering_evidence_requirement",
     "evaluate_evidence_requirement",

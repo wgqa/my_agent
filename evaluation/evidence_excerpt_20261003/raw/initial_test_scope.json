@@ -1,0 +1,52 @@
+{
+  "command": [
+    "D:/python/python.exe",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "--maxfail=3",
+    "--basetemp=D:/ragtmp/excerpt-regression-20261003",
+    "tests/test_project_evidence_excerpt.py",
+    "tests/test_tool_agent_evidence.py",
+    "tests/test_tool_agent_core.py",
+    "tests/test_read_project_context.py",
+    "tests/test_source_definition_reading.py",
+    "tests/test_code_search_scope.py",
+    "tests/test_arch_integration_12a_code_search_kind_filter.py",
+    "tests/test_arch_integration_12a_r1_tool_identity.py",
+    "tests/test_engineering_agent_api.py",
+    "tests/test_engineering_stream.py",
+    "tests/test_engineering_stream_v2.py",
+    "tests/test_project_document_requirements.py",
+    "tests/test_product_grounding_21.py",
+    "tests/test_git_change_tools.py",
+    "tests/test_engineering_verification.py"
+  ],
+  "exit_code": 1,
+  "test_files": [
+    "tests/test_project_evidence_excerpt.py",
+    "tests/test_tool_agent_evidence.py",
+    "tests/test_tool_agent_core.py",
+    "tests/test_read_project_context.py",
+    "tests/test_source_definition_reading.py",
+    "tests/test_code_search_scope.py",
+    "tests/test_arch_integration_12a_code_search_kind_filter.py",
+    "tests/test_arch_integration_12a_r1_tool_identity.py",
+    "tests/test_engineering_agent_api.py",
+    "tests/test_engineering_stream.py",
+    "tests/test_engineering_stream_v2.py",
+    "tests/test_project_document_requirements.py",
+    "tests/test_product_grounding_21.py",
+    "tests/test_git_change_tools.py",
+    "tests/test_engineering_verification.py"
+  ],
+  "full_ci_job_run": false,
+  "full_pytest_run": false,
+  "provider_calls": 0,
+  "initial_new_module_attempt": {
+    "failed": 12,
+    "passed": 19,
+    "reason": "Test referenced current_evidence_references instead of the existing available_evidence_refs. Runtime/API/stream excerpt assertions had already succeeded; corrected only the test field name."
+  }
+}

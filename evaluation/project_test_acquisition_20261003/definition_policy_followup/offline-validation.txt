@@ -1,0 +1,14 @@
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+........................................                                 [100%]
+============================== warnings summary ===============================
+..\..\..\python\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128
+  D:\python\Lib\site-packages\chromadb\telemetry\opentelemetry\__init__.py:128: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(f):
+
+..\..\..\python\Lib\site-packages\jieba\_compat.py:18
+  D:\python\Lib\site-packages\jieba\_compat.py:18: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+184 passed, 2 warnings in 2.03s

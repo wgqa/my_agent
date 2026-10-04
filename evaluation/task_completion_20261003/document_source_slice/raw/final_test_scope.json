@@ -1,0 +1,24 @@
+{
+  "command": [
+    "D:/python/python.exe",
+    "-m",
+    "pytest",
+    "-q",
+    "--basetemp=D:/ragtmp/doc-final-20261003",
+    "tests/test_project_document_requirements.py"
+  ],
+  "exit_code": 0,
+  "scope": "New document slice module after moving the historical identity guard into the CI-selected module.",
+  "previous_setup_attempt": {
+    "passed": 26,
+    "fixture_setup_errors": 5,
+    "reason": "Explicit basetemp parent D:/ragtmp was absent; created the parent, reran unchanged tests."
+  },
+  "prior_targeted_run": {
+    "passed": 278,
+    "test_files": 15,
+    "warnings": 3,
+    "log": "pytest-targeted.txt"
+  },
+  "full_ci_or_full_suite_run": false
+}

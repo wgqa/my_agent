@@ -34,11 +34,11 @@ from core.query_planning.planner import (
 from core.query_planning.prompt import (
     PLANNER_MAX_OUTPUT_TOKENS,
     PLANNER_MAX_RETRIES,
-    PLANNER_PROMPT_SHA256,
     PLANNER_PROMPT_VERSION,
     PLANNER_TEMPERATURE,
     PLANNER_TIMEOUT_SECONDS,
     build_planner_messages,
+    planner_prompt_sha256,
 )
 
 
@@ -162,12 +162,15 @@ class OpenAICompatibleQueryPlanner(BaseQueryPlanner):
         base_url: Optional[str] = None,
         extra_headers: Optional[Mapping[str, str]] = None,
         client: Optional[object] = None,
+        prompt_version: str = PLANNER_PROMPT_VERSION,
     ):
         _validate_nonempty_str(provider, "provider")
         _validate_nonempty_str(model, "model")
         _validate_nonempty_str(api_key, "api_key")
         if base_url is not None:
             _validate_nonempty_str(base_url, "base_url")
+        self._prompt_sha256 = planner_prompt_sha256(prompt_version)
+        self._prompt_version = prompt_version
         self._provider = provider
         self._model = model
         self._base_url = base_url
@@ -205,7 +208,9 @@ class OpenAICompatibleQueryPlanner(BaseQueryPlanner):
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
-                messages=build_planner_messages(original_query),
+                messages=build_planner_messages(
+                    original_query, prompt_version=self._prompt_version,
+                ),
                 temperature=PLANNER_TEMPERATURE,
                 max_tokens=PLANNER_MAX_OUTPUT_TOKENS,
             )
@@ -250,8 +255,8 @@ class OpenAICompatibleQueryPlanner(BaseQueryPlanner):
         return PlannerCallMetadata(
             provider=self._provider,
             model=self._model,
-            prompt_version=PLANNER_PROMPT_VERSION,
-            prompt_sha256=PLANNER_PROMPT_SHA256,
+            prompt_version=self._prompt_version,
+            prompt_sha256=self._prompt_sha256,
             call_count=1,
             input_tokens=input_tokens,
             output_tokens=output_tokens,

@@ -2,7 +2,13 @@ import math
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Annotated, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from core.tool_agent.source_excerpt import (
+    MAX_PROJECT_CHANGE_CHARACTERS,
+    MAX_PROJECT_CONTEXT_CHARACTERS,
+    project_evidence_character_limit,
+)
 
 MAX_QUESTION_CHARS = 4000
 MAX_TOP_K = 50
@@ -58,6 +64,13 @@ class HealthResponse(BaseModel):
     embedding_provider: str = ""
     retriever_strategy: str = ""
     generator_provider: str = ""
+
+
+class ProductVersionResponse(BaseModel):
+    schema_version: Literal["product_version_v1"]
+    product_name: str
+    version: str
+    stage: Literal["development"]
 
 
 class PublicConfigResponse(BaseModel):
@@ -183,14 +196,26 @@ class ToolAgentQueryRequest(BaseModel):
 
 
 class ToolAgentEvidence(BaseModel):
-    """Public, bounded project evidence read by read_project_context."""
+    """Public Reader excerpts retain all returned text; diff stays at 2000 chars."""
+
+    model_config = {"json_schema_extra": {"allOf": [{
+        "if": {"properties": {"kind": {"const": "project_change"}}, "required": ["kind"]},
+        "then": {"properties": {"snippet": {"maxLength": MAX_PROJECT_CHANGE_CHARACTERS}}},
+    }]}}
 
     evidence_id: str = Field(pattern=r"^E[1-9][0-9]*$")
     kind: Literal["project_code", "project_doc", "project_change", "project_test"]
     path: str = Field(min_length=1)
     start_line: int = Field(ge=1)
     end_line: int = Field(ge=1)
-    snippet: str = Field(min_length=1, max_length=2000)
+    snippet: str = Field(min_length=1, max_length=MAX_PROJECT_CONTEXT_CHARACTERS)
+
+    @model_validator(mode="after")
+    def _enforce_kind_snippet_limit(self):
+        limit = project_evidence_character_limit(self.kind)
+        if len(self.snippet) > limit:
+            raise ValueError(f"{self.kind} snippet must have at most {limit} characters")
+        return self
 
 
 class EngineeringQueryRequest(BaseModel):

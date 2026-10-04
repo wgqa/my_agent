@@ -1,0 +1,82 @@
+{
+  "created_before_code_change": true,
+  "committed_head": "d937046d2c0c8d41a74693f879ff41091a861ab9",
+  "baseline_note": "Includes the previous uncommitted PROJECT_DOC_V1 slice; no prior work overwritten.",
+  "change": "Preserve the exact bounded Reader text in public project evidence; centralize existing Reader limits; no decision/tool budget or evidence ID changes.",
+  "budget": {
+    "max_agent_iterations": 5,
+    "max_tool_calls": 4,
+    "max_tool_errors": 2
+  },
+  "planned_validation": {
+    "provider_calls": 0,
+    "method": "Replay all actual source_read observations from the previous two paired live phases; synthetic API/SSE/full-runtime regression for bounds and malformed data.",
+    "quality_claim": "Public excerpt fidelity only; does not claim new model answer improvement."
+  },
+  "baseline_file_sha256": {
+    "core/tool_agent/runtime.py": "424d8f6831aebb88f2ac565e185da685db6f15add5f76d9ce526f277bfb46123",
+    "core/tool_agent/runtime_models.py": "36b73c189195da1637b9436b0e8ccb380bdab87407e66ae9662d5a18206e8683",
+    "api/schemas.py": "ff00bdc36f48434663c155173a4a0c3d2f749909e1cb976800ad3d459567554e",
+    "core/tool_agent/tools/code_search.py": "1c22ab02e7a72477aab07fe2863e29490767887d49536797bf3ea5a7136ef1bb",
+    "core/tool_agent/tools/read_project_context.py": "db716057087eb841a4ceb1ae13c2e84afb157d98ef6e2a05605b29ecdf3383ad",
+    "core/tool_agent/tools/source_navigation.py": "71870394a45afbfb5c9b1665251bab9c07490e1833b3b8637a7e470ca034c602"
+  },
+  "protected_files_sha256": {
+    "core/engineering_requirements.py": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+    "core/tool_agent/decision_prompt.py": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "core/query_planning/prompt.py": "f2d4a43d3780df95b17e8d9e37485a980a020287aa1d0044642fb31f4d0e9187",
+    "core/engineering_planning.py": "89ba2cfb662783462a30cac90bbf1fc50292d16054d39ecb33ad880367fa7164",
+    "core/engineering_retrieval.py": "ecae1854a09172eca81b8c3fb44fb68137b105c8a9fd52381bde05f0c30ea4b2",
+    "core/engineering_verification.py": "fbc78799d9ebcf2083cb77398836030b1be369e94d9c9394607f3df48239d80b",
+    "core/unified_engineering_runtime.py": "fa1f5af0598b3b4fd47d93212beaa83db696be5e940c804cfbffd613825c9c57",
+    "api/app.py": "d20fb72dae33bd46cb2e6014b36d50d79a63c389e19e8085190a0a891d40c5a3",
+    "api/engineering_stream.py": "10ef149c853091e04d0a295d5c423a3b75da949fd523e29e1e71d218a2118048",
+    "api/engineering_stream_v2.py": "5fe118ccdef86e6a815ff883dbe537b44a4cf304e8075812dbb0845b88afa5e9",
+    "api/engineering_stream_common.py": "c288210e7231941313b36d8e838e5530c28dbd31034215dc2ba433239ec47a5b",
+    "frontend/js/app.js": "a19d728dadc3fcb82d934f0a65993afd8b9720a012d609a88aaf7a1674e60f49",
+    "ui/renderers.py": "1e688cfe4b02135bbb40368208b74e1b1cfc6b6a30c6014de748a6ce6874748c"
+  },
+  "previous_archive_sha256": {
+    "evaluation/task_completion_20261003/baseline_decision_prompt.snapshot": "3ae3eb82ab835a40e67dd339b9abf5f081ec525c46ff84426045d2cb3fd652f2",
+    "evaluation/task_completion_20261003/candidate_decision_prompt.snapshot": "33a9fb6e431ab16ed9a075951e5301dd4838c71c2c33bc6fb24201fd2ee9b98f",
+    "evaluation/task_completion_20261003/candidate_profile.json": "d239c5a48effdc22b92bf439ddab9c97e03be6154e30580841479c9f8e61b2cf",
+    "evaluation/task_completion_20261003/catalog.json": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+    "evaluation/task_completion_20261003/document_source_slice/catalog.json": "8520aa05bd90c1377f435496df79d648cd86b75ebb93ae79d7fc1abb4e900cbb",
+    "evaluation/task_completion_20261003/document_source_slice/harness/comparison_server.py": "c96c9902d4711e3b0a4986f236ae49bb17d1075981fabf912d658d125b937036",
+    "evaluation/task_completion_20261003/document_source_slice/harness/run_comparison.py": "3466a434808c8570e5e0affcc1f6424a006ec7dd02942438f33b5f879e4e3b58",
+    "evaluation/task_completion_20261003/document_source_slice/initial_manifest.json": "c4dcd3fd2679b8c1f5bb242f1b159e5214e8abc625fddf874ead1a542fca3010",
+    "evaluation/task_completion_20261003/document_source_slice/manifest.json": "c445e10d1e0258b6cf831065c2a450b36a2a3283d88eeb1c6815006cfeba19cd",
+    "evaluation/task_completion_20261003/document_source_slice/manual_review.json": "4db718acf47ba834baa165405f7636fdd5b37f027e17b505745f0b7890576ca7",
+    "evaluation/task_completion_20261003/document_source_slice/raw/final_test_scope.json": "652f2e458f74e085a52ee0d23f79e8cb590d1417bc5ca2f3b0981d23851c17e2",
+    "evaluation/task_completion_20261003/document_source_slice/raw/paired/comparison.json": "3d1dc8f42feaec1069cd235d4eca2da5f2e06fe44794981c9b07c44185317cad",
+    "evaluation/task_completion_20261003/document_source_slice/raw/paired/live_results.jsonl": "2baa330da8294c22a43524862a70b73ba0b3e466c3ca22859a0b8469d7cf1857",
+    "evaluation/task_completion_20261003/document_source_slice/raw/paired/run_manifest.json": "5b926124d01a9d7e4e1a58c7e8b2c4e59e7bcdfbc1785988d9f02cd1c1edfff8",
+    "evaluation/task_completion_20261003/document_source_slice/raw/pytest-final-ci-module.txt": "f5eb2a5cae682cd6c4c2df9bbe7f62ce47d331b7991ea785f3de7f646cd01c11",
+    "evaluation/task_completion_20261003/document_source_slice/raw/pytest-targeted.txt": "df5c98587922e0838855286711c544407ca1284db18d3e9f149b477579cc3d39",
+    "evaluation/task_completion_20261003/document_source_slice/raw/retained_offline_audit.json": "b1b7f47361c933ee03c3e0281d798866d29792f1e8769f1d7c974db7529e88b8",
+    "evaluation/task_completion_20261003/document_source_slice/snapshots/requirements_baseline.snapshot": "99f8a41ef6a4f0b6c372fb2acbb070b7382f0d41e00387602784c95a1d243943",
+    "evaluation/task_completion_20261003/document_source_slice/snapshots/requirements_candidate.snapshot": "04ed5bfbd89cedcc2fd897fdf63745effa7261e2dc568adcffcada4ce576ea1c",
+    "evaluation/task_completion_20261003/document_source_slice/snapshots/requirements_retained.snapshot": "eb3d2968799025a5a6bba744b55f3487b143e3f4a8b91ede3cc1243159d9b05d",
+    "evaluation/task_completion_20261003/harness/analyze.py": "c3338b59709cc0085efb34239690699e1e42c1c09ffb9ece13c4deca6adf7f0d",
+    "evaluation/task_completion_20261003/harness/comparison_server.py": "cb8ddeefa98eb1c420bdd04d9a8e38f274ef6a69ace3e7de87d5bbbad06d8048",
+    "evaluation/task_completion_20261003/harness/run_comparison.py": "3c3a462cec0ba176bc62527d5c8606bea5d457c5dfa05de6bd10bc54b3db77c9",
+    "evaluation/task_completion_20261003/harness/verify_retained_slice.py": "e669d7e84607dc56b2acf1b9b28efb3a7a7267a628409686dfddfea46067f0db",
+    "evaluation/task_completion_20261003/initial_manifest.json": "0acdd143cc35dc5e092d05ca881db4572360b3f80a27c8d931098a53dbd73b85",
+    "evaluation/task_completion_20261003/manifest.json": "89caf7f8221c70ba87cfd55f2956ef0c6d0f6e88f183a7c45288b4df3a574b9d",
+    "evaluation/task_completion_20261003/outcome.json": "33a6b4b86e8b6f271e1100f17d422c429fc4949a9834ddd2538939e688d566c6",
+    "evaluation/task_completion_20261003/raw/paired/comparison.json": "a3ab1fd85b1bf998a7ce86cdfd0b3a51b9da23269517f871f9417f8ee1436fde",
+    "evaluation/task_completion_20261003/raw/paired/live_results.jsonl": "87437065e1db918a9b4d6a84c14f029fbf4283e5fee874791732ac617077cd9e",
+    "evaluation/task_completion_20261003/raw/paired/run_manifest.json": "7f532f886e2f738f50f8e29e2dc825b23d0aa478741076ea77f20d7b5de70500",
+    "evaluation/task_completion_20261003/raw/pytest-targeted.txt": "1109bb61c7d5f07ede7bef99cf7b8e2c88fe4887a8d2e5c3c78688efb123a76b",
+    "evaluation/task_completion_20261003/README.md": "1c77d307dd68a06a9820e42404c1e2cbd7e0b1f7184d5e137ee327d38e01d803",
+    "evaluation/task_completion_20261003/test_task_completion_policy.snapshot": "ec70782b8e3da8181aa224f394811aa3bc5573b442179e61151182004691398f"
+  },
+  "baseline_toolset_sha256": "026490795a08b56cbe45ff824a414f45e822d904cc40f8cc22f1ad2ffa76bb17",
+  "promotion_gate": [
+    "Every valid recorded Reader result maps to public evidence with identical path/range/full joined text.",
+    "Runtime, nonstream API, SSE v1 and SSE v2 preserve final tail content for project_code/project_doc/project_test.",
+    "Oversized or noncontiguous Reader data does not become public evidence; project_change stays 2000, knowledge stays 500.",
+    "Original E-ID/dedup behavior, Reader tool descriptions/schema/limits and 5/4/2 remain unchanged."
+  ],
+  "compatibility_note": "Response keys and E-ID identity remain the same; the public project read snippet size bound increases from 2000 to the preexisting Reader maximum. Strict old clients must use the updated schema."
+}

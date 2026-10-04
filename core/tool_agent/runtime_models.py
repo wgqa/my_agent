@@ -24,6 +24,10 @@ from core.tool_agent.models import (
     TOOL_OBSERVATION_STATUSES,
     json_deep_copy,
 )
+from core.tool_agent.source_excerpt import (
+    MAX_PROJECT_CHANGE_CHARACTERS,
+    project_evidence_character_limit,
+)
 
 _TOOL_ERROR_CODES_SET = frozenset(TOOL_ERROR_CODES)
 _REFUSE_REASON_CODES_SET = frozenset(REFUSE_REASON_CODES)
@@ -72,7 +76,9 @@ EVIDENCE_KINDS = (
 PROJECT_EVIDENCE_KINDS = frozenset(
     {"project_code", "project_doc", "project_change", "project_test"}
 )
-MAX_EVIDENCE_SNIPPET_LENGTH = 2000
+# Legacy name retained for git-diff/evaluator imports. Project Reader excerpts
+# use their own bound, shared with the actual Reader output limits.
+MAX_EVIDENCE_SNIPPET_LENGTH = MAX_PROJECT_CHANGE_CHARACTERS
 MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH = 500
 
 
@@ -562,9 +568,10 @@ class EngineeringEvidence:
             raise ValueError("Evidence 行号范围无效")
         if type(self.snippet) is not str or not self.snippet:
             raise ValueError("snippet 必须是非空字符串")
-        if len(self.snippet) > MAX_EVIDENCE_SNIPPET_LENGTH:
+        snippet_limit = project_evidence_character_limit(self.kind)
+        if len(self.snippet) > snippet_limit:
             raise ValueError(
-                f"snippet 不允许超过 {MAX_EVIDENCE_SNIPPET_LENGTH} 个字符"
+                f"{self.kind} snippet 不允许超过 {snippet_limit} 个字符"
             )
 
     def to_dict(self) -> dict:
