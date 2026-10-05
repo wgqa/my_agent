@@ -18,6 +18,7 @@ from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_SHA256,
     ENGINEERING_DECISION_PROMPT_V2_PROFILE,
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE,
+    ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
     ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE,
     LEGACY_DECISION_PROMPT_PROFILE,
 )
@@ -111,6 +112,9 @@ def test_engineering_provider_metadata_and_system_message_use_v1():
 def test_engineering_production_wiring_uses_grounded_profile_without_clearing_legacy_runtime(
     monkeypatch, tmp_path
 ):
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "verified")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-wiring-test-key")
+    monkeypatch.setenv("ENGINEERING_CONVERSATION_DB", str(tmp_path / "conversations.sqlite3"))
     legacy_runtime = object()
     calls = []
 
@@ -145,12 +149,15 @@ def test_engineering_production_wiring_uses_grounded_profile_without_clearing_le
     asyncio.run(run_lifespan())
     assert len(calls) == 2
     assert calls[0].get("prompt_profile") is None
-    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE
+    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE
     assert "code_search_version" not in calls[0]
     assert calls[1]["code_search_version"] == "code_search_v7"
 
 
-def test_legacy_init_failure_blocks_engineering_init(monkeypatch, tmp_path):
+def test_legacy_init_failure_keeps_engineering_initialization_independent(monkeypatch, tmp_path):
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "verified")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-wiring-test-key")
+    monkeypatch.setenv("ENGINEERING_CONVERSATION_DB", str(tmp_path / "conversations.sqlite3"))
     calls = []
 
     def fake_builder(**kwargs):
@@ -175,5 +182,6 @@ def test_legacy_init_failure_blocks_engineering_init(monkeypatch, tmp_path):
             assert api.app.engineering_agent_facade is None
 
     asyncio.run(run_lifespan())
-    assert len(calls) == 1
+    assert len(calls) == 2
     assert calls[0].get("prompt_profile") is None
+    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE

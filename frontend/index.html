@@ -31,6 +31,11 @@
             <span>New chat</span>
           </button>
 
+          <button id="open-knowledge" class="knowledge-nav-button" type="button" aria-controls="knowledge-view" aria-expanded="false">
+            <span aria-hidden="true">▤</span>
+            <span>知识库</span>
+          </button>
+
           <div class="sidebar-section-label">Chats</div>
           <div id="conversation-list" class="conversation-list" role="list">
             <div class="list-placeholder">Loading…</div>
@@ -98,6 +103,48 @@
         </form>
       </main>
 
+      <main id="knowledge-view" class="knowledge-view" aria-label="知识库" hidden>
+        <header class="knowledge-header">
+          <div>
+            <div class="knowledge-eyebrow">WORKSPACE LIBRARY</div>
+            <h1>知识库</h1>
+            <p>管理问答使用的文档，默认检索整个知识库。</p>
+          </div>
+          <div class="knowledge-header-actions">
+            <button id="knowledge-back" class="library-button" type="button">返回聊天</button>
+            <button id="knowledge-upload" class="library-button library-button-primary" type="button">＋ 上传文档</button>
+            <input id="knowledge-file" type="file" accept=".txt,.md,.pdf,.py,.js,.java" multiple hidden />
+            <input id="knowledge-replace-file" type="file" accept=".txt,.md,.pdf,.py,.js,.java" hidden />
+          </div>
+        </header>
+        <div id="knowledge-feedback" class="knowledge-feedback" role="status" aria-live="polite" hidden></div>
+        <section class="knowledge-toolbar" aria-label="文档筛选">
+          <label class="knowledge-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="knowledge-search" type="search" placeholder="按文档名查找…" maxlength="200" aria-label="按文档名查找" />
+          </label>
+          <div id="knowledge-counts" class="knowledge-counts">正在读取知识库…</div>
+          <button id="knowledge-refresh" class="library-button" type="button" aria-label="刷新知识库">刷新</button>
+        </section>
+        <div class="knowledge-workspace">
+          <section class="knowledge-documents" aria-label="全部文档">
+            <div class="knowledge-list-heading"><span>文档</span><span>更新时间</span></div>
+            <div id="knowledge-documents" class="knowledge-document-list" aria-live="polite"></div>
+            <div class="knowledge-pagination">
+              <span id="knowledge-page-label"></span>
+              <div>
+                <button id="knowledge-previous" class="library-button" type="button" disabled>上一页</button>
+                <button id="knowledge-next" class="library-button" type="button" disabled>下一页</button>
+              </div>
+            </div>
+            <p class="knowledge-upload-hint">支持 TXT、Markdown、PDF、Python、JavaScript、Java，单文件最多 20 MiB。同名文件上传会更新已有文档。</p>
+          </section>
+          <section id="knowledge-preview" class="knowledge-preview" aria-label="文档内容">
+            <div class="knowledge-preview-empty"><span aria-hidden="true">▤</span><h2>选择一篇文档</h2><p>在这里查看正文、替换文件或删除文档。</p></div>
+          </section>
+        </div>
+      </main>
+
       <aside
         id="evidence-drawer"
         class="evidence-drawer"
@@ -129,6 +176,39 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <dialog id="new-chat-dialog" class="project-dialog" aria-labelledby="new-chat-title">
+      <form id="new-chat-form">
+        <div class="knowledge-eyebrow">LOCAL PROJECT</div>
+        <h2 id="new-chat-title">新建对话</h2>
+        <p class="project-dialog-note">选择这次要分析的项目。对话固定绑定该项目，知识库仍共享。</p>
+        <label for="new-chat-project">已添加的项目</label>
+        <select id="new-chat-project" name="project"></select>
+        <div class="project-path-section">
+          <label for="new-chat-path">添加其他本地项目</label>
+          <div class="project-path-controls">
+            <input id="new-chat-path" name="path" type="text" maxlength="4096" placeholder="例如 D:\projects\my-project" autocomplete="off" />
+            <button id="new-chat-add-project" class="library-button" type="button">添加项目</button>
+          </div>
+          <p class="project-path-hint">填写本机已有项目的完整目录路径。</p>
+        </div>
+        <p id="new-chat-feedback" class="project-feedback" role="status" aria-live="polite" hidden></p>
+        <div class="knowledge-dialog-actions">
+          <button id="new-chat-cancel" class="library-button" type="button">取消</button>
+          <button id="new-chat-create" class="library-button library-button-primary" type="submit">创建对话</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="knowledge-delete-dialog" class="knowledge-delete-dialog" aria-labelledby="knowledge-delete-title">
+      <form method="dialog">
+        <h2 id="knowledge-delete-title">删除文档？</h2>
+        <p id="knowledge-delete-description"></p>
+        <p class="knowledge-delete-note">删除后，这篇文档将不再参与后续问答检索。可以重新上传文件恢复。</p>
+        <div class="knowledge-dialog-actions">
+          <button class="library-button" value="cancel">取消</button>
+          <button id="knowledge-delete-confirm" class="library-button library-button-danger" value="delete">删除文档</button>
+        </div>
+      </form>
+    </dialog>
     <script type="module" src="./js/app.js"></script>
   </body>
 </html>

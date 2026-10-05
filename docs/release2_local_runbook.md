@@ -33,11 +33,17 @@ python -m pip install -r requirements.lock
 `requirements.lock` 已完整 pin 版本（119 项），不要手动升级；如果需要重建
 lock，走独立任务卡，不在本手册范围。
 
-## 3. Engineering Knowledge Corpus（必需，指向已冻结语料）
+## 3. Engineering Knowledge（默认可维护库，可选初始语料）
 
-Unified Engineering Runtime 启动时会校验语料身份（corpus_id
-`870e5864df67` / 37 files / 215 chunks / bm25），不通过则 Engineering 端点
-不可用（其它 legacy 端点不受影响）。
+默认 `ENGINEERING_KNOWLEDGE_MODE=managed`，产品库保存于
+`data/runtime/engineering_knowledge.sqlite3`。可以从空库开始，通过后端
+提供的 HTML 页面 `http://127.0.0.1:8000/#knowledge` 上传文档；主会话默认
+检索整库。上传、替换、删除与重启恢复见 [知识库说明](knowledge_library_runbook.md)。
+
+以下步骤用于**可选的首次初始化**：先验证 `870e5864df67` / 37 files /
+215 chunks / bm25，再导入产品库。历史 benchmark 与下方既有 verified
+smoke 显式使用 `ENGINEERING_KNOWLEDGE_MODE=verified`，继续保留原始只读
+校验及 readiness 契约。managed 库初始化完成后不再重复导入初始语料。
 
 ```bash
 git -c core.autocrlf=false clone https://github.com/wgqa/agent_data.git
@@ -78,13 +84,15 @@ Engineering 主链检查（应为 200）：
 ```bash
 curl http://127.0.0.1:8000/capabilities
 curl http://127.0.0.1:8000/version               # version=2.0.0-dev / stage=development
-curl http://127.0.0.1:8000/engineering/knowledge   # ready=true / verified=true / corpus_id=870e5864df67
+curl http://127.0.0.1:8000/engineering/knowledge   # 默认 mode=managed / mutable=true / verified=false
+curl http://127.0.0.1:8000/engineering/knowledge/documents
 ```
 
 `/capabilities.features.engineering_agent=true` 和 `/engineering/knowledge`
-的 `ready=true / verified=true` 表明主链已装配。`ready=false` 时先检查语料
-配置和身份，再检查DeepSeek key及后端初始化日志；已验证语料也可能因provider
-配置失败而出现 `verified=true / ready=false`。就绪检查不调用模型，不证明额度可用。
+的 `ready=true` 表明主链已装配。managed 模式的 `verified=false` 是正常状态，
+管理能力由 `mutable=true` 表示；历史 verified 模式才要求冻结 corpus 身份。
+`ready=false` 时检查知识库配置、DeepSeek key及后端初始化日志；主链凭据缺失
+时，已成功初始化的 managed 文档管理仍可用。就绪检查不调用模型，不证明额度可用。
 
 `/health` 与 `/stats` 仍描述旧Pipeline；旧配置、向量库或Demo初始化失败时可返回
 503，Engineering独立初始化且页面仍按各feature判断可用性。需要使用旧Demo时再检查：
@@ -104,7 +112,16 @@ python scripts/smoke_engineering_isolation.py --corpus-root "$env:ENGINEERING_KN
 成功输出 `ENGINEERING_ISOLATION_SMOKE_OK`。需要第3步已有的完整verified corpus，
 不会下载语料或模型；不重启或改写正在运行的服务、项目或数据库。
 
-## 5. 启动 Frontend（Streamlit）
+## 5. 打开 HTML 页面 / 可选 Streamlit Demo
+
+浏览器直接打开 `http://127.0.0.1:8000/`。左侧“知识库”进入文档管理，
+可查看正文、上传、替换和删除；聊天默认检索整库。HTML 静态资源与 API 同源。
+
+点击 **New chat** 可选择已添加项目或填写本机绝对目录，新对话固定绑定
+该项目。顶部和会话列表显示项目名，切换旧对话自动恢复原绑定，无需重启。
+知识库继续共享；具体操作见 [本地项目说明](project_mount_runbook.md)。
+
+以下是保留的 Streamlit 内部 Demo：
 
 新开一个终端（沿用同一 venv 与 corpus 环境变量）：
 
@@ -122,6 +139,8 @@ python -m streamlit run ui/app.py --server.port 8501
 - 位置：`data/runtime/engineering_conversations.sqlite3`（自动创建）。
 - 已被 `.gitignore` 覆盖（`data/runtime/`），**不得提交**。
 - 可用 `ENGINEERING_CONVERSATION_DB` 指到自定义路径（测试/隔离用）。
+- 项目登记保存在旁边的 `engineering_projects.sqlite3`，可用
+  `ENGINEERING_PROJECT_DB` 单独指定；需与会话数据库一起保留以恢复绑定。
 - UI 提交 `message` 到 Conversation SSE API，后端加载历史，由 Context Window
   选取最多 6 条 / 1200 token；旧 `/engineering/query` 系列只接受 `question`。
 - 每操作使用独立连接，提交或回滚后显式关闭；整轮 user/assistant 消息与结果
@@ -161,6 +180,20 @@ FULL_APP_SMOKE_OK
 
 ## 8. 离线测试
 
+2026-10-05 本地项目绑定：CI/下列手册清单新增 `test_local_project_binding.py`
+和 `test_engineering_project_workspace.py`，共 **51 模块**。相关 9 模块
+**119 passed / 1 skipped**，另 7 模块 API/SSE/启动回归 **104 passed**，
+两组不重叠。真实 HTML 在隔离服务验证项目登记、无效目录、两项目读取与切换、
+刷新恢复及 390px 小屏；零外部模型请求，未运行全量 pytest 或 GitHub Actions。
+见 [项目绑定验证](validation/2026-10-05-local-project-binding.md)。
+
+2026-10-05 知识库管理：CI/下列手册清单新增 `test_knowledge_library.py`，
+共 **49模块**。本次知识库专项最终 **20 passed**；其余相关启动、API、会话、
+检索与 SSE 回归 **195 passed / 1 skipped**。真实 HTML 页面在隔离库中验证
+上传、替换、筛选、正文与删除取消，删除 API 后检索同步消失；手机宽度无
+横向溢出。零模型调用，未运行全量 pytest 或 GitHub Actions，详见
+[知识库验证](validation/2026-10-05-knowledge-library.md)。下方是此前切片记录。
+
 2026-10-04 交付一致性切片：CI/手册清单现为 **48模块**，新增产品演示/版本与
 已有startup/full-app/legacy-demo回归。当前Full App smoke可传`--corpus-root`
 验证主Engineering装配和三个入口；默认smoke使用隔离的空语料配置，不继承真实
@@ -199,6 +232,9 @@ python scripts/report_current_quality.py --output-prefix docs/validation/2026-10
 python -m pytest -q \
   --basetemp="$TMP/my_agent_pytest" \
   tests/test_api.py \
+  tests/test_knowledge_library.py \
+  tests/test_local_project_binding.py \
+  tests/test_engineering_project_workspace.py \
   tests/test_engineering_startup_isolation.py \
   tests/test_current_quality_report.py \
   tests/test_product_delivery.py \
@@ -304,12 +340,13 @@ python -m pytest -q --basetemp="${TMPDIR:-/tmp}/my_agent_pytest_maintenance" \
 - 不配置 API key 时：smoke、离线测试、backend/frontend 健康全部可用；
   `/engineering/query` 会因 provider runtime 初始化失败而不可用（这是显式
   fail-closed，不是 bug）。
-- 本仓库的 git diff / code_search 类 Tool 以 `ENGINEERING_PROJECT_ROOT`
-  指向的目录为工程对象（默认仓库自身）；不要把语料仓库当成 Engineering
-  Project。
+- HTML 会话的 git diff / code_search 类 Tool 使用该会话创建时选择的项目；
+  旧 question-only API / Streamlit 使用 `ENGINEERING_PROJECT_ROOT` 的启动
+  默认目录（默认仓库自身）。不要把语料仓库当成 Engineering Project。
 - CI 不下载任何语料、不运行真实 provider、不跑 Holdout / Set A 评测。
 
 ## 10. 挂载其它项目
 
-源码目录和知识库目录分别配置；`ENGINEERING_PROJECT_ROOT` 绑定在后端启动时，
-切换需要重启。一步步操作与已验证限制见 [新项目挂载手册](project_mount_runbook.md)。
+源码目录和知识库分别管理。HTML 新对话可添加或选择本地目录，切换不重启；
+`ENGINEERING_PROJECT_ROOT` 仍控制启动默认项目，仅修改该默认配置需要重启。
+操作与已验证限制见 [新项目挂载手册](project_mount_runbook.md)。

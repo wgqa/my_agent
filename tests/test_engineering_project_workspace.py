@@ -12,6 +12,16 @@ import api.app
 from api.project_workspace import resolve_engineering_project
 
 
+@pytest.fixture(autouse=True)
+def isolated_product_state(monkeypatch, tmp_path):
+    monkeypatch.setenv("ENGINEERING_PROJECT_DB", str(tmp_path / "projects.sqlite3"))
+    monkeypatch.setenv("ENGINEERING_CONVERSATION_DB", str(tmp_path / "conversations.sqlite3"))
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_DB", str(tmp_path / "knowledge.sqlite3"))
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "managed")
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_CORPUS_ROOT", "")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-workspace-test-key")
+
+
 def test_unconfigured_root_uses_default_repo(monkeypatch, tmp_path):
     default_root = tmp_path / "my_agent"
     default_root.mkdir()

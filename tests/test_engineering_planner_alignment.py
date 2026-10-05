@@ -219,6 +219,7 @@ def test_planner_fallback_does_not_turn_into_an_unguarded_direct_answer(tmp_path
 def test_production_lifespan_selects_engineering_profile_without_changing_legacy_default(
     monkeypatch, tmp_path,
 ):
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "verified")
     import api.app as application
 
     selected = []

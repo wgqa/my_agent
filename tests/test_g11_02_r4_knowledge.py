@@ -140,6 +140,7 @@ def test_symlink_escape_is_rejected_or_skipped_when_windows_denies_symlink(tmp_p
 
 
 def test_engineering_runtime_uses_dedicated_verified_port(monkeypatch, tmp_path):
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "verified")
     legacy_port = object()
     engineering_port = object()
     calls = []
@@ -213,6 +214,10 @@ def test_knowledge_status_is_safe_and_capabilities_are_independent(monkeypatch):
         "chunk_count": 215,
         "retrieval_strategy": "bm25",
         "manifest_experiment_id": EXPECTED_EXPERIMENT_ID,
+        "mode": "verified",
+        "mutable": False,
+        "revision": None,
+        "search_scope": "all_documents",
     }
     assert "corpus_root" not in response.model_dump()
     assert api.app.capabilities().features.engineering_agent is True

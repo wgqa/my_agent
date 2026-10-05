@@ -13,8 +13,13 @@ from api import schemas
 
 
 @pytest.fixture(autouse=True)
-def mock_pipeline():
+def mock_pipeline(monkeypatch, tmp_path):
     """Mock the Pipeline class so lifespan creates a mock instead of real Pipeline"""
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "managed")
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_DB", str(tmp_path / "knowledge.sqlite3"))
+    monkeypatch.setenv("ENGINEERING_CONVERSATION_DB", str(tmp_path / "conversations.sqlite3"))
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_CORPUS_ROOT", "")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-api-test-key")
     with patch("api.app.Pipeline") as mock_cls:
         p = MagicMock()
         p.vector_store.count.return_value = 5
@@ -497,7 +502,7 @@ class TestCORS:
             "http://127.0.0.1:8501",
         ]
         assert opts["allow_credentials"] is False
-        assert opts["allow_methods"] == ["GET", "POST"]
+        assert opts["allow_methods"] == ["GET", "POST", "PUT", "DELETE"]
         assert opts["allow_headers"] == ["Content-Type"]
 
 

@@ -6,6 +6,11 @@
 
 当前产品标识为 **2.0.0-dev / development**，尚未正式发布Release 2.0。API、OpenAPI、UI Settings与当前Demo共用版本源；历史Release 1.0冻结证据保持原身份。
 
+HTML 页面现在包含知识库管理：启动后端后打开 `http://127.0.0.1:8000/`，
+点击侧栏“知识库”查看、上传、替换或删除文档。默认 Engineering 主会话
+检索整个可维护库，数据保存在 SQLite；冻结语料仅用于首次导入或显式
+`ENGINEERING_KNOWLEDGE_MODE=verified` 的历史验证。见 [知识库运行说明](docs/knowledge_library_runbook.md)。
+
 Engineering 主入口近期聚焦配置到行为追踪、小范围变更与已有测试定位、文档与实现核对。主页卡片先填写具体调查对象再提交；任务范围、当前可靠性限制和检查结果见 [核心任务说明](docs/core_workflows.md)。
 
 当前质量、调用量、token 消耗和开发基线集中在 [质量与成本索引](docs/validation/2026-10-04-quality-baseline.md)，可离线重新汇总；内容正确性与 completed、预期拒答分开统计。Engineering 与旧 Demo 独立初始化，旧 Pipeline 启动失败时主链仍可用，见 [启动隔离验证](docs/validation/2026-10-04-quality-and-startup.md)。
@@ -17,7 +22,7 @@ Engineering 主入口近期聚焦配置到行为追踪、小范围变更与已�
 | Basic RAG | Dense / BM25 / Hybrid 检索、Reranker、grounded citation |
 | Agentic RAG | Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier |
 | Structured Tool Agent | 7 个 bounded read-only Tool：`calculator`、`code_search`、`read_project_context`、`knowledge_search`、`changed_files`、`git_diff`、`find_tests` |
-| Engineering Agent | 统一 Engineering API、verified knowledge identity、system-bound project identity 与 repository/change/test evidence |
+| Engineering Agent | 统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence |
 | Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push |
 | Evaluation | Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据 |
 | Engineering | FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke |
@@ -72,7 +77,7 @@ flowchart TD
     EV --> FIN[Single finalization point]
     FIN --> ER[Engineering response / SSE]
 
-    API --> KS[/engineering/knowledge<br/>status / identity only]
+    API --> KS[/engineering/knowledge<br/>status / identity / document management]
 ```
 
 Engineering Agent 是 Streamlit 默认主会话与统一 API 主入口；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE。Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 `Advanced / Demo` 选择器中，使用各自的 legacy API。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。
@@ -99,9 +104,11 @@ Decision → Tool Call → Observation → bounded iteration → Final Answer。
 
 ### Engineering Agent API
 
-`POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 verified Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开 verified Knowledge backend 的状态和 identity，不执行 Agent；`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
+`POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开当前知识库的状态、模式和 identity，不执行 Agent；默认 managed 模式由 `/engineering/knowledge/documents` 管理文档，历史 verified 模式保留只读冻结身份。`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
 
 UI 主会话通过 `POST /engineering/conversations` 创建，后续向 `POST /engineering/conversations/{conversation_id}/messages/stream/v1` 提交 `message`。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保存后才发布答案。旧 question-only Engineering API 仍接受 `question`，不自动保存为多轮会话。
+
+HTML 的 **New chat** 可选择已添加的项目，或填写本机绝对目录。每个对话固定绑定一个项目，顶部与会话列表显示项目名，切换无需重启。API 层登记目录并按项目复用现有 Core facade，聊天请求只传公开 `project_id`；知识库继续共享且默认检索整库。`/project`、旧 question-only API 和 Streamlit 仍使用启动默认项目。见 [本地项目使用说明](docs/project_mount_runbook.md)。
 
 `/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。
 
@@ -125,7 +132,9 @@ export DEEPSEEK_API_KEY="your-key"
 
 PowerShell 等价写法是 `$env:DEEPSEEK_API_KEY = "your-key"`。不要把真实凭据写入仓库文件。
 
-默认 Engineering 还需要 `ENGINEERING_KNOWLEDGE_CORPUS_ROOT` 指向身份验证通过的冻结语料；新机器的安装、语料和启动步骤见 [本地运行手册](docs/release2_local_runbook.md)。源码项目通过 `ENGINEERING_PROJECT_ROOT` 绑定，默认指向本仓库；切换项目见 [挂载操作](docs/project_mount_runbook.md)。
+默认 Engineering 使用可维护知识库，未配置初始语料时可从空库上传。
+`ENGINEERING_KNOWLEDGE_CORPUS_ROOT` 可用于首次导入已验证冻结语料；历史验证
+模式仍要求该目录有效。新机器的安装和启动步骤见 [本地运行手册](docs/release2_local_runbook.md)。`ENGINEERING_PROJECT_ROOT` 设置启动默认项目，默认指向本仓库；HTML 新对话可独立选择本地项目，见 [挂载操作](docs/project_mount_runbook.md)。
 
 ### 启动 API 与 UI
 
@@ -134,7 +143,7 @@ uvicorn api.app:app --host 127.0.0.1 --port 8000
 streamlit run ui/app.py
 ```
 
-打开 Streamlit 地址后，默认进入 Engineering Agent，可创建、继续或删除后端保存的会话；三种旧 Demo 在侧栏 `Advanced / Demo` 中切换。页面读取 `/health`、`/capabilities`、项目与知识库状态，runtime 未 ready 时会在提交前提示。
+后端启动后可直接打开 `http://127.0.0.1:8000/` 使用 HTML 聊天与知识库管理，无需另起静态服务器。Streamlit 保留为内部 Demo：打开其地址后默认进入 Engineering Agent，可创建、继续或删除后端保存的会话；三种旧 Demo 在侧栏 `Advanced / Demo` 中切换。页面读取 `/health`、`/capabilities`、项目与知识库状态，runtime 未 ready 时会在提交前提示。
 
 如果 API 不在默认地址，可设置 `RAG_API_URL=http://127.0.0.1:<port>` 后再启动 UI。
 
@@ -190,10 +199,16 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 | `POST /engineering/query` | 统一 Engineering Agent query entry |
 | `POST /engineering/query/stream` | Engineering Agent safe Trace SSE |
 | `POST /engineering/query/stream/v2` | Engineering Agent Rich Activity SSE |
-| `POST /engineering/conversations`、`GET /engineering/conversations` | 创建或列出当前项目的会话 |
-| `GET /engineering/conversations/{conversation_id}`、`DELETE /engineering/conversations/{conversation_id}` | 读取或删除当前项目的会话 |
-| `POST /engineering/conversations/{conversation_id}/messages/stream/v1` | 提交一条消息，使用服务端历史并返回 SSE |
-| `GET /engineering/knowledge` | Verified Engineering Knowledge backend 的公开状态与 identity |
+| `GET /engineering/projects`、`POST /engineering/projects` | 列出或添加本地项目，返回公开项目 id |
+| `POST /engineering/conversations`、`GET /engineering/conversations` | 创建或列出默认/所选项目会话；`scope=all` 列全部已登记项目 |
+| `GET /engineering/conversations/{conversation_id}`、`DELETE /engineering/conversations/{conversation_id}` | 读取或删除会话；可通过 `project_id` 指定其绑定项目 |
+| `POST /engineering/conversations/{conversation_id}/messages/stream/v1` | 提交消息，按绑定项目与服务端历史返回 SSE |
+| `GET /engineering/knowledge` | 当前知识库的公开状态、模式与 identity |
+| `GET /engineering/knowledge/documents` | 全库文档列表，支持文件名筛选和分页 |
+| `GET /engineering/knowledge/documents/{id}` | 指定文档的分段正文预览 |
+| `POST /engineering/knowledge/documents` | 上传文档或同名更新 |
+| `PUT /engineering/knowledge/documents/{id}` | 替换指定文档 |
+| `DELETE /engineering/knowledge/documents/{id}` | 删除指定文档及其分块 |
 | `GET /project` | 当前 system-bound project 的公开 identity，不暴露本地绝对路径 |
 
 `GET /capabilities` 同时报告 `engineering_agent` 的 runtime capability 状态。完整 request/response schema 以 FastAPI `/docs` 与 OpenAPI 为准；README 只保留产品层入口，不复制每个 Pydantic 字段。
@@ -331,7 +346,7 @@ G12 已在冻结的 16-case、two-repository transfer benchmark 上完成 Baseli
 
 - `api/`：FastAPI routes、public response schemas 和 runtime lifecycle。
 - `core/`：Pipeline、retrieval、Agent runtime、Tool registry 与执行器。
-- `core/engineering_agent.py`、`core/engineering_knowledge.py`、`core/tool_agent/`：Engineering Agent facade、verified knowledge 与 bounded Tool runtime。
+- `core/engineering_agent.py`、`core/knowledge_library.py`、`core/engineering_knowledge.py`、`core/tool_agent/`：Engineering Agent facade、产品知识库、历史 verified knowledge 与 bounded Tool runtime。
 - `api/app.py`：public API routes、runtime lifecycle 与 Engineering product entry。
 - `ui/`：Streamlit console、ApiClient 和结果 renderers。
 - `scripts/`：startup/full-app smoke、Demo harness、corpus verification 与评测入口。

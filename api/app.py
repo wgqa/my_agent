@@ -4,15 +4,17 @@ import os
 import tempfile
 import threading
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, Response, UploadFile, File, HTTPException
+from fastapi import FastAPI, Response, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from core.agent_runtime import AgentRuntime, build_pipeline_agent_runtime
 from core.agent_runtime.adapters import PipelineRetrievalAdapter
@@ -35,6 +37,13 @@ from core.engineering_knowledge import (
 )
 from core.generator.deepseek_gen import DEEPSEEK_BASE_URL
 from core.pipeline import Pipeline
+from core.knowledge_library import (
+    KNOWLEDGE_MODE_ENV, LIBRARY_DB_ENV, KnowledgeLibrary,
+    KnowledgeDocumentNotFound, KnowledgeDocumentConflict, library_is_initialized,
+)
+from core.loader.base import Document
+from core.loader.text_loader import TextLoader
+from core.loader.pdf_loader import PDFLoader
 from core.product_version import PRODUCT_NAME, PRODUCT_VERSION, product_identity
 from core.tool_agent import (
     FROZEN_TOOL_MODEL,
@@ -64,11 +73,15 @@ from api.schemas import (
     CapabilitiesResponse,
     FeatureCapabilities,
     EngineeringKnowledgeStatusResponse,
+    KnowledgeDocumentListResponse,
+    KnowledgeDocumentDetail,
+    KnowledgeUploadResponse,
     ToolAgentQueryRequest,
     ToolAgentEvidence,
     ToolAgentQueryResponse,
     ProjectResponse,
     EngineeringConversationDetail,
+    EngineeringConversationCreateRequest,
     EngineeringConversationListResponse,
     EngineeringConversationMessageRequest,
     EngineeringConversationSummary,
@@ -76,8 +89,12 @@ from api.schemas import (
     EngineeringQueryRequest,
     EngineeringQueryResponse,
     KnowledgeEvidence,
+    LocalProjectCreateRequest,
+    LocalProjectSummary,
+    LocalProjectListResponse,
 )
 from api.project_workspace import EngineeringProject, resolve_engineering_project
+from api.project_registry import ProjectRegistry, ProjectRuntimeCache, default_project_db_path
 from api.conversation_store import ConversationStore
 from api.engineering_stream import STREAM_SCHEMA_VERSION, stream_engineering_query
 from api.engineering_stream_v2 import (
@@ -109,9 +126,74 @@ engineering_context_resolver: Optional[EngineeringContextResolver] = None
 engineering_evidence_planner: Optional[EngineeringEvidencePlanner] = None
 engineering_retrieval_component: Optional[EngineeringRetrievalComponent] = None
 engineering_agent_facade: Optional[EngineeringAgentFacade] = None
-engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge] = None
+engineering_knowledge_backend: Optional[VerifiedEngineeringKnowledge | KnowledgeLibrary] = None
 engineering_project: Optional[EngineeringProject] = None
 conversation_store: Optional[ConversationStore] = None
+project_registry: Optional[ProjectRegistry] = None
+project_runtime_cache: Optional[ProjectRuntimeCache] = None
+
+
+@dataclass(frozen=True)
+class EngineeringProjectRuntime:
+    tool_runtime: ToolAgentRuntime
+    context_resolver: EngineeringContextResolver
+    planner: EngineeringEvidencePlanner
+    retrieval: EngineeringRetrievalComponent
+    runtime: UnifiedEngineeringRuntime
+    facade: EngineeringAgentFacade
+
+
+def _build_engineering_project_runtime(project: EngineeringProject) -> EngineeringProjectRuntime:
+    """Assemble the existing Core chain with a product-selected local root."""
+    if engineering_knowledge_backend is None:
+        raise ValueError("Engineering knowledge is unavailable")
+    port = engineering_knowledge_backend.retrieval_port
+    tool_runtime = build_tool_agent_runtime(
+        repo_root=project.root, retrieval_port=port,
+        api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
+        prompt_profile=ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
+        code_search_version=CODE_SEARCH_TEST_VERSION,
+        read_project_context_version=READ_PROJECT_TARGETS_VERSION,
+    )
+    context_resolver = EngineeringContextResolver(OpenAICompatibleConversationQueryResolver(
+        provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
+        api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
+    ))
+    planner = EngineeringEvidencePlanner(OpenAICompatibleQueryPlanner(
+        provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
+        api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
+        prompt_version=ENGINEERING_PLANNER_PROMPT_VERSION,
+    ))
+    retrieval = EngineeringRetrievalComponent(port)
+    runtime = UnifiedEngineeringRuntime(
+        LegacyToolAgentExecutionAdapter(tool_runtime), context_resolver=context_resolver,
+        evidence_planner=planner, retrieval_component=retrieval,
+        evidence_verifier=EngineeringEvidenceVerifier(),
+    )
+    return EngineeringProjectRuntime(tool_runtime, context_resolver, planner, retrieval,
+                                     runtime, EngineeringAgentFacade(runtime))
+
+
+def _build_product_knowledge():
+    mode = os.getenv(KNOWLEDGE_MODE_ENV, "managed").strip().lower()
+    if mode == "verified":
+        return build_verified_engineering_knowledge(os.getenv(CORPUS_ENV_VAR), repo_root=REPO_ROOT)
+    if mode != "managed":
+        raise ValueError("ENGINEERING_KNOWLEDGE_MODE must be managed or verified")
+    configured_path = os.getenv(LIBRARY_DB_ENV)
+    path = Path(configured_path) if configured_path else REPO_ROOT / "data/runtime/engineering_knowledge.sqlite3"
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    seeds = []
+    corpus_root = os.getenv(CORPUS_ENV_VAR)
+    if not library_is_initialized(path) and corpus_root:
+        verified = build_verified_engineering_knowledge(corpus_root, repo_root=REPO_ROOT)
+        root = Path(corpus_root).resolve(strict=True)
+        for name in verified.source_names:
+            source = (root / name).resolve(strict=True)
+            source.relative_to(root)
+            seeds.append(Document(source.read_text(encoding="utf-8"), {"source_name": name}))
+    return KnowledgeLibrary(path, seeds=seeds)
 
 
 @asynccontextmanager
@@ -121,7 +203,7 @@ async def lifespan(app: FastAPI):
     global engineering_context_resolver, engineering_evidence_planner
     global engineering_retrieval_component
     global engineering_agent_facade, engineering_knowledge_backend, engineering_project
-    global conversation_store
+    global conversation_store, project_registry, project_runtime_cache
     # The system owns this binding. A bad explicit value aborts startup instead
     # of silently running code_search against a different repository.
     engineering_project = resolve_engineering_project(REPO_ROOT)
@@ -132,6 +214,15 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("Conversation store init failed")
         conversation_store = None
+    project_registry = None
+    project_runtime_cache = None
+    try:
+        project_registry = ProjectRegistry(default_project_db_path())
+        project_registry.register(engineering_project)
+        project_runtime_cache = ProjectRuntimeCache(lambda project: _build_engineering_project_runtime(project).facade)
+    except Exception:
+        logger.exception("Local project registry init failed")
+        project_registry = None
     try:
         pipeline = Pipeline(
             config_path="config.yaml",
@@ -174,50 +265,19 @@ async def lifespan(app: FastAPI):
             logger.exception("Legacy tool agent runtime init failed")
             tool_agent_runtime = None
 
-    # Engineering owns its verified BM25 backend. Legacy Demo availability is
-    # not a prerequisite for building the product runtime.
+    # The product owns a mutable, persistent whole-library BM25 backend.
+    # Historical evaluation can explicitly select the frozen verified mode.
     try:
-        engineering_knowledge_backend = build_verified_engineering_knowledge(
-            os.getenv(CORPUS_ENV_VAR),
-            repo_root=REPO_ROOT,
-        )
-        engineering_tool_execution_runtime = build_tool_agent_runtime(
-            repo_root=engineering_project.root,
-            retrieval_port=engineering_knowledge_backend.retrieval_port,
-            api_key=os.getenv("DEEPSEEK_API_KEY"),
-            base_url=DEEPSEEK_BASE_URL,
-            prompt_profile=ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
-            code_search_version=CODE_SEARCH_TEST_VERSION,
-            read_project_context_version=READ_PROJECT_TARGETS_VERSION,
-        )
-        engineering_context_resolver = EngineeringContextResolver(
-            OpenAICompatibleConversationQueryResolver(
-                provider=FROZEN_TOOL_PROVIDER,
-                model=FROZEN_TOOL_MODEL,
-                api_key=os.getenv("DEEPSEEK_API_KEY"),
-                base_url=DEEPSEEK_BASE_URL,
-            )
-        )
-        engineering_evidence_planner = EngineeringEvidencePlanner(
-            OpenAICompatibleQueryPlanner(
-                provider=FROZEN_TOOL_PROVIDER,
-                model=FROZEN_TOOL_MODEL,
-                api_key=os.getenv("DEEPSEEK_API_KEY"),
-                base_url=DEEPSEEK_BASE_URL,
-                prompt_version=ENGINEERING_PLANNER_PROMPT_VERSION,
-            )
-        )
-        engineering_retrieval_component = EngineeringRetrievalComponent(
-            engineering_knowledge_backend.retrieval_port
-        )
-        unified_engineering_runtime = UnifiedEngineeringRuntime(
-            LegacyToolAgentExecutionAdapter(engineering_tool_execution_runtime),
-            context_resolver=engineering_context_resolver,
-            evidence_planner=engineering_evidence_planner,
-            retrieval_component=engineering_retrieval_component,
-            evidence_verifier=EngineeringEvidenceVerifier(),
-        )
-        engineering_agent_facade = EngineeringAgentFacade(unified_engineering_runtime)
+        engineering_knowledge_backend = _build_product_knowledge()
+        binding = _build_engineering_project_runtime(engineering_project)
+        engineering_tool_execution_runtime = binding.tool_runtime
+        engineering_context_resolver = binding.context_resolver
+        engineering_evidence_planner = binding.planner
+        engineering_retrieval_component = binding.retrieval
+        unified_engineering_runtime = binding.runtime
+        engineering_agent_facade = binding.facade
+        if project_registry is not None and project_runtime_cache is not None:
+            project_runtime_cache.seed(project_registry.register(engineering_project).id, binding.facade)
     except Exception:
         logger.exception("Engineering agent runtime init failed")
         engineering_tool_execution_runtime = None
@@ -241,6 +301,8 @@ async def lifespan(app: FastAPI):
         engineering_knowledge_backend = None
         engineering_project = None
         conversation_store = None
+        project_registry = None
+        project_runtime_cache = None
 
 
 app = FastAPI(
@@ -257,7 +319,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -400,6 +462,9 @@ def _engineering_knowledge_status() -> EngineeringKnowledgeStatusResponse:
         chunk_count=identity.chunk_count if identity else None,
         retrieval_strategy=identity.retrieval_strategy if identity else None,
         manifest_experiment_id=identity.manifest_experiment_id if identity else None,
+        mode="managed" if isinstance(backend, KnowledgeLibrary) else "verified",
+        mutable=isinstance(backend, KnowledgeLibrary),
+        revision=backend.revision if isinstance(backend, KnowledgeLibrary) else None,
     )
 
 
@@ -422,6 +487,39 @@ def _conversation_project_key(project: EngineeringProject) -> str:
     """Server-internal project binding identity; never returned to clients."""
 
     return hashlib.sha256(str(project.root).encode("utf-8")).hexdigest()
+
+
+def _get_project_registry() -> ProjectRegistry:
+    if project_registry is None:
+        raise HTTPException(status_code=503, detail="Local project registry is unavailable")
+    return project_registry
+
+
+def _conversation_binding(project_id: str | None):
+    """Resolve a public selector before loading history or acquiring a facade."""
+    if project_id:
+        try:
+            record = _get_project_registry().get(project_id)
+        except LookupError:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return record.project, record.project_key, record.id
+    project = _get_engineering_project()
+    record = project_registry.find(project.root) if project_registry is not None else None
+    return project, _conversation_project_key(project), record.id if record else None
+
+
+def _get_conversation_facade(project: EngineeringProject, project_id: str | None):
+    if not project_id:
+        return _get_engineering_agent_facade()
+    if not project.root.is_dir():
+        raise HTTPException(status_code=409, detail="Project directory is no longer available")
+    if project_runtime_cache is None:
+        raise HTTPException(status_code=503, detail="Project runtime is unavailable")
+    try:
+        return project_runtime_cache.get(_get_project_registry().get(project_id))
+    except Exception:
+        logger.exception("Project runtime initialization failed")
+        raise HTTPException(status_code=503, detail="Unable to initialize this project's runtime")
 
 
 def _assistant_display_content(public_result: dict) -> str:
@@ -578,6 +676,22 @@ def project() -> ProjectResponse:
         project_name=bound_project.project_name,
         source=bound_project.source,
     )
+
+
+@app.get("/engineering/projects", response_model=LocalProjectListResponse)
+def list_local_projects():
+    default_root = _get_engineering_project().root
+    return {"projects": [project.public(default_root=default_root)
+                         for project in _get_project_registry().list_projects()]}
+
+
+@app.post("/engineering/projects", response_model=LocalProjectSummary)
+def add_local_project(req: LocalProjectCreateRequest):
+    try:
+        project = _get_project_registry().add_local(req.path)
+    except (ValueError, OSError):
+        raise HTTPException(status_code=400, detail="请输入本机已存在的项目目录的完整路径。")
+    return project.public(default_root=_get_engineering_project().root)
 
 
 def _validate_filename(filename: str) -> None:
@@ -822,9 +936,90 @@ def engineering_query_stream_v2(req: EngineeringQueryRequest) -> StreamingRespon
     response_model=EngineeringKnowledgeStatusResponse,
 )
 def engineering_knowledge() -> EngineeringKnowledgeStatusResponse:
-    """Return verified backend identity without local paths or corpus contents."""
+    """Return active knowledge identity without local paths or corpus contents."""
 
     return _engineering_knowledge_status()
+
+
+def _get_knowledge_library() -> KnowledgeLibrary:
+    if engineering_knowledge_backend is None:
+        raise HTTPException(status_code=503, detail="Knowledge library is unavailable")
+    if not isinstance(engineering_knowledge_backend, KnowledgeLibrary):
+        raise HTTPException(status_code=409, detail="Knowledge library is read-only in verified evaluation mode")
+    return engineering_knowledge_backend
+
+
+@app.get("/engineering/knowledge/documents", response_model=KnowledgeDocumentListResponse)
+def list_knowledge_documents(
+    q: str = Query(default="", max_length=200),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    return _get_knowledge_library().list_documents(query=q, limit=limit, offset=offset)
+
+
+@app.get("/engineering/knowledge/documents/{document_id}", response_model=KnowledgeDocumentDetail)
+def get_knowledge_document(
+    document_id: str,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20000, ge=1, le=50000),
+):
+    try:
+        return _get_knowledge_library().get_document(document_id, offset=offset, limit=limit)
+    except KnowledgeDocumentNotFound:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+
+def _upload_knowledge_document(file: UploadFile, document_id: str | None = None):
+    library = _get_knowledge_library()
+    filename = file.filename or ""
+    _validate_filename(filename)
+    try:
+        with tempfile.TemporaryDirectory(prefix="engineering_knowledge_upload_") as directory:
+            path = os.path.join(directory, filename)
+            size = _copy_upload(file.file, path, MAX_UPLOAD_BYTES)
+            if not size:
+                raise HTTPException(status_code=400, detail="Empty file")
+            if filename.lower().endswith(".pdf"):
+                try:
+                    documents = PDFLoader().load(path)
+                except RuntimeError as exc:
+                    raise ValueError("PDF cannot be read; upload a valid PDF with selectable text") from exc
+            else:
+                documents = TextLoader().load(path)
+            return library.upload(filename, documents, size_bytes=size, document_id=document_id)
+    except HTTPException:
+        raise
+    except KnowledgeDocumentNotFound:
+        raise HTTPException(status_code=404, detail="Document not found")
+    except KnowledgeDocumentConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except (ValueError, UnicodeError) as exc:
+        # Filenames are validated, and these parsing messages contain no paths.
+        detail = "File must contain readable UTF-8 text" if isinstance(exc, UnicodeError) else str(exc)
+        raise HTTPException(status_code=400, detail=detail)
+    except Exception:
+        logger.exception("Knowledge document indexing failed")
+        raise HTTPException(status_code=500, detail="Unable to index this document")
+
+
+@app.post("/engineering/knowledge/documents", response_model=KnowledgeUploadResponse)
+def upload_knowledge_document(file: UploadFile = File(...)):
+    return _upload_knowledge_document(file)
+
+
+@app.put("/engineering/knowledge/documents/{document_id}", response_model=KnowledgeUploadResponse)
+def replace_knowledge_document(document_id: str, file: UploadFile = File(...)):
+    return _upload_knowledge_document(file, document_id)
+
+
+@app.delete("/engineering/knowledge/documents/{document_id}", status_code=204)
+def delete_knowledge_document(document_id: str):
+    try:
+        _get_knowledge_library().delete_document(document_id)
+    except KnowledgeDocumentNotFound:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return Response(status_code=204)
 
 
 @app.post(
@@ -832,34 +1027,43 @@ def engineering_knowledge() -> EngineeringKnowledgeStatusResponse:
     response_model=EngineeringConversationSummary,
     status_code=201,
 )
-def create_engineering_conversation() -> EngineeringConversationSummary:
-    """Create a server-owned Engineering conversation bound to this project.
-
-    Clients never choose the conversation id or the project binding; both are
-    system-generated.
-    """
-
-    project = _get_engineering_project()
+def create_engineering_conversation(
+    req: EngineeringConversationCreateRequest | None = None,
+) -> EngineeringConversationSummary:
+    """Bind a new conversation to a registered root, or the legacy default."""
+    project, project_key, project_id = _conversation_binding(req.project_id if req else None)
+    if req and req.project_id and not project.root.is_dir():
+        raise HTTPException(status_code=409, detail="Project directory is no longer available")
     store = _get_conversation_store()
-    return store.create_conversation(
-        project_key=_conversation_project_key(project),
+    created = store.create_conversation(
+        project_key=project_key,
         project_name=project.project_name,
         project_source=project.source,
     )
+    return {**created, "project_id": project_id}
 
 
 @app.get(
     "/engineering/conversations",
     response_model=EngineeringConversationListResponse,
 )
-def list_engineering_conversations() -> EngineeringConversationListResponse:
-    """List this project's conversations, most recently updated first."""
-
-    project = _get_engineering_project()
+def list_engineering_conversations(
+    project_id: str | None = Query(default=None, min_length=1, max_length=64),
+    scope: Literal["project", "all"] = "project",
+) -> EngineeringConversationListResponse:
+    """The default contract remains scoped; HTML can list registered projects."""
     store = _get_conversation_store()
+    if scope == "all":
+        if project_id:
+            raise HTTPException(status_code=400, detail="Select either all projects or one project")
+        bindings = {project.project_key: project.id for project in _get_project_registry().list_projects()}
+        conversations = store.list_registered_conversations(bindings)
+    else:
+        _, project_key, project_id = _conversation_binding(project_id)
+        conversations = [{**item, "project_id": project_id} for item in store.list_conversations(project_key)]
     return EngineeringConversationListResponse(
         schema_version="engineering_conversation_list_v1",
-        conversations=store.list_conversations(_conversation_project_key(project)),
+        conversations=conversations,
     )
 
 
@@ -867,22 +1071,28 @@ def list_engineering_conversations() -> EngineeringConversationListResponse:
     "/engineering/conversations/{conversation_id}",
     response_model=EngineeringConversationDetail,
 )
-def get_engineering_conversation(conversation_id: str) -> EngineeringConversationDetail:
-    project = _get_engineering_project()
+def get_engineering_conversation(
+    conversation_id: str,
+    project_id: str | None = Query(default=None, min_length=1, max_length=64),
+) -> EngineeringConversationDetail:
+    _, project_key, project_id = _conversation_binding(project_id)
     store = _get_conversation_store()
-    detail = store.get_conversation(_conversation_project_key(project), conversation_id)
+    detail = store.get_conversation(project_key, conversation_id)
     if detail is None:
         # A conversation from another local project is deliberately not
         # distinguishable from a missing one.
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return detail
+    return {**detail, "project_id": project_id}
 
 
 @app.delete("/engineering/conversations/{conversation_id}", status_code=204)
-def delete_engineering_conversation(conversation_id: str) -> Response:
-    project = _get_engineering_project()
+def delete_engineering_conversation(
+    conversation_id: str,
+    project_id: str | None = Query(default=None, min_length=1, max_length=64),
+) -> Response:
+    _, project_key, _ = _conversation_binding(project_id)
     store = _get_conversation_store()
-    deleted = store.delete_conversation(_conversation_project_key(project), conversation_id)
+    deleted = store.delete_conversation(project_key, conversation_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return Response(status_code=204)
@@ -894,6 +1104,7 @@ def delete_engineering_conversation(conversation_id: str) -> Response:
 def engineering_conversation_message_stream(
     conversation_id: str,
     req: EngineeringConversationMessageRequest,
+    project_id: str | None = Query(default=None, min_length=1, max_length=64),
 ) -> StreamingResponse:
     """One server-owned multi-turn Engineering conversation turn over SSE.
 
@@ -905,13 +1116,13 @@ def engineering_conversation_message_stream(
     the UI already showed as complete.
     """
 
-    project = _get_engineering_project()
+    project, project_key, selected_project_id = _conversation_binding(project_id)
     store = _get_conversation_store()
-    project_key = _conversation_project_key(project)
     history = store.load_history(project_key, conversation_id)
     if history is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    facade = _get_engineering_agent_facade()
+    # Capture the facade and store key once; other tabs cannot rebind this turn.
+    facade = _get_conversation_facade(project, selected_project_id if project_id else None)
     release_slot = _acquire_engineering_run_slot()
     cancel_event = threading.Event()
 
@@ -998,3 +1209,12 @@ def capabilities() -> CapabilitiesResponse:
             engineering_agent=engineering_agent_facade is not None,
         ),
     )
+
+
+@app.get("/", include_in_schema=False)
+def html_frontend():
+    return FileResponse(REPO_ROOT / "frontend/index.html")
+
+
+app.mount("/css", StaticFiles(directory=REPO_ROOT / "frontend/css"), name="frontend-css")
+app.mount("/js", StaticFiles(directory=REPO_ROOT / "frontend/js"), name="frontend-js")

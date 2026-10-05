@@ -193,6 +193,20 @@ class ConversationStore:
         ]
         return detail
 
+    def list_registered_conversations(self, project_ids: Mapping[str, str]) -> list[dict[str, Any]]:
+        """Product view across registered roots; private keys never leave it."""
+        if not project_ids:
+            return []
+        placeholders = ",".join("?" for _ in project_ids)
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT id, title, project_name, project_source, created_at, updated_at, project_key "
+                f"FROM conversations WHERE project_key IN ({placeholders}) "
+                "ORDER BY updated_at DESC, rowid DESC",
+                tuple(project_ids),
+            ).fetchall()
+        return [{**self._summary_row(row[:6]), "project_id": project_ids[row[6]]} for row in rows]
+
     def delete_conversation(self, project_key: str, conversation_id: str) -> bool:
         with self._connection() as conn:
             cursor = conn.execute(

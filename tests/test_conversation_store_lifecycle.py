@@ -78,7 +78,7 @@ def _assert_closed(tracker):
             conn.execute("SELECT 1")
 
 
-@pytest.mark.parametrize("operation", ["create", "list", "get", "delete", "history", "append"])
+@pytest.mark.parametrize("operation", ["create", "list", "registered", "get", "delete", "history", "append"])
 def test_successful_store_operations_close_connections(
     tmp_path: Path, connection_tracker, operation
 ):
@@ -87,6 +87,7 @@ def test_successful_store_operations_close_connections(
     operations = {
         "create": lambda: _create(store),
         "list": lambda: store.list_conversations("project-a"),
+        "registered": lambda: store.list_registered_conversations({"project-a": "public-project-id"}),
         "get": lambda: store.get_conversation("project-a", created["id"]),
         "delete": lambda: store.delete_conversation("project-a", created["id"]),
         "history": lambda: store.load_history("project-a", created["id"]),

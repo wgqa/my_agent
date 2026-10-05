@@ -27,6 +27,7 @@ class CalculatorDecisions:
 
 @pytest.fixture
 def startup(monkeypatch, tmp_path):
+    monkeypatch.setenv("ENGINEERING_KNOWLEDGE_MODE", "verified")
     monkeypatch.setenv("ENGINEERING_PROJECT_ROOT", str(tmp_path))
     monkeypatch.setenv("ENGINEERING_CONVERSATION_DB", str(tmp_path / "conversations.sqlite3"))
     monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-startup-key")

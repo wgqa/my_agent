@@ -30,6 +30,9 @@ jobs:
           python -m pytest -q
           --basetemp="$RUNNER_TEMP/my_agent_pytest"
           tests/test_api.py
+          tests/test_knowledge_library.py
+          tests/test_local_project_binding.py
+          tests/test_engineering_project_workspace.py
           tests/test_engineering_startup_isolation.py
           tests/test_current_quality_report.py
           tests/test_product_delivery.py

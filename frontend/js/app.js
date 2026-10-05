@@ -1,4 +1,6 @@
 import { api, ApiError } from './api.js';
+import { initKnowledgeBase } from './knowledge.js';
+import { initProjectDialog } from './projects.js';
 
 const EVIDENCE_ORDER = [
   'knowledge',
@@ -19,6 +21,8 @@ const KIND_LABELS = {
 const state = {
   conversations: [],
   activeConversationId: null,
+  activeProjectId: null,
+  switching: false,
   messages: [],
   evidence: [],
   activity: [],
@@ -31,6 +35,8 @@ const state = {
   drawerHighlightTimer: null,
   toastTimer: null,
 };
+
+let conversationLoadSequence = 0;
 
 const elements = {
   apiStatus: document.querySelector('#api-status'),
@@ -118,12 +124,12 @@ function resizeComposer() {
 }
 
 function updateComposerState() {
-  elements.sendMessage.disabled = state.running || !elements.messageInput.value.trim();
+  elements.sendMessage.disabled = state.running || state.switching || !elements.messageInput.value.trim();
 }
 
 function setRunning(running) {
   state.running = running;
-  elements.newConversation.disabled = running;
+  elements.newConversation.disabled = running || state.switching;
   elements.refreshConversations.disabled = running;
   elements.messageInput.disabled = running;
   elements.liveRun.hidden = !running;
@@ -163,7 +169,13 @@ function renderConversationList() {
       conversation.id === state.activeConversationId,
     );
     button.disabled = state.running;
-    button.textContent = text(conversation.title, 'New conversation');
+    const title = document.createElement('span');
+    title.className = 'conversation-item-title';
+    title.textContent = text(conversation.title, 'New conversation');
+    const project = document.createElement('span');
+    project.className = 'conversation-item-project';
+    project.textContent = text(conversation.project_name, 'Project');
+    button.append(title, project);
     button.addEventListener('click', () => selectConversation(conversation.id));
     elements.conversationList.append(button);
   }
@@ -898,6 +910,7 @@ function renderMessages() {
 }
 
 function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
+  state.activeProjectId = detail.project_id || null;
   state.messages = Array.isArray(detail.messages) ? detail.messages : [];
   const assistant = [...state.messages]
     .reverse()
@@ -912,7 +925,8 @@ function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
   const title = text(detail.title, '');
   elements.conversationTitle.textContent =
     title && title !== 'New conversation' ? title : 'Engineering Agent';
-  elements.projectName.textContent = text(detail.project_name, 'Project');
+  elements.projectName.textContent = '项目：' + text(detail.project_name, 'Project');
+  elements.projectName.title = '此对话固定绑定的项目：' + text(detail.project_name, 'Project');
   renderMessages();
   renderLiveActivity();
   renderDrawer();
@@ -922,10 +936,26 @@ function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
 }
 
 async function loadConversation(conversationId, options = {}) {
-  const detail = await api.getConversation(conversationId);
-  state.activeConversationId = conversationId;
-  applyConversationDetail(detail, options);
-  renderConversationList();
+  const sequence = ++conversationLoadSequence;
+  const projectId = state.conversations.find(item => item.id === conversationId)?.project_id || state.activeProjectId;
+  state.switching = true;
+  elements.messageInput.disabled = true;
+  elements.newConversation.disabled = true;
+  updateComposerState();
+  try {
+    const detail = await api.getConversation(conversationId, projectId);
+    if (sequence !== conversationLoadSequence) return;
+    state.activeConversationId = conversationId;
+    applyConversationDetail(detail, options);
+    renderConversationList();
+  } finally {
+    if (sequence === conversationLoadSequence) {
+      state.switching = false;
+      elements.messageInput.disabled = state.running;
+      elements.newConversation.disabled = state.running;
+      updateComposerState();
+    }
+  }
 }
 
 async function refreshConversations() {
@@ -962,26 +992,23 @@ async function selectConversation(conversationId) {
   }
 }
 
-async function createConversation() {
-  if (state.running) {
-    return;
+async function createConversation(projectId) {
+  if (state.running || state.switching) {
+    return false;
   }
-  try {
-    const created = await api.createConversation();
-    state.conversations = [created, ...state.conversations];
-    state.activeConversationId = created.id;
-    state.latestResult = null;
-    state.evidence = [];
-    state.activity = [];
-    state.drawerResult = null;
-    closeDrawer();
-    clearRunError();
-    applyConversationDetail(created);
-    renderConversationList();
-    elements.messageInput.focus();
-  } catch (error) {
-    showToast(userFacingError(error), { error: true });
-  }
+  const created = await api.createConversation(projectId);
+  state.conversations = [created, ...state.conversations];
+  state.activeConversationId = created.id;
+  state.latestResult = null;
+  state.evidence = [];
+  state.activity = [];
+  state.drawerResult = null;
+  closeDrawer();
+  clearRunError();
+  applyConversationDetail(created);
+  renderConversationList();
+  elements.messageInput.focus();
+  return true;
 }
 
 function updatePendingAssistant(content, result = null) {
@@ -1008,7 +1035,7 @@ function markPendingError(message, detail) {
 
 async function sendMessage(event) {
   event.preventDefault();
-  if (state.running) {
+  if (state.running || state.switching) {
     return;
   }
   const message = elements.messageInput.value.trim();
@@ -1084,6 +1111,7 @@ async function sendMessage(event) {
           renderMessages();
         }
       },
+      state.activeProjectId,
     );
 
     if (finalResult && state.activeConversationId) {
@@ -1115,8 +1143,14 @@ async function sendMessage(event) {
 }
 
 async function boot() {
+  initKnowledgeBase({ onOpen: closeDrawer, isRunning: () => state.running });
+  const projects = initProjectDialog({
+    getActiveProjectId: () => state.activeProjectId,
+    onCreate: createConversation,
+    isRunning: () => state.running || state.switching,
+  });
   elements.composer.addEventListener('submit', sendMessage);
-  elements.newConversation.addEventListener('click', createConversation);
+  elements.newConversation.addEventListener('click', projects.open);
   elements.drawerClose.addEventListener('click', closeDrawer);
   for (const button of elements.drawerTabs) {
     button.addEventListener('click', () => {

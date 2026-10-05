@@ -4,7 +4,19 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-10-04
+**更新日期：** 2026-10-05
+
+## HTML 按对话绑定本地项目（2026-10-05）
+
+- New chat 新增项目选择与本机绝对目录登记，顶部/列表显示项目；新对话固定绑定，切回旧对话恢复原项目，切换无需重启。独立 SQLite 登记公开 id 和服务端目录，沿用现有根目录会话隔离；不迁移旧会话表。
+- 修改集中在 API 装配、项目登记/缓存、会话适配和 HTML。复用原 Core 主链，最多缓存 4 个 facade；运行中的请求持有自己的绑定，其他页面新建对话不会改变它。知识库继续共享并全库检索。旧 `/project`、question-only API 和 Streamlit 保留启动默认绑定。本次项目功能未修改 `core/`，先前知识库切片的 `core/knowledge_library.py` 保留。
+- 两组不重叠回归 **119 passed / 1 skipped** + **104 passed**，Windows symlink 受限造成一项 skip。真实 HTML 隔离服务验证添加/无效目录、两项目同名文件读取、切换与刷新恢复、390px 布局；生产页确认入口与默认项目。零外部模型请求，未运行全量/GitHub CI；此功能不声明模型质量提升。CI/手册现 **51 模块**。见 [使用说明](project_mount_runbook.md)、[验证记录](validation/2026-10-05-local-project-binding.md)。
+
+## HTML 知识库管理（2026-10-05）
+
+- HTML 左侧新增“知识库”：整库文档列表、文件名筛选、分页、数量/分块统计、正文预览、批量上传、同名更新、替换指定文档与删除确认。FastAPI 直接提供 HTML/CSS/JS，与聊天 API 同源；下方历史 `Future showcase frontend NOT STARTED / static serving NOT IMPLEMENTED` 已被本次实现取代，Streamlit 内部 Demo 的冻结记录保留。
+- 默认 Engineering 使用持久化 managed 库，文档管理和主会话检索绑定同一动态 BM25 port；问答检索整库，管理页筛选只影响列表。文档/分块/索引在成功提交后同步，失败回滚，重启不会补回已删除的初始文档。内部 512/64 token 分块、七工具与 5/4/2 保持。历史验证显式用 verified 模式，冻结语料不被改写，managed 不声明历史 benchmark 身份。
+- 知识库专项 **20 passed**；其余相关启动、API、会话、检索、SSE 回归 **195 passed / 1 skipped**。真实 HTML 隔离库上传 37→38、替换数量不变，删除 API 后恢复 37/215 且检索不再命中；删除弹窗取消与 390px 小屏检查通过。CI/手册当前 **49模块**。零模型请求，未全量/GitHub CI/并发压测；文档管理完成不代表新语料的模型答案质量已验证。见 [使用说明](knowledge_library_runbook.md)、[验证记录](validation/2026-10-05-knowledge-library.md)。
 
 ## 当前演示与交付一致性（2026-10-04）
 

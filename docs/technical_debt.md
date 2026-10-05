@@ -12,6 +12,8 @@
 
 ## 最近处理记录
 
+2026-10-05：按项目所有者要求补齐 HTML 知识库管理。新增文档列表/全文分页预览/上传/同名更新/指定替换/删除确认；FastAPI 提供同源 HTML，Engineering 默认 managed SQLite 库与主检索共用动态 BM25 port，问答搜索整库，管理页筛选不改变检索范围。上传、替换、删除同步提交文档与分块，索引失败回滚，重启不恢复已删初始语料；历史 verified 模式与冻结材料保留。专项20 passed、其余相关195 passed/1 skipped，实际浏览器隔离库操作与390px小屏检查通过，零模型调用；CI/手册49模块。固定37文档只能靠源码/配置维护的产品缺口已补齐，TD-RAG-01的参数、泛化与答案质量验证仍OPEN。见 [知识库说明](knowledge_library_runbook.md)、[验证](validation/2026-10-05-knowledge-library.md)。
+
 2026-10-04 第四项：当前演示与交付一致性切片已完成。产品版本统一为2.0.0-dev/development，OpenAPI与新增`/version`、UI Settings、当前Engineering Demo共源；保留历史Release 1.0冻结与旧Demo。独立Git fixture覆盖三个卡片，复用原题目生成/会话/SSE/持久化；`run --live`每场景一条消息、无任务级重试，拒答及失败保留，结果不覆盖。smoke配置隔离项目/语料/数据库/凭据，Full App可显式检查当前Engineering ready、三个入口及版本。局部12模块100 passed，真实Full App和故障隔离smoke通过，CI/手册48模块；零新增付费调用，未全量/GitHub CI/正式发版。TD-CLEAN-02的当前入口一致性已有进展，历史文档归档、整体可靠性与Runtime大项继续开放。见 [演示手册](demo_engineering_runbook.md)、[验证](validation/2026-10-04-product-delivery.md)。
 
 2026-10-04 后续：按项目所有者授权处理校招第二、三项。质量/成本/基线汇总新增零provider离线脚本，校验81份历史材料，完整54请求/295调用按版本、阶段、核心/边界和内容分数展示，当前生产SHA与最近付费检查差异明确记录；不把历史Gate指标或completed当当前正确率。TD-RUNTIME-01的启动依赖切片已完成：Engineering装配移出旧Pipeline/Tool Agent成功分支，UI不再由旧`/health`失败阻断所有模式；知识校验与5/4/2保留。局部六模块122 passed，真实uvicorn+实际页面AppTest在旧配置失败时Engineering verified且聊天可用，零新增付费调用。CI/手册44模块，未全量/GitHub CI；整体可靠性、Runtime大项与第四项仍开放。见 [质量索引](validation/2026-10-04-quality-baseline.md)、[启动隔离验证](validation/2026-10-04-quality-and-startup.md)。
@@ -129,6 +131,11 @@ ToolCallAction / FinalAnswerAction / RefuseAction
 ## TD-RAG-01：RAG 参数与泛化验证不足
 
 ### 当前状态
+
+2026-10-05 已补齐产品知识库管理：默认 managed 库支持上传、更新、删除与持久化，
+主会话检索同一整库，初始冻结语料只在首次配置时导入。历史 verified 模式继续
+用于冻结验证。这解除固定37文档的维护限制，尚未验证任意新领域的召回和答案质量，
+本项参数与泛化实验仍 OPEN。
 
 当前已经有正式实验支撑：
 

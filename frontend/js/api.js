@@ -14,10 +14,15 @@ export class ApiError extends Error {
 function resolveApiBase() {
   const configured = window.ENGINEERING_API_BASE_URL;
   const queryValue = new URLSearchParams(window.location.search).get('api');
-  return String(configured || queryValue || DEFAULT_API_BASE).replace(/\/+$/, '');
+  const sameOrigin = ['http:', 'https:'].includes(window.location.protocol) ? window.location.origin : DEFAULT_API_BASE;
+  return String(configured || queryValue || sameOrigin).replace(/\/+$/, '');
 }
 
 export const API_BASE_URL = resolveApiBase();
+
+function projectQuery(projectId) {
+  return projectId ? '?project_id=' + encodeURIComponent(projectId) : '';
+}
 
 async function parseResponseError(response) {
   let detail = '';
@@ -58,7 +63,7 @@ async function request(path, options = {}) {
       ...options,
       headers: {
         Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         ...(options.headers || {}),
       },
     });
@@ -87,35 +92,69 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  knowledgeStatus() {
+    return request('/engineering/knowledge');
+  },
+
+  listKnowledgeDocuments({ query = '', offset = 0, limit = 50 } = {}) {
+    const params = new URLSearchParams({ q: query, offset: String(offset), limit: String(limit) });
+    return request('/engineering/knowledge/documents?' + params);
+  },
+
+  getKnowledgeDocument(documentId, offset = 0) {
+    return request('/engineering/knowledge/documents/' + encodeURIComponent(documentId) + '?offset=' + offset);
+  },
+
+  uploadKnowledgeDocument(file, documentId = null) {
+    const body = new FormData();
+    body.append('file', file);
+    const suffix = documentId ? '/' + encodeURIComponent(documentId) : '';
+    return request('/engineering/knowledge/documents' + suffix, { method: documentId ? 'PUT' : 'POST', body });
+  },
+
+  deleteKnowledgeDocument(documentId) {
+    return request('/engineering/knowledge/documents/' + encodeURIComponent(documentId), { method: 'DELETE' });
+  },
+
   listConversations() {
-    return request('/engineering/conversations');
+    return request('/engineering/conversations?scope=all');
   },
 
-  createConversation() {
-    return request('/engineering/conversations', { method: 'POST' });
+  listLocalProjects() {
+    return request('/engineering/projects');
   },
 
-  getConversation(conversationId) {
+  addLocalProject(path) {
+    return request('/engineering/projects', { method: 'POST', body: JSON.stringify({ path }) });
+  },
+
+  createConversation(projectId = null) {
+    return request('/engineering/conversations', {
+      method: 'POST', ...(projectId ? { body: JSON.stringify({ project_id: projectId }) } : {}),
+    });
+  },
+
+  getConversation(conversationId, projectId = null) {
     return request(
-      '/engineering/conversations/' + encodeURIComponent(conversationId),
+      '/engineering/conversations/' + encodeURIComponent(conversationId) + projectQuery(projectId),
     );
   },
 
-  deleteConversation(conversationId) {
+  deleteConversation(conversationId, projectId = null) {
     return request(
-      '/engineering/conversations/' + encodeURIComponent(conversationId),
+      '/engineering/conversations/' + encodeURIComponent(conversationId) + projectQuery(projectId),
       { method: 'DELETE' },
     );
   },
 
-  async streamConversation(conversationId, message, onEvent) {
+  async streamConversation(conversationId, message, onEvent, projectId = null) {
     let response;
     try {
       response = await fetch(
         API_BASE_URL
           + '/engineering/conversations/'
           + encodeURIComponent(conversationId)
-          + '/messages/stream/v1',
+          + '/messages/stream/v1' + projectQuery(projectId),
         {
           method: 'POST',
           headers: {

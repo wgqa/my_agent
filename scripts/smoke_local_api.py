@@ -63,7 +63,12 @@ def _build_env(temp_dir: Path) -> dict:
     project.mkdir(exist_ok=True)
     env["ENGINEERING_PROJECT_ROOT"] = str(project)
     env["ENGINEERING_KNOWLEDGE_CORPUS_ROOT"] = str(temp_dir / "unconfigured_corpus")
+    # These existing smoke contracts exercise the historical frozen backend.
+    # Mutable-library checks use their own isolated database.
+    env["ENGINEERING_KNOWLEDGE_MODE"] = "verified"
+    env["ENGINEERING_KNOWLEDGE_DB"] = str(temp_dir / "engineering_knowledge.sqlite3")
     env["ENGINEERING_CONVERSATION_DB"] = str(temp_dir / "engineering_conversations.sqlite3")
+    env["ENGINEERING_PROJECT_DB"] = str(temp_dir / "engineering_projects.sqlite3")
     # PYTHONPATH 指向 repo root：即使 cwd 是临时目录也能 import api.app
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = str(REPO_ROOT) + (os.pathsep + existing if existing else "")

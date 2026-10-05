@@ -120,6 +120,46 @@ class EngineeringKnowledgeStatusResponse(BaseModel):
     chunk_count: Optional[int] = None
     retrieval_strategy: Optional[str] = None
     manifest_experiment_id: Optional[str] = None
+    mode: Literal["managed", "verified"] = "verified"
+    mutable: bool = False
+    revision: Optional[int] = None
+    search_scope: Literal["all_documents"] = "all_documents"
+
+
+class KnowledgeDocumentSummary(BaseModel):
+    id: str
+    name: str
+    file_type: str
+    size_bytes: int
+    chunk_count: int
+    origin: Literal["seed", "upload"]
+    created_at: str
+    updated_at: str
+    status: Literal["ready"]
+
+
+class KnowledgeDocumentDetail(KnowledgeDocumentSummary):
+    content: str
+    content_length: int
+    offset: int
+    next_offset: Optional[int] = None
+
+
+class KnowledgeDocumentListResponse(BaseModel):
+    items: List[KnowledgeDocumentSummary]
+    total: int
+    file_count: int
+    chunk_count: int
+    revision: int
+    limit: int
+    offset: int
+    search_scope: Literal["all_documents"]
+
+
+class KnowledgeUploadResponse(BaseModel):
+    document: KnowledgeDocumentSummary
+    status: Literal["create", "update", "no_change"]
+    revision: int
 
 
 class ProjectResponse(BaseModel):
@@ -323,6 +363,28 @@ class EngineeringConversationMessageRequest(BaseModel):
         return v
 
 
+class LocalProjectCreateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    path: str = Field(min_length=1, max_length=4096)
+
+
+class LocalProjectSummary(BaseModel):
+    id: str
+    project_name: str
+    source: Literal["default_repo", "configured"]
+    is_default: bool
+    available: bool
+
+
+class LocalProjectListResponse(BaseModel):
+    projects: List[LocalProjectSummary]
+
+
+class EngineeringConversationCreateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    project_id: Optional[str] = Field(default=None, min_length=1, max_length=64)
+
+
 class EngineeringConversationSummary(BaseModel):
     """Public conversation metadata; never a project key, root, or local path."""
 
@@ -331,6 +393,7 @@ class EngineeringConversationSummary(BaseModel):
     title: str
     project_name: str
     project_source: str
+    project_id: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -352,6 +415,7 @@ class EngineeringConversationDetail(BaseModel):
     title: str
     project_name: str
     project_source: str
+    project_id: Optional[str] = None
     created_at: str
     updated_at: str
     messages: List[EngineeringConversationMessageView]
