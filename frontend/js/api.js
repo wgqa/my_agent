@@ -1,5 +1,7 @@
+import { ACTIVITY_EVENT_TYPES, isActivityEvent } from './activity.js';
+
 const DEFAULT_API_BASE = 'http://localhost:8000';
-const STREAM_SCHEMA = 'engineering_query_stream_v1';
+const STREAM_SCHEMA = 'engineering_query_stream_v2';
 
 export class ApiError extends Error {
   constructor(kind, message, { status = null, detail = '' } = {}) {
@@ -154,7 +156,7 @@ export const api = {
         API_BASE_URL
           + '/engineering/conversations/'
           + encodeURIComponent(conversationId)
-          + '/messages/stream/v1' + projectQuery(projectId),
+          + '/messages/stream/v2' + projectQuery(projectId),
         {
           method: 'POST',
           headers: {
@@ -234,8 +236,9 @@ export const api = {
         throw new ApiError('invalid_response', 'The stream continued after completion.');
       }
       const invalid = () => new ApiError('invalid_response', 'The API returned an incomplete or inconsistent result.');
-      if (!['status', 'evidence', 'answer_start', 'answer_delta', 'final', 'error', 'done'].includes(event.type)
+      if (![...ACTIVITY_EVENT_TYPES, 'answer_start', 'answer_delta', 'final', 'error', 'done'].includes(event.type)
           || (terminalEvent && event.type !== 'done')) throw invalid();
+      if (ACTIVITY_EVENT_TYPES.has(event.type) && (answerStarted || !isActivityEvent(event))) throw invalid();
       if (event.type === 'answer_start') {
         if (answerStarted) throw invalid();
         answerStarted = true;
@@ -247,6 +250,8 @@ export const api = {
       if (event.type === 'final') {
         const result = event.result;
         if (!['completed', 'refused', 'failed'].includes(result?.status)) throw invalid();
+        if (result.activity !== undefined
+            && (!Array.isArray(result.activity) || !result.activity.every(isActivityEvent))) throw invalid();
         if (result.status === 'completed') {
           if (!answerStarted || typeof result.answer !== 'string' || result.answer !== answerBuffer) throw invalid();
         } else if (answerStarted || (result.answer !== null && result.answer !== undefined)) throw invalid();
@@ -299,6 +304,7 @@ export const api = {
         { detail: error instanceof Error ? error.message : '' },
       );
     } finally {
+      if (!sawDone) await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
 

@@ -81,6 +81,7 @@ jobs:
           tests/test_tool_agent_finalization_guard.py
           tests/test_engineering_stream.py
           tests/test_engineering_stream_v2.py
+          tests/test_engineering_conversation_stream_v2.py
           tests/test_product_conversation_20.py
           tests/test_conversation_store_lifecycle.py
           tests/test_product_grounding_21.py

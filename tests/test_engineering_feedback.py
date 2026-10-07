@@ -114,6 +114,6 @@ def test_frontend_feedback_and_stream_boundary_without_browser_or_network():
     if node is None:
         pytest.skip("Node.js is required for the offline frontend checks")
     root = Path(__file__).resolve().parents[1]
-    result = subprocess.run([node, "--test", "tests/frontend_feedback.test.mjs"], cwd=root,
+    result = subprocess.run([node, "--test", "tests/frontend_feedback.test.mjs", "tests/frontend_stream_v2.test.mjs"], cwd=root,
                             capture_output=True, text=True, encoding="utf-8", timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr

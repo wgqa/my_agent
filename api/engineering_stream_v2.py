@@ -58,6 +58,7 @@ def stream_engineering_query_v2(
     *,
     conversation_context=None,
     build_response: Callable[[ToolAgentRunResult], object],
+    before_public_result: Callable[[dict], None] | None = None,
     cancel_event: Event | None = None,
     on_worker_done: Callable[[], None] | None = None,
 ) -> Iterator[str]:
@@ -86,6 +87,7 @@ def stream_engineering_query_v2(
     worker.start()
 
     def generate() -> Iterator[str]:
+        public_activity: list[dict] = []
         try:
             while True:
                 try:
@@ -101,7 +103,9 @@ def stream_engineering_query_v2(
                         )
                         yield _encode_event({"type": "done"})
                         return
-                    yield _encode_event(value.to_dict())
+                    activity = value.to_dict()
+                    public_activity.append(activity)
+                    yield _encode_event(activity)
                     continue
                 if kind == "error":
                     yield _encode_event(
@@ -113,13 +117,23 @@ def stream_engineering_query_v2(
                     continue
 
                 try:
-                    public_result = _result_payload(build_response(value))
+                    public_result = {
+                        **_result_payload(build_response(value)),
+                        "activity": public_activity,
+                    }
                     if not isinstance(public_result.get("evidence"), list):
                         raise TypeError("engineering response evidence must be a list")
+                    if public_result.get("status") not in {"completed", "refused", "failed"}:
+                        raise TypeError("unknown engineering response status")
                     if public_result.get("status") == "completed":
                         answer = public_result.get("answer")
                         if not isinstance(answer, str):
                             raise TypeError("completed engineering response needs an answer")
+                    # Persist the safe activity snapshot with the atomic turn,
+                    # before presenting any answer or claiming completion.
+                    if before_public_result is not None:
+                        before_public_result(public_result)
+                    if public_result.get("status") == "completed":
                         yield _encode_event({"type": "answer_start"})
                         for start in range(0, len(answer), ANSWER_CHUNK_CHARS):
                             yield _encode_event(
@@ -128,8 +142,6 @@ def stream_engineering_query_v2(
                                     "delta": answer[start : start + ANSWER_CHUNK_CHARS],
                                 }
                             )
-                    if public_result.get("status") not in {"completed", "refused", "failed"}:
-                        raise TypeError("unknown engineering response status")
                     yield _encode_event({"type": "final", "result": public_result})
                 except Exception:
                     logger.exception("Engineering v2 stream presentation failed")

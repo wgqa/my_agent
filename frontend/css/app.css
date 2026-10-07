@@ -642,7 +642,11 @@ textarea:disabled {
 }
 
 .live-run .activity-list {
-  display: none;
+  display: flex;
+  max-height: 200px;
+  margin-top: 10px;
+  padding-right: 6px;
+  overflow-y: auto;
 }
 
 @keyframes analyzing-dots {
@@ -1014,6 +1018,16 @@ textarea:disabled {
   color: var(--ink-faint);
   font-size: 11px;
 }
+
+.activity-item__detail {
+  color: var(--ink-soft);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.activity-item__evidence { display: flex; flex-wrap: wrap; gap: 6px; }
+.activity-evidence { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; font-size: 11px; }
+.activity-evidence:hover { text-decoration: underline; }
 
 .activity-item__label {
   flex: 1;

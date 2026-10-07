@@ -8,7 +8,7 @@ const { api, ApiError } = await import('../frontend/js/api.js');
 function installStream(events) {
   const body = events.map(event => 'data: ' + JSON.stringify(event) + '\n\n').join('');
   globalThis.fetch = async () => new Response(body, {
-    headers: { 'Content-Type': 'text/event-stream', 'X-Engineering-Stream-Schema': 'engineering_query_stream_v1' },
+    headers: { 'Content-Type': 'text/event-stream', 'X-Engineering-Stream-Schema': 'engineering_query_stream_v2' },
   });
 }
 
@@ -63,7 +63,7 @@ test('completed answer and public status survive the stream unchanged', async ()
 
 const invalidStreams = [
   [{ type: 'done' }],
-  [{ type: 'status', stage: 'analysis' }],
+  [{ type: 'run_started', execution_model: 'single_agent', available_tool_count: 7 }],
   [{ type: 'final', result: null }, { type: 'done' }],
   [{ type: 'final', result: { status: 'refused', answer: 'unverified' } }, { type: 'done' }],
   [{ type: 'answer_start' }, { type: 'final', result: { status: 'failed', answer: null } }, { type: 'done' }],

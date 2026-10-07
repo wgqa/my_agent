@@ -143,6 +143,10 @@ python -m streamlit run ui/app.py --server.port 8501
   `ENGINEERING_PROJECT_DB` 单独指定；需与会话数据库一起保留以恢复绑定。
 - UI 提交 `message` 到 Conversation SSE API，后端加载历史，由 Context Window
   选取最多 6 条 / 1200 token；旧 `/engineering/query` 系列只接受 `question`。
+- HTML 默认使用 `/engineering/conversations/{id}/messages/stream/v2`，实时呈现
+  工具目标、结果摘要、新增资料与校验状态。V2 的 final/result 带 `activity`，
+  与整轮消息原子保存；刷新后 Activity 仍可显示。公开活动不进入 role/content 历史。
+  Streamlit、旧客户端的 v1 端点和旧会话继续兼容；HTML 不回退到 v1。
 - 每操作使用独立连接，提交或回滚后显式关闭；整轮 user/assistant 消息与结果
   原子保存，保存失败不会发布成功答案。历史全量读取与详情分页仍待优化。
 
@@ -179,6 +183,12 @@ FULL_APP_SMOKE_OK
   API key。
 
 ## 8. 离线测试
+
+2026-10-07 HTML 切换 V2：CI/下列清单新增 `test_engineering_conversation_stream_v2.py`，
+共 **53 模块**。相关 8 模块 **100 passed / 3 warnings**，包含 Node 的
+**29 项**反馈/V2 传输及活动展示子检查，不与 Python 数量累加。实际 HTML 在
+隔离服务验证实时读取记录、刷新恢复、证据跳转、V1 旧会话继续发送 V2 消息及
+拒答提示；真实工具与脚本化决策，零外部模型调用。见 [HTML V2 验证](validation/2026-10-07-html-stream-v2.md)。
 
 2026-10-06 用户反馈：CI/下列清单新增 `test_engineering_feedback.py`，共
 **52 模块**。相关 11 模块 **113 passed**，其中专项 20 项包含 Node 的
@@ -286,6 +296,7 @@ python -m pytest -q \
   tests/test_tool_agent_finalization_guard.py \
   tests/test_engineering_stream.py \
   tests/test_engineering_stream_v2.py \
+  tests/test_engineering_conversation_stream_v2.py \
   tests/test_product_conversation_20.py \
   tests/test_conversation_store_lifecycle.py \
   tests/test_product_grounding_21.py \

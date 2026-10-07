@@ -106,7 +106,7 @@ Decision → Tool Call → Observation → bounded iteration → Final Answer。
 
 `POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开当前知识库的状态、模式和 identity，不执行 Agent；默认 managed 模式由 `/engineering/knowledge/documents` 管理文档，历史 verified 模式保留只读冻结身份。`GET /project` 公开当前 system-bound project 的 identity，绝不返回本地绝对路径。`GET /capabilities` 包含 `engineering_agent` capability 状态。
 
-UI 主会话通过 `POST /engineering/conversations` 创建，后续向 `POST /engineering/conversations/{conversation_id}/messages/stream/v1` 提交 `message`。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保存后才发布答案。旧 question-only Engineering API 仍接受 `question`，不自动保存为多轮会话。
+UI 主会话通过 `POST /engineering/conversations` 创建。HTML 默认向 `POST /engineering/conversations/{conversation_id}/messages/stream/v2` 提交 `message`，实时展示工具目标、结果摘要、新增证据与资料校验；公开活动随整轮结果保存，刷新后可在 Activity 中恢复。Streamlit 和历史客户端的 `/messages/stream/v1` 保留兼容。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保存后才发布答案。旧 question-only Engineering API 仍接受 `question`，不自动保存为多轮会话。见 [HTML V2 验证](docs/validation/2026-10-07-html-stream-v2.md)。
 
 HTML 的 **New chat** 可选择已添加的项目，或填写本机绝对目录。每个对话固定绑定一个项目，顶部与会话列表显示项目名，切换无需重启。API 层登记目录并按项目复用现有 Core facade，聊天请求只传公开 `project_id`；知识库继续共享且默认检索整库。`/project`、旧 question-only API 和 Streamlit 仍使用启动默认项目。见 [本地项目使用说明](docs/project_mount_runbook.md)。
 
@@ -204,7 +204,8 @@ Smoke ≠ Demo ≠ Benchmark。Smoke 不证明答案质量，Demo 不产生 Gold
 | `GET /engineering/projects`、`POST /engineering/projects` | 列出或添加本地项目，返回公开项目 id |
 | `POST /engineering/conversations`、`GET /engineering/conversations` | 创建或列出默认/所选项目会话；`scope=all` 列全部已登记项目 |
 | `GET /engineering/conversations/{conversation_id}`、`DELETE /engineering/conversations/{conversation_id}` | 读取或删除会话；可通过 `project_id` 指定其绑定项目 |
-| `POST /engineering/conversations/{conversation_id}/messages/stream/v1` | 提交消息，按绑定项目与服务端历史返回 SSE |
+| `POST /engineering/conversations/{conversation_id}/messages/stream/v2` | HTML 默认：按绑定项目与历史返回 Rich Activity SSE，保存公开活动 |
+| `POST /engineering/conversations/{conversation_id}/messages/stream/v1` | 历史兼容：按绑定项目与服务端历史返回 Trace SSE |
 | `GET /engineering/knowledge` | 当前知识库的公开状态、模式与 identity |
 | `GET /engineering/knowledge/documents` | 全库文档列表，支持文件名筛选和分页 |
 | `GET /engineering/knowledge/documents/{id}` | 指定文档的分段正文预览 |

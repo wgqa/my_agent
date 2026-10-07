@@ -1102,6 +1102,38 @@ def engineering_conversation_message_stream(
     req: EngineeringConversationMessageRequest,
     project_id: str | None = Query(default=None, min_length=1, max_length=64),
 ) -> StreamingResponse:
+    """Compatibility v1 conversation stream; HTML uses the v2 endpoint."""
+    return _engineering_conversation_message_stream(
+        conversation_id, req, project_id,
+        stream_query=stream_engineering_query,
+        schema_version=STREAM_SCHEMA_VERSION,
+    )
+
+
+@app.post(
+    "/engineering/conversations/{conversation_id}/messages/stream/v2",
+)
+def engineering_conversation_message_stream_v2(
+    conversation_id: str,
+    req: EngineeringConversationMessageRequest,
+    project_id: str | None = Query(default=None, min_length=1, max_length=64),
+) -> StreamingResponse:
+    """Rich activity for one project-bound, atomically persisted chat turn."""
+    return _engineering_conversation_message_stream(
+        conversation_id, req, project_id,
+        stream_query=stream_engineering_query_v2,
+        schema_version=STREAM_SCHEMA_VERSION_V2,
+    )
+
+
+def _engineering_conversation_message_stream(
+    conversation_id: str,
+    req: EngineeringConversationMessageRequest,
+    project_id: str | None,
+    *,
+    stream_query,
+    schema_version: str,
+) -> StreamingResponse:
     """One server-owned multi-turn Engineering conversation turn over SSE.
 
     The store supplies the committed role/content history; which history
@@ -1132,7 +1164,7 @@ def engineering_conversation_message_stream(
         )
 
     try:
-        stream = stream_engineering_query(
+        stream = stream_query(
             facade,
             req.message,
             conversation_context=history,
@@ -1160,7 +1192,7 @@ def engineering_conversation_message_stream(
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
-            "X-Engineering-Stream-Schema": STREAM_SCHEMA_VERSION,
+            "X-Engineering-Stream-Schema": schema_version,
         },
     )
 

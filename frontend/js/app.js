@@ -2,6 +2,7 @@ import { api, ApiError } from './api.js';
 import { initKnowledgeBase } from './knowledge.js';
 import { initProjectDialog } from './projects.js';
 import { resultFeedback, requestFeedback, requestDiagnostic, feedbackText } from './feedback.js';
+import { ACTIVITY_EVENT_TYPES, activityFromResult, updateActivity } from './activity.js';
 
 const EVIDENCE_ORDER = [
   'knowledge',
@@ -599,70 +600,6 @@ function appendEvidence(container, evidence, selectedId = '') {
   container.append(stack);
 }
 
-function activityLabel(event) {
-  if (event?.type !== 'status') {
-    return null;
-  }
-  if (event.stage === 'analysis') {
-    if (event.state === 'started') {
-      return 'Analyzing';
-    }
-    if (event.state === 'completed') {
-      return 'Analysis complete';
-    }
-    return null;
-  }
-  if (event.stage === 'tool' && event.tool_name) {
-    if (event.state === 'started') {
-      return event.tool_name + ' started';
-    }
-    if (event.state === 'completed') {
-      return event.tool_name + ' completed';
-    }
-    if (event.state === 'error') {
-      return event.tool_name + ' error';
-    }
-    return null;
-  }
-  if (event.stage === 'verification' && event.state === 'blocked') {
-    return 'Evidence verification blocked';
-  }
-  return null;
-}
-
-function activityFromResult(result) {
-  if (!result || !Array.isArray(result.trace)) {
-    return [];
-  }
-  return result.trace
-    .map((event) => {
-      if (event.event_type === 'tool_call_created' && event.tool_name) {
-        return {
-          label: event.tool_name + ' started',
-          state: 'started',
-          timestamp: null,
-        };
-      }
-      if (event.event_type === 'tool_observation' && event.tool_name) {
-        return {
-          label: event.tool_name
-            + (event.tool_status === 'ok' ? ' completed' : ' error'),
-          state: event.tool_status === 'ok' ? 'completed' : 'error',
-          timestamp: null,
-        };
-      }
-      if (event.event_type === 'finalization_guard_blocked') {
-        return {
-          label: 'Evidence verification blocked',
-          state: 'blocked',
-          timestamp: null,
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
-}
-
 function renderActivityItems(container, activity, emptyText) {
   container.replaceChildren();
   if (!activity.length) {
@@ -678,18 +615,37 @@ function renderActivityItems(container, activity, emptyText) {
     const marker = document.createElement('span');
     marker.className = 'activity-marker activity-marker--' + item.state;
     marker.setAttribute('aria-hidden', 'true');
-    const parts = splitActivityLabel(item.label);
     const copy = document.createElement('span');
     copy.className = 'activity-item__copy';
     const name = document.createElement('span');
     name.className = 'activity-item__name';
-    name.textContent = parts.name;
+    name.textContent = item.name;
     copy.append(name);
-    if (parts.state) {
+    if (item.stateLabel) {
       const state = document.createElement('span');
       state.className = 'activity-item__state';
-      state.textContent = parts.state;
+      state.textContent = item.stateLabel;
       copy.append(state);
+    }
+    for (const detail of item.details || []) {
+      const line = document.createElement('span');
+      line.className = 'activity-item__detail';
+      line.textContent = detail;
+      copy.append(line);
+    }
+    if (item.evidenceIds?.length) {
+      const links = document.createElement('span');
+      links.className = 'activity-item__evidence';
+      for (const id of item.evidenceIds) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'activity-evidence';
+        button.textContent = '[' + id + ']';
+        button.setAttribute('aria-label', '查看资料 ' + id);
+        button.addEventListener('click', () => openDrawer('sources', state.drawerResult || state.latestResult, id));
+        links.append(button);
+      }
+      copy.append(links);
     }
     row.append(marker, copy);
     if (item.timestamp) {
@@ -705,21 +661,6 @@ function renderActivityItems(container, activity, emptyText) {
   }
 }
 
-function splitActivityLabel(label) {
-  const value = String(label || '');
-  const match = value.match(/^(.*?)\s+(started|completed|error|blocked)$/i);
-  if (!match) {
-    return { name: value, state: '' };
-  }
-  const stateLabels = {
-    started: 'Started',
-    completed: 'Completed',
-    error: 'Error',
-    blocked: 'Blocked',
-  };
-  return { name: match[1], state: stateLabels[match[2].toLowerCase()] };
-}
-
 function renderLiveActivity() {
   if (!elements.liveActivityList) {
     return;
@@ -727,22 +668,15 @@ function renderLiveActivity() {
   renderActivityItems(
     elements.liveActivityList,
     state.activity,
-    'Waiting for runtime activity…',
+    '正在准备分析…',
   );
-  elements.liveRunLabel.textContent = 'Analyzing';
+  elements.liveRunLabel.textContent = '正在分析';
 }
 
 function addActivity(event) {
-  const label = activityLabel(event);
-  if (!label) {
-    return;
-  }
-  state.activity.push({
-    label,
-    state: text(event.state, 'started'),
-    timestamp: new Date(),
-  });
+  state.activity = updateActivity(state.activity, event);
   renderLiveActivity();
+  if (state.drawerOpen && !state.drawerResult) renderDrawer();
 }
 
 function drawerData() {
@@ -812,11 +746,11 @@ function renderDrawer() {
 
   const activityHeading = document.createElement('div');
   activityHeading.className = 'drawer-section-heading';
-  activityHeading.textContent = 'Execution trace';
+  activityHeading.textContent = '执行记录';
   const activityList = document.createElement('ol');
   activityList.className = 'activity-list activity-list--drawer';
   elements.drawerActivity.append(activityHeading, activityList);
-  renderActivityItems(activityList, activity, 'No activity recorded.');
+  renderActivityItems(activityList, activity, '此历史记录没有可展示的执行步骤。');
 
   renderDrawerRun(result);
   for (const button of elements.drawerTabs) {
@@ -1105,14 +1039,12 @@ async function sendMessage(event) {
       state.activeConversationId,
       message,
       async (eventPayload) => {
-        if (eventPayload.type === 'status') {
-          addActivity(eventPayload);
-          return;
-        }
-        if (eventPayload.type === 'evidence') {
-          if (eventPayload.evidence) {
-            state.evidence.push(eventPayload.evidence);
+        if (ACTIVITY_EVENT_TYPES.has(eventPayload.type)) {
+          if (eventPayload.type === 'evidence_added'
+              && !state.evidence.some(item => item.evidence_id === eventPayload.evidence_id)) {
+            state.evidence.push(eventPayload);
           }
+          addActivity(eventPayload);
           return;
         }
         if (eventPayload.type === 'answer_delta') {
@@ -1127,6 +1059,7 @@ async function sendMessage(event) {
           finalResult = eventPayload.result || null;
           state.latestResult = finalResult;
           state.drawerResult = finalResult;
+          state.activity = activityFromResult(finalResult);
           state.evidence = Array.isArray(finalResult?.evidence)
             ? finalResult.evidence
             : state.evidence;

@@ -4,7 +4,13 @@
 > 真相来源：`docs/status.md` = 实时状态；`docs/roadmap.md` = 长期路线；`docs/experiments/gate2_freeze.json` = Gate 2 冻结数字与结论。
 > 历史大规划已归档至 `docs/archive/`；实时状态以本文件为准。
 
-**更新日期：** 2026-10-06
+**更新日期：** 2026-10-07
+
+## HTML 使用 V2 公开活动流（2026-10-07）
+
+- HTML 默认调用对话 `/messages/stream/v2`，识别 `engineering_query_stream_v2`，展示 run_started/activity/evidence_added/verification；工具开始和完成按 activity_id 更新同一步，显示目的、目标、结果摘要与来源。实时列表恢复可见，完成后的 Activity 可查看全部已记录公开步骤。
+- V2 接入原对话绑定、服务端历史、admission/cancellation 与原子整轮保存；final/result 的 `activity` 来自已有类型化公共事件，与回答一起保存，刷新可恢复。保存失败不发布答案。V1 transport 文件未改，旧 API/Streamlit 和历史记录保留兼容，HTML 不回退到 V1。Core、Prompt、Guard、预算和 SQLite schema 未改。
+- 相关 8 模块 **100 passed / 3 warnings**，含 Node **29 项**反馈/V2 子检查；V2 多轮、重启恢复、错误/保存失败、断开清理、两项目隔离与 V1 兼容均覆盖。真实 HTML 隔离服务验证实时工具记录、刷新后 Activity、证据跳转、旧 V1 对话发送 V2 消息及拒答提示。零外部模型调用；未运行全量/GitHub Actions，不声明模型质量提升。CI/手册现 **53 模块**。见 [验证记录](validation/2026-10-07-html-stream-v2.md)。
 
 ## 拒答与故障的用户反馈（2026-10-06）
 

@@ -84,13 +84,14 @@ def create(mounted, project_id):
     return response.json()
 
 
-def stream(mounted, conversation):
+def stream(mounted, conversation, version="v1"):
     response = mounted.client.post(
-        f"/engineering/conversations/{conversation['id']}/messages/stream/v1",
+        f"/engineering/conversations/{conversation['id']}/messages/stream/{version}",
         params={"project_id": conversation["project_id"]},
         json={"message": "请读取 config.py 文件中的配置，用源码引用回答。"},
     )
     assert response.status_code == 200
+    assert response.headers["x-engineering-stream-schema"] == f"engineering_query_stream_{version}"
     events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
     assert events[-1]["type"] == "done"
     return next(event["result"] for event in events if event["type"] == "final")
@@ -122,7 +123,8 @@ def test_invalid_roots_cannot_fall_back_to_default_or_register(mounted, tmp_path
     assert len(mounted.builds) == 1
 
 
-def test_two_bound_conversations_read_their_own_files_without_restart(mounted):
+@pytest.mark.parametrize("stream_version", ["v1", "v2"])
+def test_two_bound_conversations_read_their_own_files_without_restart(mounted, stream_version):
     second = add_second(mounted)
     first_conversation = create(mounted, mounted.first.id)
     second_conversation = create(mounted, second["id"])
@@ -131,7 +133,7 @@ def test_two_bound_conversations_read_their_own_files_without_restart(mounted):
         (second_conversation, "betaprojectmarker", "alphaprojectmarker"),
         (first_conversation, "alphaprojectmarker", "betaprojectmarker"),
     ):
-        result = stream(mounted, conversation)
+        result = stream(mounted, conversation, stream_version)
         assert result["status"] == "completed"
         assert expected in result["evidence"][0]["snippet"]
         assert absent not in json.dumps(result)
@@ -145,28 +147,30 @@ def test_two_bound_conversations_read_their_own_files_without_restart(mounted):
     assert len(detail["messages"]) == 4
 
 
-def test_wrong_project_and_client_rebinding_are_rejected_before_runtime(mounted):
+@pytest.mark.parametrize("stream_version", ["v1", "v2"])
+def test_wrong_project_and_client_rebinding_are_rejected_before_runtime(mounted, stream_version):
     second = add_second(mounted)
     conversation = create(mounted, mounted.first.id)
     url = f"/engineering/conversations/{conversation['id']}"
     wrong = {"project_id": second["id"]}
     assert mounted.client.get(url, params=wrong).status_code == 404
     assert mounted.client.delete(url, params=wrong).status_code == 404
-    assert mounted.client.post(url + "/messages/stream/v1", params=wrong, json={"message": "read config.py"}).status_code == 404
+    assert mounted.client.post(url + f"/messages/stream/{stream_version}", params=wrong, json={"message": "read config.py"}).status_code == 404
     assert len(mounted.builds) == 1
     assert mounted.client.post("/engineering/conversations", json={"project_id": "unknown"}).status_code == 404
     assert mounted.client.post("/engineering/conversations", json={"project_id": mounted.first.id, "root": str(mounted.second_root)}).status_code == 422
-    assert mounted.client.post(url + "/messages/stream/v1", json={"message": "read config.py", "project_id": second["id"]}).status_code == 422
+    assert mounted.client.post(url + f"/messages/stream/{stream_version}", json={"message": "read config.py", "project_id": second["id"]}).status_code == 422
 
 
-def test_removed_project_keeps_history_but_cannot_run_or_create(mounted):
+@pytest.mark.parametrize("stream_version", ["v1", "v2"])
+def test_removed_project_keeps_history_but_cannot_run_or_create(mounted, stream_version):
     second = add_second(mounted)
     conversation = create(mounted, second["id"])
     (mounted.second_root / "config.py").unlink()
     mounted.second_root.rmdir()
     assert mounted.client.get(f"/engineering/conversations/{conversation['id']}", params={"project_id": second["id"]}).status_code == 200
     assert mounted.client.post("/engineering/conversations", json={"project_id": second["id"]}).status_code == 409
-    response = mounted.client.post(f"/engineering/conversations/{conversation['id']}/messages/stream/v1", params={"project_id": second["id"]}, json={"message": "read config.py"})
+    response = mounted.client.post(f"/engineering/conversations/{conversation['id']}/messages/stream/{stream_version}", params={"project_id": second["id"]}, json={"message": "read config.py"})
     assert response.status_code == 409
     assert len(mounted.builds) == 1
     assert not next(item for item in mounted.client.get("/engineering/projects").json()["projects"] if item["id"] == second["id"])["available"]
