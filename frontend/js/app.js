@@ -1,6 +1,7 @@
 import { api, ApiError } from './api.js';
 import { initKnowledgeBase } from './knowledge.js';
 import { initProjectDialog } from './projects.js';
+import { resultFeedback, requestFeedback, requestDiagnostic, feedbackText } from './feedback.js';
 
 const EVIDENCE_ORDER = [
   'knowledge',
@@ -88,27 +89,14 @@ function showToast(message, { error = false } = {}) {
 }
 
 function userFacingError(error) {
-  if (error instanceof ApiError) {
-    return error.message || 'Unable to complete this request.';
-  }
-  return 'Unable to complete this request.';
+  return requestFeedback(error).title;
 }
 
 function errorDetails(error) {
-  if (!(error instanceof ApiError)) {
-    return '';
-  }
-  const parts = [];
-  if (error.status) {
-    parts.push('HTTP ' + error.status);
-  }
-  if (error.detail) {
-    parts.push(error.detail);
-  }
-  return parts.join(' · ');
+  return requestDiagnostic(error);
 }
 
-function setRunError(label = 'Unavailable') {
+function setRunError(label = '暂不可用') {
   elements.runStatus.hidden = false;
   elements.runStatus.textContent = label;
 }
@@ -125,6 +113,9 @@ function resizeComposer() {
 
 function updateComposerState() {
   elements.sendMessage.disabled = state.running || state.switching || !elements.messageInput.value.trim();
+  document.querySelectorAll('.feedback-edit').forEach(button => {
+    button.disabled = state.running || state.switching;
+  });
 }
 
 function setRunning(running) {
@@ -144,7 +135,7 @@ function setRunning(running) {
 
 function setTerminalRunState(result) {
   if (result?.status === 'failed') {
-    setRunError('Error');
+    setRunError('未完成');
   } else {
     clearRunError();
   }
@@ -399,32 +390,67 @@ function statusMessage(result) {
   if (!result) {
     return '';
   }
-  if (result.status === 'refused') {
-    if (result.reason_code === 'INSUFFICIENT_EVIDENCE_TO_FINALIZE') {
-      return 'Insufficient evidence was found.';
-    }
-    return 'Unable to complete this request.';
-  }
-  if (result.status === 'failed') {
-    if (result.failure_code === 'REQUEST_TIMEOUT') {
-      return 'The request timed out.';
-    }
-    return 'Unable to complete this request.';
-  }
+  const feedback = resultFeedback(result);
+  if (feedback) return feedbackText(feedback);
   return text(result.answer);
 }
 
-function renderMessageContent(container, message) {
+function renderFeedback(container, feedback, question, result = null) {
+  const card = document.createElement('section');
+  card.className = 'outcome-feedback';
+  card.setAttribute('aria-label', feedback.title);
+  const title = document.createElement('h3');
+  title.textContent = feedback.title;
+  const description = document.createElement('p');
+  description.textContent = feedback.message;
+  const steps = document.createElement('ul');
+  for (const step of feedback.next_steps) {
+    const item = document.createElement('li');
+    item.textContent = step;
+    steps.append(item);
+  }
+  card.append(title, description, steps);
+  const actions = document.createElement('div');
+  actions.className = 'feedback-actions';
+  if (feedback.action && question) {
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'library-button feedback-edit';
+    edit.textContent = feedback.action === 'retry' ? '重新填写问题' : '补充问题';
+    edit.disabled = state.running || state.switching;
+    edit.addEventListener('click', () => {
+      if (state.running || state.switching) return;
+      elements.messageInput.value = question;
+      resizeComposer();
+      updateComposerState();
+      elements.messageInput.focus();
+    });
+    actions.append(edit);
+  }
+  if (evidenceForResult(result).length) {
+    const sources = document.createElement('button');
+    sources.type = 'button';
+    sources.className = 'library-button';
+    sources.textContent = '查看已找到的资料';
+    sources.addEventListener('click', () => openDrawer('sources', result));
+    actions.append(sources);
+    const note = document.createElement('p');
+    note.className = 'feedback-evidence-note';
+    note.textContent = '本次未形成完整结论，可先查看已取得的资料及其来源。';
+    card.append(note);
+  }
+  if (actions.childNodes.length) card.append(actions);
+  container.append(card);
+}
+
+function renderMessageContent(container, message, question = '') {
   if (message.error) {
-    const error = document.createElement('span');
-    error.className = 'message-error';
-    error.textContent = message.error;
-    container.append(error);
+    renderFeedback(container, message.feedback || requestFeedback(null), question);
     if (message.errorDetail) {
       const details = document.createElement('details');
       details.className = 'message-details';
       const summary = document.createElement('summary');
-      summary.textContent = 'Details';
+      summary.textContent = '诊断信息';
       const detail = document.createElement('div');
       detail.textContent = message.errorDetail;
       details.append(summary, detail);
@@ -434,6 +460,11 @@ function renderMessageContent(container, message) {
   }
 
   const result = resultForMessage(message);
+  const feedback = resultFeedback(result);
+  if (feedback) {
+    renderFeedback(container, feedback, question, result);
+    return;
+  }
   const content = result ? statusMessage(result) : text(message.content);
   if (message.pending && !content) {
     const pending = document.createElement('span');
@@ -879,7 +910,9 @@ function renderMessages() {
     return;
   }
 
+  let question = '';
   for (const message of state.messages) {
+    if (message.role === 'user') question = text(message.content);
     const row = document.createElement('article');
     row.className =
       'message-row message-row--'
@@ -896,7 +929,7 @@ function renderMessages() {
 
     const content = document.createElement('div');
     content.className = 'message-content';
-    renderMessageContent(content, message);
+    renderMessageContent(content, message, message.role === 'assistant' ? question : '');
     bubble.append(content);
 
     const result = resultForMessage(message);
@@ -1024,11 +1057,12 @@ function updatePendingAssistant(content, result = null) {
   };
 }
 
-function markPendingError(message, detail) {
+function markPendingError(error) {
   const pending = state.messages[state.messages.length - 1];
   if (pending && pending.role === 'assistant') {
-    pending.error = message;
-    pending.errorDetail = detail;
+    pending.feedback = requestFeedback(error);
+    pending.error = pending.feedback.title;
+    pending.errorDetail = errorDetails(error);
     pending.pending = false;
   }
 }
@@ -1102,12 +1136,9 @@ async function sendMessage(event) {
           return;
         }
         if (eventPayload.type === 'error') {
-          streamError = {
-            message: 'Unable to complete this request.',
-            detail: text(eventPayload.code),
-          };
+          streamError = new ApiError('stream_error', '结果接收未完成。');
           updatePendingAssistant('');
-          markPendingError(streamError.message, streamError.detail);
+          markPendingError(streamError);
           renderMessages();
         }
       },
@@ -1119,7 +1150,7 @@ async function sendMessage(event) {
     }
     setRunning(false);
     if (streamError && !finalResult) {
-      setRunError('Error');
+      setRunError('未完成');
       renderMessages();
       renderDrawer();
       return;
@@ -1129,13 +1160,13 @@ async function sendMessage(event) {
     setRunning(false);
     if (finalResult) {
       setTerminalRunState(finalResult);
-      showToast('The answer arrived, but history could not be refreshed.', {
+      showToast('结果已收到，但页面未能完成同步。请刷新会话查看已保存内容。', {
         error: true,
       });
       return;
     }
-    markPendingError(userFacingError(error), errorDetails(error));
-    setRunError('Unavailable');
+    markPendingError(error);
+    setRunError('暂不可用');
     renderMessages();
     renderDrawer();
     showToast(userFacingError(error), { error: true });

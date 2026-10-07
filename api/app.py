@@ -94,6 +94,7 @@ from api.schemas import (
     LocalProjectListResponse,
 )
 from api.project_workspace import EngineeringProject, resolve_engineering_project
+from api.engineering_feedback import engineering_feedback, feedback_content, present_conversation
 from api.project_registry import ProjectRegistry, ProjectRuntimeCache, default_project_db_path
 from api.conversation_store import ConversationStore
 from api.engineering_stream import STREAM_SCHEMA_VERSION, stream_engineering_query
@@ -525,19 +526,11 @@ def _get_conversation_facade(project: EngineeringProject, project_id: str | None
 def _assistant_display_content(public_result: dict) -> str:
     """Bounded deterministic display text from public fields only.
 
-    completed → the public answer; refused/failed without an answer → a safe
-    status line. Raw trace / observations / hidden reasons are never used.
+    completed → the public answer; refused/failed → deterministic guidance.
+    Raw trace / observations / hidden reasons are never used.
     """
 
-    answer = public_result.get("answer")
-    if isinstance(answer, str) and answer.strip():
-        return answer
-    status = public_result.get("status")
-    if status == "refused":
-        return f"Refused: {public_result.get('reason_code') or 'REFUSED'}"
-    if status == "failed":
-        return f"Failed: {public_result.get('failure_code') or 'FAILED'}"
-    return ""
+    return feedback_content(public_result)
 
 
 def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResponse:
@@ -648,6 +641,9 @@ def _build_engineering_response(
         trace=_safe_engineering_trace([event.to_dict() for event in result.trace]),
         evidence=evidence,
         execution=execution,
+        feedback=engineering_feedback({"status": result.status,
+                                       "reason_code": result.reason_code,
+                                       "failure_code": result.failure_code}),
     )
 
 
@@ -1082,7 +1078,7 @@ def get_engineering_conversation(
         # A conversation from another local project is deliberately not
         # distinguishable from a missing one.
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return {**detail, "project_id": project_id}
+    return {**present_conversation(detail), "project_id": project_id}
 
 
 @app.delete("/engineering/conversations/{conversation_id}", status_code=204)

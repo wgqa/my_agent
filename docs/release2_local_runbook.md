@@ -180,6 +180,13 @@ FULL_APP_SMOKE_OK
 
 ## 8. 离线测试
 
+2026-10-06 用户反馈：CI/下列清单新增 `test_engineering_feedback.py`，共
+**52 模块**。相关 11 模块 **113 passed**，其中专项 20 项包含 Node 的
+16 项前端反馈/SSE 子检查；文案和安全动作收口后专项 20 项复验通过，
+不累加。CI 显式提供 Node 24，本地缺少 Node 时该子检查会标记 skip。
+真实 HTML 验证旧历史、新 SSE 拒答、资料查看、仅填输入的恢复按钮、
+超时和小屏，零模型调用。见 [用户反馈验证](validation/2026-10-06-user-feedback.md)。
+
 2026-10-05 本地项目绑定：CI/下列手册清单新增 `test_local_project_binding.py`
 和 `test_engineering_project_workspace.py`，共 **51 模块**。相关 9 模块
 **119 passed / 1 skipped**，另 7 模块 API/SSE/启动回归 **104 passed**，
@@ -234,6 +241,7 @@ python -m pytest -q \
   tests/test_api.py \
   tests/test_knowledge_library.py \
   tests/test_local_project_binding.py \
+  tests/test_engineering_feedback.py \
   tests/test_engineering_project_workspace.py \
   tests/test_engineering_startup_isolation.py \
   tests/test_current_quality_report.py \

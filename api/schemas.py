@@ -331,6 +331,15 @@ class EngineeringExecutionMetrics(BaseModel):
     output_tokens: Optional[int] = None
 
 
+class EngineeringFeedback(BaseModel):
+    """Product guidance for a non-completed outcome; never grounding evidence."""
+
+    title: str
+    message: str
+    next_steps: List[str]
+    action: Optional[Literal["revise", "retry"]] = None
+
+
 class EngineeringQueryResponse(BaseModel):
     """Unified public contract for Knowledge/Repository/Change/Test evidence."""
 
@@ -345,6 +354,7 @@ class EngineeringQueryResponse(BaseModel):
     trace: List[dict]
     evidence: List[EngineeringEvidence]
     execution: Optional[EngineeringExecutionMetrics] = None
+    feedback: Optional[EngineeringFeedback] = None
 
 
 class EngineeringConversationMessageRequest(BaseModel):

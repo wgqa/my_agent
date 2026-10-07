@@ -205,6 +205,9 @@ export const api = {
     let buffer = '';
     let frame = [];
     let sawDone = false;
+    let terminalEvent = null;
+    let answerStarted = false;
+    let answerBuffer = '';
 
     const dispatchFrame = async () => {
       if (!frame.length) {
@@ -230,7 +233,31 @@ export const api = {
       if (sawDone) {
         throw new ApiError('invalid_response', 'The stream continued after completion.');
       }
+      const invalid = () => new ApiError('invalid_response', 'The API returned an incomplete or inconsistent result.');
+      if (!['status', 'evidence', 'answer_start', 'answer_delta', 'final', 'error', 'done'].includes(event.type)
+          || (terminalEvent && event.type !== 'done')) throw invalid();
+      if (event.type === 'answer_start') {
+        if (answerStarted) throw invalid();
+        answerStarted = true;
+      }
+      if (event.type === 'answer_delta') {
+        if (!answerStarted || typeof event.delta !== 'string' || !event.delta) throw invalid();
+        answerBuffer += event.delta;
+      }
+      if (event.type === 'final') {
+        const result = event.result;
+        if (!['completed', 'refused', 'failed'].includes(result?.status)) throw invalid();
+        if (result.status === 'completed') {
+          if (!answerStarted || typeof result.answer !== 'string' || result.answer !== answerBuffer) throw invalid();
+        } else if (answerStarted || (result.answer !== null && result.answer !== undefined)) throw invalid();
+        terminalEvent = 'final';
+      }
+      if (event.type === 'error') {
+        if (answerStarted || typeof event.code !== 'string' || !event.code) throw invalid();
+        terminalEvent = 'error';
+      }
       if (event.type === 'done') {
+        if (!terminalEvent) throw invalid();
         sawDone = true;
       }
       await onEvent(event);

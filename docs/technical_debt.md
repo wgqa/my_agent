@@ -12,6 +12,8 @@
 
 ## 最近处理记录
 
+2026-10-06：拒答/失败的产品反馈切片完成。API 提供确定性的中文说明与下一步；HTML、Streamlit 与历史记录共用原因映射，保留原终态和拒答规则，恢复按钮仅填输入、不自动重试，断线先建议检查已保存历史。当前全部拒答/终止与 Decision 失败码有说明，未知码保守提示，HTTP/SSE 原始异常不进入用户诊断。相关 113 passed（含 Node 16 项的 pytest 包装检查），收口后专项20复验通过，实际网页/旧记录/390px验证通过，零模型调用。旧记录中仍有正常代码片段被判 UNSUPPORTED 的误拒答；反馈明确为系统本次判断，TD-ROUTER-01 / TD-VERIFY-01/02 等核心质量债不因此关闭。见 [反馈验证](validation/2026-10-06-user-feedback.md)。
+
 2026-10-05：按项目所有者要求补齐 HTML 知识库管理。新增文档列表/全文分页预览/上传/同名更新/指定替换/删除确认；FastAPI 提供同源 HTML，Engineering 默认 managed SQLite 库与主检索共用动态 BM25 port，问答搜索整库，管理页筛选不改变检索范围。上传、替换、删除同步提交文档与分块，索引失败回滚，重启不恢复已删初始语料；历史 verified 模式与冻结材料保留。专项20 passed、其余相关195 passed/1 skipped，实际浏览器隔离库操作与390px小屏检查通过，零模型调用；CI/手册49模块。固定37文档只能靠源码/配置维护的产品缺口已补齐，TD-RAG-01的参数、泛化与答案质量验证仍OPEN。见 [知识库说明](knowledge_library_runbook.md)、[验证](validation/2026-10-05-knowledge-library.md)。
 
 2026-10-04 第四项：当前演示与交付一致性切片已完成。产品版本统一为2.0.0-dev/development，OpenAPI与新增`/version`、UI Settings、当前Engineering Demo共源；保留历史Release 1.0冻结与旧Demo。独立Git fixture覆盖三个卡片，复用原题目生成/会话/SSE/持久化；`run --live`每场景一条消息、无任务级重试，拒答及失败保留，结果不覆盖。smoke配置隔离项目/语料/数据库/凭据，Full App可显式检查当前Engineering ready、三个入口及版本。局部12模块100 passed，真实Full App和故障隔离smoke通过，CI/手册48模块；零新增付费调用，未全量/GitHub CI/正式发版。TD-CLEAN-02的当前入口一致性已有进展，历史文档归档、整体可靠性与Runtime大项继续开放。见 [演示手册](demo_engineering_runbook.md)、[验证](validation/2026-10-04-product-delivery.md)。

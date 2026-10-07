@@ -12,6 +12,7 @@ import streamlit as st
 
 from ui import components
 from ui.streaming import EngineeringStreamState
+from api.engineering_feedback import engineering_feedback
 
 
 # Public kind labels are provided by ``ui.components`` so renderers share the
@@ -315,9 +316,16 @@ def render_engineering_result(result: dict) -> None:
     """
 
     status = result.get("status")
-    if status not in (None, "completed"):
+    feedback = engineering_feedback(result)
+    if feedback is not None:
+        (st.warning if status == "refused" else st.error)(feedback["title"])
+        st.write(feedback["message"])
+        for step in feedback["next_steps"]:
+            st.caption("建议：" + step)
+    elif status not in (None, "completed"):
         _status_ui(status)
-    _render_answer(result.get("answer"))
+    else:
+        _render_answer(result.get("answer"))
 
     evidence = result.get("evidence") or []
     if evidence:

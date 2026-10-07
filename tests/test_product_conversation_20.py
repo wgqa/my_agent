@@ -383,7 +383,9 @@ def test_message_stream_refused_turn_persists_display_text(monkeypatch, tmp_path
     assert final["answer"] is None
     detail = client.get(f"/engineering/conversations/{created['id']}").json()
     assistant = detail["messages"][1]
-    assert assistant["content"] == "Refused: INSUFFICIENT_INFORMATION"
+    assert "还需要一些具体信息" in assistant["content"]
+    assert "Refused:" not in assistant["content"]
+    assert assistant["result"]["feedback"]["next_steps"]
     assert assistant["result"]["status"] == "refused"
 
 

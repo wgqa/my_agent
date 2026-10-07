@@ -563,6 +563,13 @@ textarea:disabled {
   font-size: 14px;
 }
 
+.outcome-feedback { padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
+.message-content .outcome-feedback h3 { margin: 0 0 10px; font-size: 16px; }
+.message-content .outcome-feedback p { margin-bottom: 12px; font-size: 14px; }
+.message-content .outcome-feedback ul { margin: 0 0 16px; padding-left: 19px; color: var(--ink-soft); font-size: 13px; }
+.feedback-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.message-content .feedback-evidence-note { color: var(--ink-faint); font-size: 12px; }
+
 .message-details {
   margin-top: 12px;
   color: var(--ink-faint);

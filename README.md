@@ -110,6 +110,8 @@ UI 主会话通过 `POST /engineering/conversations` 创建，后续向 `POST /e
 
 HTML 的 **New chat** 可选择已添加的项目，或填写本机绝对目录。每个对话固定绑定一个项目，顶部与会话列表显示项目名，切换无需重启。API 层登记目录并按项目复用现有 Core facade，聊天请求只传公开 `project_id`；知识库继续共享且默认检索整库。`/project`、旧 question-only API 和 Streamlit 仍使用启动默认项目。见 [本地项目使用说明](docs/project_mount_runbook.md)。
 
+拒答与失败现在显示具体的中文原因和下一步建议，覆盖证据不足、信息不全、能力/安全判断、运行上限、工具错误和模型故障。原 `status`、原因码和 `answer=null` 保留，新增可选 `feedback` 仅用于提示；已有资料仍可查看。恢复按钮只把原问题填回输入框，等待用户编辑和发送。旧拒答历史也采用新提示展示，不改写旧记录。见 [反馈验证](docs/validation/2026-10-06-user-feedback.md)。
+
 `/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。
 
 Jev 预期证据路由已暂缓，Engineering 主链使用原有关键词路由。历史实现与方案见 [归档记录](docs/archive/jev_evidence_routing/design.md)。
