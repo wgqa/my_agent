@@ -703,6 +703,45 @@ class ToolAgentExecutionMetrics:
         }
 
 
+def validate_run_state(result, *, failure_codes=_DECISION_FAILURE_CODES_SET):
+    if result.status not in RUN_STATUSES:
+        raise ValueError(f"status 必须是 {'、'.join(RUN_STATUSES)} 之一")
+    _require_non_negative_int(result.iterations_used, "iterations_used")
+    _require_non_negative_int(result.tool_calls_used, "tool_calls_used")
+    _require_non_negative_int(result.tool_errors_used, "tool_errors_used")
+    if result.tool_errors_used > result.tool_calls_used:
+        raise ValueError("tool_errors_used 不得超过 tool_calls_used")
+    if result.tool_calls_used > result.iterations_used:
+        raise ValueError("tool_calls_used 不得超过 iterations_used")
+    if result.status == "completed":
+        if type(result.answer) is not str or not result.answer.strip():
+            raise ValueError("completed 要求 answer 非空")
+        if result.reason_code is not None or result.failure_code is not None:
+            raise ValueError("completed 要求 reason_code/failure_code 为 None")
+    elif result.status == "refused":
+        if result.answer is not None:
+            raise ValueError("refused 要求 answer 为 None")
+        if result.reason_code is None or (
+            result.reason_code not in _REFUSE_REASON_CODES_SET
+            and result.reason_code not in _TERMINATION_CODES_SET
+        ):
+            raise ValueError(
+                "refused 要求 reason_code ∈ REFUSE_REASON_CODES ∪ AGENT_TERMINATION_CODES"
+            )
+        if result.failure_code is not None:
+            raise ValueError("refused 要求 failure_code 为 None")
+    else:  # failed
+        if result.answer is not None:
+            raise ValueError("failed 要求 answer 为 None")
+        if result.reason_code is not None:
+            raise ValueError("failed 要求 reason_code 为 None")
+        if (
+            result.failure_code is None
+            or result.failure_code not in failure_codes
+        ):
+            raise ValueError("failed 要求 failure_code 是已定义 Agent Decision failure code")
+
+
 @dataclass(frozen=True)
 class ToolAgentRunResult:
     """Bounded Loop 的一次运行结果。
@@ -726,42 +765,7 @@ class ToolAgentRunResult:
     requirement_planning: Optional["RequirementPlanningOutcome"] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if self.status not in RUN_STATUSES:
-            raise ValueError(f"status 必须是 {'、'.join(RUN_STATUSES)} 之一")
-        _require_non_negative_int(self.iterations_used, "iterations_used")
-        _require_non_negative_int(self.tool_calls_used, "tool_calls_used")
-        _require_non_negative_int(self.tool_errors_used, "tool_errors_used")
-        if self.tool_errors_used > self.tool_calls_used:
-            raise ValueError("tool_errors_used 不得超过 tool_calls_used")
-        if self.tool_calls_used > self.iterations_used:
-            raise ValueError("tool_calls_used 不得超过 iterations_used")
-        if self.status == "completed":
-            if type(self.answer) is not str or not self.answer.strip():
-                raise ValueError("completed 要求 answer 非空")
-            if self.reason_code is not None or self.failure_code is not None:
-                raise ValueError("completed 要求 reason_code/failure_code 为 None")
-        elif self.status == "refused":
-            if self.answer is not None:
-                raise ValueError("refused 要求 answer 为 None")
-            if self.reason_code is None or (
-                self.reason_code not in _REFUSE_REASON_CODES_SET
-                and self.reason_code not in _TERMINATION_CODES_SET
-            ):
-                raise ValueError(
-                    "refused 要求 reason_code ∈ REFUSE_REASON_CODES ∪ AGENT_TERMINATION_CODES"
-                )
-            if self.failure_code is not None:
-                raise ValueError("refused 要求 failure_code 为 None")
-        else:  # failed
-            if self.answer is not None:
-                raise ValueError("failed 要求 answer 为 None")
-            if self.reason_code is not None:
-                raise ValueError("failed 要求 reason_code 为 None")
-            if (
-                self.failure_code is None
-                or self.failure_code not in _DECISION_FAILURE_CODES_SET
-            ):
-                raise ValueError("failed 要求 failure_code 是已定义 Agent Decision failure code")
+        validate_run_state(self)
         if isinstance(self.evidence, (str, bytes)):
             raise TypeError("evidence 必须是统一 Evidence 序列")
         normalized_evidence = tuple(self.evidence)
