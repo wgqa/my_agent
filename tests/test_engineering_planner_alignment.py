@@ -14,6 +14,7 @@ from core.query_planning.prompt import (
     ENGINEERING_PLANNER_PROMPT_SHA256,
     ENGINEERING_PLANNER_PROMPT_VERSION,
     ENGINEERING_PLANNER_SYSTEM_PROMPT,
+    ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION,
     PLANNER_PROMPT_SHA256,
     PLANNER_PROMPT_VERSION,
     build_planner_messages,
@@ -226,7 +227,9 @@ def test_production_lifespan_selects_engineering_profile_without_changing_legacy
     port = StaticKnowledgeRetrievalPort()
     monkeypatch.setattr(application, "ConversationStore", lambda: object())
     monkeypatch.setattr(application, "Pipeline", lambda **_: SimpleNamespace(retriever=object()))
-    monkeypatch.setattr(application, "resolve_engineering_project", lambda _: SimpleNamespace(root=tmp_path))
+    monkeypatch.setattr(application, "resolve_engineering_project", lambda _: SimpleNamespace(
+        root=tmp_path, project_name="offline-project", source="default_repo",
+    ))
     monkeypatch.setattr(application, "_resolve_agent_provider", lambda _: ("scripted", "local-test-key"))
     monkeypatch.setattr(application, "build_pipeline_agent_runtime", lambda *a, **k: object())
     monkeypatch.setattr(application, "PipelineRetrievalAdapter", lambda _: port)
@@ -247,6 +250,6 @@ def test_production_lifespan_selects_engineering_profile_without_changing_legacy
     async def run():
         async with application.lifespan(application.app):
             assert application.engineering_agent_facade is not None
-            assert selected == [ENGINEERING_PLANNER_PROMPT_VERSION]
+            assert selected == [ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION]
 
     asyncio.run(run())

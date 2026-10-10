@@ -18,6 +18,7 @@ from core.conversation_context import (
     OpenAICompatibleConversationQueryResolver,
 )
 from core.engineering_context import EngineeringContextResolver
+from core.conversation_context.resolver import build_reference_query
 from core.engineering_requirements import route_engineering_evidence_requirement
 from core.tool_agent import AgentDecisionOutcome, FinalAnswerAction, ToolAgentRuntime
 from core.tool_agent.activity import ActivityEvent
@@ -82,7 +83,7 @@ def _history(size=8):
 
 def test_context_snapshot_reuses_g8_bounded_window_and_hides_message_repr():
     query_resolver = _RecordingResolver(
-        ConversationQueryResolution("standalone query", True, False)
+        ConversationQueryResolution("unused rewritten task", True, False, "standalone query")
     )
     snapshot = EngineeringContextResolver(query_resolver).resolve(
         "follow-up", _history()
@@ -95,7 +96,7 @@ def test_context_snapshot_reuses_g8_bounded_window_and_hides_message_repr():
     assert snapshot.used_count == 6
     assert snapshot.used_tokens > 0
     assert snapshot.truncated is True
-    assert snapshot.resolved_input == "standalone query"
+    assert snapshot.resolved_input == build_reference_query("follow-up", "standalone query")
     assert snapshot.resolver_used is True
     assert snapshot.resolver_fallback is False
     assert "standalone query" in repr(snapshot)
@@ -123,9 +124,9 @@ def test_none_tuple_and_list_history_are_legal_without_provider_calls():
     assert query_resolver.calls == []
 
 
-def test_resolved_input_drives_requirement_route_and_tool_agent_provider(monkeypatch):
+def test_current_task_and_reference_drive_requirement_route_and_provider(monkeypatch):
     query_resolver = _RecordingResolver(
-        ConversationQueryResolution("resolved engineering query", True, False)
+        ConversationQueryResolution("unused rewritten task", True, False, "engineering object")
     )
     unified, provider = _unified(EngineeringContextResolver(query_resolver))
     route_calls = []
@@ -143,8 +144,9 @@ def test_resolved_input_drives_requirement_route_and_tool_agent_provider(monkeyp
     result = unified.run("follow-up", conversation_context=_history(1))
 
     assert result.status == "completed"
-    assert route_calls == ["resolved engineering query"]
-    assert provider.queries == ["resolved engineering query"]
+    expected = build_reference_query("follow-up", "engineering object")
+    assert route_calls == ["follow-up\nengineering object"]
+    assert provider.queries == [expected]
     assert query_resolver.calls[0][1] == "follow-up"
 
 

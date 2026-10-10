@@ -157,8 +157,8 @@ def test_legacy_profile_ignores_control_state_while_unified_renders_it():
 
 
 def test_formal_unified_assembly_uses_validated_profile_and_legacy_builder_has_no_default_change():
-    lifespan_source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE" in lifespan_source
+    lifespan_source = inspect.getsource(api.app._build_engineering_project_runtime)
+    assert "ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE" in lifespan_source
     assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" not in lifespan_source
     assert "prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE" not in lifespan_source
 

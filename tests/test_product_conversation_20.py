@@ -77,7 +77,9 @@ class RecordingQueryResolver:
         self.calls.append(
             (tuple((m.role, m.content) for m in selected_messages), user_input)
         )
-        return ConversationQueryResolution(f"standalone: {user_input}", True, False)
+        return ConversationQueryResolution(
+            user_input, True, False, "EngineeringEvidenceVerifier",
+        )
 
 
 class RecordingContextResolver(EngineeringContextResolver):
@@ -484,7 +486,10 @@ def test_context_follow_up_reaches_existing_resolver(monkeypatch, tmp_path: Path
     previous_call_messages, previous_call_input = query_resolver.calls[-1]
     assert previous_call_input == "Where is it used before finalization?"
     assert ("user", "Where is EngineeringEvidenceVerifier implemented?") in previous_call_messages
-    assert snapshot.resolved_input == "standalone: Where is it used before finalization?"
+    assert json.loads(snapshot.resolved_input) == {
+        "current_request": "Where is it used before finalization?",
+        "reference_context": "EngineeringEvidenceVerifier",
+    }
 
 
 def test_bounded_history_respects_existing_window(monkeypatch, tmp_path: Path):

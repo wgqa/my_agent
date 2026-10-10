@@ -29,6 +29,7 @@ ACTIVITY_TOOL_NAMES = (
     "git_diff",
     "find_tests",
     "calculator",
+    "get_project_info",
 )
 MAX_ACTIVITY_TEXT_LENGTH = 120
 MAX_ACTIVITY_TOP_PATHS = 5
@@ -52,6 +53,7 @@ _TARGET_KEYS_BY_TOOL = {
     "git_diff": frozenset({"path", "mode"}),
     "find_tests": frozenset({"path"}),
     "calculator": frozenset({"expression"}),
+    "get_project_info": frozenset(),
 }
 _RESULT_SUMMARY_KEYS_BY_TOOL = {
     "knowledge_search": frozenset({"match_count", "top_sources"}),
@@ -61,6 +63,7 @@ _RESULT_SUMMARY_KEYS_BY_TOOL = {
     "git_diff": frozenset({"path", "mode", "truncated"}),
     "find_tests": frozenset({"test_file_count", "top_paths", "truncated"}),
     "calculator": frozenset({"status", "result_preview"}),
+    "get_project_info": frozenset({"available", "document_entrypoint_count", "truncated"}),
 }
 
 
@@ -165,9 +168,9 @@ def _safe_public_value(key: str, value: object) -> Any:
         return _clean_text(value)
     if key == "artifact_kind":
         return value if type(value) is str and value in _CODE_SEARCH_ARTIFACT_KINDS else None
-    if key in {"line", "context_lines", "match_count", "start_line", "end_line", "file_count", "test_file_count"}:
+    if key in {"line", "context_lines", "match_count", "start_line", "end_line", "file_count", "test_file_count", "document_entrypoint_count"}:
         return _safe_non_negative_int(value)
-    if key == "truncated":
+    if key in {"truncated", "available"}:
         return _safe_bool(value)
     if key == "result_preview":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -455,6 +458,7 @@ _PURPOSES = {
     "git_diff": "分析指定文件的代码变更",
     "find_tests": "定位与目标实现相关的测试",
     "calculator": "计算受限的数值表达式",
+    "get_project_info": "查询当前会话的项目绑定信息",
 }
 
 
@@ -630,6 +634,23 @@ def summarize_calculator_result(result: object) -> dict[str, Any]:
     return {"status": "completed", "result_preview": value}
 
 
+def summarize_project_info_result(result: object) -> dict[str, Any]:
+    # Availability and bounded entrypoint counts belong in the activity summary. The selected
+    # absolute root is returned to the model for its answer, never copied into
+    # this presentation channel or promoted to Repository Evidence.
+    if not isinstance(result, Mapping):
+        return {}
+    available = _safe_bool(result.get("available"))
+    summary = {"available": available} if available is not None else {}
+    entries = result.get("documentation_entrypoints")
+    if isinstance(entries, list):
+        summary["document_entrypoint_count"] = len(entries)
+        truncated = _safe_bool(result.get("documentation_truncated"))
+        if truncated is not None:
+            summary["truncated"] = truncated
+    return summary
+
+
 _RESULT_SUMMARIZERS = {
     "knowledge_search": summarize_knowledge_result,
     "code_search": summarize_code_search_result,
@@ -638,6 +659,7 @@ _RESULT_SUMMARIZERS = {
     "git_diff": summarize_git_diff_result,
     "find_tests": summarize_find_tests_result,
     "calculator": summarize_calculator_result,
+    "get_project_info": summarize_project_info_result,
 }
 
 

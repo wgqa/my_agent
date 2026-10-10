@@ -24,10 +24,12 @@ PUBLIC_EVIDENCE_KINDS = (
     "project_test",
 )
 _PUBLIC_EVIDENCE_KINDS = frozenset(PUBLIC_EVIDENCE_KINDS)
-# v2 names an earlier, unpromoted broad-routing experiment. This revision
-# adds test-only inspection to v3's document domain; source/mixed profiles stay
-# intact. It does not activate the deferred Task/Evidence v2 contract.
-ROUTER_VERSION = "engineering_requirement_router_v4"
+# v5 adds only bound-project overviews to the existing document requirement.
+# v4 remains selectable for reproducible R02 comparisons. Frozen profile
+# shapes and all source/mixed requirements stay intact.
+LEGACY_ROUTER_VERSION = "engineering_requirement_router_v4"
+ROUTER_VERSION = "engineering_requirement_router_v5"
+_SUPPORTED_ROUTER_VERSIONS = (LEGACY_ROUTER_VERSION, ROUTER_VERSION)
 
 
 class EngineeringRequirementProfile(str, Enum):
@@ -136,8 +138,8 @@ class EngineeringEvidenceRequirement:
         )
         if type(self.router_version) is not str or not self.router_version.strip():
             raise ValueError("router_version must be a non-empty string")
-        if self.router_version != ROUTER_VERSION:
-            raise ValueError(f"router_version must equal {ROUTER_VERSION!r}")
+        if self.router_version not in _SUPPORTED_ROUTER_VERSIONS:
+            raise ValueError("router_version must be a supported system policy version")
         expected_groups, expected_min_paths = _FROZEN_PROFILE_SPECS[profile]
         if groups != expected_groups:
             raise ValueError("required_evidence_groups do not match frozen profile")
@@ -536,6 +538,43 @@ _DOCUMENT_EVIDENCE_SIGNALS = (
     "依据", "根据", "阅读", "查阅", "引用", "总结", "概括",
     "according to", "based on", "read", "cite", "summarize", "summarise",
 )
+
+_OVERVIEW_SCOPE_PATTERN = re.compile(
+    r"(?:当前|目前|现在|这个|本|此|我们|咱们)(?:的|这个|当前|目前|现在|绑定的){0,3}(?:项目|仓库|工程)"
+    r"|\b(?:this|current|our)\s+(?:project|repository|repo)\b",
+    re.IGNORECASE,
+)
+
+
+def _repo_overview_intent(question: str) -> bool:
+    """A description of the bound project's purpose, rather than a root fact.
+
+    This is one document-evidence domain, not a list of known badcases. More
+    specific source/diagnosis tasks retain their requirements. Presentation
+    advice and a clause qualified by directory/binding metadata are excluded.
+    """
+    text = _normalize_signal_text(question)
+    scopes = list(_OVERVIEW_SCOPE_PATTERN.finditer(text))
+    if not scopes or _repo_navigation_intent(text) or _has_any(text, _SOURCE_SIGNALS):
+        return False
+    if _has_any(text, ("面试", "简历", "话术", "模板", "如何介绍", "怎么介绍", "怎样介绍",
+                       "how to describe", "how to introduce", "resume", "interview")):
+        return False
+    if _has_any(text, _DIAGNOSIS_SIGNALS) and _has_any(text, _DIAGNOSIS_DETAIL_SIGNALS):
+        return False
+    for scope in scopes:
+        before, after = text[:scope.start()], text[scope.end():]
+        if re.search(r"(?:介绍(?:一下)?|概述|概括|简述|概览|说一下|讲一下|聊一下)\s*$", before):
+            if re.match(r"\s*(?:的?(?:情况|概况|概览|用途|功能|主要能力|整体架构))?(?:\s*[，,。.!！？?；;]|\s*$)", after):
+                return True
+        if re.search(r"\b(?:introduce|describe|summarize|summarise|overview of|tell me about)\s+(?:the\s+)?$", before):
+            if re.match(r"\s*(?:(?:purpose|features|capabilities|architecture)\b)?(?:\s*[,.!?;]|\s*$)", after):
+                return True
+        if re.match(r"\s*(?:主要|到底|是|都|的)*(?:做什么|干什么|有什么功能|有哪些能力|用途|功能|概览|概况)", after):
+            return True
+        if re.search(r"\bwhat\s+(?:does|is)\s+(?:the\s+)?$", before) and re.match(r"\s+(?:do|about|for)\b", after):
+            return True
+    return False
 _REPOSITORY_DOCUMENT_SCOPE_SIGNALS = ("项目", "仓库", "工程", "project", "repository", "repo")
 _LOCAL_DOCUMENT_PATH_PATTERN = re.compile(
     r"(?<![a-zA-Z0-9_:/.\-])(?:[a-zA-Z0-9_.\-]+/)*"
@@ -636,11 +675,15 @@ def _repo_test_intent(question: str) -> bool:
 
 def route_engineering_evidence_requirement(
     question: str,
+    *,
+    router_version: str = ROUTER_VERSION,
 ) -> EngineeringEvidenceRequirement:
     """Route one question using bounded lexical semantics only."""
 
     if type(question) is not str or not question.strip():
         raise ValueError("question must be a non-empty string")
+    if router_version not in _SUPPORTED_ROUTER_VERSIONS:
+        raise ValueError("Unsupported requirement router_version")
     normalized = _normalize_signal_text(question)
 
     if _has_any(normalized, _CHANGE_SIGNALS) and _has_any(normalized, _TEST_SIGNALS):
@@ -657,6 +700,8 @@ def route_engineering_evidence_requirement(
         and _has_any(normalized, _COMPARE_SIGNALS)
     ):
         profile = THEORY_CODE_V1
+    elif router_version == ROUTER_VERSION and _repo_overview_intent(question):
+        profile = PROJECT_DOC_V1
     elif _repo_document_intent(question):
         # An explicit document source outranks a diagnosis topic. Mixed
         # docs/code and theory/code requests retain their priorities above.
@@ -686,12 +731,14 @@ def route_engineering_evidence_requirement(
         requirement_profile=profile,
         required_evidence_groups=groups,
         min_distinct_project_code_paths=min_paths,
+        router_version=router_version,
     )
 
 
 __all__ = [
     "PUBLIC_EVIDENCE_KINDS",
     "ROUTER_VERSION",
+    "LEGACY_ROUTER_VERSION",
     "EngineeringRequirementProfile",
     "EngineeringEvidenceRequirement",
     "EvidenceRequirementState",

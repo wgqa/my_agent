@@ -14,6 +14,7 @@ from core.conversation_context import (
     ContextMessage,
 )
 from core.engineering_context import EngineeringContextResolver
+from core.conversation_context.resolver import build_reference_query
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_requirements import route_engineering_evidence_requirement
 from core.query_planning import (
@@ -61,7 +62,7 @@ class _ContextResolver:
 
     def resolve(self, history, question):
         self.calls.append((history, question))
-        return ConversationQueryResolution(self.resolved_query, True, False)
+        return ConversationQueryResolution(question, True, False, self.resolved_query)
 
 
 class _DecisionProvider:
@@ -159,10 +160,12 @@ def test_engineering_planner_rejects_wrong_type_or_query_identity():
 
 
 def test_resolved_input_drives_planner_router_and_tool_agent(monkeypatch):
-    resolved = "RRF 在当前项目中如何实现？"
+    question = "那它怎么实现？"
+    reference = "RRF"
+    resolved = build_reference_query(question, reference)
     planner = _RecordingPlanner(_single_outcome(resolved))
     context = EngineeringContextResolver(
-        _ContextResolver(resolved)
+        _ContextResolver(reference)
     )
     runtime, provider = _runtime(planner, context_resolver=context)
     route_calls = []
@@ -178,7 +181,7 @@ def test_resolved_input_drives_planner_router_and_tool_agent(monkeypatch):
     )
 
     result = runtime.run(
-        "那它怎么实现？",
+        question,
         conversation_context=[
             {"role": "user", "content": "我们刚才说 RRF"},
         ],
@@ -186,7 +189,7 @@ def test_resolved_input_drives_planner_router_and_tool_agent(monkeypatch):
 
     assert result.status == "completed"
     assert planner.calls == [resolved]
-    assert route_calls == [resolved]
+    assert route_calls == [f"{question}\n{reference}"]
     assert provider.queries == [resolved]
     assert len(context._query_resolver.calls) == 1
 
@@ -341,10 +344,10 @@ def test_different_plans_produce_identical_execution_result_in_this_stage():
 def test_plan_and_context_content_do_not_enter_trace_or_activity():
     secret = "planner-and-context-secret"
     planner = _RecordingPlanner(
-        _decomposed_outcome("resolved question", marker=secret)
+        _decomposed_outcome(build_reference_query("question", "resolved object"), marker=secret)
     )
     context = EngineeringContextResolver(
-        _ContextResolver("resolved question")
+        _ContextResolver("resolved object")
     )
     runtime, _ = _runtime(planner, context_resolver=context)
     trace = []

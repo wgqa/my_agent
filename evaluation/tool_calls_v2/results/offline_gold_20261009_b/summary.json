@@ -1,0 +1,239 @@
+{
+  "breakdown": {
+    "focus_tool": {
+      "None": {
+        "planned": 36,
+        "recorded": 36,
+        "verdicts": {
+          "PASS": 36
+        }
+      },
+      "calculator": {
+        "planned": 6,
+        "recorded": 6,
+        "verdicts": {
+          "PASS": 6
+        }
+      },
+      "changed_files": {
+        "planned": 6,
+        "recorded": 6,
+        "verdicts": {
+          "PASS": 6
+        }
+      },
+      "code_search": {
+        "planned": 6,
+        "recorded": 6,
+        "verdicts": {
+          "PASS": 6
+        }
+      },
+      "find_tests": {
+        "planned": 6,
+        "recorded": 6,
+        "verdicts": {
+          "PASS": 6
+        }
+      },
+      "git_diff": {
+        "planned": 6,
+        "recorded": 6,
+        "verdicts": {
+          "PASS": 6
+        }
+      },
+      "read_project_context": {
+        "planned": 6,
+        "recorded": 6,
+        "verdicts": {
+          "PASS": 6
+        }
+      }
+    },
+    "group": {
+      "boundary": {
+        "planned": 9,
+        "recorded": 9,
+        "verdicts": {
+          "PASS": 9
+        }
+      },
+      "multistep": {
+        "planned": 18,
+        "recorded": 18,
+        "verdicts": {
+          "PASS": 18
+        }
+      },
+      "recovery": {
+        "planned": 9,
+        "recorded": 9,
+        "verdicts": {
+          "PASS": 9
+        }
+      },
+      "target": {
+        "planned": 36,
+        "recorded": 36,
+        "verdicts": {
+          "PASS": 36
+        }
+      }
+    },
+    "project": {
+      "fixture": {
+        "planned": 39,
+        "recorded": 39,
+        "verdicts": {
+          "PASS": 39
+        }
+      },
+      "requests": {
+        "planned": 9,
+        "recorded": 9,
+        "verdicts": {
+          "PASS": 9
+        }
+      },
+      "urllib3": {
+        "planned": 24,
+        "recorded": 24,
+        "verdicts": {
+          "PASS": 24
+        }
+      }
+    },
+    "split": {
+      "dev": {
+        "planned": 48,
+        "recorded": 48,
+        "verdicts": {
+          "PASS": 48
+        }
+      },
+      "validation": {
+        "planned": 24,
+        "recorded": 24,
+        "verdicts": {
+          "PASS": 24
+        }
+      }
+    }
+  },
+  "cost": {
+    "input_tokens_known": null,
+    "input_usage_missing_calls": 0,
+    "logical_decisions": 0,
+    "logical_metadata_call_count": 0,
+    "metadata_missing_logical_calls": 0,
+    "output_tokens_known": null,
+    "output_usage_missing_calls": 0,
+    "provider_calls_known": 0,
+    "tool_calls": 93
+  },
+  "invalid_records": 0,
+  "is_model_quality_result": false,
+  "latency_ms": {
+    "count": 72,
+    "p50": 15.881800001807278,
+    "p95": 144.276599996374
+  },
+  "limitations": [
+    "工具过程评分不证明最终答案正确或端到端质量。",
+    "新题是同类 HTTP/Python 仓库迁移；非独立人工或 sealed holdout。",
+    "N/A 代表缺少观察机会；不应转换成 100%。",
+    "离线 Gold 路径和脚本回放不代表模型自主选择能力。"
+  ],
+  "metrics": {
+    "actual_tool_calls_by_name": {
+      "calculator": 6,
+      "changed_files": 7,
+      "code_search": 9,
+      "find_tests": 8,
+      "git_diff": 8,
+      "read_project_context": 55
+    },
+    "after_repair_parse_valid": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "all_goals": {
+      "denominator": 64,
+      "numerator": 64,
+      "rate": 1.0
+    },
+    "executor_argument_errors": 0,
+    "fault_cases_not_triggered": 0,
+    "first_action": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "first_actions_repaired": 0,
+    "guard_blocked_unsafe_cases": 0,
+    "initial_argument_schema_errors_unknown_tool_attribution": 0,
+    "initial_parse_valid": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "material_coverage": {
+      "denominator": 96,
+      "numerator": 96,
+      "rate": 1.0
+    },
+    "multistep": {
+      "denominator": 18,
+      "numerator": 18,
+      "rate": 1.0
+    },
+    "parse_repair_success": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "recovery": {
+      "denominator": 3,
+      "numerator": 3,
+      "rate": 1.0
+    },
+    "required_tool_coverage": {
+      "denominator": 27,
+      "numerator": 27,
+      "rate": 1.0
+    },
+    "target_correct": {
+      "denominator": 93,
+      "numerator": 93,
+      "rate": 1.0
+    },
+    "targets_needing_review": 0,
+    "terminal_behavior": {
+      "denominator": 72,
+      "numerator": 72,
+      "rate": 1.0
+    },
+    "termination_reasons": {
+      "INSUFFICIENT_INFORMATION": 3,
+      "UNSAFE_REQUEST": 2,
+      "UNSUPPORTED_REQUEST": 3
+    },
+    "tool_errors_by_code": {
+      "PROJECT_CONTEXT_FILE_NOT_FOUND": 1,
+      "TOOL_EXECUTION_FAILED": 3
+    },
+    "unsafe_attempts": 0,
+    "unsafe_executions": 0,
+    "unwanted_refusals": 0
+  },
+  "mode": "gold_proof",
+  "not_run": [],
+  "planned_requests": 72,
+  "recorded_requests": 72,
+  "valid_records": 72,
+  "verdicts": {
+    "PASS": 72
+  }
+}

@@ -33,6 +33,7 @@ const state = {
   drawerOpen: false,
   drawerTab: 'sources',
   drawerResult: null,
+  drawerLive: false,
   drawerEvidenceId: null,
   drawerHighlightTimer: null,
   toastTimer: null,
@@ -191,7 +192,7 @@ function evidenceId(value) {
 }
 
 function evidenceForResult(result) {
-  return Array.isArray(result?.evidence) ? result.evidence : state.evidence;
+  return Array.isArray(result?.evidence) ? result.evidence : [];
 }
 
 function findEvidence(evidence, id) {
@@ -199,7 +200,7 @@ function findEvidence(evidence, id) {
   return evidence.find((item) => evidenceId(item?.evidence_id) === wanted) || null;
 }
 
-function appendCitation(container, token, evidence, result) {
+function appendCitation(container, token, evidence, result, live = false) {
   const citationId = evidenceId(token.slice(1, -1));
   if (!findEvidence(evidence, citationId)) {
     container.append(document.createTextNode(token));
@@ -211,11 +212,11 @@ function appendCitation(container, token, evidence, result) {
   citation.textContent = token;
   citation.dataset.evidenceId = citationId;
   citation.setAttribute('aria-label', 'Open evidence ' + citationId);
-  citation.addEventListener('click', () => openDrawer('sources', result, citationId));
+  citation.addEventListener('click', () => openDrawer('sources', result, citationId, { live }));
   container.append(citation);
 }
 
-function appendInlineContent(container, value, evidence, result = null) {
+function appendInlineContent(container, value, evidence, result = null, live = false) {
   const source = String(value ?? '');
   const pattern = /(\*\*[^*\n]+?\*\*|`[^`\n]+`|\[E\d+\])/g;
   let lastIndex = 0;
@@ -227,14 +228,14 @@ function appendInlineContent(container, value, evidence, result = null) {
     const token = match[0];
     if (token.startsWith('**')) {
       const strong = document.createElement('strong');
-      appendInlineContent(strong, token.slice(2, -2), evidence, result);
+      appendInlineContent(strong, token.slice(2, -2), evidence, result, live);
       container.append(strong);
     } else if (token.startsWith('`')) {
       const code = document.createElement('code');
       code.textContent = token.slice(1, -1);
       container.append(code);
     } else {
-      appendCitation(container, token, evidence, result);
+      appendCitation(container, token, evidence, result, live);
     }
     lastIndex = match.index + token.length;
   }
@@ -243,9 +244,9 @@ function appendInlineContent(container, value, evidence, result = null) {
   }
 }
 
-function appendParagraph(container, lines, evidence, result) {
+function appendParagraph(container, lines, evidence, result, live = false) {
   const paragraph = document.createElement('p');
-  appendInlineContent(paragraph, lines.join('\n'), evidence, result);
+  appendInlineContent(paragraph, lines.join('\n'), evidence, result, live);
   container.append(paragraph);
 }
 
@@ -267,11 +268,11 @@ function appendCodeBlock(container, lines, language = '') {
   container.append(shell);
 }
 
-function appendBlockquote(container, lines, evidence, result) {
+function appendBlockquote(container, lines, evidence, result, live = false) {
   const quote = document.createElement('blockquote');
   for (const line of lines) {
     const paragraph = document.createElement('p');
-    appendInlineContent(paragraph, line, evidence, result);
+    appendInlineContent(paragraph, line, evidence, result, live);
     quote.append(paragraph);
   }
   container.append(quote);
@@ -287,7 +288,7 @@ function isMarkdownBlockStart(line) {
   );
 }
 
-function renderMarkdownContent(container, content, evidence, result = null) {
+function renderMarkdownContent(container, content, evidence, result = null, live = false) {
   const lines = String(content ?? '').replace(/\r\n?/g, '\n').split('\n');
   let index = 0;
   while (index < lines.length) {
@@ -323,7 +324,7 @@ function renderMarkdownContent(container, content, evidence, result = null) {
     const heading = line.match(/^ {0,3}(#{2,3})\s+(.+?)\s*#*\s*$/);
     if (heading) {
       const element = document.createElement(heading[1].length === 2 ? 'h2' : 'h3');
-      appendInlineContent(element, heading[2], evidence, result);
+      appendInlineContent(element, heading[2], evidence, result, live);
       container.append(element);
       index += 1;
       continue;
@@ -335,7 +336,7 @@ function renderMarkdownContent(container, content, evidence, result = null) {
         quoteLines.push(lines[index].replace(/^ {0,3}> ?/, ''));
         index += 1;
       }
-      appendBlockquote(container, quoteLines, evidence, result);
+      appendBlockquote(container, quoteLines, evidence, result, live);
       continue;
     }
 
@@ -348,7 +349,7 @@ function renderMarkdownContent(container, content, evidence, result = null) {
           break;
         }
         const listItem = document.createElement('li');
-        appendInlineContent(listItem, item[1], evidence, result);
+        appendInlineContent(listItem, item[1], evidence, result, live);
         list.append(listItem);
         index += 1;
       }
@@ -365,7 +366,7 @@ function renderMarkdownContent(container, content, evidence, result = null) {
           break;
         }
         const listItem = document.createElement('li');
-        appendInlineContent(listItem, item[1], evidence, result);
+        appendInlineContent(listItem, item[1], evidence, result, live);
         list.append(listItem);
         index += 1;
       }
@@ -383,7 +384,7 @@ function renderMarkdownContent(container, content, evidence, result = null) {
       paragraphLines.push(lines[index]);
       index += 1;
     }
-    appendParagraph(container, paragraphLines, evidence, result);
+    appendParagraph(container, paragraphLines, evidence, result, live);
   }
 }
 
@@ -468,10 +469,7 @@ function renderMessageContent(container, message, question = '') {
   }
   const content = result ? statusMessage(result) : text(message.content);
   if (message.pending && !content) {
-    const pending = document.createElement('span');
-    pending.className = 'message-placeholder';
-    pending.textContent = 'Waiting for the Engineering Agent…';
-    container.append(pending);
+    // The current assistant row owns its live execution panel.
     return;
   }
   if (!content) {
@@ -482,8 +480,8 @@ function renderMessageContent(container, message, question = '') {
     return;
   }
 
-  const resultEvidence = evidenceForResult(result);
-  renderMarkdownContent(container, content, resultEvidence, result);
+  const resultEvidence = message.pending ? state.evidence : evidenceForResult(result);
+  renderMarkdownContent(container, content, resultEvidence, result, message.pending === true);
   if (message.pending && content) {
     const cursor = document.createElement('span');
     cursor.className = 'streaming-cursor';
@@ -600,7 +598,7 @@ function appendEvidence(container, evidence, selectedId = '') {
   container.append(stack);
 }
 
-function renderActivityItems(container, activity, emptyText) {
+function renderActivityItems(container, activity, emptyText, { result = null, live = false } = {}) {
   container.replaceChildren();
   if (!activity.length) {
     const empty = document.createElement('li');
@@ -642,7 +640,7 @@ function renderActivityItems(container, activity, emptyText) {
         button.className = 'activity-evidence';
         button.textContent = '[' + id + ']';
         button.setAttribute('aria-label', '查看资料 ' + id);
-        button.addEventListener('click', () => openDrawer('sources', state.drawerResult || state.latestResult, id));
+        button.addEventListener('click', () => openDrawer('sources', result, id, { live }));
         links.append(button);
       }
       copy.append(links);
@@ -665,24 +663,32 @@ function renderLiveActivity() {
   if (!elements.liveActivityList) {
     return;
   }
+  const followTail = state.running
+    && elements.messages.scrollHeight - elements.messages.scrollTop - elements.messages.clientHeight < 32;
   renderActivityItems(
     elements.liveActivityList,
     state.activity,
     '正在准备分析…',
+    { live: true },
   );
   elements.liveRunLabel.textContent = '正在分析';
+  if (followTail) elements.messages.scrollTop = elements.messages.scrollHeight;
 }
 
 function addActivity(event) {
   state.activity = updateActivity(state.activity, event);
   renderLiveActivity();
-  if (state.drawerOpen && !state.drawerResult) renderDrawer();
+  if (state.drawerOpen && state.drawerLive) renderDrawer();
 }
 
 function drawerData() {
-  const result = state.drawerResult || state.latestResult;
+  if (state.drawerLive) {
+    return { result: state.latestResult || (state.running ? { status: 'running' } : null),
+      evidence: state.evidence, activity: state.activity };
+  }
+  const result = state.drawerResult;
   const evidence = evidenceForResult(result);
-  const activity = result ? activityFromResult(result) : state.activity;
+  const activity = activityFromResult(result);
   return { result, evidence, activity };
 }
 
@@ -697,7 +703,7 @@ function renderDrawerRun(result) {
   metrics.className = 'run-metrics';
   const execution = result?.execution || {};
   const values = [
-    ['Status', text(result?.status, state.running ? 'running' : '—')],
+    ['Status', text(result?.status, '—')],
     ['Iterations', result?.iterations_used],
     ['Tool calls', result?.tool_calls_used],
     ['Tool errors', result?.tool_errors_used],
@@ -750,7 +756,8 @@ function renderDrawer() {
   const activityList = document.createElement('ol');
   activityList.className = 'activity-list activity-list--drawer';
   elements.drawerActivity.append(activityHeading, activityList);
-  renderActivityItems(activityList, activity, '此历史记录没有可展示的执行步骤。');
+  renderActivityItems(activityList, activity, '此记录没有可展示的执行步骤。',
+    { result, live: state.drawerLive });
 
   renderDrawerRun(result);
   for (const button of elements.drawerTabs) {
@@ -772,11 +779,12 @@ function renderDrawer() {
   }
 }
 
-function openDrawer(tab = 'sources', result = null, selectedEvidenceId = '') {
+function openDrawer(tab = 'sources', result = null, selectedEvidenceId = '', { live = false } = {}) {
   window.clearTimeout(state.drawerHighlightTimer);
   state.drawerOpen = true;
   state.drawerTab = tab;
-  state.drawerResult = result || state.latestResult || null;
+  state.drawerResult = result;
+  state.drawerLive = live;
   state.drawerEvidenceId = selectedEvidenceId || '';
   document.querySelector('.app-shell').classList.add('drawer-open');
   elements.drawer.setAttribute('aria-hidden', 'false');
@@ -792,6 +800,8 @@ function openDrawer(tab = 'sources', result = null, selectedEvidenceId = '') {
 function closeDrawer() {
   window.clearTimeout(state.drawerHighlightTimer);
   state.drawerOpen = false;
+  state.drawerLive = false;
+  state.drawerResult = null;
   state.drawerEvidenceId = '';
   document.querySelector('.app-shell').classList.remove('drawer-open');
   elements.drawer.setAttribute('aria-hidden', 'true');
@@ -859,6 +869,7 @@ function renderMessages() {
       author.className = 'message-author';
       author.textContent = 'Engineering Agent';
       bubble.append(author);
+      if (message.pending) bubble.append(elements.liveRun);
     }
 
     const content = document.createElement('div');
@@ -881,12 +892,13 @@ function applyConversationDetail(detail, { keepRunPanels = false } = {}) {
   state.messages = Array.isArray(detail.messages) ? detail.messages : [];
   const assistant = [...state.messages]
     .reverse()
-    .find((message) => message.role === 'assistant' && message.result);
+    .find((message) => message.role === 'assistant');
   if (!keepRunPanels) {
-    state.latestResult = assistant ? assistant.result : null;
+    state.latestResult = assistant?.result || null;
     state.evidence = state.latestResult?.evidence || [];
     state.activity = activityFromResult(state.latestResult);
     state.drawerResult = state.latestResult;
+    state.drawerLive = false;
     state.drawerEvidenceId = '';
   }
   const title = text(detail.title, '');
@@ -1058,7 +1070,6 @@ async function sendMessage(event) {
         if (eventPayload.type === 'final') {
           finalResult = eventPayload.result || null;
           state.latestResult = finalResult;
-          state.drawerResult = finalResult;
           state.activity = activityFromResult(finalResult);
           state.evidence = Array.isArray(finalResult?.evidence)
             ? finalResult.evidence

@@ -20,8 +20,8 @@ from core.unified_engineering_runtime import UnifiedEngineeringRuntime
 
 
 def test_formal_unified_assembly_uses_the_successor_to_real_validated_unified_v1():
-    source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE" in source
+    source = inspect.getsource(api.app._build_engineering_project_runtime)
+    assert "ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE" in source
     assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" not in source
 
 

@@ -105,11 +105,12 @@ def _build_initial_context(
     route: RouteDecision,
     resolved_input: str,
     bundle: EvidenceBundle,
+    *, retrieval_query: str | None = None,
 ) -> tuple[DecisionContextItem, ...]:
     if route.route == "direct_answer":
         return ()
     if route.route == "single_retrieval":
-        query_pairs = ((resolved_input, resolved_input, "q0"),)
+        query_pairs = ((resolved_input, retrieval_query or resolved_input, "q0"),)
     else:
         query_pairs = tuple(
             (query_id, query, query_id)
@@ -278,6 +279,7 @@ class EngineeringRetrievalComponent:
         required_query_ids: tuple[str, ...],
         covered_query_ids: tuple[str, ...],
         merge_metadata: Mapping[str, object],
+        retrieval_query: str | None = None,
     ) -> EngineeringRetrievalSnapshot:
         return EngineeringRetrievalSnapshot(
             resolved_input=resolved_input,
@@ -293,7 +295,9 @@ class EngineeringRetrievalComponent:
             merge_policy=SUBQUERY_RRF_MERGE_V2,
             merge_rrf_k=DEFAULT_MERGE_RRF_K,
             knowledge_evidence=_convert_evidence(bundle),
-            initial_context=_build_initial_context(route, resolved_input, bundle),
+            initial_context=_build_initial_context(
+                route, resolved_input, bundle, retrieval_query=retrieval_query,
+            ),
             merge_metadata=merge_metadata,
         )
 
@@ -301,6 +305,7 @@ class EngineeringRetrievalComponent:
         self,
         resolved_input: str,
         planner_outcome: PlannerOutcome,
+        *, retrieval_query: str | None = None,
     ) -> EngineeringRetrievalSnapshot:
         """Route and execute one finite planned retrieval sequence."""
 
@@ -309,6 +314,12 @@ class EngineeringRetrievalComponent:
             raise TypeError("planner_outcome 必须是 PlannerOutcome")
         if planner_outcome.plan.original_query != resolved_input:
             raise ValueError("planner_outcome.plan.original_query 必须等于 resolved_input")
+        # Planning identity retains the complete task envelope. Lexical search
+        # uses only its question/referent data, never transport keys. The caller
+        # supplies this view; we do not decode arbitrary user-authored JSON.
+        if retrieval_query is None:
+            retrieval_query = resolved_input
+        _require_non_empty_str(retrieval_query, "retrieval_query")
 
         supported = tuple(getattr(self._retrieval_port, "supported_strategies", ()))
         route = self._router.route(planner_outcome.plan, supported)
@@ -338,12 +349,12 @@ class EngineeringRetrievalComponent:
 
         if route.route == "single_retrieval":
             strategy = route.retrieval_strategy
-            documents = self._search(resolved_input, strategy)
+            documents = self._search(retrieval_query, strategy)
             retrieval_call_count = 1
             upgrade_attempted = False
             upgrade_used = False
             if not documents and strategy == "bm25" and "hybrid" in supported:
-                documents = self._search(resolved_input, "hybrid")
+                documents = self._search(retrieval_query, "hybrid")
                 retrieval_call_count += 1
                 upgrade_attempted = True
                 upgrade_used = bool(documents)
@@ -366,6 +377,7 @@ class EngineeringRetrievalComponent:
                 upgrade_used=upgrade_used,
                 required_query_ids=("q0",),
                 covered_query_ids=covered_query_ids,
+                retrieval_query=retrieval_query,
                 merge_metadata={
                     **frozen_merge_metadata,
                     "input_candidate_count": len(documents),

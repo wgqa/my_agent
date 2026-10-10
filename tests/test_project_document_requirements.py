@@ -94,7 +94,7 @@ def test_historical_router_identity_does_not_follow_live_document_router():
     manifest = load_protocol_manifest()
     historical = copy.deepcopy(manifest["systems"]["B"])
     assert historical["requirement_router"]["version"] == "engineering_requirement_router_v1"
-    assert ROUTER_VERSION == "engineering_requirement_router_v4"
+    assert ROUTER_VERSION == "engineering_requirement_router_v5"
     _validate_current_system_b_identity(historical)
     historical["requirement_router"]["version"] = ROUTER_VERSION
     with pytest.raises(ProtocolViolation, match="requirement_router identity drift"):

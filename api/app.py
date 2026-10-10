@@ -25,7 +25,8 @@ from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.query_planning import OpenAICompatibleQueryPlanner
-from core.query_planning.prompt import ENGINEERING_PLANNER_PROMPT_VERSION
+from core.query_planning.prompt import ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION
+from core.conversation_context.resolver import ENGINEERING_REFERENCE_PROMPT_VERSION
 from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
     UnifiedEngineeringRuntime,
@@ -55,9 +56,13 @@ from core.tool_agent import (
 from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE,
     ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
+    ENGINEERING_DECISION_PROMPT_CURRENT_REQUEST_PROFILE,
+    ENGINEERING_DECISION_PROMPT_PROJECT_INFO_PROFILE,
+    ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE,
 )
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
 from core.tool_agent.tools.read_project_targets import READ_PROJECT_TARGETS_VERSION
+from core.tool_agent.tools.project_info import PROJECT_INFO_DOCUMENTATION_VERSION, ProjectBinding
 from api.schemas import (
     AgentQueryRequest,
     AgentQueryResponse,
@@ -152,18 +157,21 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
     tool_runtime = build_tool_agent_runtime(
         repo_root=project.root, retrieval_port=port,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
-        prompt_profile=ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
+        prompt_profile=ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE,
         code_search_version=CODE_SEARCH_TEST_VERSION,
         read_project_context_version=READ_PROJECT_TARGETS_VERSION,
+        project_binding=ProjectBinding(project.root, project.project_name, project.source),
+        project_info_version=PROJECT_INFO_DOCUMENTATION_VERSION,
     )
     context_resolver = EngineeringContextResolver(OpenAICompatibleConversationQueryResolver(
         provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
+        prompt_version=ENGINEERING_REFERENCE_PROMPT_VERSION,
     ))
     planner = EngineeringEvidencePlanner(OpenAICompatibleQueryPlanner(
         provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
-        prompt_version=ENGINEERING_PLANNER_PROMPT_VERSION,
+        prompt_version=ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION,
     ))
     retrieval = EngineeringRetrievalComponent(port)
     runtime = UnifiedEngineeringRuntime(

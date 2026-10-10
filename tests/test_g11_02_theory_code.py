@@ -18,13 +18,15 @@ from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_SHA256,
     ENGINEERING_DECISION_PROMPT_V2_PROFILE,
     ENGINEERING_DECISION_PROMPT_UNIFIED_KIND_AWARE_GROUNDED_V2_PROFILE,
-    ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE,
+    ENGINEERING_DECISION_PROMPT_CURRENT_REQUEST_PROFILE,
+    ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE,
     ENGINEERING_DECISION_PROMPT_UNIFIED_PROFILE,
     LEGACY_DECISION_PROMPT_PROFILE,
 )
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC, CalculatorHandler
 
 import api.app
+from api.project_workspace import EngineeringProject
 
 
 class FakeClient:
@@ -128,7 +130,7 @@ def test_engineering_production_wiring_uses_grounded_profile_without_clearing_le
     monkeypatch.setattr(
         api.app,
         "resolve_engineering_project",
-        lambda _root: SimpleNamespace(root=tmp_path),
+        lambda _root: EngineeringProject(tmp_path.resolve(), "offline-project", "configured"),
     )
     monkeypatch.setattr(api.app, "_resolve_agent_provider", lambda _pipeline: ("fake", "key"))
     monkeypatch.setattr(api.app, "build_pipeline_agent_runtime", lambda *args, **kwargs: object())
@@ -149,7 +151,7 @@ def test_engineering_production_wiring_uses_grounded_profile_without_clearing_le
     asyncio.run(run_lifespan())
     assert len(calls) == 2
     assert calls[0].get("prompt_profile") is None
-    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE
+    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE
     assert "code_search_version" not in calls[0]
     assert calls[1]["code_search_version"] == "code_search_v7"
 
@@ -168,7 +170,7 @@ def test_legacy_init_failure_keeps_engineering_initialization_independent(monkey
     monkeypatch.setattr(
         api.app,
         "resolve_engineering_project",
-        lambda _root: SimpleNamespace(root=tmp_path),
+        lambda _root: EngineeringProject(tmp_path.resolve(), "offline-project", "configured"),
     )
     monkeypatch.setattr(api.app, "_resolve_agent_provider", lambda _pipeline: ("fake", "key"))
     monkeypatch.setattr(api.app, "build_pipeline_agent_runtime", lambda *args, **kwargs: object())
@@ -184,4 +186,4 @@ def test_legacy_init_failure_keeps_engineering_initialization_independent(monkey
     asyncio.run(run_lifespan())
     assert len(calls) == 2
     assert calls[0].get("prompt_profile") is None
-    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE
+    assert calls[1]["prompt_profile"] is ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE

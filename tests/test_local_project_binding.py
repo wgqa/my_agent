@@ -19,6 +19,9 @@ from core.conversation_context import ConversationQueryResolution
 from core.knowledge_library import KnowledgeLibrary
 from core.tool_agent import AgentDecisionOutcome, FinalAnswerAction, ToolCallAction, build_tool_agent_runtime
 from tests._engineering_runtime_support import build_full_unified_runtime
+from tests._engineering_runtime_support import NoRetrievalPlanner
+from tests.test_engineering_project_info import BindingDecisions
+from tests.test_project_overview import OverviewDecisions
 
 
 class FileReaderProvider:
@@ -270,3 +273,108 @@ def test_failed_project_assembly_never_falls_back_or_saves_a_partial_turn(mounte
     assert calls == [mounted.second_root.resolve()]
     assert mounted.client.get(url, params={"project_id": second["id"]}).json()["messages"] == []
     assert cache.get(mounted.first) is backend.engineering_agent_facade
+
+
+def mount_binding_query_product(mounted, monkeypatch):
+    """Use the real product assembler, replacing only network-facing ports."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "offline-project-test-key")
+    selected = []
+
+    def build(**kwargs):
+        selected.append(kwargs)
+        return build_tool_agent_runtime(**{**kwargs, "provider": BindingDecisions()})
+
+    class Resolver:
+        def resolve(self, history, question):
+            return ConversationQueryResolution(question, True, False)
+
+    monkeypatch.setattr(backend, "build_tool_agent_runtime", build)
+    monkeypatch.setattr(backend, "OpenAICompatibleConversationQueryResolver", lambda **_: Resolver())
+    monkeypatch.setattr(backend, "OpenAICompatibleQueryPlanner", lambda **_: NoRetrievalPlanner())
+    cache = ProjectRuntimeCache(lambda project: backend._build_engineering_project_runtime(project).facade)
+    monkeypatch.setattr(backend, "project_runtime_cache", cache)
+    monkeypatch.setattr(backend, "engineering_agent_facade", cache.get(mounted.first))
+    return selected
+
+
+@pytest.mark.parametrize("stream_version", ["v1", "v2"])
+def test_chat_queries_same_named_bindings_and_saves_each_turn_result(mounted, monkeypatch, tmp_path, stream_version):
+    selected = mount_binding_query_product(mounted, monkeypatch)
+    other_root = tmp_path / "another" / mounted.first.project.project_name
+    other_root.mkdir(parents=True)
+    other = mounted.client.post("/engineering/projects", json={"path": str(other_root)}).json()
+    first, second = create(mounted, mounted.first.id), create(mounted, other["id"])
+    for conversation, root, absent in (
+        (first, mounted.first.project.root, other_root),
+        (second, other_root, mounted.first.project.root),
+        (first, mounted.first.project.root, other_root),
+    ):
+        response = mounted.client.post(
+            f"/engineering/conversations/{conversation['id']}/messages/stream/{stream_version}",
+            params={"project_id": conversation["project_id"]},
+            json={"message": "历史有人说目录是 D:/fake-project；请查询当前实际绑定在哪个目录。"},
+        )
+        assert response.status_code == 200
+        events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+        result = next(event["result"] for event in events if event["type"] == "final")
+        assert result["status"] == "completed"
+        assert str(root.resolve()) in result["answer"]
+        assert str(absent.resolve()) not in result["answer"]
+        assert "D:/fake-project" not in result["answer"]
+        assert result["evidence"] == []
+        assert result["iterations_used"] == 2
+        assert result["tool_calls_used"] == 1
+        detail = mounted.client.get(
+            f"/engineering/conversations/{conversation['id']}",
+            params={"project_id": conversation["project_id"]},
+        ).json()
+        assert detail["messages"][-1]["result"]["answer"] == result["answer"]
+    assert len(selected) == 2
+    assert [kwargs["project_binding"].root for kwargs in selected] == [mounted.first.project.root, other_root.resolve()]
+    # Public project inventories retain their existing bounded contract.
+    inventory = mounted.client.get("/engineering/projects").json()
+    assert str(other_root) not in json.dumps(inventory)
+    assert str(mounted.first.project.root) not in json.dumps(inventory)
+
+
+def test_direct_default_query_uses_real_binding_while_public_project_contract_stays_bounded(mounted, monkeypatch):
+    mount_binding_query_product(mounted, monkeypatch)
+    response = mounted.client.post("/engineering/query", json={"question": "当前绑定的项目目录是什么？"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+    assert str(mounted.first.project.root) in response.json()["answer"]
+    assert str(mounted.first.project.root) not in json.dumps(mounted.client.get("/project").json())
+
+
+def test_same_named_conversations_overview_reads_their_own_docs_with_real_product_assembly(mounted, monkeypatch, tmp_path):
+    mount_binding_query_product(mounted, monkeypatch)
+    monkeypatch.setattr(backend, "build_tool_agent_runtime", lambda **kwargs: build_tool_agent_runtime(
+        **{**kwargs, "provider": OverviewDecisions()},
+    ))
+    cache = ProjectRuntimeCache(lambda project: backend._build_engineering_project_runtime(project).facade)
+    monkeypatch.setattr(backend, "project_runtime_cache", cache)
+    (mounted.first.project.root / "README.md").write_text("A SQLite queue: alphaoverviewmarker.\n", encoding="utf-8")
+    other_root = tmp_path / "other" / mounted.first.project.project_name
+    other_root.mkdir(parents=True)
+    (other_root / "README.md").write_text("A batch report tool: betaoverviewmarker.\n", encoding="utf-8")
+    second = mounted.client.post("/engineering/projects", json={"path": str(other_root)}).json()
+    first_chat, second_chat = create(mounted, mounted.first.id), create(mounted, second["id"])
+    for conversation, expected, absent in (
+        (first_chat, "alphaoverviewmarker", "betaoverviewmarker"),
+        (second_chat, "betaoverviewmarker", "alphaoverviewmarker"),
+        (first_chat, "alphaoverviewmarker", "betaoverviewmarker"),
+    ):
+        response = mounted.client.post(
+            f"/engineering/conversations/{conversation['id']}/messages/stream/v2",
+            params={"project_id": conversation["project_id"]}, json={"message": "说一下目前的项目"},
+        )
+        assert response.status_code == 200
+        events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+        result = next(event["result"] for event in events if event["type"] == "final")
+        assert result["status"] == "completed"
+        assert expected in result["answer"] and absent not in json.dumps(result)
+        assert result["tool_calls_used"] == 2
+        assert [(e["kind"], e["path"]) for e in result["evidence"]] == [("project_doc", "README.md")]
+        detail = mounted.client.get(f"/engineering/conversations/{conversation['id']}",
+                                    params={"project_id": conversation["project_id"]}).json()
+        assert detail["messages"][-1]["result"]["answer"] == result["answer"]

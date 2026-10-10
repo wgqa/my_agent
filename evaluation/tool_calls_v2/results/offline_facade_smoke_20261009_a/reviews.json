@@ -1,0 +1,19 @@
+[
+  {
+    "automatic_failures": [
+      "GOAL:g1",
+      "REQUIRED_TOOL_MISSING",
+      "FIRST_ACTION_INCORRECT",
+      "TERMINAL_BEHAVIOR_INCORRECT"
+    ],
+    "automatic_verdict": "INVALID",
+    "case_id": "dev-001",
+    "decision": null,
+    "query": "用计算器算一下，延迟从 12000 毫秒降到 9000 毫秒，下降百分比是多少？",
+    "reason": null,
+    "review_status": "pending",
+    "reviewer_name": null,
+    "reviewer_type": null,
+    "source_references": []
+  }
+]

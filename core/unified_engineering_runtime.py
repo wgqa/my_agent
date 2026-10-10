@@ -163,10 +163,11 @@ class UnifiedEngineeringRuntime:
         # Establish it before planned Knowledge Retrieval so the later
         # finalization binding can keep Knowledge supplementary for Project-only
         # tasks while preserving it as required for Theory-Code tasks.
-        requirement = route_engineering_evidence_requirement(resolved_input)
+        requirement = route_engineering_evidence_requirement(context_snapshot.lexical_query)
         retrieval_snapshot = self._retrieval_component.retrieve(
             resolved_input,
             planner_outcome,
+            retrieval_query=context_snapshot.lexical_query,
         )
         finalization_verifier = self._evidence_verifier.bind(
             planner_outcome,

@@ -184,6 +184,13 @@ FULL_APP_SMOKE_OK
 
 ## 8. 离线测试
 
+2026-10-09 工具评测外围：新增 `evaluation/tool_calls_v2/` 与零模型 runner，
+48 开发题 + 24 新题、执行事实记录与材料评分；正式模型评测尚未开始。
+新增两个离线模块含 **90 项**，CI/下列清单现为 **55 模块**。
+相关八模块验证 **237 passed / 1 skipped / 2 warnings**（包含这 90 项，不累加）。
+真实模型评测手动启动，不在 CI 下载外部源码或调用 provider；不启动/重启生产服务。
+详见 [工具过程评测说明](../evaluation/tool_calls_v2/README.md)、[离线准备记录](validation/2026-10-09-tool-call-evaluation-preparation.md)。本轮未执行完整 CI 或全量回归。
+
 2026-10-07 HTML 切换 V2：CI/下列清单新增 `test_engineering_conversation_stream_v2.py`，
 共 **53 模块**。相关 8 模块 **100 passed / 3 warnings**，包含 Node 的
 **29 项**反馈/V2 传输及活动展示子检查，不与 Python 数量累加。实际 HTML 在
@@ -265,6 +272,8 @@ python -m pytest -q \
   tests/test_tool_agent_evidence.py \
   tests/test_project_evidence_excerpt.py \
   tests/test_tool_agent_real_tools.py \
+  tests/test_tool_call_evaluation_v2.py \
+  tests/test_tool_call_evaluation_v2_observer.py \
   tests/test_engineering_agent_api.py \
   tests/test_test_discovery_tools.py \
   tests/test_git_change_tools.py \
@@ -369,3 +378,11 @@ python -m pytest -q --basetemp="${TMPDIR:-/tmp}/my_agent_pytest_maintenance" \
 源码目录和知识库分别管理。HTML 新对话可添加或选择本地目录，切换不重启；
 `ENGINEERING_PROJECT_ROOT` 仍控制启动默认项目，仅修改该默认配置需要重启。
 操作与已验证限制见 [新项目挂载手册](project_mount_runbook.md)。
+
+## 11. 当前工具调用评测基线
+
+2026-10-10 已对包含 R01 修复的当前业务完成 48 道开发题与 24 道新题的真实模型评测。
+自动分、开发助手源码复核、实际成本、失败缺口与下一步优先级见
+[工具调用评测 v2 结果](validation/2026-10-10-tool-call-evaluation-v2.md)。
+运行与零模型重算命令见 [评测使用说明](../evaluation/tool_calls_v2/README.md)。
+该基线测工具过程及停止行为，尚不证明第三层端到端质量已达标。

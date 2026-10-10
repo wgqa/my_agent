@@ -13,3 +13,4 @@ evaluation/no_retrieval_alignment_20261003/** -text
 evaluation/project_test_acquisition_20261003/** -text
 evaluation/system_assessment_20261002/** -text
 evaluation/core_workflows_20261004/** -text
+evaluation/tool_calls_v2/results/** -text

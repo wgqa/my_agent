@@ -156,8 +156,8 @@ def test_frozen_profile_identities_remain_unchanged_and_new_identity_is_independ
 
 
 def test_formal_unified_assembly_can_advance_without_replacing_historical_profiles():
-    source = inspect.getsource(api.app.lifespan)
-    assert "ENGINEERING_DECISION_PROMPT_OBJECT_READER_PROFILE" in source
+    source = inspect.getsource(api.app._build_engineering_project_runtime)
+    assert "ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE" in source
     assert "ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE" not in source
     assert "prompt_profile=ENGINEERING_DECISION_PROMPT_V2_PROFILE" not in source
 

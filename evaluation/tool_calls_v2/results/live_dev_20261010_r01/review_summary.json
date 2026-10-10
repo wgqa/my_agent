@@ -1,0 +1,59 @@
+{
+  "adjudicated_verdicts": {
+    "FAIL": 4,
+    "PARTIAL": 14,
+    "PASS": 30
+  },
+  "automatic_verdicts": {
+    "FAIL": 4,
+    "PARTIAL": 17,
+    "PASS": 27
+  },
+  "changed_decisions": [
+    {
+      "automatic": "PARTIAL",
+      "case_id": "dev-039",
+      "reviewed": "PASS"
+    },
+    {
+      "automatic": "PARTIAL",
+      "case_id": "dev-018",
+      "reviewed": "PASS"
+    },
+    {
+      "automatic": "PARTIAL",
+      "case_id": "dev-034",
+      "reviewed": "PASS"
+    }
+  ],
+  "independent_human_review": false,
+  "non_pass_reviewed": 21,
+  "pass_samples_reviewed": 12,
+  "policy": "原 cases/calls/自动分与汇总不变；开发助手仅记录显式源码裁决。未复核通过项沿用自动分，非独立人工或端到端验收。",
+  "reviewed_cases": 33,
+  "reviewer_type": "developer_assistant",
+  "run_id": "live_dev_20261010_r01",
+  "source_audit": {
+    "all_gold_source_hashes_verified": true,
+    "fixture_identities_unchanged": true,
+    "reader_lines_verified": 373,
+    "search_lines_verified": 40
+  },
+  "unreviewed_use_automatic": [
+    "dev-002",
+    "dev-003",
+    "dev-004",
+    "dev-007",
+    "dev-008",
+    "dev-010",
+    "dev-011",
+    "dev-012",
+    "dev-019",
+    "dev-020",
+    "dev-026",
+    "dev-029",
+    "dev-031",
+    "dev-036",
+    "dev-042"
+  ]
+}

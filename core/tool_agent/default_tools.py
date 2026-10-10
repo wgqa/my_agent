@@ -11,6 +11,7 @@ find_tests。
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from core.agent_runtime import RetrievalPort
 from core.tool_agent.registry import ToolRegistry
@@ -37,6 +38,9 @@ from core.tool_agent.tools.git_change import (
     GitDiffHandler,
 )
 from core.tool_agent.tools.test_discovery import FIND_TESTS_SPEC, FindTestsHandler
+from core.tool_agent.tools.project_info import (
+    PROJECT_INFO_VERSION, ProjectBinding, ProjectInfoHandler, project_info_spec,
+)
 
 
 def build_readonly_tool_registry(
@@ -47,14 +51,25 @@ def build_readonly_tool_registry(
     knowledge_top_k: int = 5,
     code_search_version: str = CODE_SEARCH_VERSION,
     read_project_context_version: str = READ_PROJECT_CONTEXT_VERSION,
+    project_binding: ProjectBinding | None = None,
+    project_info_version: str = PROJECT_INFO_VERSION,
 ) -> ToolRegistry:
-    """构造并注册七个真实 read-only Tool；所有依赖经参数显式传入。
+    """构造七个默认只读 Tool，可显式增加当前项目绑定查询。
 
     - calculator：无外部依赖；
     - code_search：repo_root（构造时 fail-fast 若不是目录）；
     - read_project_context：同一个 repo_root 中的有限只读源码窗口；
     - knowledge_search：retrieval_port + 系统固定 strategy / top_k。
+    - get_project_info：仅在提供不可变 project_binding 时启用。
     """
+    # Legacy factories retain their frozen seven-tool set. Engineering opts in
+    # with the same host binding as all filesystem tools; model args cannot
+    # select a root or a project from the registry.
+    if project_binding is not None:
+        if not isinstance(project_binding, ProjectBinding):
+            raise TypeError("project_binding must be ProjectBinding or None")
+        if Path(repo_root).resolve() != project_binding.root:
+            raise ValueError("project_binding.root must match repo_root")
     registry = ToolRegistry()
     registry.register(CALCULATOR_SPEC, CalculatorHandler())
     registry.register(
@@ -79,4 +94,8 @@ def build_readonly_tool_registry(
     registry.register(CHANGED_FILES_SPEC, ChangedFilesHandler(repo_root=repo_root))
     registry.register(GIT_DIFF_SPEC, GitDiffHandler(repo_root=repo_root))
     registry.register(FIND_TESTS_SPEC, FindTestsHandler(repo_root=repo_root))
+    if project_binding is not None:
+        registry.register(project_info_spec(project_info_version), ProjectInfoHandler(
+            project_binding, version=project_info_version,
+        ))
     return registry

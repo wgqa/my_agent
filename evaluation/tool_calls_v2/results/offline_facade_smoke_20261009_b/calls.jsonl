@@ -1,0 +1,3 @@
+{"case_id": "dev-001", "elapsed_ms": 0.06880000000819564, "failure_code": null, "fallback_used": false, "metadata": null, "plan": {"action": "no_retrieval", "fallback_policy": "single_bm25_original_query", "original_query": "用计算器算一下，延迟从 12000 毫秒降到 9000 毫秒，下降百分比是多少？", "plan_id": "15387a446976", "query_type": "unanswerable_or_no_retrieval", "reason_code": "NO_RETRIEVAL_NEEDED", "retrieval_required": false, "schema_version": "query_plan_v1", "subqueries": []}, "seq": 1, "stage": "planner"}
+{"case_id": "dev-001", "elapsed_ms": 0.04669999907491729, "retrieval_call_count": 0, "route": "direct_answer", "seq": 2, "source_names": [], "stage": "pre_retrieval", "strategy": "none"}
+{"case_id": "dev-001", "category": "AttributeError", "seq": 3, "stage": "infrastructure_error"}

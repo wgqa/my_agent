@@ -1,0 +1,3361 @@
+{
+  "created_at": "2026-10-10T01:26:45.774429+00:00",
+  "model": "deepseek-chat",
+  "temperature": 0,
+  "baseline": "bdd9faf + R01 + R02",
+  "scope": "R03 targeted development/smoke checks, not an independent benchmark",
+  "database_access": "read only",
+  "knowledge": {
+    "revision": 9,
+    "files": 37,
+    "chunks": 215,
+    "snapshot_sha256": "4f0b66f5bc2bb5a15d62eb327e4758bc9eddffcdc9e2a7bb4d4a92f380ea7fab"
+  },
+  "conversation_before": {
+    "id": "a632c53d96134a70a0f326f2d219396e",
+    "messages": 8,
+    "updated_at": "2026-10-09T13:49:09.665813+00:00"
+  },
+  "cases": [
+    {
+      "id": "A_r02_original_overview",
+      "kind": "full_pipeline",
+      "question": "说一下目前的项目",
+      "history_messages": 6,
+      "baseline": false,
+      "calls": [
+        {
+          "stage": "context",
+          "prompt_version": "engineering_context_references_v2",
+          "input_tokens": 759,
+          "output_tokens": 6,
+          "elapsed_ms": 1360
+        },
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_info_prompt_v4",
+          "input_tokens": 1193,
+          "output_tokens": 50,
+          "elapsed_ms": 547
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_info_v6",
+          "input_tokens": 4295,
+          "output_tokens": 25,
+          "elapsed_ms": 713
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_info_v6",
+          "input_tokens": 4411,
+          "output_tokens": 115,
+          "elapsed_ms": 1027
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_info_v6",
+      "prompt_sha256": "5c0b44774708eef853f174f8fb292e806d64acd8080ca2ac82ce016c28dcd5d5",
+      "planner_prompt_version": "engineering_planner_project_info_prompt_v4",
+      "expected_binding_root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+      "expected_binding_name": "my_agent",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true
+          }
+        }
+      ],
+      "resolutions": [
+        {
+          "standalone_query": "说一下目前的项目",
+          "resolver_used": true,
+          "fallback": false,
+          "reference_context": null
+        }
+      ],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "c631f3ee21a3",
+            "original_query": "说一下目前的项目",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_info_prompt_v4",
+            "prompt_sha256": "b35d796685ea1d6fe87921eeaed3cd95d10135f13a498d5ab0a5f5c0bf1dfe87",
+            "call_count": 1,
+            "input_tokens": 1193,
+            "output_tokens": 50,
+            "latency_ms": 547.0565999999053
+          }
+        }
+      ],
+      "decision_inputs": [
+        "说一下目前的项目",
+        "说一下目前的项目"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {}
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_info_v6",
+            "prompt_sha256": "5c0b44774708eef853f174f8fb292e806d64acd8080ca2ac82ce016c28dcd5d5",
+            "toolset_sha256": "a98550613a0353575e3eae6f39b4695e2c5592bca571c5540904ebee770845b0",
+            "call_count": 1,
+            "input_tokens": 4295,
+            "output_tokens": 25,
+            "latency_ms": 713.8629000000947,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "当前会话绑定的项目信息如下（来源：本轮项目绑定查询）：\n\n- 项目名：my_agent\n- 根目录：D:\\学习\\rag实战项目\\rag-knowledge-base\n- 绑定来源：default_repo\n- 目录可用：是\n\n这是平台绑定的项目身份与根目录信息，不涉及源码、文档、配置或变更内容的取证。如需了解该项目的具体实现、目录结构或改动，请告诉我具体关注点。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_info_v6",
+            "prompt_sha256": "5c0b44774708eef853f174f8fb292e806d64acd8080ca2ac82ce016c28dcd5d5",
+            "toolset_sha256": "a98550613a0353575e3eae6f39b4695e2c5592bca571c5540904ebee770845b0",
+            "call_count": 1,
+            "input_tokens": 4411,
+            "output_tokens": 115,
+            "latency_ms": 1027.3360999999568,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "当前会话绑定的项目信息如下（来源：本轮项目绑定查询）：\n\n- 项目名：my_agent\n- 根目录：D:\\学习\\rag实战项目\\rag-knowledge-base\n- 绑定来源：default_repo\n- 目录可用：是\n\n这是平台绑定的项目身份与根目录信息，不涉及源码、文档、配置或变更内容的取证。如需了解该项目的具体实现、目录结构或改动，请告诉我具体关注点。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 2,
+        "tool_calls_used": 1,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_d85005f87deb48798936032912a5b6fc",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_d85005f87deb48798936032912a5b6fc",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [],
+        "execution": {
+          "elapsed_ms": 3678,
+          "decision_llm_calls": 2,
+          "input_tokens": 8706,
+          "output_tokens": 140
+        }
+      },
+      "enabled_toolset_sha256": "a98550613a0353575e3eae6f39b4695e2c5592bca571c5540904ebee770845b0",
+      "elapsed_ms": 5105,
+      "requirement_router_version": "engineering_requirement_router_v4",
+      "tool_version": "get_project_info_v1"
+    },
+    {
+      "id": "B_r03_original_overview",
+      "question": "说一下目前的项目",
+      "history_messages": 6,
+      "calls": [
+        {
+          "stage": "context",
+          "prompt_version": "engineering_context_references_v2",
+          "input_tokens": 759,
+          "output_tokens": 6,
+          "elapsed_ms": 988
+        },
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1361,
+          "output_tokens": 50,
+          "elapsed_ms": 805
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4737,
+          "output_tokens": 36,
+          "elapsed_ms": 746
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4893,
+          "output_tokens": 42,
+          "elapsed_ms": 641
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 7986,
+          "output_tokens": 655,
+          "elapsed_ms": 2790
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true,
+            "document_entrypoint_count": 1,
+            "truncated": false
+          }
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "started",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "README.md"
+          }
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E1",
+          "kind": "project_doc",
+          "path": "README.md",
+          "start_line": 1,
+          "end_line": 120
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "completed",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "README.md"
+          },
+          "result_summary": {
+            "path": "README.md"
+          },
+          "evidence_ids_added": [
+            "E1"
+          ]
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "当前绑定项目是 **my_agent**，根目录为 `D:\\学习\\rag实战项目\\rag-knowledge-base`（绑定来源 default_repo，目录可用）。以下介绍基于项目 README 文档 [E1]。\n\n**项目定位**：面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent，以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分 [E1]。当前产品标识为 2.0.0-dev / development，尚未正式发布 Release 2.0 [E1]。\n\n**主要能力**（README 项目亮点表）[E1]：\n- Basic RAG：Dense / BM25 / Hybrid 检索、Reranker、grounded citation\n- Agentic RAG：Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier\n- Structured Tool Agent：7 个 bounded read-only Tool（calculator、code_search、read_project_context、knowledge_search、changed_files、git_diff、find_tests）\n- Engineering Agent：统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence\n- Safety：Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push\n- Evaluation：Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据\n- Engineering：FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke\n- Reproducibility：requirements.lock、公共语料 provenance、冻结 artifact 身份\n\n**架构与入口**：Engineering Agent 是 Streamlit 默认主会话与统一 API 主入口（`/engineering/query` 等），会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE；Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 Advanced / Demo 选择器中，使用各自的 legacy API（`/query`、`/agent/query`、`/tool-agent/query`）[E1]。Tool Agent 的 Observation 被视为不可信输入，不能改变系统预算、工具注册表或安全边界 [E1]。\n\n**其他说明**：HTML 页面包含知识库管理（查看、上传、替换、删除文档），数据保存在 SQLite [E1]；HTML 的 New chat 可选择已添加项目或填写本机绝对目录，每个对话固定绑定一个项目 [E1]；拒答与失败会显示具体中文原因和下一步建议 [E1]。\n\n以上仅为 README 文档描述，未核查源码实现、未运行测试，也未确认部署状态；本次读取覆盖 README 第 1–120 行，后续内容未读取。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 3,
+        "tool_calls_used": 2,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_9435af49286e4246b667e8d89293e8a3",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_9435af49286e4246b667e8d89293e8a3",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_ccb250feb81546f3b13fce1dc4d99d1a",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_ccb250feb81546f3b13fce1dc4d99d1a",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 3,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 3,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "project_doc",
+            "path": "README.md",
+            "start_line": 1,
+            "end_line": 120,
+            "snippet": "# Evidence-Grounded AI Engineering Agent\n\n[![CI](https://github.com/wgqa/my_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wgqa/my_agent/actions/workflows/ci.yml)\n\n面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent。项目以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。\n\n当前产品标识为 **2.0.0-dev / development**，尚未正式发布Release 2.0。API、OpenAPI、UI Settings与当前Demo共用版本源；历史Release 1.0冻结证据保持原身份。\n\nHTML 页面现在包含知识库管理：启动后端后打开 `http://127.0.0.1:8000/`，\n点击侧栏“知识库”查看、上传、替换或删除文档。默认 Engineering 主会话\n检索整个可维护库，数据保存在 SQLite；冻结语料仅用于首次导入或显式\n`ENGINEERING_KNOWLEDGE_MODE=verified` 的历史验证。见 [知识库运行说明](docs/knowledge_library_runbook.md)。\n\nEngineering 主入口近期聚焦配置到行为追踪、小范围变更与已有测试定位、文档与实现核对。主页卡片先填写具体调查对象再提交；任务范围、当前可靠性限制和检查结果见 [核心任务说明](docs/core_workflows.md)。\n\n当前质量、调用量、token 消耗和开发基线集中在 [质量与成本索引](docs/validation/2026-10-04-quality-baseline.md)，可离线重新汇总；内容正确性与 completed、预期拒答分开统计。Engineering 与旧 Demo 独立初始化，旧 Pipeline 启动失败时主链仍可用，见 [启动隔离验证](docs/validation/2026-10-04-quality-and-startup.md)。\n\n## 项目亮点\n\n| 能力 | 当前实现 |\n|---|---|\n| Basic RAG | Dense / BM25 / Hybrid 检索、Reranker、grounded citation |\n| Agentic RAG | Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier |\n| Structured Tool Agent | 7 个 bounded read-only Tool：`calculator`、`code_search`、`read_project_context`、`knowledge_search`、`changed_files`、`git_diff`、`find_tests` |\n| Engineering Agent | 统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence |\n| Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push |\n| Evaluation | Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据 |\n| Engineering | FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke |\n| Reproducibility | `requirements.lock`、公共语料 provenance、冻结 artifact 身份 |\n\n这不是只展示一个问答页面的 RAG Demo：每条能力链路都有 API contract、运行时边界、测试或冻结证据可供审计。\n\n## 总体架构\n\n```mermaid\nflowchart TD\n    U[User / API Client] --> API[FastAPI]\n    U --> UI[Streamlit: Engineering 主会话<br/>Advanced / Demo: 3 legacy modes]\n    UI --> API\n\n    API --> B[Basic RAG legacy /query]\n    B --> BR[Retriever]\n    BR --> RR[Reranker]\n    RR --> BG[Generator]\n    BG --> BA[Answer + Citations]\n\n    API --> A[Agentic RAG legacy /agent/query]\n    A --> P[Planner]\n    P --> D[Query Decomposition]\n    D --> R[Adaptive Router]\n    R --> E[Retrieval / Evidence Merge]\n    E --> V[Verifier]\n    V --> G[Grounded Answer]\n\n    API --> T[Structured Tool Agent legacy /tool-agent/query]\n    T --> TD[Decision]\n    TD --> TC[Allowlisted Tool Call]\n    TC --> O[Observation]\n    O --> L[Bounded Iteration]\n    L --> TF[Final Answer]\n\n    API --> EA[Engineering product path<br/>/engineering/query]\n    API --> CS[Engineering Conversation API<br/>CRUD + message SSE]\n    CS <--> DB[(SQLite conversation store)]\n    CS --> EA\n    EA --> F[EngineeringAgentFacade]\n    F --> UR[UnifiedEngineeringRuntime]\n    UR --> C[Context Resolver]\n    C --> P2[Evidence Planner]\n    P2 --> RR2[Requirement Router]\n    RR2 --> PR[Adaptive Planned Retrieval]\n    PR --> AG[Evidence Aggregator]\n    AG --> TE[Bounded Tool Execution Engine]\n    TE --> EB[Evidence Backends<br/>Knowledge / Repository / Git / Test]\n    EB --> UE[One Unified Evidence sequence]\n    UE --> EV[EngineeringEvidenceVerifier]\n    EV --> FIN[Single finalization point]\n    FIN --> ER[Engineering response / SSE]\n\n    API --> KS[/engineering/knowledge<br/>status / identity / document management]\n```\n\nEngineering Agent 是 Streamlit 默认主会话与统一 API 主入口；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE。Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 `Advanced / Demo` 选择器中，使用各自的 legacy API。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。\n\n## Engineering 主入口与三种 legacy Demo\n\n### Basic RAG\n\n`POST /query`\n\n适合普通知识库问答：检索候选、可选重排、生成有证据约束的答案，并返回来源。Dense、BM25 和 Hybrid 是可比较的检索策略；Gate 2 的冻结 primary 是 BM25，不代表所有问题或所有配置都应盲选 BM25。\n\n### Agentic RAG\n\n`POST /agent/query`\n\nPlanner 先产生结构化 QueryPlan，再根据 Query Type 和 evidence target 做 Query Decomposition；Adaptive Router 选择检索策略，Evidence Merge 合并子问题证据，Verifier 检查覆盖后才进入 grounded answer。响应中的 planner、route、verification 和 trace 是可审计执行事实，不是模型私有 Chain-of-Thought。\n\n### Structured Tool Agent\n\n`POST /tool-agent/query`\n\nDecision → Tool Call → Observation → bounded iteration → Final Answer。当前 registry 有 7 个 bounded read-only Tool：Knowledge Evidence 的 `knowledge_search`，Repository Evidence 的 `code_search`、`read_project_context`，Change/Test Evidence 的 `changed_files`、`git_diff`、`find_tests`，以及 Utility `calculator`。运行时\n\n### Engineering Agent API\n\n`POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开当前知识库的状态、模式和 identity，\n\nUI 主会话通过 `POST /engineering/conversations` 创建。HTML 默认向 `POST /engineering/conversations/{conversation_id}/messages/stream/v2` 提交 `message`，实时展示工具目标、结果摘要、新增证据与资料校验；公开活动随整轮结果保存，刷新后可在 Activity 中恢复。Streamlit 和历史客户端的 `/messages/stream/v1` 保留兼容。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保\n\nHTML 的 **New chat** 可选择已添加的项目，或填写本机绝对目录。每个对话固定绑定一个项目，顶部与会话列表显示项目名，切换无需重启。API 层登记目录并按项目复用现有 Core facade，聊天请求只传公开 `project_id`；知识库继续共享且默认检索整库。`/project`、旧 question-only API 和 Streamlit 仍使用启动默认项目。见 [本地项目使用说明](docs/project_mount_runbook.md)。\n\n拒答与失败现在显示具体的中文原因和下一步建议，覆盖证据不足、信息不全、能力/安全判断、运行上限、工具错误和模型故障。原 `status`、原因码和 `answer=null` 保留，新增可选 `feedback` 仅用于提示；已有资料仍可查看。恢复按钮只把原问题填回输入框，等待用户编辑和发送。旧拒答历史也采用新提示展示，不改写旧记录。见 [反馈验证](docs/validation/2026-10-06-user-feedback.md)。\n\n`/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。\n\nJev 预期证据路由已暂缓，Engineering 主链使用原有关键词路由。历史实现与方案见 [归档记录](docs/archive/jev_evidence_routing/design.md)。\n\n## 5 分钟体验\n"
+          }
+        ],
+        "execution": {
+          "elapsed_ms": 6012,
+          "decision_llm_calls": 3,
+          "input_tokens": 17616,
+          "output_tokens": 733
+        }
+      },
+      "resolutions": [
+        {
+          "standalone_query": "说一下目前的项目",
+          "resolver_used": true,
+          "fallback": false,
+          "reference_context": null
+        }
+      ],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "c631f3ee21a3",
+            "original_query": "说一下目前的项目",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1361,
+            "output_tokens": 50,
+            "latency_ms": 806.000099999892
+          }
+        }
+      ],
+      "decision_inputs": [
+        "说一下目前的项目",
+        "说一下目前的项目",
+        "说一下目前的项目"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {
+              "include_documentation": true
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4737,
+            "output_tokens": 36,
+            "latency_ms": 746.4184000000387,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "read_project_context",
+            "arguments": {
+              "path": "README.md",
+              "target": {
+                "kind": "file",
+                "start_line": 1
+              }
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4893,
+            "output_tokens": 42,
+            "latency_ms": 641.4841000000706,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "当前绑定项目是 **my_agent**，根目录为 `D:\\学习\\rag实战项目\\rag-knowledge-base`（绑定来源 default_repo，目录可用）。以下介绍基于项目 README 文档 [E1]。\n\n**项目定位**：面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent，以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分 [E1]。当前产品标识为 2.0.0-dev / development，尚未正式发布 Release 2.0 [E1]。\n\n**主要能力**（README 项目亮点表）[E1]：\n- Basic RAG：Dense / BM25 / Hybrid 检索、Reranker、grounded citation\n- Agentic RAG：Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier\n- Structured Tool Agent：7 个 bounded read-only Tool（calculator、code_search、read_project_context、knowledge_search、changed_files、git_diff、find_tests）\n- Engineering Agent：统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence\n- Safety：Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push\n- Evaluation：Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据\n- Engineering：FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke\n- Reproducibility：requirements.lock、公共语料 provenance、冻结 artifact 身份\n\n**架构与入口**：Engineering Agent 是 Streamlit 默认主会话与统一 API 主入口（`/engineering/query` 等），会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE；Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 Advanced / Demo 选择器中，使用各自的 legacy API（`/query`、`/agent/query`、`/tool-agent/query`）[E1]。Tool Agent 的 Observation 被视为不可信输入，不能改变系统预算、工具注册表或安全边界 [E1]。\n\n**其他说明**：HTML 页面包含知识库管理（查看、上传、替换、删除文档），数据保存在 SQLite [E1]；HTML 的 New chat 可选择已添加项目或填写本机绝对目录，每个对话固定绑定一个项目 [E1]；拒答与失败会显示具体中文原因和下一步建议 [E1]。\n\n以上仅为 README 文档描述，未核查源码实现、未运行测试，也未确认部署状态；本次读取覆盖 README 第 1–120 行，后续内容未读取。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 7986,
+            "output_tokens": 655,
+            "latency_ms": 2790.8807999997407,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 3,
+          "remaining_iterations": 2,
+          "remaining_tool_calls": 2,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [
+            {
+              "evidence_id": "E1",
+              "kind": "project_doc",
+              "path": "README.md",
+              "start_line": 1,
+              "end_line": 120
+            }
+          ],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "README.md"
+              ],
+              "documentation_truncated": false
+            }
+          }
+        ],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "README.md"
+              ],
+              "documentation_truncated": false
+            }
+          },
+          {
+            "tool_name": "read_project_context",
+            "status": "ok",
+            "path": "README.md",
+            "targets": [
+              {
+                "requested": "file",
+                "status": "read",
+                "definition": null,
+                "region_index": 0,
+                "content_complete": false,
+                "truncation_reasons": [
+                  "line_length_limit",
+                  "line_limit"
+                ],
+                "next_line": 121,
+                "fallback_reason": null,
+                "candidates": [],
+                "candidates_truncated": false
+              }
+            ],
+            "regions": [
+              {
+                "start_line": 1,
+                "end_line": 120
+              }
+            ]
+          }
+        ]
+      ],
+      "elapsed_ms": 7179
+    },
+    {
+      "id": "B_fresh_plain_overview",
+      "question": "用大白话介绍一下我们这个工程，重点讲用途和现成能力。",
+      "history_messages": 0,
+      "calls": [
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1373,
+          "output_tokens": 50,
+          "elapsed_ms": 723
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4696,
+          "output_tokens": 36,
+          "elapsed_ms": 828
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4852,
+          "output_tokens": 57,
+          "elapsed_ms": 758
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 7992,
+          "output_tokens": 772,
+          "elapsed_ms": 3803
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true,
+            "document_entrypoint_count": 1,
+            "truncated": false
+          }
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "started",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "README.md"
+          }
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E1",
+          "kind": "project_doc",
+          "path": "README.md",
+          "start_line": 1,
+          "end_line": 120
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "completed",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "README.md"
+          },
+          "result_summary": {
+            "path": "README.md"
+          },
+          "evidence_ids_added": [
+            "E1"
+          ]
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "这个工程叫 my_agent（根目录 D:\\学习\\rag实战项目\\rag-knowledge-base），一句话概括：它是一个面向 AI / RAG / Agent 研发场景、可评测的智能研发 Agent，走的是 RAG-first、Evidence-first 路线，从单纯的知识检索一路演进到能读代码仓库、能调受限工具、能给出有证据支撑结论的工程助手 [E1]。\n\n它主要用来干什么：\n- 做知识库问答：支持 Dense / BM25 / Hybrid 检索、Reranker 重排，答案带 grounded citation（有来源引用）[E1]。\n- 做更聪明的检索问答：有 Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier 这一套 Agentic RAG 流程 [E1]。\n- 做工程分析：面向当前绑定的项目，结合 Engineering Knowledge 做 evidence-grounded 分析，能看仓库代码、变更和测试 [E1]。\n\n现成能用的能力（README 里明确列出的）：\n- Basic RAG：Dense / BM25 / Hybrid 检索 + Reranker + 带引用的答案 [E1]。\n- Agentic RAG：规划、问题拆解、自适应检索、证据合并、校验 [E1]。\n- Structured Tool Agent：7 个受限只读工具——calculator、code_search、read_project_context、knowledge_search、changed_files、git_diff、find_tests [E1]。\n- Engineering Agent：统一的 Engineering API、可维护知识库、绑定项目身份，以及仓库/变更/测试证据 [E1]。\n- 安全边界：工具白名单、系统预算控制、重复调用停止、安全 trace；不提供任意 shell、文件写入或 Git commit/push [E1]。\n- 评测：Gate 2 检索、Gate 3 Agentic RAG、Gate 4 Tool Agent 的冻结证据 [E1]。\n- 工程化：FastAPI、Streamlit、GitHub Actions、启动 smoke 和 full-app smoke [E1]。\n- 可复现：requirements.lock、公共语料 provenance、冻结 artifact 身份 [E1]。\n\n怎么用：\n- 主入口是 Engineering Agent，Streamlit 默认主会话，API 是 POST /engineering/query 等；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE [E1]。\n- 启动后端后打开 http://127.0.0.1:8000/，侧栏“知识库”可以查看、上传、替换或删除文档，数据存在 SQLite [E1]。\n- 新建对话时可以选已添加的项目，或填本机绝对目录，每个对话固定绑定一个项目 [E1]。\n- 另外还保留了三个 legacy Demo：Basic RAG（POST /query）、Agentic RAG（POST /agent/query）、Structured Tool Agent（POST /tool-agent/query），放在折叠的 Advanced / Demo 里 [E1]。\n\n需要说明的边界：当前产品标识是 2.0.0-dev / development，还没正式发布 Release 2.0 [E1]；README 也强调这不是只展示一个问答页面的 RAG Demo，每条能力链路都有 API contract、运行时边界、测试或冻结证据可供审计 [E1]。以上介绍基于 README 前 120 行的文档描述，不代表我已经核查了全部源码、跑过测试或确认了部署状态。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 3,
+        "tool_calls_used": 2,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_420b65cfd4164aaa8e7a8b6209e51d53",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_420b65cfd4164aaa8e7a8b6209e51d53",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_2c9446f4c78a408c9bb001c563cbb6f7",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_2c9446f4c78a408c9bb001c563cbb6f7",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 3,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 3,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "project_doc",
+            "path": "README.md",
+            "start_line": 1,
+            "end_line": 120,
+            "snippet": "# Evidence-Grounded AI Engineering Agent\n\n[![CI](https://github.com/wgqa/my_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wgqa/my_agent/actions/workflows/ci.yml)\n\n面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent。项目以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。\n\n当前产品标识为 **2.0.0-dev / development**，尚未正式发布Release 2.0。API、OpenAPI、UI Settings与当前Demo共用版本源；历史Release 1.0冻结证据保持原身份。\n\nHTML 页面现在包含知识库管理：启动后端后打开 `http://127.0.0.1:8000/`，\n点击侧栏“知识库”查看、上传、替换或删除文档。默认 Engineering 主会话\n检索整个可维护库，数据保存在 SQLite；冻结语料仅用于首次导入或显式\n`ENGINEERING_KNOWLEDGE_MODE=verified` 的历史验证。见 [知识库运行说明](docs/knowledge_library_runbook.md)。\n\nEngineering 主入口近期聚焦配置到行为追踪、小范围变更与已有测试定位、文档与实现核对。主页卡片先填写具体调查对象再提交；任务范围、当前可靠性限制和检查结果见 [核心任务说明](docs/core_workflows.md)。\n\n当前质量、调用量、token 消耗和开发基线集中在 [质量与成本索引](docs/validation/2026-10-04-quality-baseline.md)，可离线重新汇总；内容正确性与 completed、预期拒答分开统计。Engineering 与旧 Demo 独立初始化，旧 Pipeline 启动失败时主链仍可用，见 [启动隔离验证](docs/validation/2026-10-04-quality-and-startup.md)。\n\n## 项目亮点\n\n| 能力 | 当前实现 |\n|---|---|\n| Basic RAG | Dense / BM25 / Hybrid 检索、Reranker、grounded citation |\n| Agentic RAG | Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier |\n| Structured Tool Agent | 7 个 bounded read-only Tool：`calculator`、`code_search`、`read_project_context`、`knowledge_search`、`changed_files`、`git_diff`、`find_tests` |\n| Engineering Agent | 统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence |\n| Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push |\n| Evaluation | Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据 |\n| Engineering | FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke |\n| Reproducibility | `requirements.lock`、公共语料 provenance、冻结 artifact 身份 |\n\n这不是只展示一个问答页面的 RAG Demo：每条能力链路都有 API contract、运行时边界、测试或冻结证据可供审计。\n\n## 总体架构\n\n```mermaid\nflowchart TD\n    U[User / API Client] --> API[FastAPI]\n    U --> UI[Streamlit: Engineering 主会话<br/>Advanced / Demo: 3 legacy modes]\n    UI --> API\n\n    API --> B[Basic RAG legacy /query]\n    B --> BR[Retriever]\n    BR --> RR[Reranker]\n    RR --> BG[Generator]\n    BG --> BA[Answer + Citations]\n\n    API --> A[Agentic RAG legacy /agent/query]\n    A --> P[Planner]\n    P --> D[Query Decomposition]\n    D --> R[Adaptive Router]\n    R --> E[Retrieval / Evidence Merge]\n    E --> V[Verifier]\n    V --> G[Grounded Answer]\n\n    API --> T[Structured Tool Agent legacy /tool-agent/query]\n    T --> TD[Decision]\n    TD --> TC[Allowlisted Tool Call]\n    TC --> O[Observation]\n    O --> L[Bounded Iteration]\n    L --> TF[Final Answer]\n\n    API --> EA[Engineering product path<br/>/engineering/query]\n    API --> CS[Engineering Conversation API<br/>CRUD + message SSE]\n    CS <--> DB[(SQLite conversation store)]\n    CS --> EA\n    EA --> F[EngineeringAgentFacade]\n    F --> UR[UnifiedEngineeringRuntime]\n    UR --> C[Context Resolver]\n    C --> P2[Evidence Planner]\n    P2 --> RR2[Requirement Router]\n    RR2 --> PR[Adaptive Planned Retrieval]\n    PR --> AG[Evidence Aggregator]\n    AG --> TE[Bounded Tool Execution Engine]\n    TE --> EB[Evidence Backends<br/>Knowledge / Repository / Git / Test]\n    EB --> UE[One Unified Evidence sequence]\n    UE --> EV[EngineeringEvidenceVerifier]\n    EV --> FIN[Single finalization point]\n    FIN --> ER[Engineering response / SSE]\n\n    API --> KS[/engineering/knowledge<br/>status / identity / document management]\n```\n\nEngineering Agent 是 Streamlit 默认主会话与统一 API 主入口；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE。Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 `Advanced / Demo` 选择器中，使用各自的 legacy API。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。\n\n## Engineering 主入口与三种 legacy Demo\n\n### Basic RAG\n\n`POST /query`\n\n适合普通知识库问答：检索候选、可选重排、生成有证据约束的答案，并返回来源。Dense、BM25 和 Hybrid 是可比较的检索策略；Gate 2 的冻结 primary 是 BM25，不代表所有问题或所有配置都应盲选 BM25。\n\n### Agentic RAG\n\n`POST /agent/query`\n\nPlanner 先产生结构化 QueryPlan，再根据 Query Type 和 evidence target 做 Query Decomposition；Adaptive Router 选择检索策略，Evidence Merge 合并子问题证据，Verifier 检查覆盖后才进入 grounded answer。响应中的 planner、route、verification 和 trace 是可审计执行事实，不是模型私有 Chain-of-Thought。\n\n### Structured Tool Agent\n\n`POST /tool-agent/query`\n\nDecision → Tool Call → Observation → bounded iteration → Final Answer。当前 registry 有 7 个 bounded read-only Tool：Knowledge Evidence 的 `knowledge_search`，Repository Evidence 的 `code_search`、`read_project_context`，Change/Test Evidence 的 `changed_files`、`git_diff`、`find_tests`，以及 Utility `calculator`。运行时\n\n### Engineering Agent API\n\n`POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开当前知识库的状态、模式和 identity，\n\nUI 主会话通过 `POST /engineering/conversations` 创建。HTML 默认向 `POST /engineering/conversations/{conversation_id}/messages/stream/v2` 提交 `message`，实时展示工具目标、结果摘要、新增证据与资料校验；公开活动随整轮结果保存，刷新后可在 Activity 中恢复。Streamlit 和历史客户端的 `/messages/stream/v1` 保留兼容。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保\n\nHTML 的 **New chat** 可选择已添加的项目，或填写本机绝对目录。每个对话固定绑定一个项目，顶部与会话列表显示项目名，切换无需重启。API 层登记目录并按项目复用现有 Core facade，聊天请求只传公开 `project_id`；知识库继续共享且默认检索整库。`/project`、旧 question-only API 和 Streamlit 仍使用启动默认项目。见 [本地项目使用说明](docs/project_mount_runbook.md)。\n\n拒答与失败现在显示具体的中文原因和下一步建议，覆盖证据不足、信息不全、能力/安全判断、运行上限、工具错误和模型故障。原 `status`、原因码和 `answer=null` 保留，新增可选 `feedback` 仅用于提示；已有资料仍可查看。恢复按钮只把原问题填回输入框，等待用户编辑和发送。旧拒答历史也采用新提示展示，不改写旧记录。见 [反馈验证](docs/validation/2026-10-06-user-feedback.md)。\n\n`/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。\n\nJev 预期证据路由已暂缓，Engineering 主链使用原有关键词路由。历史实现与方案见 [归档记录](docs/archive/jev_evidence_routing/design.md)。\n\n## 5 分钟体验\n"
+          }
+        ],
+        "execution": {
+          "elapsed_ms": 6145,
+          "decision_llm_calls": 3,
+          "input_tokens": 17540,
+          "output_tokens": 865
+        }
+      },
+      "resolutions": [],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "98aace4f512d",
+            "original_query": "用大白话介绍一下我们这个工程，重点讲用途和现成能力。",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1373,
+            "output_tokens": 50,
+            "latency_ms": 723.9957000001596
+          }
+        }
+      ],
+      "decision_inputs": [
+        "用大白话介绍一下我们这个工程，重点讲用途和现成能力。",
+        "用大白话介绍一下我们这个工程，重点讲用途和现成能力。",
+        "用大白话介绍一下我们这个工程，重点讲用途和现成能力。"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {
+              "include_documentation": true
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4696,
+            "output_tokens": 36,
+            "latency_ms": 828.7039000001641,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "read_project_context",
+            "arguments": {
+              "path": "README.md",
+              "target": {
+                "kind": "file",
+                "start_line": 1
+              }
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4852,
+            "output_tokens": 57,
+            "latency_ms": 758.0821999999898,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "这个工程叫 my_agent（根目录 D:\\学习\\rag实战项目\\rag-knowledge-base），一句话概括：它是一个面向 AI / RAG / Agent 研发场景、可评测的智能研发 Agent，走的是 RAG-first、Evidence-first 路线，从单纯的知识检索一路演进到能读代码仓库、能调受限工具、能给出有证据支撑结论的工程助手 [E1]。\n\n它主要用来干什么：\n- 做知识库问答：支持 Dense / BM25 / Hybrid 检索、Reranker 重排，答案带 grounded citation（有来源引用）[E1]。\n- 做更聪明的检索问答：有 Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier 这一套 Agentic RAG 流程 [E1]。\n- 做工程分析：面向当前绑定的项目，结合 Engineering Knowledge 做 evidence-grounded 分析，能看仓库代码、变更和测试 [E1]。\n\n现成能用的能力（README 里明确列出的）：\n- Basic RAG：Dense / BM25 / Hybrid 检索 + Reranker + 带引用的答案 [E1]。\n- Agentic RAG：规划、问题拆解、自适应检索、证据合并、校验 [E1]。\n- Structured Tool Agent：7 个受限只读工具——calculator、code_search、read_project_context、knowledge_search、changed_files、git_diff、find_tests [E1]。\n- Engineering Agent：统一的 Engineering API、可维护知识库、绑定项目身份，以及仓库/变更/测试证据 [E1]。\n- 安全边界：工具白名单、系统预算控制、重复调用停止、安全 trace；不提供任意 shell、文件写入或 Git commit/push [E1]。\n- 评测：Gate 2 检索、Gate 3 Agentic RAG、Gate 4 Tool Agent 的冻结证据 [E1]。\n- 工程化：FastAPI、Streamlit、GitHub Actions、启动 smoke 和 full-app smoke [E1]。\n- 可复现：requirements.lock、公共语料 provenance、冻结 artifact 身份 [E1]。\n\n怎么用：\n- 主入口是 Engineering Agent，Streamlit 默认主会话，API 是 POST /engineering/query 等；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE [E1]。\n- 启动后端后打开 http://127.0.0.1:8000/，侧栏“知识库”可以查看、上传、替换或删除文档，数据存在 SQLite [E1]。\n- 新建对话时可以选已添加的项目，或填本机绝对目录，每个对话固定绑定一个项目 [E1]。\n- 另外还保留了三个 legacy Demo：Basic RAG（POST /query）、Agentic RAG（POST /agent/query）、Structured Tool Agent（POST /tool-agent/query），放在折叠的 Advanced / Demo 里 [E1]。\n\n需要说明的边界：当前产品标识是 2.0.0-dev / development，还没正式发布 Release 2.0 [E1]；README 也强调这不是只展示一个问答页面的 RAG Demo，每条能力链路都有 API contract、运行时边界、测试或冻结证据可供审计 [E1]。以上介绍基于 README 前 120 行的文档描述，不代表我已经核查了全部源码、跑过测试或确认了部署状态。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 7992,
+            "output_tokens": 772,
+            "latency_ms": 3803.877300000295,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [],
+          "citation_required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [],
+          "citation_required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 3,
+          "remaining_iterations": 2,
+          "remaining_tool_calls": 2,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [
+            {
+              "evidence_id": "E1",
+              "kind": "project_doc",
+              "path": "README.md",
+              "start_line": 1,
+              "end_line": 120
+            }
+          ],
+          "citation_required_evidence_groups": [],
+          "citation_required_min_distinct_project_code_paths": 0
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "README.md"
+              ],
+              "documentation_truncated": false
+            }
+          }
+        ],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "README.md"
+              ],
+              "documentation_truncated": false
+            }
+          },
+          {
+            "tool_name": "read_project_context",
+            "status": "ok",
+            "path": "README.md",
+            "targets": [
+              {
+                "requested": "file",
+                "status": "read",
+                "definition": null,
+                "region_index": 0,
+                "content_complete": false,
+                "truncation_reasons": [
+                  "line_length_limit",
+                  "line_limit"
+                ],
+                "next_line": 121,
+                "fallback_reason": null,
+                "candidates": [],
+                "candidates_truncated": false
+              }
+            ],
+            "regions": [
+              {
+                "start_line": 1,
+                "end_line": 120
+              }
+            ]
+          }
+        ]
+      ],
+      "elapsed_ms": 7369
+    },
+    {
+      "id": "B_same_named_no_readme_with_docs",
+      "question": "说一下目前的项目",
+      "history_messages": 0,
+      "calls": [
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1361,
+          "output_tokens": 50,
+          "elapsed_ms": 1003
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4737,
+          "output_tokens": 36,
+          "elapsed_ms": 667
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4916,
+          "output_tokens": 58,
+          "elapsed_ms": 529
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 5185,
+          "output_tokens": 193,
+          "elapsed_ms": 1525
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\中文 空格 项目\\my_agent",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true,
+            "document_entrypoint_count": 1,
+            "truncated": false
+          }
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "started",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "docs/index.md"
+          }
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E1",
+          "kind": "project_doc",
+          "path": "docs/index.md",
+          "start_line": 1,
+          "end_line": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "completed",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "docs/index.md"
+          },
+          "result_summary": {
+            "path": "docs/index.md"
+          },
+          "evidence_ids_added": [
+            "E1"
+          ]
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "当前绑定项目名为 **my_agent**，根目录为 `C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\中文 空格 项目\\my_agent`，绑定来源为 configured，目录当前可用（本轮项目绑定查询）。\n\n根据项目文档 `docs/index.md`，该项目实际是 **JobQueue Desk**：一个用于图像转换任务的本地队列 [E1]。它接受任务描述，并将待处理任务持久化到 SQLite [E1]；由 worker 处理待处理任务并存储结果 [E1]；同时提供一个只读仪表盘来展示任务状态和结果 [E1]。文档还明确说明它不是一个通用编码助手 [E1]。\n\n以上仅为文档层面的项目介绍，未核查源码、运行测试或确认部署情况。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 3,
+        "tool_calls_used": 2,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_536d49834a174d479b7a33cf1a8249e8",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_536d49834a174d479b7a33cf1a8249e8",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_d67bd57b66d9465e93b00c3ab93711ff",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_d67bd57b66d9465e93b00c3ab93711ff",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 3,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 3,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "project_doc",
+            "path": "docs/index.md",
+            "start_line": 1,
+            "end_line": 7,
+            "snippet": "# JobQueue Desk\n\nJobQueue Desk is a local queue for image conversion jobs.\nIt accepts job descriptions and persists pending jobs in SQLite.\nWorkers process pending jobs and store their results.\nA read-only dashboard displays job status and results.\nIt is not a general coding assistant."
+          }
+        ],
+        "execution": {
+          "elapsed_ms": 3763,
+          "decision_llm_calls": 3,
+          "input_tokens": 14838,
+          "output_tokens": 287
+        }
+      },
+      "resolutions": [],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "c631f3ee21a3",
+            "original_query": "说一下目前的项目",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1361,
+            "output_tokens": 50,
+            "latency_ms": 1003.6408000000847
+          }
+        }
+      ],
+      "decision_inputs": [
+        "说一下目前的项目",
+        "说一下目前的项目",
+        "说一下目前的项目"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {
+              "include_documentation": true
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4737,
+            "output_tokens": 36,
+            "latency_ms": 667.8965999999491,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "read_project_context",
+            "arguments": {
+              "path": "docs/index.md",
+              "target": {
+                "kind": "file",
+                "start_line": 1
+              }
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4916,
+            "output_tokens": 58,
+            "latency_ms": 529.4391000002179,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "当前绑定项目名为 **my_agent**，根目录为 `C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\中文 空格 项目\\my_agent`，绑定来源为 configured，目录当前可用（本轮项目绑定查询）。\n\n根据项目文档 `docs/index.md`，该项目实际是 **JobQueue Desk**：一个用于图像转换任务的本地队列 [E1]。它接受任务描述，并将待处理任务持久化到 SQLite [E1]；由 worker 处理待处理任务并存储结果 [E1]；同时提供一个只读仪表盘来展示任务状态和结果 [E1]。文档还明确说明它不是一个通用编码助手 [E1]。\n\n以上仅为文档层面的项目介绍，未核查源码、运行测试或确认部署情况。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 5185,
+            "output_tokens": 193,
+            "latency_ms": 1525.1847999998063,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 3,
+          "remaining_iterations": 2,
+          "remaining_tool_calls": 2,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [
+            {
+              "evidence_id": "E1",
+              "kind": "project_doc",
+              "path": "docs/index.md",
+              "start_line": 1,
+              "end_line": 7
+            }
+          ],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\中文 空格 项目\\my_agent",
+              "source": "configured",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "docs/index.md"
+              ],
+              "documentation_truncated": false
+            }
+          }
+        ],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\中文 空格 项目\\my_agent",
+              "source": "configured",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "docs/index.md"
+              ],
+              "documentation_truncated": false
+            }
+          },
+          {
+            "tool_name": "read_project_context",
+            "status": "ok",
+            "path": "docs/index.md",
+            "targets": [
+              {
+                "requested": "file",
+                "status": "read",
+                "definition": null,
+                "region_index": 0,
+                "content_complete": true,
+                "truncation_reasons": [],
+                "next_line": null,
+                "fallback_reason": null,
+                "candidates": [],
+                "candidates_truncated": false
+              }
+            ],
+            "regions": [
+              {
+                "start_line": 1,
+                "end_line": 7
+              }
+            ]
+          }
+        ]
+      ],
+      "elapsed_ms": 4966
+    },
+    {
+      "id": "B_no_conventional_documents",
+      "question": "说一下目前的项目",
+      "history_messages": 0,
+      "calls": [
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1361,
+          "output_tokens": 50,
+          "elapsed_ms": 900
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4737,
+          "output_tokens": 36,
+          "elapsed_ms": 888
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4906,
+          "output_tokens": 20,
+          "elapsed_ms": 908
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4906,
+          "output_tokens": 20,
+          "elapsed_ms": 891
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\空项目\\my_agent",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true,
+            "document_entrypoint_count": 0,
+            "truncated": false
+          }
+        },
+        {
+          "type": "verification",
+          "state": "blocked",
+          "iteration": 2,
+          "missing_evidence_kinds": [
+            "project_doc"
+          ]
+        }
+      ],
+      "result": {
+        "status": "refused",
+        "answer": null,
+        "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+        "failure_code": null,
+        "iterations_used": 3,
+        "tool_calls_used": 1,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_376e2404a76240a299aa84bf8ea49995",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_376e2404a76240a299aa84bf8ea49995",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "refuse",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "finalization_guard_blocked",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "guard_status": "blocked",
+            "missing_evidence_groups": [
+              [
+                "project_doc"
+              ]
+            ],
+            "distinct_project_code_paths": 0,
+            "required_min_distinct_project_code_paths": 0
+          },
+          {
+            "iteration": 3,
+            "event_type": "decision_completed",
+            "action_type": "refuse",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 3,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+            "iterations_used": 3,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [],
+        "execution": {
+          "elapsed_ms": 3602,
+          "decision_llm_calls": 3,
+          "input_tokens": 14549,
+          "output_tokens": 76
+        }
+      },
+      "resolutions": [],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "c631f3ee21a3",
+            "original_query": "说一下目前的项目",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1361,
+            "output_tokens": 50,
+            "latency_ms": 900.6864000002679
+          }
+        }
+      ],
+      "decision_inputs": [
+        "说一下目前的项目",
+        "说一下目前的项目",
+        "说一下目前的项目"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {
+              "include_documentation": true
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4737,
+            "output_tokens": 36,
+            "latency_ms": 888.3605000000898,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "refuse",
+            "reason_code": "INSUFFICIENT_INFORMATION"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4906,
+            "output_tokens": 20,
+            "latency_ms": 908.6403000001155,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "refuse",
+            "reason_code": "INSUFFICIENT_INFORMATION"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4906,
+            "output_tokens": 20,
+            "latency_ms": 891.5634999998474,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 3,
+          "remaining_iterations": 2,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\空项目\\my_agent",
+              "source": "configured",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [],
+              "documentation_truncated": false
+            }
+          }
+        ],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "C:\\Users\\tu me manques\\AppData\\Local\\Temp\\rag-r03-live-20261010\\空项目\\my_agent",
+              "source": "configured",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [],
+              "documentation_truncated": false
+            }
+          }
+        ]
+      ],
+      "elapsed_ms": 4803
+    },
+    {
+      "id": "B_directory_regression",
+      "question": "目前咱们的系统绑定的哪个项目目录",
+      "history_messages": 0,
+      "calls": [
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1366,
+          "output_tokens": 50,
+          "elapsed_ms": 715
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4689,
+          "output_tokens": 25,
+          "elapsed_ms": 778
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4811,
+          "output_tokens": 64,
+          "elapsed_ms": 764
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true
+          }
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "当前会话绑定的项目是 **my_agent**，根目录为 `D:\\学习\\rag实战项目\\rag-knowledge-base`，绑定来源为 default_repo，目录当前可用（available=true）。以上信息来自本轮项目绑定查询。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 2,
+        "tool_calls_used": 1,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_d5e9a7f0fe454e7cbac8cfc8553f6727",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_d5e9a7f0fe454e7cbac8cfc8553f6727",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [],
+        "execution": {
+          "elapsed_ms": 2264,
+          "decision_llm_calls": 2,
+          "input_tokens": 9500,
+          "output_tokens": 89
+        }
+      },
+      "resolutions": [],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "528afeccea31",
+            "original_query": "目前咱们的系统绑定的哪个项目目录",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1366,
+            "output_tokens": 50,
+            "latency_ms": 715.1019999996606
+          }
+        }
+      ],
+      "decision_inputs": [
+        "目前咱们的系统绑定的哪个项目目录",
+        "目前咱们的系统绑定的哪个项目目录"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {}
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4689,
+            "output_tokens": 25,
+            "latency_ms": 778.1126999998378,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "当前会话绑定的项目是 **my_agent**，根目录为 `D:\\学习\\rag实战项目\\rag-knowledge-base`，绑定来源为 default_repo，目录当前可用（available=true）。以上信息来自本轮项目绑定查询。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 4811,
+            "output_tokens": 64,
+            "latency_ms": 764.9272000003293,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [],
+          "citation_required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [],
+          "citation_required_min_distinct_project_code_paths": 0
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true
+            }
+          }
+        ]
+      ],
+      "elapsed_ms": 3465
+    },
+    {
+      "id": "B_source_reader_regression",
+      "question": "请查看当前源码 core/tool_agent/runtime_models.py 中 ToolAgentBudget.max_tool_calls 的默认值，并引用源码。",
+      "history_messages": 0,
+      "calls": [
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1391,
+          "output_tokens": 38,
+          "elapsed_ms": 959
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 6579,
+          "output_tokens": 53,
+          "elapsed_ms": 786
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 7206,
+          "output_tokens": 196,
+          "elapsed_ms": 1070
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 7333,
+          "output_tokens": 111,
+          "elapsed_ms": 1229
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E1",
+          "kind": "knowledge",
+          "source_name": "deployment/推理框架.md"
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E2",
+          "kind": "knowledge",
+          "source_name": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md"
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E3",
+          "kind": "knowledge",
+          "source_name": "tool_calling/Function-Calling原理.md"
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E4",
+          "kind": "knowledge",
+          "source_name": "finetuning/训练与评估.md"
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E5",
+          "kind": "knowledge",
+          "source_name": "tool_calling/Function-Calling原理.md"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "read_project_context",
+          "state": "started",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "core/tool_agent/runtime_models.py"
+          }
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E6",
+          "kind": "project_code",
+          "path": "core/tool_agent/runtime_models.py",
+          "start_line": 189,
+          "end_line": 210
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "read_project_context",
+          "state": "completed",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "core/tool_agent/runtime_models.py"
+          },
+          "result_summary": {
+            "path": "core/tool_agent/runtime_models.py"
+          },
+          "evidence_ids_added": [
+            "E6"
+          ]
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "在 core/tool_agent/runtime_models.py 中，ToolAgentBudget 的 max_tool_calls 默认值为 4（第 194 行：`max_tool_calls: int = 4`）[E6]。该字段在 __post_init__ 中校验：必须为严格 int（不允许 bool）、必须 > 0，且不得超过冻结上限 4（第 200、207-210 行）[E6]。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 2,
+        "tool_calls_used": 1,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_1b0ec17668cb433880fa35b05fb2e86c",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_1b0ec17668cb433880fa35b05fb2e86c",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 2,
+            "repair_attempted": true,
+            "repair_succeeded": true,
+            "parse_failure_category": "ACTION_SCHEMA_INVALID"
+          },
+          {
+            "iteration": 2,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "knowledge",
+            "source_name": "deployment/推理框架.md",
+            "chunk_id": "f0587dc5c23e79f620e7e2940010af30",
+            "score": 24.532,
+            "rank": 1,
+            "snippet": "| 已有Hugging Face生产链路 | TGI，先核对版本支持 |\n| NVIDIA硬件、追求极致优化 | TensorRT-LLM |\n| CPU/边缘/本地隐私 | llama.cpp |\n| 最快本地体验 | Ollama |\n| 调试模型和模板 | Transformers |\n\n个人项目选一种主框架部署并压测，再选择一种作小范围对比即可。\n\n---\n\n## 七、OpenAI兼容接口\n\n兼容接口通常包括：\n\n- models；\n- chat completions；\n- completions；\n- embeddings（取决于服务）；\n- streaming；\n- tool calls / structured output（取决于模型、模板与框架）。\n\n兼容不代表完全等价。需要测试：\n\n- system/user/assistant消息；\n- Chat Template；\n- stop/EOS；\n- max_tokens；\n- temperature/top_p/seed；\n- stream事件格式；\n- usage统计；\n- Tool Call字段；\n- 错误码和取"
+          },
+          {
+            "evidence_id": "E2",
+            "kind": "knowledge",
+            "source_name": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+            "chunk_id": "1a02e2547a5777c129e3e557afca4920",
+            "score": 21.5179,
+            "rank": 2,
+            "snippet": "builder.add_edge(\"retrieve\", \"grounded\")\nbuilder.add_edge(\"direct\", END)\nbuilder.add_edge(\"grounded\", END)\n\ngraph = builder.compile()\nresult = graph.invoke({\"question\": \"在笔记里查 JVM 类加载\"})\nprint(result[\"answer\"])\n~~~\n\n具体 API 可能随安装版本变化，项目应锁定依赖并以对应版本文档为准。真正需要掌握的是：\n\n- State 的边界；\n- 节点输入输出；\n- 条件路由；\n- 正常终止；\n- 失败和恢复。\n\n---\n\n## 六、消息与工具循环\n\n典型图：\n\n~~~text\nSTART\n  ↓\nmodel\n  ├─ 无 tool_calls ─→ finalize ─→ END\n  └─ 有 tool_calls\n         ↓\n     validate_and_authorize\n         ├─ 拒绝 ─→ model（加入错误/拒绝结果）\n         └─"
+          },
+          {
+            "evidence_id": "E3",
+            "kind": "knowledge",
+            "source_name": "tool_calling/Function-Calling原理.md",
+            "chunk_id": "58c6fe0068b338a3fd7d738beada328f",
+            "score": 19.2037,
+            "rank": 3,
+            "snippet": "toolRegistry.require(call.name());\n\n                ValidatedArguments arguments = tool.validate(call.arguments());\n                authorizer.check(context.principal(), tool, arguments);\n\n                ToolResult result;\n                try {\n                    result = tool.execute(context, arguments);\n                } catch (RetryableToolException ex) {\n                    result = ToolResult.retryableError(ex.getSafeMessage());\n                } catch (ToolException ex) {\n               "
+          },
+          {
+            "evidence_id": "E4",
+            "kind": "knowledge",
+            "source_name": "finetuning/训练与评估.md",
+            "chunk_id": "c0a79313755a69afb55d0f4e5fa5d459",
+            "score": 19.1698,
+            "rank": 4,
+            "snippet": "16\n  learning_rate: 0.0001\n  warmup_ratio: 0.03\n  scheduler: cosine\n  max_steps: 1000\n  weight_decay: 0.0\n  max_grad_norm: 1.0\n  precision: bf16\n  gradient_checkpointing: true\n  seed: 42\n\ncheckpoint:\n  save_every_steps: 100\n  evaluate_every_steps: 100\n  select_by: validation_loss_and_task_metric\n~~~\n\n配置文件、命令行参数和最终实际生效配置必须一致。框架常会覆盖默认值，启动时应打印。\n\n---\n\n## 五、训练监控\n\n每个 optimizer step 或合理窗口记录：\n\n- train loss；\n- validation loss；\n- 学习率；\n- 梯度范数；\n- Token/s、sample/s；\n- 峰值和已分配显存；\n- 数据加载耗时；\n- step time；\n- skippe"
+          },
+          {
+            "evidence_id": "E5",
+            "kind": "knowledge",
+            "source_name": "tool_calling/Function-Calling原理.md",
+            "chunk_id": "38185ad5b5b61a8fb45b4e948657a7b1",
+            "score": 18.6992,
+            "rank": 5,
+            "snippet": "已发起 tool_call\n工具执行状态和幂等键\nToken/时间/费用预算\n取消标记\n```\n\n服务重启后不能把“执行结果未知”的写工具直接再跑一次。应先查询工具端状态或转人工处理。\n\n---\n\n## 十二、安全边界\n\n### 1. Prompt Injection\n\n工具结果、网页、文档和数据库文本都可能包含恶意指令。它们只能作为数据，不能提升权限或修改系统策略。\n\n### 2. 最小权限\n\n- 每个工具只获得完成任务所需权限；\n- 读写工具分开；\n- 不向模型暴露后台管理工具；\n- 工具列表根据用户和场景动态裁剪；\n- 高风险操作需要应用层确认，而非模型自行确认。\n\n### 3. 网络与文件\n\n- URL 工具防 SSRF：限制协议、域名/IP、重定向和响应大小；\n- 文件工具校验规范化路径，限制在授权根目录；\n- SQL 工具使用参数化和只读账号，不让模型直接生成并执行任意 SQL；\n- 代码执行放入资源受限沙箱，默认无网络和敏感文件权限。\n\n---\n\n## 十三、观测指标\n\n```text\ntool_selection_accuracy       工具选对率\nargumen"
+          },
+          {
+            "evidence_id": "E6",
+            "kind": "project_code",
+            "path": "core/tool_agent/runtime_models.py",
+            "start_line": 189,
+            "end_line": 210,
+            "snippet": "@dataclass(frozen=True)\nclass ToolAgentBudget:\n    \"\"\"v1 冻结硬预算；系统控制，LLM 无权查看或修改。\"\"\"\n\n    max_agent_iterations: int = 5\n    max_tool_calls: int = 4\n    max_tool_errors: int = 2\n\n    def __post_init__(self) -> None:\n        for label, value, cap in (\n            (\"max_agent_iterations\", self.max_agent_iterations, 5),\n            (\"max_tool_calls\", self.max_tool_calls, 4),\n            (\"max_tool_errors\", self.max_tool_errors, 2),\n        ):\n            if type(value) is not int or isinstance(value, bool):\n                raise TypeError(f\"{label} 必须是严格 int（不允许 bool）\")\n            if value <= 0:\n                raise ValueError(f\"{label} 必须 > 0，实际 {value}\")\n            if value > cap:\n                raise ValueError(\n                    f\"{label} 不允许超过冻结上限 {cap}（v1 冻结 5/4/2，实际 {value}）\"\n                )"
+          }
+        ],
+        "execution": {
+          "elapsed_ms": 4090,
+          "decision_llm_calls": 3,
+          "input_tokens": 21118,
+          "output_tokens": 360
+        }
+      },
+      "resolutions": [],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "868a63b418fd",
+            "original_query": "请查看当前源码 core/tool_agent/runtime_models.py 中 ToolAgentBudget.max_tool_calls 的默认值，并引用源码。",
+            "query_type": "code_symbol",
+            "retrieval_required": true,
+            "action": "single_retrieval",
+            "reason_code": "CODE_SYMBOL",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1391,
+            "output_tokens": 38,
+            "latency_ms": 959.867900000063
+          }
+        }
+      ],
+      "decision_inputs": [
+        "请查看当前源码 core/tool_agent/runtime_models.py 中 ToolAgentBudget.max_tool_calls 的默认值，并引用源码。",
+        "请查看当前源码 core/tool_agent/runtime_models.py 中 ToolAgentBudget.max_tool_calls 的默认值，并引用源码。"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "read_project_context",
+            "arguments": {
+              "path": "core/tool_agent/runtime_models.py",
+              "target": {
+                "kind": "symbols",
+                "names": [
+                  "ToolAgentBudget"
+                ]
+              }
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 1,
+            "input_tokens": 6579,
+            "output_tokens": 53,
+            "latency_ms": 786.7052000001422,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "在 core/tool_agent/runtime_models.py 中，ToolAgentBudget 的 max_tool_calls 默认值为 4（第 194 行：`max_tool_calls: int = 4`）[E6]。该字段在 __post_init__ 中校验：必须为严格 int（不允许 bool）、必须 > 0，且不得超过冻结上限 4（第 200、207-210 行）[E6]。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+            "call_count": 2,
+            "input_tokens": 14539,
+            "output_tokens": 307,
+            "latency_ms": 2299.3861999998444,
+            "repair_attempted": true,
+            "repair_succeeded": true,
+            "initial_parse_category": "ACTION_SCHEMA_INVALID",
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [
+            {
+              "evidence_id": "E1",
+              "kind": "knowledge",
+              "source_name": "deployment/推理框架.md",
+              "chunk_id": "f0587dc5c23e79f620e7e2940010af30",
+              "rank": 1
+            },
+            {
+              "evidence_id": "E2",
+              "kind": "knowledge",
+              "source_name": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+              "chunk_id": "1a02e2547a5777c129e3e557afca4920",
+              "rank": 2
+            },
+            {
+              "evidence_id": "E3",
+              "kind": "knowledge",
+              "source_name": "tool_calling/Function-Calling原理.md",
+              "chunk_id": "58c6fe0068b338a3fd7d738beada328f",
+              "rank": 3
+            },
+            {
+              "evidence_id": "E4",
+              "kind": "knowledge",
+              "source_name": "finetuning/训练与评估.md",
+              "chunk_id": "c0a79313755a69afb55d0f4e5fa5d459",
+              "rank": 4
+            },
+            {
+              "evidence_id": "E5",
+              "kind": "knowledge",
+              "source_name": "tool_calling/Function-Calling原理.md",
+              "chunk_id": "38185ad5b5b61a8fb45b4e948657a7b1",
+              "rank": 5
+            }
+          ],
+          "citation_required_evidence_groups": [
+            [
+              "project_code"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 1,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_code"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 1
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [
+            {
+              "evidence_id": "E1",
+              "kind": "knowledge",
+              "source_name": "deployment/推理框架.md",
+              "chunk_id": "f0587dc5c23e79f620e7e2940010af30",
+              "rank": 1
+            },
+            {
+              "evidence_id": "E2",
+              "kind": "knowledge",
+              "source_name": "agent_frameworks/LangChain-LangGraph-02-StateGraph与工具循环.md",
+              "chunk_id": "1a02e2547a5777c129e3e557afca4920",
+              "rank": 2
+            },
+            {
+              "evidence_id": "E3",
+              "kind": "knowledge",
+              "source_name": "tool_calling/Function-Calling原理.md",
+              "chunk_id": "58c6fe0068b338a3fd7d738beada328f",
+              "rank": 3
+            },
+            {
+              "evidence_id": "E4",
+              "kind": "knowledge",
+              "source_name": "finetuning/训练与评估.md",
+              "chunk_id": "c0a79313755a69afb55d0f4e5fa5d459",
+              "rank": 4
+            },
+            {
+              "evidence_id": "E5",
+              "kind": "knowledge",
+              "source_name": "tool_calling/Function-Calling原理.md",
+              "chunk_id": "38185ad5b5b61a8fb45b4e948657a7b1",
+              "rank": 5
+            },
+            {
+              "evidence_id": "E6",
+              "kind": "project_code",
+              "path": "core/tool_agent/runtime_models.py",
+              "start_line": 189,
+              "end_line": 210
+            }
+          ],
+          "citation_required_evidence_groups": [
+            [
+              "project_code"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 1
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "read_project_context",
+            "status": "ok",
+            "path": "core/tool_agent/runtime_models.py",
+            "targets": [
+              {
+                "requested": "ToolAgentBudget",
+                "status": "read",
+                "definition": {
+                  "name": "ToolAgentBudget",
+                  "kind": "class",
+                  "start_line": 189,
+                  "end_line": 210
+                },
+                "region_index": 0,
+                "content_complete": true,
+                "truncation_reasons": [],
+                "next_line": null,
+                "fallback_reason": null,
+                "candidates": [],
+                "candidates_truncated": false
+              }
+            ],
+            "regions": [
+              {
+                "start_line": 189,
+                "end_line": 210
+              }
+            ]
+          }
+        ]
+      ],
+      "elapsed_ms": 5298
+    },
+    {
+      "id": "C_final_original_overview_after_description_correction",
+      "question": "说一下目前的项目",
+      "history_messages": 6,
+      "calls": [
+        {
+          "stage": "context",
+          "prompt_version": "engineering_context_references_v2",
+          "input_tokens": 759,
+          "output_tokens": 6,
+          "elapsed_ms": 781
+        },
+        {
+          "stage": "planner",
+          "prompt_version": "engineering_planner_project_overview_prompt_v5",
+          "input_tokens": 1361,
+          "output_tokens": 50,
+          "elapsed_ms": 737
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4740,
+          "output_tokens": 36,
+          "elapsed_ms": 815
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 4893,
+          "output_tokens": 57,
+          "elapsed_ms": 761
+        },
+        {
+          "stage": "decision",
+          "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+          "input_tokens": 7981,
+          "output_tokens": 724,
+          "elapsed_ms": 2830
+        }
+      ],
+      "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "planner_prompt_version": "engineering_planner_project_overview_prompt_v5",
+      "requirement_router_version": "engineering_requirement_router_v5",
+      "tool_version": "get_project_info_v2",
+      "expected_binding_root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+      "activities": [
+        {
+          "type": "run_started",
+          "execution_model": "single_agent",
+          "available_tool_count": 7
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "started",
+          "purpose": "查询当前会话的项目绑定信息"
+        },
+        {
+          "type": "activity",
+          "activity_id": "A1",
+          "iteration": 1,
+          "tool_name": "get_project_info",
+          "state": "completed",
+          "purpose": "查询当前会话的项目绑定信息",
+          "result_summary": {
+            "available": true,
+            "document_entrypoint_count": 1,
+            "truncated": false
+          }
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "started",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "README.md"
+          }
+        },
+        {
+          "type": "evidence_added",
+          "evidence_id": "E1",
+          "kind": "project_doc",
+          "path": "README.md",
+          "start_line": 1,
+          "end_line": 120
+        },
+        {
+          "type": "activity",
+          "activity_id": "A2",
+          "iteration": 2,
+          "tool_name": "read_project_context",
+          "state": "completed",
+          "purpose": "读取项目上下文，确认实际实现",
+          "target": {
+            "path": "README.md"
+          },
+          "result_summary": {
+            "path": "README.md"
+          },
+          "evidence_ids_added": [
+            "E1"
+          ]
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "answer": "当前绑定项目是 **my_agent**，根目录为 `D:\\学习\\rag实战项目\\rag-knowledge-base`（绑定来源 default_repo，目录可用）。以下介绍基于项目 README 文档 [E1]。\n\n**项目定位**\n这是一个面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent，以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分 [E1]。当前产品标识为 2.0.0-dev / development，尚未正式发布 Release 2.0 [E1]。\n\n**主要能力**（README 亮点表）[E1]\n- Basic RAG：Dense / BM25 / Hybrid 检索、Reranker、grounded citation。\n- Agentic RAG：Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier。\n- Structured Tool Agent：7 个 bounded read-only Tool（calculator、code_search、read_project_context、knowledge_search、changed_files、git_diff、find_tests）。\n- Engineering Agent：统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence。\n- Safety：Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push。\n- Evaluation：Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据。\n- Engineering：FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke。\n- Reproducibility：requirements.lock、公共语料 provenance、冻结 artifact 身份。\n\n**架构与入口**\nEngineering Agent 是 Streamlit 默认主会话与统一 API 主入口，会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE；Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 Advanced / Demo 选择器中，使用各自的 legacy API [E1]。主链为 EngineeringAgentFacade → UnifiedEngineeringRuntime，经 Context Resolver、Evidence Planner、Requirement Router、Adaptive Planned Retrieval、Evidence Aggregator、Bounded Tool Execution Engine、Evidence Backends、EngineeringEvidenceVerifier，最终到单一 finalization point [E1]。\n\n**知识库与项目绑定**\nHTML 页面包含知识库管理，启动后端后打开 `http://127.0.0.1:8000/` 可查看、上传、替换或删除文档，数据保存在 SQLite [E1]。HTML 的 New chat 可选择已添加项目或填写本机绝对目录，每个对话固定绑定一个项目，聊天请求只传公开 project_id [E1]。\n\n**边界说明**\nREADME 明确 `/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链 [E1]。以上仅为文档描述，未核查源码实现、未运行测试，也未确认部署状态。",
+        "reason_code": null,
+        "failure_code": null,
+        "iterations_used": 3,
+        "tool_calls_used": 2,
+        "tool_errors_used": 0,
+        "trace": [
+          {
+            "iteration": 1,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_61c11aee67b34417829717129a99923e",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 0,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 1,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "get_project_info",
+            "call_id": "call_61c11aee67b34417829717129a99923e",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 1,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "decision_completed",
+            "action_type": "tool_call",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_call_created",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_21117994fbae4273bc49a981dfdcc3fd",
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 1,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 2,
+            "event_type": "tool_observation",
+            "action_type": "tool_call",
+            "tool_name": "read_project_context",
+            "call_id": "call_21117994fbae4273bc49a981dfdcc3fd",
+            "tool_status": "ok",
+            "error_code": null,
+            "iterations_used": 2,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          },
+          {
+            "iteration": 3,
+            "event_type": "decision_completed",
+            "action_type": "final_answer",
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0,
+            "provider_call_count": 1,
+            "repair_attempted": false,
+            "repair_succeeded": false
+          },
+          {
+            "iteration": 3,
+            "event_type": "runtime_stopped",
+            "action_type": null,
+            "tool_name": null,
+            "call_id": null,
+            "tool_status": null,
+            "error_code": null,
+            "iterations_used": 3,
+            "tool_calls_used": 2,
+            "tool_errors_used": 0
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "project_doc",
+            "path": "README.md",
+            "start_line": 1,
+            "end_line": 120,
+            "snippet": "# Evidence-Grounded AI Engineering Agent\n\n[![CI](https://github.com/wgqa/my_agent/actions/workflows/ci.yml/badge.svg)](https://github.com/wgqa/my_agent/actions/workflows/ci.yml)\n\n面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent。项目以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分。\n\n当前产品标识为 **2.0.0-dev / development**，尚未正式发布Release 2.0。API、OpenAPI、UI Settings与当前Demo共用版本源；历史Release 1.0冻结证据保持原身份。\n\nHTML 页面现在包含知识库管理：启动后端后打开 `http://127.0.0.1:8000/`，\n点击侧栏“知识库”查看、上传、替换或删除文档。默认 Engineering 主会话\n检索整个可维护库，数据保存在 SQLite；冻结语料仅用于首次导入或显式\n`ENGINEERING_KNOWLEDGE_MODE=verified` 的历史验证。见 [知识库运行说明](docs/knowledge_library_runbook.md)。\n\nEngineering 主入口近期聚焦配置到行为追踪、小范围变更与已有测试定位、文档与实现核对。主页卡片先填写具体调查对象再提交；任务范围、当前可靠性限制和检查结果见 [核心任务说明](docs/core_workflows.md)。\n\n当前质量、调用量、token 消耗和开发基线集中在 [质量与成本索引](docs/validation/2026-10-04-quality-baseline.md)，可离线重新汇总；内容正确性与 completed、预期拒答分开统计。Engineering 与旧 Demo 独立初始化，旧 Pipeline 启动失败时主链仍可用，见 [启动隔离验证](docs/validation/2026-10-04-quality-and-startup.md)。\n\n## 项目亮点\n\n| 能力 | 当前实现 |\n|---|---|\n| Basic RAG | Dense / BM25 / Hybrid 检索、Reranker、grounded citation |\n| Agentic RAG | Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier |\n| Structured Tool Agent | 7 个 bounded read-only Tool：`calculator`、`code_search`、`read_project_context`、`knowledge_search`、`changed_files`、`git_diff`、`find_tests` |\n| Engineering Agent | 统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence |\n| Safety | Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push |\n| Evaluation | Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据 |\n| Engineering | FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke |\n| Reproducibility | `requirements.lock`、公共语料 provenance、冻结 artifact 身份 |\n\n这不是只展示一个问答页面的 RAG Demo：每条能力链路都有 API contract、运行时边界、测试或冻结证据可供审计。\n\n## 总体架构\n\n```mermaid\nflowchart TD\n    U[User / API Client] --> API[FastAPI]\n    U --> UI[Streamlit: Engineering 主会话<br/>Advanced / Demo: 3 legacy modes]\n    UI --> API\n\n    API --> B[Basic RAG legacy /query]\n    B --> BR[Retriever]\n    BR --> RR[Reranker]\n    RR --> BG[Generator]\n    BG --> BA[Answer + Citations]\n\n    API --> A[Agentic RAG legacy /agent/query]\n    A --> P[Planner]\n    P --> D[Query Decomposition]\n    D --> R[Adaptive Router]\n    R --> E[Retrieval / Evidence Merge]\n    E --> V[Verifier]\n    V --> G[Grounded Answer]\n\n    API --> T[Structured Tool Agent legacy /tool-agent/query]\n    T --> TD[Decision]\n    TD --> TC[Allowlisted Tool Call]\n    TC --> O[Observation]\n    O --> L[Bounded Iteration]\n    L --> TF[Final Answer]\n\n    API --> EA[Engineering product path<br/>/engineering/query]\n    API --> CS[Engineering Conversation API<br/>CRUD + message SSE]\n    CS <--> DB[(SQLite conversation store)]\n    CS --> EA\n    EA --> F[EngineeringAgentFacade]\n    F --> UR[UnifiedEngineeringRuntime]\n    UR --> C[Context Resolver]\n    C --> P2[Evidence Planner]\n    P2 --> RR2[Requirement Router]\n    RR2 --> PR[Adaptive Planned Retrieval]\n    PR --> AG[Evidence Aggregator]\n    AG --> TE[Bounded Tool Execution Engine]\n    TE --> EB[Evidence Backends<br/>Knowledge / Repository / Git / Test]\n    EB --> UE[One Unified Evidence sequence]\n    UE --> EV[EngineeringEvidenceVerifier]\n    EV --> FIN[Single finalization point]\n    FIN --> ER[Engineering response / SSE]\n\n    API --> KS[/engineering/knowledge<br/>status / identity / document management]\n```\n\nEngineering Agent 是 Streamlit 默认主会话与统一 API 主入口；会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE。Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 `Advanced / Demo` 选择器中，使用各自的 legacy API。Tool Agent 的 Observation 是不可信输入，不能改变系统预算、工具注册表或安全边界。\n\n## Engineering 主入口与三种 legacy Demo\n\n### Basic RAG\n\n`POST /query`\n\n适合普通知识库问答：检索候选、可选重排、生成有证据约束的答案，并返回来源。Dense、BM25 和 Hybrid 是可比较的检索策略；Gate 2 的冻结 primary 是 BM25，不代表所有问题或所有配置都应盲选 BM25。\n\n### Agentic RAG\n\n`POST /agent/query`\n\nPlanner 先产生结构化 QueryPlan，再根据 Query Type 和 evidence target 做 Query Decomposition；Adaptive Router 选择检索策略，Evidence Merge 合并子问题证据，Verifier 检查覆盖后才进入 grounded answer。响应中的 planner、route、verification 和 trace 是可审计执行事实，不是模型私有 Chain-of-Thought。\n\n### Structured Tool Agent\n\n`POST /tool-agent/query`\n\nDecision → Tool Call → Observation → bounded iteration → Final Answer。当前 registry 有 7 个 bounded read-only Tool：Knowledge Evidence 的 `knowledge_search`，Repository Evidence 的 `code_search`、`read_project_context`，Change/Test Evidence 的 `changed_files`、`git_diff`、`find_tests`，以及 Utility `calculator`。运行时\n\n### Engineering Agent API\n\n`POST /engineering/query`、`POST /engineering/query/stream` 与 `POST /engineering/query/stream/v2` 共用同一个 `EngineeringAgentFacade → UnifiedEngineeringRuntime` 主链，面向当前系统绑定项目与 Engineering Knowledge 的 evidence-grounded 分析；v1/v2 只改变安全 observer transport。`GET /engineering/knowledge` 公开当前知识库的状态、模式和 identity，\n\nUI 主会话通过 `POST /engineering/conversations` 创建。HTML 默认向 `POST /engineering/conversations/{conversation_id}/messages/stream/v2` 提交 `message`，实时展示工具目标、结果摘要、新增证据与资料校验；公开活动随整轮结果保存，刷新后可在 Activity 中恢复。Streamlit 和历史客户端的 `/messages/stream/v1` 保留兼容。后端加载已提交历史，由现有 Context Window 选取最多 6 条 / 1200 token；整轮消息与结果原子保\n\nHTML 的 **New chat** 可选择已添加的项目，或填写本机绝对目录。每个对话固定绑定一个项目，顶部与会话列表显示项目名，切换无需重启。API 层登记目录并按项目复用现有 Core facade，聊天请求只传公开 `project_id`；知识库继续共享且默认检索整库。`/project`、旧 question-only API 和 Streamlit 仍使用启动默认项目。见 [本地项目使用说明](docs/project_mount_runbook.md)。\n\n拒答与失败现在显示具体的中文原因和下一步建议，覆盖证据不足、信息不全、能力/安全判断、运行上限、工具错误和模型故障。原 `status`、原因码和 `answer=null` 保留，新增可选 `feedback` 仅用于提示；已有资料仍可查看。恢复按钮只把原问题填回输入框，等待用户编辑和发送。旧拒答历史也采用新提示展示，不改写旧记录。见 [反馈验证](docs/validation/2026-10-06-user-feedback.md)。\n\n`/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链。\n\nJev 预期证据路由已暂缓，Engineering 主链使用原有关键词路由。历史实现与方案见 [归档记录](docs/archive/jev_evidence_routing/design.md)。\n\n## 5 分钟体验\n"
+          }
+        ],
+        "execution": {
+          "elapsed_ms": 5969,
+          "decision_llm_calls": 3,
+          "input_tokens": 17614,
+          "output_tokens": 817
+        }
+      },
+      "resolutions": [
+        {
+          "standalone_query": "说一下目前的项目",
+          "resolver_used": true,
+          "fallback": false,
+          "reference_context": null
+        }
+      ],
+      "planner": [
+        {
+          "plan": {
+            "schema_version": "query_plan_v1",
+            "plan_id": "c631f3ee21a3",
+            "original_query": "说一下目前的项目",
+            "query_type": "unanswerable_or_no_retrieval",
+            "retrieval_required": false,
+            "action": "no_retrieval",
+            "reason_code": "NO_RETRIEVAL_NEEDED",
+            "subqueries": [],
+            "fallback_policy": "single_bm25_original_query"
+          },
+          "fallback_used": false,
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_planner_project_overview_prompt_v5",
+            "prompt_sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+            "call_count": 1,
+            "input_tokens": 1361,
+            "output_tokens": 50,
+            "latency_ms": 737.3223999998118
+          }
+        }
+      ],
+      "decision_inputs": [
+        "说一下目前的项目",
+        "说一下目前的项目",
+        "说一下目前的项目"
+      ],
+      "decisions": [
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "get_project_info",
+            "arguments": {
+              "include_documentation": true
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+            "call_count": 1,
+            "input_tokens": 4740,
+            "output_tokens": 36,
+            "latency_ms": 815.8994000000348,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "tool_call",
+            "tool_name": "read_project_context",
+            "arguments": {
+              "path": "README.md",
+              "target": {
+                "kind": "file",
+                "start_line": 1
+              }
+            }
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+            "call_count": 1,
+            "input_tokens": 4893,
+            "output_tokens": 57,
+            "latency_ms": 761.4615999996204,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        },
+        {
+          "action": {
+            "action": "final_answer",
+            "answer": "当前绑定项目是 **my_agent**，根目录为 `D:\\学习\\rag实战项目\\rag-knowledge-base`（绑定来源 default_repo，目录可用）。以下介绍基于项目 README 文档 [E1]。\n\n**项目定位**\n这是一个面向 AI / RAG / Agent 研发场景的可评测智能研发 Agent，以 RAG-first、Evidence-first 为基础，从知识检索演进到 Repository Evidence、bounded Structured Tool Use 与 Engineering API，并把冻结评测、可复现环境、CI、FastAPI/Streamlit Demo 和安全执行边界作为同一套工程交付的一部分 [E1]。当前产品标识为 2.0.0-dev / development，尚未正式发布 Release 2.0 [E1]。\n\n**主要能力**（README 亮点表）[E1]\n- Basic RAG：Dense / BM25 / Hybrid 检索、Reranker、grounded citation。\n- Agentic RAG：Planner、Query Decomposition、Adaptive Retrieval、Evidence Merge、Verifier。\n- Structured Tool Agent：7 个 bounded read-only Tool（calculator、code_search、read_project_context、knowledge_search、changed_files、git_diff、find_tests）。\n- Engineering Agent：统一 Engineering API、可维护知识库与公开 identity、system-bound project identity 与 repository/change/test evidence。\n- Safety：Tool allowlist、系统控制预算、duplicate stop、safe trace；不提供任意 shell、文件写入或 Git commit/push。\n- Evaluation：Gate 2 Retrieval、Gate 3 Agentic RAG、Gate 4 Tool Agent 冻结证据。\n- Engineering：FastAPI、Streamlit、GitHub Actions、startup smoke、full-app smoke。\n- Reproducibility：requirements.lock、公共语料 provenance、冻结 artifact 身份。\n\n**架构与入口**\nEngineering Agent 是 Streamlit 默认主会话与统一 API 主入口，会话由后端 SQLite 持久化，通过 Conversation API 提交消息并接收 SSE；Basic RAG、Agentic RAG 与 Structured Tool Agent 保留在折叠的 Advanced / Demo 选择器中，使用各自的 legacy API [E1]。主链为 EngineeringAgentFacade → UnifiedEngineeringRuntime，经 Context Resolver、Evidence Planner、Requirement Router、Adaptive Planned Retrieval、Evidence Aggregator、Bounded Tool Execution Engine、Evidence Backends、EngineeringEvidenceVerifier，最终到单一 finalization point [E1]。\n\n**知识库与项目绑定**\nHTML 页面包含知识库管理，启动后端后打开 `http://127.0.0.1:8000/` 可查看、上传、替换或删除文档，数据保存在 SQLite [E1]。HTML 的 New chat 可选择已添加项目或填写本机绝对目录，每个对话固定绑定一个项目，聊天请求只传公开 project_id [E1]。\n\n**边界说明**\nREADME 明确 `/query`、`/agent/query`、`/tool-agent/query` 是独立 legacy regression/historical/debugging endpoints，迁移期间保持原有 contract，不重定向到 Engineering 主链 [E1]。以上仅为文档描述，未核查源码实现、未运行测试，也未确认部署状态。"
+          },
+          "failure_code": null,
+          "call_metadata": {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+            "prompt_version": "engineering_agent_decision_prompt_project_overview_v7",
+            "prompt_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+            "toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+            "call_count": 1,
+            "input_tokens": 7981,
+            "output_tokens": 724,
+            "latency_ms": 2830.9822999999597,
+            "repair_attempted": false,
+            "repair_succeeded": false,
+            "initial_parse_category": null,
+            "initial_finish_reason": "stop"
+          }
+        }
+      ],
+      "controls": [
+        {
+          "iteration": 1,
+          "remaining_iterations": 4,
+          "remaining_tool_calls": 4,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 2,
+          "remaining_iterations": 3,
+          "remaining_tool_calls": 3,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0,
+          "finalization_blocked": true,
+          "missing_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "current_distinct_project_code_paths": 0,
+          "required_min_distinct_project_code_paths": 0
+        },
+        {
+          "iteration": 3,
+          "remaining_iterations": 2,
+          "remaining_tool_calls": 2,
+          "tool_call_allowed": true,
+          "must_terminate": false,
+          "available_evidence_refs": [
+            {
+              "evidence_id": "E1",
+              "kind": "project_doc",
+              "path": "README.md",
+              "start_line": 1,
+              "end_line": 120
+            }
+          ],
+          "citation_required_evidence_groups": [
+            [
+              "project_doc"
+            ]
+          ],
+          "citation_required_min_distinct_project_code_paths": 0
+        }
+      ],
+      "observations": [
+        [],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "README.md"
+              ],
+              "documentation_truncated": false
+            }
+          }
+        ],
+        [
+          {
+            "tool_name": "get_project_info",
+            "status": "ok",
+            "result": {
+              "project_name": "my_agent",
+              "root": "D:\\学习\\rag实战项目\\rag-knowledge-base",
+              "source": "default_repo",
+              "available": true,
+              "documentation_scope": "conventional_overview_entrypoints",
+              "documentation_entrypoints": [
+                "README.md"
+              ],
+              "documentation_truncated": false
+            }
+          },
+          {
+            "tool_name": "read_project_context",
+            "status": "ok",
+            "path": "README.md",
+            "targets": [
+              {
+                "requested": "file",
+                "status": "read",
+                "definition": null,
+                "region_index": 0,
+                "content_complete": false,
+                "truncation_reasons": [
+                  "line_length_limit",
+                  "line_limit"
+                ],
+                "next_line": 121,
+                "fallback_reason": null,
+                "candidates": [],
+                "candidates_truncated": false
+              }
+            ],
+            "regions": [
+              {
+                "start_line": 1,
+                "end_line": 120
+              }
+            ]
+          }
+        ]
+      ],
+      "elapsed_ms": 7157
+    }
+  ],
+  "conversation_unchanged": true,
+  "fixtures": {
+    "alternative_document": {
+      "relative_path": "docs/index.md",
+      "body": "# JobQueue Desk\n\nJobQueue Desk is a local queue for image conversion jobs.\nIt accepts job descriptions and persists pending jobs in SQLite.\nWorkers process pending jobs and store their results.\nA read-only dashboard displays job status and results.\nIt is not a general coding assistant.\n",
+      "root": "C:\\Users\\TUMEMA~1\\AppData\\Local\\Temp\\rag-r03-live-20261010\\中文 空格 项目\\my_agent"
+    }
+  },
+  "physical_llm_calls": 33,
+  "input_tokens": 134525,
+  "output_tokens": 3773,
+  "review_correction": {
+    "kind": "tool_description_only",
+    "description": "Apply v2 optional-argument wording to the inherited v1 description; v1 unchanged.",
+    "before_enabled_toolset_sha256": "0f1b217e50bc6b6aa4d5c570b45d2cf44f69f183855d4c23ecd5c42dd98eb64e",
+    "after_enabled_toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61"
+  }
+}

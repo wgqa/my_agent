@@ -9,6 +9,7 @@ const TOOLS = {
   knowledge_search: '搜索知识库', code_search: '搜索项目文件',
   read_project_context: '读取项目内容', changed_files: '查看变更文件',
   git_diff: '读取代码差异', find_tests: '查找相关测试', calculator: '计算',
+  get_project_info: '查询项目绑定',
 };
 const STATES = { started: '进行中', completed: '已完成', error: '工具出错', blocked: '等待补充资料' };
 const positive = value => Number.isInteger(value) && value > 0;
@@ -69,6 +70,8 @@ function resultDetails(summary = {}) {
     details.push('结果：' + summary.result_preview);
   }
   if (summary.truncated === true) details.push('结果已截断，仅展示本次取得的范围');
+  if (nonnegative(summary.document_entrypoint_count)) details.push('常见文档入口：' + summary.document_entrypoint_count + ' 个');
+  if (typeof summary.available === 'boolean') details.push(summary.available ? '绑定目录可用' : '绑定目录当前不可用');
   return details;
 }
 

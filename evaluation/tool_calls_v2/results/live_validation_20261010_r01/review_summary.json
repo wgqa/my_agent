@@ -1,0 +1,41 @@
+{
+  "adjudicated_verdicts": {
+    "FAIL": 3,
+    "PARTIAL": 6,
+    "PASS": 15
+  },
+  "automatic_verdicts": {
+    "FAIL": 4,
+    "PARTIAL": 5,
+    "PASS": 15
+  },
+  "changed_decisions": [
+    {
+      "automatic": "FAIL",
+      "case_id": "val-019",
+      "reviewed": "PARTIAL"
+    }
+  ],
+  "independent_human_review": false,
+  "non_pass_reviewed": 9,
+  "pass_samples_reviewed": 8,
+  "policy": "原 cases/calls/自动分与汇总不变；开发助手仅记录显式源码裁决。未复核通过项沿用自动分，非独立人工或端到端验收。",
+  "reviewed_cases": 17,
+  "reviewer_type": "developer_assistant",
+  "run_id": "live_validation_20261010_r01",
+  "source_audit": {
+    "all_gold_source_hashes_verified": true,
+    "fixture_identities_unchanged": true,
+    "reader_lines_verified": 407,
+    "search_lines_verified": 41
+  },
+  "unreviewed_use_automatic": [
+    "val-002",
+    "val-006",
+    "val-010",
+    "val-014",
+    "val-015",
+    "val-016",
+    "val-017"
+  ]
+}

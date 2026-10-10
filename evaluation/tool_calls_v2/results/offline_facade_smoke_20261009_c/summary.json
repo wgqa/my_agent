@@ -1,0 +1,187 @@
+{
+  "breakdown": {
+    "focus_tool": {
+      "None": {
+        "planned": 7,
+        "recorded": 7,
+        "verdicts": {
+          "PASS": 7
+        }
+      },
+      "calculator": {
+        "planned": 1,
+        "recorded": 1,
+        "verdicts": {
+          "PASS": 1
+        }
+      },
+      "read_project_context": {
+        "planned": 1,
+        "recorded": 1,
+        "verdicts": {
+          "PASS": 1
+        }
+      }
+    },
+    "group": {
+      "boundary": {
+        "planned": 2,
+        "recorded": 2,
+        "verdicts": {
+          "PASS": 2
+        }
+      },
+      "multistep": {
+        "planned": 2,
+        "recorded": 2,
+        "verdicts": {
+          "PASS": 2
+        }
+      },
+      "recovery": {
+        "planned": 3,
+        "recorded": 3,
+        "verdicts": {
+          "PASS": 3
+        }
+      },
+      "target": {
+        "planned": 2,
+        "recorded": 2,
+        "verdicts": {
+          "PASS": 2
+        }
+      }
+    },
+    "project": {
+      "fixture": {
+        "planned": 9,
+        "recorded": 9,
+        "verdicts": {
+          "PASS": 9
+        }
+      }
+    },
+    "split": {
+      "dev": {
+        "planned": 9,
+        "recorded": 9,
+        "verdicts": {
+          "PASS": 9
+        }
+      }
+    }
+  },
+  "cost": {
+    "input_tokens_known": null,
+    "input_usage_missing_calls": 0,
+    "logical_decisions": 25,
+    "logical_metadata_call_count": 0,
+    "metadata_missing_logical_calls": 34,
+    "output_tokens_known": null,
+    "output_usage_missing_calls": 0,
+    "provider_calls_known": 0,
+    "tool_calls": 16
+  },
+  "invalid_records": 0,
+  "is_model_quality_result": false,
+  "latency_ms": {
+    "count": 9,
+    "p50": 16.061800000898074,
+    "p95": 368.68200000026263
+  },
+  "limitations": [
+    "工具过程评分不证明最终答案正确或端到端质量。",
+    "新题是同类 HTTP/Python 仓库迁移；非独立人工或 sealed holdout。",
+    "N/A 代表缺少观察机会；不应转换成 100%。",
+    "离线 Gold 路径和脚本回放不代表模型自主选择能力。"
+  ],
+  "metrics": {
+    "actual_tool_calls_by_name": {
+      "calculator": 1,
+      "changed_files": 1,
+      "code_search": 1,
+      "find_tests": 1,
+      "git_diff": 1,
+      "read_project_context": 11
+    },
+    "after_repair_parse_valid": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "all_goals": {
+      "denominator": 8,
+      "numerator": 8,
+      "rate": 1.0
+    },
+    "executor_argument_errors": 0,
+    "fault_cases_not_triggered": 0,
+    "first_action": {
+      "denominator": 5,
+      "numerator": 5,
+      "rate": 1.0
+    },
+    "first_actions_repaired": 0,
+    "guard_blocked_unsafe_cases": 0,
+    "initial_argument_schema_errors_unknown_tool_attribution": 0,
+    "initial_parse_valid": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "material_coverage": {
+      "denominator": 14,
+      "numerator": 14,
+      "rate": 1.0
+    },
+    "multistep": {
+      "denominator": 2,
+      "numerator": 2,
+      "rate": 1.0
+    },
+    "parse_repair_success": {
+      "denominator": 0,
+      "numerator": 0,
+      "rate": null
+    },
+    "recovery": {
+      "denominator": 1,
+      "numerator": 1,
+      "rate": 1.0
+    },
+    "required_tool_coverage": {
+      "denominator": 4,
+      "numerator": 4,
+      "rate": 1.0
+    },
+    "target_correct": {
+      "denominator": 16,
+      "numerator": 16,
+      "rate": 1.0
+    },
+    "targets_needing_review": 0,
+    "terminal_behavior": {
+      "denominator": 9,
+      "numerator": 9,
+      "rate": 1.0
+    },
+    "termination_reasons": {
+      "UNSAFE_REQUEST": 1
+    },
+    "tool_errors_by_code": {
+      "TOOL_EXECUTION_FAILED": 1
+    },
+    "unsafe_attempts": 0,
+    "unsafe_executions": 0,
+    "unwanted_refusals": 0
+  },
+  "mode": "scripted",
+  "not_run": [],
+  "planned_requests": 9,
+  "recorded_requests": 9,
+  "valid_records": 9,
+  "verdicts": {
+    "PASS": 9
+  }
+}

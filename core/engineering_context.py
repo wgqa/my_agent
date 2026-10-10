@@ -23,6 +23,7 @@ from core.conversation_context import (
     ConversationQueryResolution,
     RecentContextWindow,
 )
+from core.conversation_context.resolver import build_reference_query
 
 
 _EXPECTED_RESOLVER_FAILURES = (
@@ -41,7 +42,8 @@ class EngineeringContextSnapshot:
 
     ``selected_messages`` is intentionally excluded from ``repr`` so a
     snapshot cannot accidentally put conversation content into logs or safe
-    observability output.  The Runtime consumes only ``resolved_input``.
+    observability output. ``resolved_input`` preserves the current request
+    and carries only auxiliary conversation references when available.
     """
 
     original_input: str
@@ -53,6 +55,14 @@ class EngineeringContextSnapshot:
     truncated: bool
     resolver_used: bool
     resolver_fallback: bool
+    reference_context: str | None = field(default=None, repr=False)
+
+    @property
+    def lexical_query(self) -> str:
+        """Question and referent text, excluding model transport field names."""
+        if self.reference_context is None:
+            return self.resolved_input
+        return f"{self.original_input}\n{self.reference_context}"
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -85,6 +95,8 @@ class EngineeringContextSnapshot:
                 raise TypeError(f"{label} must be a bool")
         if not self.selected_messages and self.used_tokens != 0:
             raise ValueError("used_tokens must be zero without selected messages")
+        if self.reference_context is not None:
+            build_reference_query(self.original_input, self.reference_context)
 
 
 class EngineeringContextResolver:
@@ -133,16 +145,26 @@ class EngineeringContextResolver:
             except _EXPECTED_RESOLVER_FAILURES:
                 resolution = ConversationQueryResolution(user_input, True, True)
 
+        # A model-produced standalone task is not authoritative in Engineering.
+        # Build the handoff from the actual user request, never from a rewritten
+        # task. Older/injected resolvers cannot silently replace that request.
+        reference = None if resolution.fallback else resolution.reference_context
+        resolved_input = build_reference_query(user_input, reference)
+        rejected_rewrite = (
+            resolution.reference_context is None
+            and resolution.standalone_query != user_input
+        )
         return EngineeringContextSnapshot(
             original_input=user_input,
-            resolved_input=resolution.standalone_query,
+            resolved_input=resolved_input,
             selected_messages=context.selected_messages,
             received_count=context.received_count,
             used_count=context.used_count,
             used_tokens=context.used_tokens,
             truncated=context.truncated,
             resolver_used=resolution.resolver_used,
-            resolver_fallback=resolution.fallback,
+            resolver_fallback=resolution.fallback or rejected_rewrite,
+            reference_context=reference,
         )
 
 

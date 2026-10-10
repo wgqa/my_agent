@@ -21,6 +21,7 @@ from core.tool_agent.decision_prompt import (
 from core.tool_agent.default_tools import build_readonly_tool_registry
 from core.tool_agent.tools.code_search import CODE_SEARCH_VERSION
 from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_VERSION
+from core.tool_agent.tools.project_info import PROJECT_INFO_VERSION, ProjectBinding
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget
 
@@ -44,10 +45,13 @@ def build_tool_agent_runtime(
     provider_config: Optional[OpenAICompatibleProviderConfig] = None,
     code_search_version: str = CODE_SEARCH_VERSION,
     read_project_context_version: str = READ_PROJECT_CONTEXT_VERSION,
+    project_binding: ProjectBinding | None = None,
+    project_info_version: str = PROJECT_INFO_VERSION,
 ) -> ToolAgentRuntime:
-    """把七个只读 Tool + Decision Provider + Bounded Runtime 装配成 Tool Agent。
+    """把只读 Tool + Decision Provider + Bounded Runtime 装配成 Tool Agent。
 
     - registry：build_readonly_tool_registry（七个只读工具）；
+      Engineering 可显式传 project_binding 增加只读绑定查询，默认集合不变；
     - code_search 的 repo_root 由调用方注入（仓库根），不来自用户请求；
     - knowledge_search 复用传入的 RetrievalPort（Pipeline/Adapter），不另造检索器；
     - provider：默认真实 OpenAI-compatible（deepseek/deepseek-chat），测试可注入 Fake；
@@ -62,6 +66,8 @@ def build_tool_agent_runtime(
         knowledge_top_k=knowledge_top_k,
         code_search_version=code_search_version,
         read_project_context_version=read_project_context_version,
+        project_binding=project_binding,
+        project_info_version=project_info_version,
     )
     if provider is None:
         from core.tool_agent.openai_compatible import (
