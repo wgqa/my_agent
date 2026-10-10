@@ -8,6 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import json
+import re
 import time
 
 from openai import OpenAI, APITimeoutError, APIConnectionError, APIStatusError
@@ -174,7 +175,10 @@ class CompletionReviewOutcome:
     def __post_init__(self):
         if (self.failure_code not in (None, *REVIEW_FAILURE_CODES)
                 or (self.result is None) != (self.failure_code is not None)
-                or self.call_count not in (0, 1)
+                or type(self.call_count) is not int or self.call_count not in (0, 1)
+                or type(self.input_sha256) is not str or not re.fullmatch(r"[a-f0-9]{64}", self.input_sha256)
+                or (self.result is not None and (type(self.result) is not CompletionReviewDecision or self.call_count != 1))
+                or (self.failure_code == "REVIEW_INPUT_LIMIT" and self.call_count != 0)
                 or self.prompt_version != REVIEW_PROMPT_VERSION or self.prompt_sha256 != REVIEW_PROMPT_SHA256):
             raise ValueError("invalid review outcome")
         for value in (self.latency_ms, self.input_tokens, self.output_tokens):

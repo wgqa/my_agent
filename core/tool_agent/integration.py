@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, Optional
 
@@ -115,10 +116,16 @@ def build_tool_agent_runtime(
             prompt_profile=prompt_profile,
             max_parse_repairs=max_parse_repairs_for_profile(prompt_profile),
         )
+    from core.engineering_requirement_contract import digest
     return ToolAgentRuntime(
         registry=registry,
         provider=provider,
         budget=ToolAgentBudget(),
+        binding_identity=digest({
+            "root": str(Path(repo_root).resolve()),
+            "project_name": project_binding.project_name if project_binding is not None else None,
+            "source": project_binding.source if project_binding is not None else None,
+        }),
     )
 
 

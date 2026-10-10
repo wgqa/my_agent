@@ -22,6 +22,9 @@ from core.engineering_requirement_planning import (
     BaseRequirementProvider, RequirementPlanningOutcome, RuleRequirementProvider,
 )
 from core.engineering_verification import EngineeringEvidenceVerifier
+from core.engineering_requirement_contract import RequirementContract
+from core.engineering_candidate_verification import CandidateEvidenceVerifier, BoundCandidateEvidenceVerifier
+from core.engineering_candidate_models import CandidateToolAgentRunResult, CandidateFinalizationSummary
 from core.tool_agent.activity import ActivityEvent
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import (
@@ -59,7 +62,11 @@ class LegacyToolAgentExecutionAdapter:
     ) -> ToolAgentRunResult:
         """Delegate one run without adding control flow or policy."""
 
-        if not isinstance(evidence_requirement, EngineeringEvidenceRequirement):
+        if type(evidence_requirement) is RequirementContract:
+            if (type(finalization_verifier) is not BoundCandidateEvidenceVerifier
+                    or finalization_verifier.contract != evidence_requirement):
+                raise TypeError("candidate adapter requires a bound candidate verifier")
+        elif not isinstance(evidence_requirement, EngineeringEvidenceRequirement):
             raise TypeError(
                 "evidence_requirement 必须是 EngineeringEvidenceRequirement"
             )
@@ -99,6 +106,10 @@ class LegacyToolAgentExecutionAdapter:
                 kwargs["cancel_requested"] = cancel_requested
         return self._runtime.run(user_input, **kwargs)
 
+    def candidate_capabilities(self):
+        from core.engineering_materials import capability_manifest
+        return capability_manifest([s for s in self._runtime._registry.list_specs() if s.name != "knowledge_search"])
+
 
 class UnifiedEngineeringRuntime:
     """The single product Runtime boundary for Engineering requests."""
@@ -112,6 +123,7 @@ class UnifiedEngineeringRuntime:
         retrieval_component: EngineeringRetrievalComponent,
         evidence_verifier: EngineeringEvidenceVerifier,
         requirement_provider: BaseRequirementProvider | None = None,
+        candidate_verifier: CandidateEvidenceVerifier | None = None,
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
@@ -129,11 +141,17 @@ class UnifiedEngineeringRuntime:
             raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
         if requirement_provider is not None and not isinstance(requirement_provider, BaseRequirementProvider):
             raise TypeError("requirement_provider must be BaseRequirementProvider")
-        # M1/M2 can run rule/shadow through the old verifier. M3 must provide
-        # actual material/goal coverage before candidate contracts take control.
-        # A valid model schema alone is never enough to activate goal_v2.
-        if requirement_provider is not None and requirement_provider.evidence_policy != "legacy":
+        # Rule/shadow retain the old verifier. Candidate contracts may control
+        # execution only with their explicit material/submission verifier.
+        if candidate_verifier is not None and type(candidate_verifier) is not CandidateEvidenceVerifier:
+            raise TypeError("candidate_verifier must be CandidateEvidenceVerifier")
+        if (requirement_provider is not None and requirement_provider.evidence_policy != "legacy"
+                and candidate_verifier is None):
             raise ValueError("goal_v2 execution is not enabled: material/goal verification must be implemented first")
+        if candidate_verifier is not None:
+            if requirement_provider is None or requirement_provider.evidence_policy != "goal_v2":
+                raise ValueError("candidate verification requires goal_v2 requirements")
+            execution_adapter.candidate_capabilities()  # fail on a missing adapter before a model call
         self._execution_adapter = execution_adapter
         self._context_resolver = context_resolver
         self._evidence_planner = evidence_planner
@@ -141,6 +159,7 @@ class UnifiedEngineeringRuntime:
         self._evidence_verifier = evidence_verifier
         self._requirement_provider = requirement_provider or RuleRequirementProvider()
         self._record_requirement_planning = requirement_provider is not None
+        self._candidate_verifier = candidate_verifier
 
     def run(
         self,
@@ -181,13 +200,15 @@ class UnifiedEngineeringRuntime:
             event = RuntimeTraceEvent(iteration=0, event_type="runtime_stopped", error_code=reason)
             if trace_sink is not None:
                 trace_sink(event)
-            return ToolAgentRunResult(
+            result_type = CandidateToolAgentRunResult if self._candidate_verifier else ToolAgentRunResult
+            extra = {"finalization": CandidateFinalizationSummary(self._candidate_verifier.policy)} if self._candidate_verifier else {}
+            return result_type(
                 status="refused", answer=None, reason_code=reason, failure_code=None,
                 iterations_used=0, tool_calls_used=0, tool_errors_used=0,
                 trace=(event,), evidence=(),
                 execution=ToolAgentExecutionMetrics(
                     elapsed_ms=int((time.monotonic() - started) * 1000), decision_llm_calls=0,
-                ), requirement_planning=requirement_outcome,
+                ), requirement_planning=requirement_outcome, **extra,
             )
 
         stopped = lifecycle_boundary()
@@ -212,12 +233,30 @@ class UnifiedEngineeringRuntime:
         # Establish it before planned Knowledge Retrieval so the later
         # finalization binding can keep Knowledge supplementary for Project-only
         # tasks while preserving it as required for Theory-Code tasks.
-        requirement_outcome = self._requirement_provider.plan(context_snapshot)
+        plan_kwargs = {}
+        if "timeout_seconds" in inspect.signature(self._requirement_provider.plan).parameters:
+            plan_kwargs["timeout_seconds"] = min(20.0, ENGINEERING_RUN_DEADLINE_SECONDS - (time.monotonic() - started))
+        if plan_kwargs.get("timeout_seconds", 1) <= 0:
+            return lifecycle_boundary(ENGINEERING_RUN_DEADLINE_EXCEEDED)
+        requirement_outcome = self._requirement_provider.plan(context_snapshot, **plan_kwargs)
         if type(requirement_outcome) is not RequirementPlanningOutcome:
             raise TypeError("requirement_provider must return RequirementPlanningOutcome")
         requirement_outcome.validate_input(context_snapshot)
         requirement = requirement_outcome.requirement
-        if (requirement_outcome.metadata.evidence_policy != "legacy"
+        if self._candidate_verifier is not None and requirement is None:
+            failure = requirement_outcome.metadata.failure_code
+            event = RuntimeTraceEvent(iteration=0, event_type="runtime_stopped", error_code=failure)
+            if trace_sink is not None:
+                trace_sink(event)
+            return CandidateToolAgentRunResult(status="failed", answer=None, reason_code=None, failure_code=failure,
+                iterations_used=0, tool_calls_used=0, tool_errors_used=0, trace=(event,),
+                requirement_planning=requirement_outcome,
+                execution=ToolAgentExecutionMetrics(int((time.monotonic() - started) * 1000), 0),
+                finalization=CandidateFinalizationSummary(self._candidate_verifier.policy, failure_code=failure))
+        if self._candidate_verifier is not None:
+            if requirement_outcome.metadata.evidence_policy != "goal_v2" or type(requirement) is not RequirementContract:
+                raise TypeError("candidate execution requires exactly the frozen candidate contract")
+        elif (requirement_outcome.metadata.evidence_policy != "legacy"
                 or type(requirement) is not EngineeringEvidenceRequirement):
             raise TypeError("legacy execution must receive exactly the frozen rule requirement")
         stopped = lifecycle_boundary()
@@ -228,11 +267,13 @@ class UnifiedEngineeringRuntime:
             planner_outcome,
             retrieval_query=context_snapshot.lexical_query,
         )
-        finalization_verifier = self._evidence_verifier.bind(
+        finalization_verifier = (self._candidate_verifier.bind(context_snapshot, requirement_outcome,
+                                  planner_outcome, retrieval_snapshot) if self._candidate_verifier is not None
+                                else self._evidence_verifier.bind(
             planner_outcome,
             retrieval_snapshot,
             requirement,
-        )
+        ))
         stopped = lifecycle_boundary()
         if stopped is not None:
             return stopped

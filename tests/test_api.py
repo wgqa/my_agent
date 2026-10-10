@@ -194,7 +194,11 @@ class TestOpenAPIContract:
         engineering_schema = paths["/engineering/query"]["post"]["responses"]["200"][
             "content"
         ]["application/json"]["schema"]
-        assert engineering_schema["$ref"].endswith("/EngineeringQueryResponse")
+        assert {item["$ref"].rsplit("/", 1)[-1] for item in engineering_schema["anyOf"]} == {
+            "EngineeringQueryResponse", "CandidateEngineeringQueryResponse",
+        }
+        assert "EngineeringQueryResponse" in components
+        assert "CandidateEngineeringQueryResponse" in components
         assert "EngineeringQueryRequest" in components
         assert "EngineeringQueryResponse" in components
 

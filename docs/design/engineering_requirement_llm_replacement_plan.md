@@ -2,7 +2,7 @@
 
 日期：2026-10-10。状态：**规则基线已提交并推送；M1 接口与 M2 影子接线完成，68 模块联合离线回归通过。M3/M4 尚未实施，执行型 LLM 模式明确禁用，未启动新模型质量评测**。
 
-2026-10-11 修订：根据后续源码复核与讨论，新增 [证据需求与最终语义验收修复方案 V2](engineering_evidence_semantic_review_v2_plan.md)，建议以真实材料登记、程序硬检查和关键节点 LLM 语义审查替代本文件尚未实施的 M3—M5 设计，并扩为 A/B/C/D 四组对照。新方案待用户评审；本文件保留原计划和 M0—M2 历史状态，不能据此认为语义审查已经实施。
+2026-10-11 修订：根据后续源码复核与讨论，[证据需求与最终语义验收修复方案 V2](engineering_evidence_semantic_review_v2_plan.md) 已经用户确认实施，以真实材料登记、程序硬检查和关键节点 LLM 语义审查替代本文件的 M3—M5 设计，并扩为 A/B/C/D 四组对照。本文件保留原计划和 M0—M2 历史状态；候选实现和当前验证进度见 [实现记录](../validation/2026-10-11-evidence-semantic-candidate.md)。
 
 实施前本地源码、版本及联合回归接缝复核见 [规则基线记录](../validation/2026-10-10-evidence-llm-baseline.md)。基线标签为 evidence-rule-v5-baseline-20261010，候选在 feat/evidence-requirement-llm-v1 分支分阶段提交，评测绑定具体 SHA 与运行配置。
 

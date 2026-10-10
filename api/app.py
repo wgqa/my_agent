@@ -24,7 +24,11 @@ from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import EngineeringEvidenceVerifier
-from core.engineering_requirement_planning import LLMRequirementProvider, SelectedRequirementProvider
+from core.engineering_requirement_planning import LLMRequirementProvider, SelectedRequirementProvider, REQUIREMENT_CANDIDATE_PROMPT_VERSION
+from core.engineering_candidate_verification import CandidateEvidenceVerifier
+from core.engineering_completion_review import LLMCompletionReviewer
+from core.engineering_candidate_models import CandidateToolAgentRunResult
+from core.engineering_materials import ToolResultEvidence as RuntimeToolResultEvidence
 from core.query_planning import OpenAICompatibleQueryPlanner
 from core.query_planning.prompt import ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION
 from core.conversation_context.resolver import ENGINEERING_REFERENCE_PROMPT_VERSION
@@ -60,6 +64,7 @@ from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_CURRENT_REQUEST_PROFILE,
     ENGINEERING_DECISION_PROMPT_PROJECT_INFO_PROFILE,
     ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE,
+    ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE,
 )
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
 from core.tool_agent.tools.read_project_targets import READ_PROJECT_TARGETS_VERSION
@@ -94,6 +99,8 @@ from api.schemas import (
     EngineeringExecutionMetrics,
     EngineeringQueryRequest,
     EngineeringQueryResponse,
+    CandidateEngineeringQueryResponse,
+    ToolResultEvidence,
     KnowledgeEvidence,
     LocalProjectCreateRequest,
     LocalProjectSummary,
@@ -150,16 +157,31 @@ class EngineeringProjectRuntime:
     facade: EngineeringAgentFacade
 
 
-def _build_product_requirement_provider():
-    """Stage M2: default rule, explicit shadow; reject premature activation."""
+def _product_evidence_settings():
     mode = os.getenv("ENGINEERING_REQUIREMENT_MODE", "rule").strip().lower()
-    if mode == "rule":
+    evidence = os.getenv("ENGINEERING_EVIDENCE_POLICY", "legacy").strip().lower()
+    finalization = os.getenv("ENGINEERING_FINALIZATION_POLICY", "legacy").strip().lower()
+    settings = (mode, evidence, finalization)
+    if settings not in {("rule", "legacy", "legacy"), ("shadow", "legacy", "legacy"),
+                        ("rule", "goal_v2", "structural_v2"), ("llm", "goal_v2", "structural_v2"),
+                        ("llm", "goal_v2", "semantic_v1")}:
+        if evidence == "legacy" and finalization == "legacy":
+            raise ValueError("ENGINEERING_REQUIREMENT_MODE must be rule or shadow with legacy policies; candidate llm requires goal_v2")
+        raise ValueError("Invalid ENGINEERING_REQUIREMENT_MODE/evidence/finalization combination")
+    return settings
+
+
+def _build_product_requirement_provider(*, capabilities=None, settings=None):
+    """Explicit A/B/C/D and legacy shadow. Default rule makes no new model."""
+    mode, evidence, finalization = settings or _product_evidence_settings()
+    if mode == "rule" and evidence == "legacy":
         return None
-    if mode != "shadow":
-        raise ValueError("ENGINEERING_REQUIREMENT_MODE must be rule or shadow; goal_v2 execution is not enabled")
-    return SelectedRequirementProvider(mode="shadow", llm=LLMRequirementProvider(
+    if mode == "rule":
+        return SelectedRequirementProvider(mode="rule", evidence_policy=evidence)
+    extra = {"prompt_version": REQUIREMENT_CANDIDATE_PROMPT_VERSION, "capabilities": capabilities} if mode == "llm" else {}
+    return SelectedRequirementProvider(mode=mode, evidence_policy=evidence, llm=LLMRequirementProvider(
         provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
-        api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
+        api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL, **extra,
     ))
 
 
@@ -167,17 +189,27 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
     """Assemble the existing Core chain with a product-selected local root."""
     if engineering_knowledge_backend is None:
         raise ValueError("Engineering knowledge is unavailable")
-    requirement_provider = _build_product_requirement_provider()
+    settings = _product_evidence_settings()
     port = engineering_knowledge_backend.retrieval_port
     tool_runtime = build_tool_agent_runtime(
         repo_root=project.root, retrieval_port=port,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
-        prompt_profile=ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE,
+        prompt_profile=(ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE if settings[1] == "goal_v2"
+                        else ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE),
         code_search_version=CODE_SEARCH_TEST_VERSION,
         read_project_context_version=READ_PROJECT_TARGETS_VERSION,
         project_binding=ProjectBinding(project.root, project.project_name, project.source),
         project_info_version=PROJECT_INFO_DOCUMENTATION_VERSION,
     )
+    adapter = LegacyToolAgentExecutionAdapter(tool_runtime)
+    requirement_provider = _build_product_requirement_provider(
+        settings=settings, capabilities=adapter.candidate_capabilities() if settings[1] == "goal_v2" else None)
+    candidate_verifier = None
+    if settings[1] == "goal_v2":
+        reviewer = (LLMCompletionReviewer(provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
+                    api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL)
+                    if settings[2] == "semantic_v1" else None)
+        candidate_verifier = CandidateEvidenceVerifier(policy=settings[2], reviewer=reviewer)
     context_resolver = EngineeringContextResolver(OpenAICompatibleConversationQueryResolver(
         provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
@@ -190,10 +222,11 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
     ))
     retrieval = EngineeringRetrievalComponent(port)
     runtime = UnifiedEngineeringRuntime(
-        LegacyToolAgentExecutionAdapter(tool_runtime), context_resolver=context_resolver,
+        adapter, context_resolver=context_resolver,
         evidence_planner=planner, retrieval_component=retrieval,
         evidence_verifier=EngineeringEvidenceVerifier(),
         requirement_provider=requirement_provider,
+        candidate_verifier=candidate_verifier,
     )
     return EngineeringProjectRuntime(tool_runtime, context_resolver, planner, retrieval,
                                      runtime, EngineeringAgentFacade(runtime))
@@ -618,6 +651,7 @@ def _acquire_engineering_run_slot() -> Callable[[], None]:
 def _build_engineering_response(
     result: ToolAgentRunResult,
 ) -> EngineeringQueryResponse:
+    candidate = type(result) is CandidateToolAgentRunResult
     evidence = []
     for item in result.evidence:
         if type(item) is RuntimeKnowledgeEvidence:
@@ -643,6 +677,10 @@ def _build_engineering_response(
                     snippet=item.snippet,
                 )
             )
+        elif candidate and type(item) is RuntimeToolResultEvidence:
+            evidence.append(ToolResultEvidence(**item.to_dict()))
+        elif candidate:
+            raise TypeError("unknown candidate evidence type; cannot drop a cited source")
     execution = (
         EngineeringExecutionMetrics(
             elapsed_ms=result.execution.elapsed_ms,
@@ -653,8 +691,10 @@ def _build_engineering_response(
         if result.execution is not None
         else None
     )
-    return EngineeringQueryResponse(
-        schema_version="engineering_query_response_v1",
+    response_type = CandidateEngineeringQueryResponse if candidate else EngineeringQueryResponse
+    extra = {"finalization": result.finalization} if candidate else {}
+    return response_type(
+        schema_version="engineering_query_response_v2" if candidate else "engineering_query_response_v1",
         status=result.status,
         answer=result.answer,
         reason_code=result.reason_code,
@@ -670,6 +710,7 @@ def _build_engineering_response(
                                        "failure_code": result.failure_code}),
         requirement_planning=(result.requirement_planning.metadata
                               if result.requirement_planning is not None else None),
+        **extra,
     )
 
 
@@ -855,7 +896,7 @@ def tool_agent_query(req: ToolAgentQueryRequest):
     return _build_tool_agent_response(result)
 
 
-@app.post("/engineering/query", response_model=EngineeringQueryResponse)
+@app.post("/engineering/query", response_model=CandidateEngineeringQueryResponse | EngineeringQueryResponse)
 def engineering_query(req: EngineeringQueryRequest):
     """Unified product entry backed by the existing ToolAgentRuntime loop."""
 

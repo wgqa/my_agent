@@ -22,6 +22,7 @@ from core.engineering_agent import EngineeringAgentFacade
 from core.tool_agent.activity import (
     ActivityEvent,
     EvidenceAddedActivity,
+    ToolResultEvidenceAddedActivity,
     RunStartedActivity,
     ToolActivityEvent,
     VerificationBlockedActivity,
@@ -36,6 +37,7 @@ _ACTIVITY_EVENT_TYPES = (
     RunStartedActivity,
     ToolActivityEvent,
     EvidenceAddedActivity,
+    ToolResultEvidenceAddedActivity,
     VerificationBlockedActivity,
 )
 

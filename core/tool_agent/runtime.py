@@ -16,6 +16,7 @@ import time
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
 from typing import Callable
+from jsonschema import ValidationError
 
 from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
@@ -61,6 +62,7 @@ from core.tool_agent.runtime_models import (
     ToolAgentRunResult,
 )
 from core.tool_agent.source_excerpt import project_context_fragments, project_context_snippet
+from core.tool_agent.activity import ToolResultEvidenceAddedActivity
 
 _EVIDENCE_PRODUCER_TOOLS = {
     "knowledge": ("knowledge_search",),
@@ -435,6 +437,7 @@ class ToolAgentRuntime:
         registry: ToolRegistry,
         provider: AgentDecisionProvider,
         budget: ToolAgentBudget | None = None,
+        binding_identity: str | None = None,
     ) -> None:
         if not isinstance(registry, ToolRegistry):
             raise TypeError("registry 必须是 ToolRegistry")
@@ -452,6 +455,7 @@ class ToolAgentRuntime:
         self._provider = provider
         self._executor = ToolExecutor(registry)
         self._budget = budget
+        self._binding_identity = binding_identity
 
     def run(
         self,
@@ -526,27 +530,40 @@ class ToolAgentRuntime:
         deadline_at: float | None,
         cancel_requested: Callable[[], bool] | None,
     ) -> ToolAgentRunResult:
+        from core.engineering_requirement_contract import RequirementContract, canonical_json
+        from core.engineering_candidate_models import CandidateToolAgentRunResult, CandidateTaskContext, CandidateSubmissionBlockedTrace
+        from core.engineering_candidate_verification import BoundCandidateEvidenceVerifier
+        from core.engineering_materials import ToolResultEvidence
+
         if type(user_query) is not str or not user_query.strip():
             raise ValueError("user_query 必须是非空字符串")
-        if evidence_requirement is not None and not isinstance(
+        candidate = type(finalization_verifier) is BoundCandidateEvidenceVerifier
+        if candidate and (type(evidence_requirement) is not RequirementContract
+                          or evidence_requirement != finalization_verifier.contract):
+            raise TypeError("candidate execution requires its frozen contract and verifier")
+        if not candidate and evidence_requirement is not None and not isinstance(
             evidence_requirement, EngineeringEvidenceRequirement
         ):
             raise TypeError(
                 "evidence_requirement 必须是 EngineeringEvidenceRequirement 或 None"
             )
-        if finalization_verifier is not None and not callable(
+        if not candidate and finalization_verifier is not None and not callable(
             getattr(finalization_verifier, "verify", None)
         ):
             raise TypeError("finalization_verifier 必须提供 verify 方法")
         if type(enforce_evidence_acquisition) is not bool:
             raise TypeError("enforce_evidence_acquisition 必须是 bool")
         seed_context = _normalize_initial_context(initial_context)
-        seed_evidence = _normalize_initial_evidence(initial_evidence)
+        seed_evidence = tuple(initial_evidence) if candidate else _normalize_initial_evidence(initial_evidence)
         disabled = _normalize_disabled_tools(disabled_tools, self._registry)
         run_registry = (
             self._registry if not disabled else self._registry.without(disabled)
         )
         executor = self._executor if not disabled else ToolExecutor(run_registry)
+        session = (finalization_verifier.new_session(run_registry.list_specs(), seed_evidence, self._binding_identity)
+                   if candidate else None)
+        if session is not None:
+            seed_evidence = session.ledger.evidence
         context: list[DecisionContextItem] = list(seed_context)
         executed: set[tuple[str, str]] = set()
         iterations = 0
@@ -560,6 +577,18 @@ class ToolAgentRuntime:
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
         activity_number = 0
+
+        def make_result(**kwargs):
+            if session is None:
+                return ToolAgentRunResult(**kwargs)
+            return CandidateToolAgentRunResult(**kwargs, finalization=session.summary(),
+                materials=session.ledger.records, review_records=tuple(session.records))
+
+        def hard_stop(trace, evidence, iterations, tool_calls, tool_errors, code, trace_sink):
+            self._append_terminal(trace, iterations, tool_calls, tool_errors, code, trace_sink)
+            return make_result(status="refused", answer=None, reason_code=code, failure_code=None,
+                iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors,
+                trace=tuple(trace), evidence=tuple(evidence))
 
         self._record_activity(
             RunStartedActivity(available_tool_count=len(run_registry)),
@@ -575,7 +604,7 @@ class ToolAgentRuntime:
             # and the system deadline are evaluated before any new Decision
             # or Tool work is started; in-flight work is never preempted.
             if cancel_requested is not None and cancel_requested():
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -585,7 +614,7 @@ class ToolAgentRuntime:
                     trace_sink,
                 )
             if deadline_at is not None and time.monotonic() >= deadline_at:
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -596,7 +625,7 @@ class ToolAgentRuntime:
                 )
             iterations += 1
             if iterations > self._budget.max_agent_iterations:
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -606,7 +635,9 @@ class ToolAgentRuntime:
                     trace_sink,
                 )
 
-            if finalization_verifier is None:
+            if session is not None:
+                guard_state = None  # Candidate progress is not the frozen G12 shape gate.
+            elif finalization_verifier is None:
                 guard_state = (
                     evaluate_evidence_requirement(evidence_requirement, evidence)
                     if evidence_requirement is not None
@@ -659,22 +690,24 @@ class ToolAgentRuntime:
                     if recovery_control_active and guard_state is not None
                     else None
                 ),
-                available_evidence_refs=_evidence_reference_catalog(evidence),
+                available_evidence_refs=_evidence_reference_catalog([
+                    item for item in evidence if type(item) is not ToolResultEvidence]),
                 citation_required_evidence_groups=(
                     evidence_requirement.required_evidence_groups
-                    if evidence_requirement is not None
+                    if evidence_requirement is not None and session is None
                     else ()
                 ),
                 citation_required_min_distinct_project_code_paths=(
                     evidence_requirement.min_distinct_project_code_paths
-                    if evidence_requirement is not None
+                    if evidence_requirement is not None and session is None
                     else 0
                 ),
             )
             outcome = self._decide(
                 run_registry,
                 user_query,
-                context=tuple(context),
+                context=tuple(context) + ((CandidateTaskContext(canonical_json(session.task_context())),)
+                                         if session is not None else ()),
                 control_state=control_state,
             )
             if not isinstance(outcome, AgentDecisionOutcome):
@@ -723,7 +756,7 @@ class ToolAgentRuntime:
                     outcome.failure_code,
                     trace_sink,
                 )
-                return ToolAgentRunResult(
+                return make_result(
                     status="failed",
                     answer=None,
                     reason_code=None,
@@ -736,6 +769,52 @@ class ToolAgentRuntime:
                 )
 
             action = outcome.action
+            if session is not None and type(action) in (FinalAnswerAction, RefuseAction):
+                # Review is only a submission boundary, never a per-Decision call.
+                if cancel_requested is not None and cancel_requested():
+                    return hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
+                                     ENGINEERING_RUN_CANCELLED, trace_sink)
+                remaining_seconds = deadline_at - time.monotonic() if deadline_at is not None else 20.0
+                if remaining_seconds <= 0:
+                    return hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
+                                     ENGINEERING_RUN_DEADLINE_EXCEEDED, trace_sink)
+                check = session.submit(action, remaining={
+                    "iterations": self._budget.max_agent_iterations - iterations,
+                    "tool_calls": self._budget.max_tool_calls - tool_calls,
+                    "tool_errors": self._budget.max_tool_errors - tool_errors,
+                    "review_calls": 2 - session.review_calls,
+                    "deadline_seconds": remaining_seconds,
+                }, timeout_seconds=min(20.0, remaining_seconds))
+                if cancel_requested is not None and cancel_requested():
+                    return hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
+                                     ENGINEERING_RUN_CANCELLED, trace_sink)
+                if deadline_at is not None and time.monotonic() >= deadline_at:
+                    return hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
+                                     ENGINEERING_RUN_DEADLINE_EXCEEDED, trace_sink)
+                if check.failure_code:
+                    self._append_terminal(trace, iterations, tool_calls, tool_errors, check.failure_code, trace_sink)
+                    return make_result(status="failed", answer=None, reason_code=None, failure_code=check.failure_code,
+                        iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors,
+                        trace=tuple(trace), evidence=tuple(evidence))
+                if check.decision in {"accept", "structural_accept"}:
+                    if type(action) is not FinalAnswerAction:
+                        raise TypeError("a refusal cannot become a completed answer")
+                    self._append_terminal(trace, iterations, tool_calls, tool_errors, None, trace_sink)
+                    return make_result(status="completed", answer=action.answer, reason_code=None, failure_code=None,
+                        iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors,
+                        trace=tuple(trace), evidence=tuple(evidence))
+                if session.can_recover(check, iterations=iterations, tool_calls=tool_calls, tool_errors=tool_errors,
+                                       budget=self._budget, enabled_tools={s.name for s in run_registry.list_specs()}):
+                    self._record_trace(trace, CandidateSubmissionBlockedTrace(iteration=iterations, decision=check.decision,
+                        iterations_used=iterations, tool_calls_used=tool_calls,
+                        tool_errors_used=tool_errors), trace_sink)
+                    self._record_activity(VerificationBlockedActivity(iteration=iterations,
+                        missing_evidence_kinds=tuple(sorted({kind for goal in evidence_requirement.goals
+                            if goal.goal_id in check.missing_goals for kind in goal.source_kinds}))), activity_sink)
+                    continue
+                return hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
+                    action.reason_code if type(action) is RefuseAction and check.decision == "refuse"
+                    else INSUFFICIENT_EVIDENCE_TO_FINALIZE, trace_sink)
             if isinstance(action, FinalAnswerAction):
                 if finalization_verifier is not None:
                     finalization_result = _run_finalization_verifier(
@@ -757,7 +836,7 @@ class ToolAgentRuntime:
                                 budget=self._budget,
                             )
                         ):
-                            return self._hard_stop(
+                            return hard_stop(
                                 trace,
                                 evidence,
                                 iterations,
@@ -771,7 +850,7 @@ class ToolAgentRuntime:
                             last_blocked_fingerprint is not None
                             and fingerprint == last_blocked_fingerprint
                         ):
-                            return self._hard_stop(
+                            return hard_stop(
                                 trace,
                                 evidence,
                                 iterations,
@@ -819,7 +898,7 @@ class ToolAgentRuntime:
                             last_blocked_fingerprint is not None
                             and fingerprint == last_blocked_fingerprint
                         ):
-                            return self._hard_stop(
+                            return hard_stop(
                                 trace,
                                 evidence,
                                 iterations,
@@ -837,7 +916,7 @@ class ToolAgentRuntime:
                             tool_errors=tool_errors,
                             budget=self._budget,
                         ):
-                            return self._hard_stop(
+                            return hard_stop(
                                 trace,
                                 evidence,
                                 iterations,
@@ -880,7 +959,7 @@ class ToolAgentRuntime:
                 self._append_terminal(
                     trace, iterations, tool_calls, tool_errors, None, trace_sink
                 )
-                return ToolAgentRunResult(
+                return make_result(
                     status="completed",
                     answer=action.answer,
                     reason_code=None,
@@ -903,7 +982,7 @@ class ToolAgentRuntime:
                         last_blocked_fingerprint is not None
                         and fingerprint == last_blocked_fingerprint
                     ):
-                        return self._hard_stop(
+                        return hard_stop(
                             trace,
                             evidence,
                             iterations,
@@ -921,7 +1000,7 @@ class ToolAgentRuntime:
                         tool_errors=tool_errors,
                         budget=self._budget,
                     ):
-                        return self._hard_stop(
+                        return hard_stop(
                             trace,
                             evidence,
                             iterations,
@@ -974,7 +1053,7 @@ class ToolAgentRuntime:
                     action.reason_code,
                     trace_sink,
                 )
-                return ToolAgentRunResult(
+                return make_result(
                     status="refused",
                     answer=None,
                     reason_code=action.reason_code,
@@ -989,7 +1068,7 @@ class ToolAgentRuntime:
             # ToolCallAction：执行前按 §11 顺序检查
             if iterations >= self._budget.max_agent_iterations:
                 # 最后一次 Decision 若仍要 tool_call：没有下一次 Decision 读 Observation
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -999,7 +1078,7 @@ class ToolAgentRuntime:
                     trace_sink,
                 )
             if tool_calls >= self._budget.max_tool_calls:
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -1010,7 +1089,7 @@ class ToolAgentRuntime:
                 )
             canonical = _canonical_call(action.tool_name, action.arguments)
             if canonical in executed:
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -1023,7 +1102,7 @@ class ToolAgentRuntime:
             # Tool execution when the client disconnected or the run
             # deadline expired; the previous Tool already finished normally.
             if cancel_requested is not None and cancel_requested():
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -1033,7 +1112,7 @@ class ToolAgentRuntime:
                     trace_sink,
                 )
             if deadline_at is not None and time.monotonic() >= deadline_at:
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,
@@ -1101,17 +1180,35 @@ class ToolAgentRuntime:
                     observation_error_code=observation.error_code,
                 )
             )
-            observed_evidence = list(_evidence_from_knowledge_search(observation))
-            observed_evidence.extend(_evidence_from_project_context_regions(observation))
-            observed_evidence.extend(
-                item
-                for item in (
-                    _evidence_from_git_diff(observation),
+            if session is not None:
+                try:
+                    observed_evidence = list(session.ledger.observe(call, observation))
+                except (ValueError, TypeError, ValidationError):
+                    failure = "MATERIAL_RESULT_INVALID"
+                    self._append_terminal(trace, iterations, tool_calls, tool_errors, failure, trace_sink)
+                    return make_result(status="failed", answer=None, reason_code=None, failure_code=failure,
+                        iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors,
+                        trace=tuple(trace), evidence=session.ledger.evidence)
+            else:
+                observed_evidence = list(_evidence_from_knowledge_search(observation))
+                observed_evidence.extend(_evidence_from_project_context_regions(observation))
+                observed_evidence.extend(
+                    item
+                    for item in (
+                        _evidence_from_git_diff(observation),
+                    )
+                    if item is not None
                 )
-                if item is not None
-            )
             added_evidence_ids: list[str] = []
             for observed in observed_evidence:
+                if session is not None:
+                    added = observed  # Ledger already numbered/deduplicated by returned content.
+                    evidence.append(added)
+                    added_evidence_ids.append(added.evidence_id)
+                    event = (ToolResultEvidenceAddedActivity.from_public_evidence(added)
+                             if type(added) is ToolResultEvidence else EvidenceAddedActivity.from_public_evidence(added))
+                    self._record_activity(event, activity_sink)
+                    continue
                 if isinstance(observed, KnowledgeEvidence):
                     key = (
                         "knowledge",
@@ -1147,7 +1244,7 @@ class ToolAgentRuntime:
                 activity_sink,
             )
             if tool_errors >= self._budget.max_tool_errors:
-                return self._hard_stop(
+                return hard_stop(
                     trace,
                     evidence,
                     iterations,

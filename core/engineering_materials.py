@@ -173,7 +173,7 @@ class MaterialLedger:
     Only the existing executor's successful observations enter this ledger.
     Failed observations stay in the actual decision context as diagnostics.
     """
-    def __init__(self, specs, initial_evidence=(), *, binding_identity=None):
+    def __init__(self, specs, initial_evidence=(), *, binding_identity=None, knowledge_provenance=()):
         self.capabilities = capability_manifest(specs)
         self._specs = {s.name: s for s in specs}
         self._records: list[MaterialRecord] = []
@@ -184,10 +184,15 @@ class MaterialLedger:
         for item in initial_evidence:
             if type(item) not in (EngineeringEvidence, KnowledgeEvidence):
                 raise TypeError("invalid initial candidate material")
+            knowledge_identity = next((entry for entry in knowledge_provenance
+                if entry["source_name"] == getattr(item, "source_name", None)
+                and entry["chunk_id"] == getattr(item, "chunk_id", None)
+                and entry["rank"] == getattr(item, "rank", None)), None)
             self._add(item, (item.kind,), "knowledge" if item.kind == "knowledge" else "body",
                       {"content_complete": None, "completeness_scope": "returned_seed"},
                       {"source": "planned_retrieval" if item.kind == "knowledge" else "initial_evidence",
-                       "binding_identity": binding_identity, "returned_content_sha256": digest(item.to_dict())})
+                       "binding_identity": binding_identity, "returned_content_sha256": digest(item.to_dict()),
+                       "knowledge_identity": knowledge_identity})
 
     @property
     def records(self):

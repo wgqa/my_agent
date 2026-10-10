@@ -18,6 +18,7 @@ const KIND_LABELS = {
   project_doc: 'DOC',
   project_change: 'CHANGE',
   project_test: 'TEST',
+  tool_result: '工具结果',
 };
 
 const state = {

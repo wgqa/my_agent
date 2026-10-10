@@ -135,7 +135,13 @@ class BoundCandidateEvidenceVerifier:
     retrieval_snapshot: object
 
     def new_session(self, specs, initial_evidence, binding_identity):
-        return CandidateVerificationSession(self, MaterialLedger(specs, initial_evidence, binding_identity=binding_identity))
+        retrieval = self.retrieval_snapshot
+        knowledge_provenance = tuple({"source_name": item.source_name, "chunk_id": item.chunk_id,
+            "rank": item.rank, "query_id": item.query_id,
+            "required_query_ids": list(retrieval.required_query_ids),
+            "covered_query_ids": list(retrieval.covered_query_ids)} for item in retrieval.evidence_bundle.items)
+        return CandidateVerificationSession(self, MaterialLedger(specs, initial_evidence,
+            binding_identity=binding_identity, knowledge_provenance=knowledge_provenance))
 
 
 class CandidateVerificationSession:

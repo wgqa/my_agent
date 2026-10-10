@@ -47,6 +47,7 @@ def source_snapshot():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tests", nargs="+", help="Optional repository test modules instead of the full migration regression")
+    parser.add_argument("--keyword", help="Optional pytest -k selection for a focused follow-up check")
     args = parser.parse_args()
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     modules = list(dict.fromkeys(args.tests or [*re.findall(r"tests/[^\s]+\.py", ci), *EXTRA_MODULES]))
@@ -68,6 +69,7 @@ def main():
     os.environ.update({
         "DEEPSEEK_API_KEY": "", "OPENCODE_API_KEY": "",
         "ENGINEERING_REQUIREMENT_MODE": "rule",
+        "ENGINEERING_EVIDENCE_POLICY": "legacy", "ENGINEERING_FINALIZATION_POLICY": "legacy",
         "ENGINEERING_KNOWLEDGE_MODE": "managed", "ENGINEERING_KNOWLEDGE_CORPUS_ROOT": "",
         "ENGINEERING_CONVERSATION_DB": str(run_root / "isolated_conversations.sqlite3"),
         "ENGINEERING_PROJECT_DB": str(run_root / "isolated_projects.sqlite3"),
@@ -107,7 +109,8 @@ def main():
     print(f"Offline modules: {len(modules)}; artifacts: {run_root.relative_to(ROOT)}", flush=True)
     import pytest
     try:
-        result = int(pytest.main(["-q", *modules, f"--basetemp={fixture_root}", f"--junitxml={run_root / 'junit.xml'}"]))
+        selection = ["-k", args.keyword] if args.keyword else []
+        result = int(pytest.main(["-q", *modules, *selection, f"--basetemp={fixture_root}", f"--junitxml={run_root / 'junit.xml'}"]))
     finally:
         socket.socket.connect, socket.socket.connect_ex = original_connect, original_connect_ex
         socket.getaddrinfo = original_resolve

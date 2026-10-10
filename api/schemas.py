@@ -403,6 +403,19 @@ class EngineeringQueryResponse(BaseModel):
         return RequirementPlanningMetadata(**value)
 
 
+class CandidateEngineeringQueryResponse(EngineeringQueryResponse):
+    """Separate payload version; SSE transport remains engineering_query_stream_v2."""
+
+    model_config = {"extra": "forbid"}
+    schema_version: Literal["engineering_query_response_v2"]
+    evidence: List[CandidateEngineeringEvidence]
+    finalization: "CandidateFinalizationSummary"
+
+
+from core.engineering_candidate_models import CandidateFinalizationSummary
+CandidateEngineeringQueryResponse.model_rebuild()
+
+
 class EngineeringConversationMessageRequest(BaseModel):
     """One server-owned conversation turn; clients never submit history,
     project, provider, model, budget, tools, prompt, or context window."""

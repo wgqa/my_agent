@@ -1,6 +1,6 @@
 # 证据需求与最终语义验收修复方案 V2
 
-日期：2026-10-11。状态：**用户已确认开始实施。S0 方案确认完成；从 S1 真实材料通路开始，候选默认开关仍关闭，真实模型评测前单独告知范围。**
+日期：2026-10-11。状态：**用户已确认实施；S1—S3 候选材料、提交审查、有限反馈及公开通路已接通，默认产品仍使用旧规则。当前验证与真实开发对比进度见 [实现记录](../validation/2026-10-11-evidence-semantic-candidate.md)。正式新题验收未开始。**
 
 业务代码审查基于提交 3484157fbc9abf36eb8e732e4308da2a9f00e584，分支 feat/evidence-requirement-llm-v1。复核开始时工作区干净，与该分支本地跟踪的远端提交一致。规则基线为 f3c9e28aec8b29ccfcad9476ea88871aacbefa06，标签 evidence-rule-v5-baseline-20261010；已完成 M1/M2 的检查点标签为 evidence-requirement-shadow-v1-20261010。
 
