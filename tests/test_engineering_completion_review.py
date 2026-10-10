@@ -93,6 +93,16 @@ def test_unknown_goal_extra_keys_and_stale_identity_are_rejected():
         ReviewRecord(item, outcome)
 
 
+def test_approval_can_have_no_gap_feedback_but_recovery_must_explain():
+    item = review_input()
+    raw = review(verdicts=(("fulfilled", []),))
+    raw["feedback"] = ""
+    assert parse_review_output(json.dumps(raw), item).decision == "accept"
+    raw.update(decision="revise_answer", missing_category="answer")
+    with pytest.raises(ValueError, match="gap explanation"):
+        parse_review_output(json.dumps(raw), item)
+
+
 def test_candidate_requirement_uses_real_capabilities_without_changing_v2_contract():
     capabilities = capability_manifest((CALCULATOR_SPEC,))
     client = Client(output(goal("2+3", None, "calculation", ["calculation"], False)))
