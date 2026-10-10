@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import dataclasses
+from types import SimpleNamespace
 
 import pytest
 
 import core.engineering_requirement_planning as requirement_planning_module
+import core.unified_engineering_runtime as unified_runtime_module
 from core.conversation_context import ConversationQueryResolution
 from core.engineering_agent import EngineeringAgentFacade
 from core.engineering_context import EngineeringContextResolver
@@ -81,6 +83,17 @@ def _unified(runtime, *, context_resolver=None):
     )
 
 
+def _run_content(result):
+    # Runs may take different wall-clock durations. Keep every other field,
+    # including Decision calls and token counts, in the parity comparison.
+    assert result.execution is not None
+    assert result.execution.elapsed_ms >= 0
+    return dataclasses.replace(
+        result,
+        execution=dataclasses.replace(result.execution, elapsed_ms=0),
+    )
+
+
 def test_delegation_parity_preserves_the_complete_tool_agent_result():
     question = "calculate 12*7"
 
@@ -94,7 +107,7 @@ def test_delegation_parity_preserves_the_complete_tool_agent_result():
     unified_runtime, unified_provider = _runtime(_direct_actions())
     actual = _unified(unified_runtime).run(question)
 
-    assert actual == expected
+    assert _run_content(actual) == _run_content(expected)
     for field in (
         "status",
         "answer",
@@ -184,23 +197,35 @@ def test_trace_sink_passthrough_does_not_change_business_result():
         trace_sink=trace.append,
     )
 
-    assert with_sink == without_sink
+    assert _run_content(with_sink) == _run_content(without_sink)
     assert trace == list(with_sink.trace)
 
 
-def test_activity_sink_passthrough_and_failure_are_observational():
+def test_activity_sink_passthrough_and_failure_are_observational(monkeypatch):
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(
+        unified_runtime_module,
+        "time",
+        SimpleNamespace(monotonic=lambda: clock.now),
+    )
     question = "calculate 12*7"
     no_sink_runtime, _ = _runtime(_direct_actions())
     without_sink = _unified(no_sink_runtime).run(question)
 
     with_sink_runtime, _ = _runtime(_direct_actions())
     activities = []
+
+    def recording_sink(event):
+        activities.append(event)
+        clock.now += 0.01
+
     with_sink = _unified(with_sink_runtime).run(
         question,
-        activity_sink=activities.append,
+        activity_sink=recording_sink,
     )
 
     def failing_sink(_event):
+        clock.now += 0.01
         raise RuntimeError("observer failure")
 
     failing_runtime, _ = _runtime(_direct_actions())
@@ -209,8 +234,11 @@ def test_activity_sink_passthrough_and_failure_are_observational():
         activity_sink=failing_sink,
     )
 
-    assert with_sink == without_sink
-    assert with_failing_sink == without_sink
+    assert without_sink.execution.elapsed_ms == 0
+    assert with_sink.execution.elapsed_ms > 0
+    assert with_failing_sink.execution.elapsed_ms > 0
+    assert _run_content(with_sink) == _run_content(without_sink)
+    assert _run_content(with_failing_sink) == _run_content(without_sink)
     assert activities
 
 

@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import core.tool_agent.runtime as runtime_module
 from core.agent_runtime import Document
 from core.tool_agent import (
     ACTION_PARSE_FAILED,
@@ -643,7 +644,13 @@ class TestTraceSink:
             "runtime_stopped",
         ]
 
-    def test_sink_failure_cannot_change_canonical_run_result(self):
+    def test_sink_failure_cannot_change_canonical_run_result(self, monkeypatch):
+        clock = SimpleNamespace(now=0.0)
+        monkeypatch.setattr(
+            runtime_module,
+            "time",
+            SimpleNamespace(monotonic=lambda: clock.now),
+        )
         registry, _ = build_loop_registry()
         decisions = [FinalAnswerAction(action="final_answer", answer="2")]
         no_sink = ToolAgentRuntime(
@@ -652,6 +659,7 @@ class TestTraceSink:
         ).run("calculate")
 
         def broken_sink(_event):
+            clock.now += 0.01
             raise RuntimeError("observer transport failed")
 
         with_broken_sink = ToolAgentRuntime(
@@ -659,7 +667,15 @@ class TestTraceSink:
             provider=ScriptedDecisionProvider(decisions),
         ).run("calculate", trace_sink=broken_sink)
 
-        assert with_broken_sink == no_sink
+        assert no_sink.execution.elapsed_ms == 0
+        assert with_broken_sink.execution.elapsed_ms > 0
+        baseline = no_sink.to_dict()
+        observed = with_broken_sink.to_dict()
+        # Callback overhead affects elapsed time, but must preserve all
+        # business output and the other execution metrics.
+        baseline["execution"]["elapsed_ms"] = None
+        observed["execution"]["elapsed_ms"] = None
+        assert observed == baseline
 
 
 class TestActivitySink:
