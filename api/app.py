@@ -64,7 +64,7 @@ from core.tool_agent.decision_prompt import (
     ENGINEERING_DECISION_PROMPT_CURRENT_REQUEST_PROFILE,
     ENGINEERING_DECISION_PROMPT_PROJECT_INFO_PROFILE,
     ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE,
-    ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE,
+    ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE,
 )
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
 from core.tool_agent.tools.read_project_targets import READ_PROJECT_TARGETS_VERSION
@@ -194,7 +194,7 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
     tool_runtime = build_tool_agent_runtime(
         repo_root=project.root, retrieval_port=port,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
-        prompt_profile=(ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE if settings[1] == "goal_v2"
+        prompt_profile=(ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE if settings[1] == "goal_v2"
                         else ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE),
         code_search_version=CODE_SEARCH_TEST_VERSION,
         read_project_context_version=READ_PROJECT_TARGETS_VERSION,

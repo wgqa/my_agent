@@ -20,7 +20,7 @@ from core.tool_agent.source_excerpt import (
 )
 
 MATERIAL_SCHEMA_VERSION = "engineering_material_v1"
-LEDGER_SCHEMA_VERSION = "engineering_material_ledger_v1"
+LEDGER_SCHEMA_VERSION = "engineering_material_ledger_v2"
 TOOL_RESULT_SCHEMA_VERSION = "engineering_tool_result_evidence_v1"
 MATERIAL_ADAPTER_VERSION = "engineering_material_adapters_v1"
 
@@ -170,13 +170,14 @@ class MaterialRecord:
 class MaterialLedger:
     """A private accumulator per run; snapshots and payloads are detached.
 
-    Only the existing executor's successful observations enter this ledger.
-    Failed observations stay in the actual decision context as diagnostics.
+    Only successful observations become evidence. Actual attempt diagnostics
+    are stored separately for judging refusals; they never receive an E-ID.
     """
     def __init__(self, specs, initial_evidence=(), *, binding_identity=None, knowledge_provenance=()):
         self.capabilities = capability_manifest(specs)
         self._specs = {s.name: s for s in specs}
         self._records: list[MaterialRecord] = []
+        self._attempts_json: list[str] = []
         self._identities: set[str] = set()
         self.binding_identity = binding_identity
         if binding_identity is not None and not re.fullmatch(r"[a-f0-9]{64}", binding_identity):
@@ -205,7 +206,12 @@ class MaterialLedger:
     def snapshot(self):
         return {"schema_version": LEDGER_SCHEMA_VERSION, "adapter_version": MATERIAL_ADAPTER_VERSION,
                 "binding_identity": self.binding_identity,
-                "materials": [record.to_dict() for record in self._records]}
+                "materials": [record.to_dict() for record in self._records],
+                "tool_attempts": self.tool_attempts}
+
+    @property
+    def tool_attempts(self):
+        return [json.loads(item) for item in self._attempts_json]
 
     @property
     def snapshot_sha256(self):
@@ -230,13 +236,20 @@ class MaterialLedger:
             raise TypeError("materials require actual tool call and observation")
         if observation.call_id != call.call_id or observation.tool_name != call.tool_name:
             raise ValueError("material observation/call mismatch")
-        if observation.status != "ok":
-            return ()
         spec = self._specs.get(call.tool_name)
         if spec is None:
             raise ValueError("MATERIAL_ADAPTER_UNAVAILABLE")
         check_material_spec(spec)
         arguments, result = call.arguments_copy(), observation.result
+        attempt = canonical_json({"schema_version": "engineering_tool_attempt_v1", "call_id": call.call_id,
+            "tool_name": spec.name, "tool_version": spec.version, "arguments": arguments,
+            "status": observation.status, "error_code": observation.error_code,
+            "binding_identity": self.binding_identity, "observation_sha256": digest(observation.to_dict()),
+            "meaning": "actual execution outcome; not body evidence or permission to infer unread contents"})
+        if attempt not in self._attempts_json:
+            self._attempts_json.append(attempt)
+        if observation.status != "ok":
+            return ()
         Draft202012Validator(spec.input_schema).validate(arguments)
         Draft202012Validator(spec.output_schema).validate(result)
         provenance = {"source": "tool_observation", "call_id": call.call_id,

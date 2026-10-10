@@ -653,6 +653,16 @@ ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_TEMPLATE,
     render_control_state=True, render_evidence_reference_control=False,
 )
+ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_TEMPLATE = ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_TEMPLATE + """
+机器引用格式必须是半角方括号包裹的 [E数字]，例如“值是 6 [E6]。”或“位置在第 15 行 [E6]。”。裸写 E6、（E6）、“依据 E6”均不算引用。对每个有来源的目标使用其真实编号，纠正时保留答案并改成这种格式。
+tool_attempts 是实际执行状态，错误不能当作成功空结果或未读正文；它不提供新的 E-ID。已知具体文件读取失败且未取得用户要求的正文时，不编造实现，按实际原因提交 refuse/INSUFFICIENT_INFORMATION；合理的替代路径或后续查询仍可用时先调查。不要把关于失败的说明伪装成满足了正文目标的 final_answer。
+"""
+ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_candidate_v10",
+    sha256=hashlib.sha256(ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_TEMPLATE.encode("utf-8")).hexdigest(),
+    template=ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_TEMPLATE,
+    render_control_state=True, render_evidence_reference_control=False,
+)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -673,6 +683,7 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
@@ -691,6 +702,7 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }

@@ -187,6 +187,7 @@ class CandidateVerificationSession:
         return {"schema_version": "engineering_candidate_task_context_v1",
                 "requirement": self.bound.contract.to_dict(), "progress": self.progress().to_dict(),
                 "material_catalog": [m.to_dict() for m in self.ledger.records],
+                "tool_attempts": self.ledger.tool_attempts,
                 "review_feedback": self.feedback}
 
     def submit(self, action, *, remaining, timeout_seconds):
@@ -212,8 +213,8 @@ class CandidateVerificationSession:
             if citation.invalid:
                 return self._check("revise_answer", feedback="知识库引用不属于本次检索，请改用当前真实资料。")
             if progress.structurally_ready and not self.progress(cited).structurally_ready:
-                references = "；".join(f"{goal}: {', '.join(ids)}" for goal, ids in progress.goals if ids)
-                return self._check("revise_answer", feedback="资料已取得，请按目标引用真实编号：" + references)
+                references = "；".join(f"{goal}: {', '.join('[' + eid + ']' for eid in ids)}" for goal, ids in progress.goals if ids)
+                return self._check("revise_answer", feedback="资料已取得。引用必须使用半角方括号 [E数字]，只写 E6 或（E6）不算引用。目标对应资料：" + references)
         if self.bound.verifier.policy == "structural_v2":
             if type(action) is RefuseAction:
                 return self._check("refuse")

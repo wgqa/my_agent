@@ -28,6 +28,11 @@ def test_successful_empty_collection_is_evidence_and_failure_is_not():
     call = ToolCall.create("changed_files", {"mode": "working_tree"})
     error = ToolObservation(call.call_id, call.tool_name, "error", None, TOOL_EXECUTION_FAILED)
     assert ledger.observe(call, error) == ()
+    assert ledger.evidence == ()
+    assert ledger.tool_attempts[0]["status"] == "error"
+    assert ledger.tool_attempts[0]["error_code"] == TOOL_EXECUTION_FAILED
+    ledger.tool_attempts[0]["status"] = "ok"
+    assert ledger.snapshot()["tool_attempts"][0]["status"] == "error"
     payload = {"changes": [], "total_count": 0, "returned_count": 0,
                "truncated": False, "omitted_sensitive_count": 0}
     added = ledger.observe(call, ToolObservation(call.call_id, call.tool_name, "ok", payload, None))

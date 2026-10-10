@@ -17,7 +17,7 @@ from core.engineering_requirement_planning import SelectedRequirementProvider, R
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.tool_agent.actions import AgentDecisionOutcome, FinalAnswerAction, RefuseAction, ToolCallAction
 from core.tool_agent.default_tools import build_readonly_tool_registry
-from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE
+from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget, ToolAgentRunResult
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
@@ -71,15 +71,15 @@ class Decision:
 
     def decide(self, registry, query, *, context=(), control_state=None):
         self.contexts.append(context)
-        self.messages.append(ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.build_messages(
+        self.messages.append(ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE.build_messages(
             registry.list_specs(), query, context, control_state=control_state))
         action = self.actions[min(len(self.messages)-1, len(self.actions)-1)]
         return AgentDecisionOutcome(action=action, failure_code=None, call_metadata=None)
 
 
-def build(tmp_path, actions, *, reviewer=None, goals=None, budget=None, requirements=None):
+def build(tmp_path, actions, *, reviewer=None, goals=None, budget=None, requirements=None, port=None, planner=None):
     (tmp_path / "a.py").write_text("def A():\n    return 1\n\ndef B():\n    return 2\n", encoding="utf-8")
-    port = EmptyRetrievalPort()
+    port = port or EmptyRetrievalPort()
     registry = build_readonly_tool_registry(tmp_path, port, code_search_version=CODE_SEARCH_TEST_VERSION,
         read_project_context_version=READ_PROJECT_TARGETS_VERSION,
         project_binding=ProjectBinding(tmp_path, "fixture", "configured"),
@@ -89,7 +89,7 @@ def build(tmp_path, actions, *, reviewer=None, goals=None, budget=None, requirem
     provider = requirements or SelectedRequirementProvider(mode="llm", evidence_policy="goal_v2",
                                       llm=llm(Client(output(*(goals or [goal(), goal("B", "B")])))))
     unified = UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime),
-        context_resolver=EngineeringContextResolver(), evidence_planner=EngineeringEvidencePlanner(NoRetrievalPlanner()),
+        context_resolver=EngineeringContextResolver(), evidence_planner=EngineeringEvidencePlanner(planner or NoRetrievalPlanner()),
         retrieval_component=EngineeringRetrievalComponent(port), evidence_verifier=EngineeringEvidenceVerifier(),
         requirement_provider=provider,
         candidate_verifier=CandidateEvidenceVerifier(policy="semantic_v1" if reviewer else "structural_v2", reviewer=reviewer))
@@ -123,6 +123,49 @@ def test_direct_chat_zero_tools_still_has_submission_review(tmp_path):
     assert len(result.submission_records) == 1
     assert result.submission_records[0].submission_input.payload["submission"]["answer"] == result.answer
     assert "submissions" not in result.to_dict()
+
+
+def test_seeded_knowledge_cannot_hide_tool_fact_id_and_citation_format_is_recoverable(tmp_path):
+    from tests._engineering_runtime_support import StaticKnowledgeRetrievalPort
+    from tests.test_engineering_retrieval import _outcome
+
+    class Planner(NoRetrievalPlanner):
+        def plan(self, query):
+            return _outcome(query)
+
+    calculation = goal("2+3", None, "calculation", ["calculation"], False)
+    reviewer = Reviewer([review(verdicts=(("fulfilled", ["E2"]),))])
+    runtime, decision = build(tmp_path,
+        [ToolCallAction(action="tool_call", tool_name="calculator", arguments={"expression": "2+3"}), answer("答案是5（依据 E2）。"), answer("答案是5 [E2]。")],
+        reviewer=reviewer, goals=[calculation], port=StaticKnowledgeRetrievalPort(), planner=Planner())
+    result = runtime.run("计算 2+3")
+    assert result.status == "completed" and result.iterations_used == 3
+    assert [item.kind for item in result.evidence] == ["knowledge", "tool_result"]
+    assert "[E2]" in result.submission_records[0].feedback
+    assert "[E1]" not in result.submission_records[0].feedback
+    assert len(reviewer.inputs) == 1
+    assert "available_evidence_refs" not in decision.messages[1][0]["content"]
+
+
+def test_review_sees_actual_failed_attempt_and_preserves_confirmed_refusal_reason(tmp_path):
+    requested = goal("missing.py", None, "body", ["project_code"], False)
+    requested["target"]["path"] = "missing.py"
+
+    def check_attempt(review_input):
+        materials = review_input.payload["materials"]
+        assert materials["materials"] == []
+        assert materials["tool_attempts"][0]["error_code"] == "PROJECT_CONTEXT_FILE_NOT_FOUND"
+        assert materials["tool_attempts"][0]["arguments"]["path"] == "missing.py"
+        return review("refuse", verdicts=(("missing", []),), feedback="实际读取失败，不能编造正文")
+
+    reviewer = Reviewer([check_attempt])
+    runtime, _ = build(tmp_path,
+        [ToolCallAction(action="tool_call", tool_name="read_project_context", arguments={"path": "missing.py", "target": {"kind": "file", "start_line": 1}}),
+         RefuseAction("refuse", "INSUFFICIENT_INFORMATION")], reviewer=reviewer, goals=[requested])
+    result = runtime.run("读取 missing.py 的实现")
+    assert result.status == "refused" and result.reason_code == "INSUFFICIENT_INFORMATION"
+    assert result.evidence == () and result.answer is None
+    assert result.finalization.review_calls == 1 and result.tool_errors_used == 1
 
 
 def test_early_refusal_requires_agent_to_write_answer_then_review(tmp_path):

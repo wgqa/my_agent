@@ -60,6 +60,8 @@ def test_invalid_or_truncated_output_has_no_automatic_repair(content, finish, ex
     client = Client(content, finish=finish)
     result = online(client).review(review_input(), timeout_seconds=20)
     assert result.failure_code == expected and result.result is None and len(client.calls) == 1
+    if expected == "REVIEW_OUTPUT_INVALID":
+        assert result.validation_error is not None
 
 
 def test_input_overflow_is_explicit_and_makes_no_model_call():
