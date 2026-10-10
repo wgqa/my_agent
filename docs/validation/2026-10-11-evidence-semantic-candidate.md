@@ -32,6 +32,7 @@ B/C 是归因对照，不能宣传成已做语义验收。D 也需独立评测�
 3. 72 模块联合离线回归：1494 通过、10 跳过；唯一失败为旧 OpenAPI 测试只认单一旧响应。接口已明确声明新旧响应联合，该测试改为同时检查两份类型。记录：data/runtime/requirement_offline_j0vwqjgi/。
 4. 修正后针对 OpenAPI 和所有候选新模块复验：52 通过、74 未选中。记录：data/runtime/requirement_offline_rtu7n4i8/。两次均未连接外网/8000，业务源文件运行期间没有变化。
 5. 审核输出和需求 prompt 的补充检查，以及候选 Runtime/API、开发对比入口联合验证：179 通过。记录：data/runtime/requirement_offline_zkcqyd9q/。审核 accept 允许空反馈；合同覆盖原问题与答案尚未完成分别判定。
+6. 冻结 f4c9317 后完整 73 模块回归：1498 通过、10 跳过、0 失败；前端 31 通过。记录：data/runtime/requirement_offline_skkh448h/。无外网/8000 连接、无代码漂移。
 
 上述固定模型测试验证通路和边界，不是模型质量通过率。最终整体检查及真实开发结果在下方追加，保留首次失败与后续修正记录。
 
@@ -44,3 +45,13 @@ B/C 是归因对照，不能宣传成已做语义验收。D 也需独立评测�
 准备检查已生成 semantic_prepare_20261011：36 次计划运行、0 次模型调用，项目 fixture 与冻结协议一致。每次真实运行另外记录实际 Decision、需求和审核 prompt 的版本/hash、模型、工具 schema、输出上限及重试/超时设置。
 
 答案质量需要单独对原问题、独立 Gold 和实际工具内容复核，不能从工具分数或 reviewer 批准推导端到端通过率。正式 72+24 新题四组验收仍依赖本轮开发对比结果。
+
+## 首次开发对比及修正
+
+semantic_pilot_20261011_v1 固定 f4c9317，36 次任务全部保留。A/C/D 完成数分别为 8/5/6，D 另有一次 REVIEW_OUTPUT_INVALID。原评分器不认识新增阶段记录，36 次原始工具分数为 INVALID；这是评测适配缺口，不能当作系统零通过率。
+
+补充 engineering_tool_record_projection_v1：先核对新阶段 schema 与实际 SDK 调用数，再将需求/审核阶段单独留存，将完整工具、Decision、终止记录交给未修改的旧工具评分器。原序号映射、输入 hash、源文件 hash 和原始分数均保留；Gold 和旧 scorer 未变。首次原记录离线重评分、零模型调用，严格工具路径 PASS 为 A 8/12、C 5/12、D 5/12；文件为原运行目录的 tool_scores_projected_v1.json。
+
+源码复核发现候选材料目录包含新类型，但可信旧引用目录排除了 tool_result，存在两份目录冲突。新候选 Decision v9 仅保留系统预算控制，完整引用从当前 material_catalog 读取；v8 和旧产品 v7 均保留。引用修正反馈列出实际目标编号，不放宽未知编号/对象/截断检查。另将每次实际答案或拒答（含审核前被程序拦截的提交）记录为内部 audit_v2，保留材料/提交 hash 和判定；不会进入公开答案或 SSE。
+
+上述修正与评分适配联合专项：209 通过，记录 data/runtime/requirement_offline_wt3_6jkf/。需要新冻结版本再做同范围开发对比，首次数据保留，不能择优替换历史结果。

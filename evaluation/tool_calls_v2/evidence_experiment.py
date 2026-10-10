@@ -24,7 +24,7 @@ from .reporting import write_json
 from .schema import DATASET_DIR, digest, load_cases, verify_gold_sources
 from .scorer import score_case
 
-EXPERIMENT_VERSION = "engineering_evidence_development_experiment_v1"
+EXPERIMENT_VERSION = "engineering_evidence_development_experiment_v2"
 PILOT_CASE_IDS = ("dev-001", "dev-005", "dev-009", "dev-010", "dev-012", "dev-013",
                   "dev-015", "dev-021", "dev-026", "dev-037", "dev-043", "dev-048")
 GROUP_SETTINGS = {"A": ("rule", "legacy", "legacy"), "B": ("rule", "goal_v2", "structural_v2"),
@@ -42,6 +42,71 @@ def _jsonl(path, values):
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         for value in values:
             handle.write(json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n")
+
+
+def score_tool_records(case, events):
+    """Project the two new stages out of the unchanged tool-path scorer.
+
+    All actual tool, Decision and terminal records remain. New SDK call counts
+    must match their own stage metadata before projection. Raw data is retained
+    with an explicit original-to-projected sequence mapping for audit.
+    """
+    if [e.get("seq") for e in events] != list(range(1, len(events) + 1)):
+        raise ValueError("invalid original event sequence")
+    metadata_stages = {"requirement_result": ("requirement", "call_count", "engineering_requirement_planning_metadata_v1"),
+                       "review_summary": ("review", "review_calls", "engineering_candidate_finalization_v1")}
+    for stage, (role, field, version) in metadata_stages.items():
+        records = [e for e in events if e["stage"] == stage]
+        calls = [e for e in events if e["stage"] == "provider_call" and e.get("role") == role]
+        if (len(records) > 1 or (calls and not records)
+                or any(r.get("schema_version") != version or type(r.get(field)) is not int for r in records)
+                or sum(r[field] for r in records) != len(calls)):
+            raise ValueError("candidate stage call count or schema mismatch")
+    projected, excluded, mapping = [], [], {}
+    for event in events:
+        if event["stage"] in metadata_stages or (event["stage"] == "provider_call" and event.get("role") in {"requirement", "review"}):
+            excluded.append(event["seq"])
+            continue
+        item = dict(event)
+        item["seq"] = len(projected) + 1
+        mapping[str(event["seq"])] = item["seq"]
+        projected.append(item)
+    score = score_case(case, projected, mode="live")
+    score["record_projection"] = {"version": "engineering_tool_record_projection_v1", "source_events_sha256": digest(events),
+                                  "excluded_stage_sequences": excluded, "original_to_tool_sequence": mapping}
+    return score
+
+
+def rescore_run(output):
+    """Re-score frozen raw records with no model calls and no changed Gold."""
+    target = output / "tool_scores_projected_v1.json"
+    if target.exists():
+        raise ValueError("projected scores already exist; never overwrite")
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    if manifest["status"] != "finished":
+        raise ValueError("only finished experiments can be rescored")
+    scorer_key = "evaluation/tool_calls_v2/scorer.py"
+    if hashlib.sha256((REPO_ROOT / scorer_key).read_bytes()).hexdigest() != manifest["evaluator"]["files"][scorer_key]:
+        raise ValueError("frozen tool scorer changed")
+    cases = {c["id"]: c for c in map(json.loads, (output / "cases.jsonl").read_text(encoding="utf-8").splitlines())}
+    if digest(list(cases.values())) != manifest["cases_sha256"]:
+        raise ValueError("frozen cases changed")
+    entries = list(map(json.loads, (output / "runs.jsonl").read_text(encoding="utf-8").splitlines()))
+    scores = []
+    for entry in entries:
+        path = output / entry["artifact"]
+        if hashlib.sha256(path.read_bytes()).hexdigest() != entry["artifact_sha256"]:
+            raise ValueError("original run artifact changed")
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+        scores.append({"case_id": entry["case_id"], "group": entry["group"],
+                       "source_artifact": entry["artifact"], "source_sha256": entry["artifact_sha256"],
+                       "score": score_tool_records(cases[entry["case_id"]], artifact["events"])})
+    summary = {group: {"runs": sum(s["group"] == group for s in scores),
+                      "tool_pass": sum(s["group"] == group and s["score"]["verdict"] == "PASS" for s in scores)}
+               for group in manifest["groups"]}
+    write_json(target, {"schema_version": "engineering_tool_record_rescore_v1", "source_code_head": manifest["code_head"],
+                        "model_calls": 0, "gold_changed": False, "groups": summary, "scores": scores})
+    return {"status": "rescored", "model_calls": 0, "groups": summary}
 
 
 def run_case(case, project, library, group, recorder):
@@ -159,7 +224,7 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live):
                     result, identity = run_case(case, roots[case["project"]], library, group, recorder)
                     if business_fingerprint() != manifest["business"] or evaluator_fingerprint() != manifest["evaluator"]:
                         raise RuntimeError("VERSION_CHANGED")
-                    score = score_case(case, recorder.events, mode="live")
+                    score = score_tool_records(case, recorder.events)
                     provider_calls = [event for event in recorder.events if event["stage"] == "provider_call"]
                     metrics = {}
                     for role in ("planner", "requirement", "decision", "review"):
@@ -215,6 +280,7 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="Real model calls; notify the user of scope before starting")
+    parser.add_argument("--rescore-only", action="store_true", help="Project finished raw records; zero model calls, no changed Gold")
     parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--group", action="append", choices=tuple(GROUP_SETTINGS), default=[])
     parser.add_argument("--run-id", required=True)
@@ -226,6 +292,11 @@ def main(argv=None):
     # All state stays in a fresh ignored workspace directory; never port 8000,
     # a production library, or the shared project checkout as a test fixture.
     output = REPO_ROOT / "data/runtime/evidence_experiments" / args.run_id
+    if args.rescore_only:
+        if args.live or args.case or args.group:
+            raise ValueError("rescore cannot run models or select a different case matrix")
+        print(json.dumps(rescore_run(output), ensure_ascii=False), flush=True)
+        return 0
     from dotenv import load_dotenv
     load_dotenv(REPO_ROOT / ".env")
     summary = execute(cases=select_cases(args.case or PILOT_CASE_IDS), groups=args.group or ["A", "C", "D"],

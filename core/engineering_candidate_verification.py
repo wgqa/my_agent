@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import re
 
 from core.agent_runtime.runtime import MinimalEvidenceVerifier
-from core.engineering_candidate_models import CandidateFinalizationSummary, ReviewRecord
+from core.engineering_candidate_models import CandidateFinalizationSummary, ReviewRecord, CandidateSubmissionRecord
 from core.engineering_completion_review import (
     BaseCompletionReviewer, CompletionReviewInput, CompletionReviewOutcome,
     REVIEW_MAX_ATTEMPTS, REVIEW_MAX_INPUT_CHARACTERS, REVIEW_TIMEOUT_SECONDS, parse_review_output,
@@ -149,6 +149,7 @@ class CandidateVerificationSession:
     def __init__(self, bound, ledger):
         self.bound, self.ledger = bound, ledger
         self.records: list[ReviewRecord] = []
+        self.submissions: list[CandidateSubmissionRecord] = []
         self.last_check = CandidateSubmissionCheck("need_material")
         self.submission_corrections = 0
         self.feedback = None
@@ -191,6 +192,13 @@ class CandidateVerificationSession:
     def submit(self, action, *, remaining, timeout_seconds):
         if type(action) not in (FinalAnswerAction, RefuseAction):
             raise TypeError("review requires an actual submission")
+        review_input = CompletionReviewInput.create(self.bound.snapshot, self.bound.contract, self.ledger, action, remaining)
+        check = self._submit(action, review_input, timeout_seconds=timeout_seconds)
+        self.submissions.append(CandidateSubmissionRecord(review_input, check.decision, check.missing_goals,
+                                                         check.failure_code, check.feedback))
+        return check
+
+    def _submit(self, action, review_input, *, timeout_seconds):
         progress = self.progress()
         if type(action) is FinalAnswerAction:
             refs = parse_answer_evidence_references(action.answer)
@@ -204,7 +212,8 @@ class CandidateVerificationSession:
             if citation.invalid:
                 return self._check("revise_answer", feedback="知识库引用不属于本次检索，请改用当前真实资料。")
             if progress.structurally_ready and not self.progress(cited).structurally_ready:
-                return self._check("revise_answer", feedback="资料已取得，但答案需要引用各目标对应的真实资料。")
+                references = "；".join(f"{goal}: {', '.join(ids)}" for goal, ids in progress.goals if ids)
+                return self._check("revise_answer", feedback="资料已取得，请按目标引用真实编号：" + references)
         if self.bound.verifier.policy == "structural_v2":
             if type(action) is RefuseAction:
                 return self._check("refuse")
@@ -212,7 +221,6 @@ class CandidateVerificationSession:
                                progress.missing_goals, feedback="尚未取得所需对象与范围的材料。")
         if self.review_calls >= REVIEW_MAX_ATTEMPTS:
             return self._check("refuse", progress.missing_goals, feedback="本次审核次数已用完，未取得可发布结论。")
-        review_input = CompletionReviewInput.create(self.bound.snapshot, self.bound.contract, self.ledger, action, remaining)
         if len(review_input.payload_json) > REVIEW_MAX_INPUT_CHARACTERS:
             return self._check("failed", failure="REVIEW_INPUT_LIMIT")
         outcome = self.bound.verifier.reviewer.review(review_input,

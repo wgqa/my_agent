@@ -644,6 +644,15 @@ ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_CANDIDATE_TEMPLATE,
     render_control_state=True, render_evidence_reference_control=True,
 )
+ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_TEMPLATE = ENGINEERING_DECISION_PROMPT_CANDIDATE_TEMPLATE + """
+引用编号的完整目录是本次候选任务数据的 material_catalog，progress.goals.material_ids 指出各目标的候选材料编号。工具 payload 本身的顺序不是 E-ID。回答前逐个核对编号与材料内容，不能把知识片段的编号当作后来取得的源码或列表编号。系统预算字段只控制额度，不提供另一份引用目录。
+"""
+ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_candidate_v9",
+    sha256=hashlib.sha256(ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_TEMPLATE.encode("utf-8")).hexdigest(),
+    template=ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_TEMPLATE,
+    render_control_state=True, render_evidence_reference_control=False,
+)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -663,6 +672,7 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_PROJECT_INFO_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
@@ -680,6 +690,7 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_PROJECT_INFO_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }

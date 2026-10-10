@@ -582,7 +582,8 @@ class ToolAgentRuntime:
             if session is None:
                 return ToolAgentRunResult(**kwargs)
             return CandidateToolAgentRunResult(**kwargs, finalization=session.summary(),
-                materials=session.ledger.records, review_records=tuple(session.records))
+                materials=session.ledger.records, review_records=tuple(session.records),
+                submission_records=tuple(session.submissions))
 
         def hard_stop(trace, evidence, iterations, tool_calls, tool_errors, code, trace_sink):
             self._append_terminal(trace, iterations, tool_calls, tool_errors, code, trace_sink)

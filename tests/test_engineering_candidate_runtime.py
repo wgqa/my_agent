@@ -17,7 +17,7 @@ from core.engineering_requirement_planning import SelectedRequirementProvider, R
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.tool_agent.actions import AgentDecisionOutcome, FinalAnswerAction, RefuseAction, ToolCallAction
 from core.tool_agent.default_tools import build_readonly_tool_registry
-from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE
+from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget, ToolAgentRunResult
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
@@ -71,7 +71,7 @@ class Decision:
 
     def decide(self, registry, query, *, context=(), control_state=None):
         self.contexts.append(context)
-        self.messages.append(ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.build_messages(
+        self.messages.append(ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.build_messages(
             registry.list_specs(), query, context, control_state=control_state))
         action = self.actions[min(len(self.messages)-1, len(self.actions)-1)]
         return AgentDecisionOutcome(action=action, failure_code=None, call_metadata=None)
@@ -120,6 +120,9 @@ def test_direct_chat_zero_tools_still_has_submission_review(tmp_path):
     result = runtime.run("你好")
     assert result.status == "completed" and result.tool_calls_used == 0
     assert result.finalization.review_calls == 1 and result.evidence == ()
+    assert len(result.submission_records) == 1
+    assert result.submission_records[0].submission_input.payload["submission"]["answer"] == result.answer
+    assert "submissions" not in result.to_dict()
 
 
 def test_early_refusal_requires_agent_to_write_answer_then_review(tmp_path):
@@ -145,9 +148,14 @@ def test_unknown_citation_can_be_fixed_without_tools_or_review_retry(tmp_path):
     calculation = goal("2+3", None, "calculation", ["calculation"], False)
     reviewer = Reviewer([review(verdicts=(("fulfilled", ["E1"]),))])
     actions = [ToolCallAction(action="tool_call", tool_name="calculator", arguments={"expression": "2+3"}), answer("等于5。[E999]"), answer("等于5。[E1]")]
-    runtime, _ = build(tmp_path, actions, reviewer=reviewer, goals=[calculation],
+    runtime, decision = build(tmp_path, actions, reviewer=reviewer, goals=[calculation],
                        budget=ToolAgentBudget(max_tool_calls=1))
     result = runtime.run("计算 2+3")
+    assert [s.decision for s in result.submission_records] == ["revise_answer", "accept"]
+    assert result.submission_records[0].submission_input.payload["submission"]["answer"] == "等于5。[E999]"
+    assert result.to_audit_dict()["schema_version"] == "engineering_candidate_audit_v2"
+    assert "available_evidence_refs" not in decision.messages[1][0]["content"]
+    assert "material_catalog" in decision.messages[1][-1]["content"]
     assert result.status == "completed" and result.tool_calls_used == 1 and result.iterations_used == 3
     assert result.finalization.review_calls == 1
     assert result.evidence[0].kind == "tool_result"

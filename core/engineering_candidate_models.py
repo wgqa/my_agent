@@ -99,6 +99,32 @@ class ReviewRecord:
 
 
 @dataclass(frozen=True)
+class CandidateSubmissionRecord:
+    """Actual submitted text and deterministic check, including pre-review blocks."""
+
+    submission_input: CompletionReviewInput
+    decision: str
+    missing_goals: tuple[str, ...] = ()
+    failure_code: str | None = None
+    feedback: str = ""
+
+    def __post_init__(self):
+        if (type(self.submission_input) is not CompletionReviewInput
+                or self.decision not in {"accept", "need_material", "revise_answer", "refuse", "structural_accept", "failed"}
+                or self.failure_code not in (None, *CANDIDATE_FAILURE_CODES)
+                or type(self.missing_goals) is not tuple or type(self.feedback) is not str):
+            raise ValueError("invalid candidate submission record")
+        goals = {g["goal_id"] for g in self.submission_input.payload["contract"]["goals"]}
+        if not set(self.missing_goals).issubset(goals):
+            raise ValueError("unknown submission goal")
+
+    def to_dict(self):
+        return {"input": self.submission_input.payload, "input_sha256": self.submission_input.input_sha256,
+                "check": {"decision": self.decision, "missing_goals": list(self.missing_goals),
+                          "failure_code": self.failure_code, "feedback": self.feedback}}
+
+
+@dataclass(frozen=True)
 class CandidateToolAgentRunResult:
     status: str
     answer: str | None
@@ -114,6 +140,7 @@ class CandidateToolAgentRunResult:
     finalization: CandidateFinalizationSummary = field(default_factory=lambda: CandidateFinalizationSummary("structural_v2"))
     materials: tuple[MaterialRecord, ...] = field(default=(), repr=False, compare=False)
     review_records: tuple[ReviewRecord, ...] = field(default=(), repr=False, compare=False)
+    submission_records: tuple[CandidateSubmissionRecord, ...] = field(default=(), repr=False, compare=False)
 
     def __post_init__(self):
         validate_run_state(self, failure_codes=CANDIDATE_FAILURE_CODES)
@@ -131,6 +158,8 @@ class CandidateToolAgentRunResult:
             raise ValueError("public evidence/material snapshot mismatch")
         if any(type(item) is not ReviewRecord for item in self.review_records):
             raise TypeError("invalid review records")
+        if any(type(item) is not CandidateSubmissionRecord for item in self.submission_records):
+            raise TypeError("invalid submission records")
         if self.requirement_planning is not None and type(self.requirement_planning) is not RequirementPlanningOutcome:
             raise TypeError("invalid candidate planning metadata")
         if self.execution is not None and type(self.execution) is not ToolAgentExecutionMetrics:
@@ -155,6 +184,7 @@ class CandidateToolAgentRunResult:
         return result
 
     def to_audit_dict(self):
-        return {"schema_version": "engineering_candidate_audit_v1", "result": self.to_dict(),
+        return {"schema_version": "engineering_candidate_audit_v2", "result": self.to_dict(),
                 "materials": [m.to_dict() for m in self.materials],
-                "reviews": [r.to_dict() for r in self.review_records]}
+                "reviews": [r.to_dict() for r in self.review_records],
+                "submissions": [r.to_dict() for r in self.submission_records]}
