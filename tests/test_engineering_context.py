@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from openai import APIConnectionError
 
 import api.app
-import core.unified_engineering_runtime as unified_runtime_module
+import core.engineering_requirement_planning as requirement_planning_module
 from core.conversation_context import (
     ContextMessage,
     ConversationQueryResolution,
@@ -131,12 +131,12 @@ def test_current_task_and_reference_drive_requirement_route_and_provider(monkeyp
     unified, provider = _unified(EngineeringContextResolver(query_resolver))
     route_calls = []
 
-    def route_once(question):
+    def route_once(question, *, router_version):
         route_calls.append(question)
-        return route_engineering_evidence_requirement(question)
+        return route_engineering_evidence_requirement(question, router_version=router_version)
 
     monkeypatch.setattr(
-        unified_runtime_module,
+        requirement_planning_module,
         "route_engineering_evidence_requirement",
         route_once,
     )

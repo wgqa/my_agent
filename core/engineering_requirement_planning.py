@@ -110,6 +110,10 @@ class RequirementPlanningMetadata:
         else:
             if self.call_count != 1 or any(value is None for value in model_identity):
                 raise ValueError("model stage must report its identity and one attempted call")
+            if (self.prompt_version != REQUIREMENT_PROMPT_VERSION
+                    or self.prompt_sha256 != REQUIREMENT_PROMPT_SHA256
+                    or self.candidate_implementation_version != REQUIREMENT_PROMPT_VERSION):
+                raise ValueError("unknown model prompt identity for this metadata version")
             if self.requested_mode == "shadow":
                 if (self.effective_implementation != "rule" or self.evidence_policy != "legacy"
                         or self.contract_sha256 is not None or self.fallback_used

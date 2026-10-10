@@ -7,7 +7,7 @@ import httpx
 import pytest
 from openai import APIConnectionError
 
-import core.unified_engineering_runtime as unified_module
+import core.engineering_requirement_planning as requirement_planning_module
 from core.conversation_context import (
     ContextMessage, ConversationQueryResolution, OpenAICompatibleConversationQueryResolver,
 )
@@ -185,11 +185,11 @@ def test_injected_legacy_rewrite_cannot_drive_planning_routing_or_decision(
     )
     routes = []
 
-    def route(value):
+    def route(value, *, router_version):
         routes.append(value)
-        return route_engineering_evidence_requirement(value)
+        return route_engineering_evidence_requirement(value, router_version=router_version)
 
-    monkeypatch.setattr(unified_module, "route_engineering_evidence_requirement", route)
+    monkeypatch.setattr(requirement_planning_module, "route_engineering_evidence_requirement", route)
     runtime.run(question, conversation_context=[{"role": "user", "content": old_task}])
     assert planner.calls == [question]
     assert routes == [question]

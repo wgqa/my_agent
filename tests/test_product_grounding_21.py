@@ -12,7 +12,7 @@ import hashlib
 
 import pytest
 
-import core.unified_engineering_runtime as unified_runtime_module
+import core.engineering_requirement_planning as requirement_planning_module
 from core.agent_runtime import Document
 from core.engineering_agent import EngineeringAgentFacade
 from core.engineering_requirements import (
@@ -647,9 +647,9 @@ def _product_facade(provider, requirement, monkeypatch):
     registry.register(READ_PROJECT_CONTEXT_SPEC, _StaticHandler(_READ_RESULT))
     runtime = ToolAgentRuntime(registry=registry, provider=provider)
     monkeypatch.setattr(
-        unified_runtime_module,
+        requirement_planning_module,
         "route_engineering_evidence_requirement",
-        lambda _question: requirement,
+        lambda _question, **kwargs: requirement,
     )
     return EngineeringAgentFacade(build_full_unified_runtime(runtime))
 

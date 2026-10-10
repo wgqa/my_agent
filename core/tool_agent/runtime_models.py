@@ -9,9 +9,12 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Any, Mapping, Optional, Protocol, Sequence, TYPE_CHECKING, runtime_checkable
+
+if TYPE_CHECKING:
+    from core.engineering_requirement_planning import RequirementPlanningOutcome
 
 from core.tool_agent.actions import (
     AGENT_DECISION_FAILURE_CODES,
@@ -720,6 +723,7 @@ class ToolAgentRunResult:
     trace: Sequence[RuntimeTraceEvent]
     evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = ()
     execution: Optional[ToolAgentExecutionMetrics] = None
+    requirement_planning: Optional["RequirementPlanningOutcome"] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.status not in RUN_STATUSES:
@@ -767,13 +771,17 @@ class ToolAgentRunResult:
                     "evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
                 )
         object.__setattr__(self, "evidence", normalized_evidence)
+        if self.requirement_planning is not None:
+            from core.engineering_requirement_planning import RequirementPlanningOutcome
+            if type(self.requirement_planning) is not RequirementPlanningOutcome:
+                raise TypeError("requirement_planning must be RequirementPlanningOutcome")
         if self.execution is not None and not isinstance(
             self.execution, ToolAgentExecutionMetrics
         ):
             raise TypeError("execution 必须是 ToolAgentExecutionMetrics 或 None")
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "status": self.status,
             "answer": self.answer,
             "reason_code": self.reason_code,
@@ -787,6 +795,11 @@ class ToolAgentRunResult:
             if self.execution is None
             else self.execution.to_dict(),
         }
+        if self.requirement_planning is not None:
+            # Only safe attribution metadata crosses the public serialization
+            # seam. Goal/request text is available through explicit artifacts.
+            result["requirement_planning"] = self.requirement_planning.metadata.to_dict()
+        return result
 
 
 @runtime_checkable

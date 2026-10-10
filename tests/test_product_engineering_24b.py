@@ -254,8 +254,8 @@ def _install_product(monkeypatch, provider):
         EngineeringAgentFacade(build_full_unified_runtime(runtime)),
     )
     monkeypatch.setattr(
-        "core.unified_engineering_runtime.route_engineering_evidence_requirement",
-        lambda _q: EngineeringEvidenceRequirement(
+        "core.engineering_requirement_planning.route_engineering_evidence_requirement",
+        lambda _q, **kwargs: EngineeringEvidenceRequirement(
             requirement_profile=NO_ADDITIONAL_REQUIREMENT,
             required_evidence_groups=(),
             min_distinct_project_code_paths=0,

@@ -174,6 +174,7 @@ def test_invalid_or_authority_expanding_plan_fails_closed(mutate):
     '{"schema_version":"engineering_evidence_requirements_v2","goals":[],"goals":[]}',
     '{"schema_version":"engineering_evidence_requirements_v2","goals":[{"target":{"path":null,"path":null}}]}',
     "x" * 24001,
+    "[" * 1500 + "]" * 1500,
 ])
 def test_bad_json_never_becomes_an_empty_passing_plan(content):
     result = llm(Client(content)).plan(snapshot())
@@ -328,6 +329,9 @@ def test_frozen_artifact_roundtrip_without_another_model_call(select):
     lambda p: p["effective_requirement"]["goals"][0].update(depth="locator"),
     lambda p: p.update(raw_response="PRIVATE_COT"),
     lambda p: p["metadata"].update(api_key="PRIVATE_API_KEY"),
+    lambda p: p["metadata"].update(prompt_version="unknown"),
+    lambda p: p["metadata"].update(prompt_sha256="0" * 64),
+    lambda p: p["metadata"].update(candidate_implementation_version="unknown"),
 ])
 def test_tampered_artifact_is_rejected(mutate):
     artifact = llm().plan(snapshot()).to_artifact(snapshot())

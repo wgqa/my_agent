@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-import core.unified_engineering_runtime as unified_runtime_module
+import core.engineering_requirement_planning as requirement_planning_module
 from core.conversation_context import ConversationQueryResolution
 from core.engineering_agent import EngineeringAgentFacade
 from core.engineering_context import EngineeringContextResolver
@@ -136,12 +136,12 @@ def test_requirement_routing_happens_once_in_unified_runtime_not_in_facade(monke
             )
             return _completed_result()
 
-    def route_once(user_input):
+    def route_once(user_input, *, router_version):
         route_calls.append(user_input)
         return expected_requirement
 
     monkeypatch.setattr(
-        unified_runtime_module,
+        requirement_planning_module,
         "route_engineering_evidence_requirement",
         route_once,
     )

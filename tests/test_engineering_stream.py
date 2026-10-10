@@ -222,8 +222,8 @@ def test_guard_blocked_answer_never_enters_sse_and_approved_answer_streams(monke
         min_distinct_project_code_paths=0,
     )
     monkeypatch.setattr(
-        "core.unified_engineering_runtime.route_engineering_evidence_requirement",
-        lambda _question: requirement,
+        "core.engineering_requirement_planning.route_engineering_evidence_requirement",
+        lambda _question, **kwargs: requirement,
     )
     _install_facade(monkeypatch, facade)
 

@@ -175,6 +175,8 @@ def test_legacy_init_failure_keeps_engineering_initialization_independent(monkey
     monkeypatch.setattr(api.app, "_resolve_agent_provider", lambda _pipeline: ("fake", "key"))
     monkeypatch.setattr(api.app, "build_pipeline_agent_runtime", lambda *args, **kwargs: object())
     monkeypatch.setattr(api.app, "PipelineRetrievalAdapter", lambda _retriever: object())
+    monkeypatch.setattr(api.app, "build_verified_engineering_knowledge",
+                        lambda *args, **kwargs: SimpleNamespace(retrieval_port=object()))
     monkeypatch.setattr(api.app, "build_tool_agent_runtime", fake_builder)
 
     async def run_lifespan():

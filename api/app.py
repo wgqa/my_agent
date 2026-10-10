@@ -24,6 +24,7 @@ from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import EngineeringEvidenceVerifier
+from core.engineering_requirement_planning import LLMRequirementProvider, SelectedRequirementProvider
 from core.query_planning import OpenAICompatibleQueryPlanner
 from core.query_planning.prompt import ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION
 from core.conversation_context.resolver import ENGINEERING_REFERENCE_PROMPT_VERSION
@@ -149,10 +150,24 @@ class EngineeringProjectRuntime:
     facade: EngineeringAgentFacade
 
 
+def _build_product_requirement_provider():
+    """Stage M2: default rule, explicit shadow; reject premature activation."""
+    mode = os.getenv("ENGINEERING_REQUIREMENT_MODE", "rule").strip().lower()
+    if mode == "rule":
+        return None
+    if mode != "shadow":
+        raise ValueError("ENGINEERING_REQUIREMENT_MODE must be rule or shadow; goal_v2 execution is not enabled")
+    return SelectedRequirementProvider(mode="shadow", llm=LLMRequirementProvider(
+        provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
+        api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
+    ))
+
+
 def _build_engineering_project_runtime(project: EngineeringProject) -> EngineeringProjectRuntime:
     """Assemble the existing Core chain with a product-selected local root."""
     if engineering_knowledge_backend is None:
         raise ValueError("Engineering knowledge is unavailable")
+    requirement_provider = _build_product_requirement_provider()
     port = engineering_knowledge_backend.retrieval_port
     tool_runtime = build_tool_agent_runtime(
         repo_root=project.root, retrieval_port=port,
@@ -178,6 +193,7 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
         LegacyToolAgentExecutionAdapter(tool_runtime), context_resolver=context_resolver,
         evidence_planner=planner, retrieval_component=retrieval,
         evidence_verifier=EngineeringEvidenceVerifier(),
+        requirement_provider=requirement_provider,
     )
     return EngineeringProjectRuntime(tool_runtime, context_resolver, planner, retrieval,
                                      runtime, EngineeringAgentFacade(runtime))
@@ -652,6 +668,8 @@ def _build_engineering_response(
         feedback=engineering_feedback({"status": result.status,
                                        "reason_code": result.reason_code,
                                        "failure_code": result.failure_code}),
+        requirement_planning=(result.requirement_planning.metadata
+                              if result.requirement_planning is not None else None),
     )
 
 

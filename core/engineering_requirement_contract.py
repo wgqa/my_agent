@@ -197,7 +197,10 @@ def parse_requirement_output(content: str, snapshot) -> RequirementContract:
     input_sha = digest(requirement_input(snapshot))
     if type(content) is not str or len(content) > 24000:
         raise ValueError("invalid requirement output")
-    payload = json.loads(content, object_pairs_hook=_unique_object)
+    try:
+        payload = json.loads(content, object_pairs_hook=_unique_object)
+    except RecursionError:
+        raise ValueError("requirement JSON exceeds supported nesting") from None
     if type(payload) is not dict or set(payload) != {"schema_version", "goals"} or payload["schema_version"] != REQUIREMENT_SCHEMA_VERSION:
         raise ValueError("requirement envelope schema invalid")
     raw_goals = payload["goals"]

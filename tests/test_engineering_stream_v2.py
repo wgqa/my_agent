@@ -229,8 +229,8 @@ def test_v2_uses_real_tool_lifecycle_evidence_and_guard_events(monkeypatch):
         min_distinct_project_code_paths=0,
     )
     monkeypatch.setattr(
-        "core.unified_engineering_runtime.route_engineering_evidence_requirement",
-        lambda _question: requirement,
+        "core.engineering_requirement_planning.route_engineering_evidence_requirement",
+        lambda _question, **kwargs: requirement,
     )
     _install_facade(
         monkeypatch,

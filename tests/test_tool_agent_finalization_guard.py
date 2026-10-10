@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import api.app
-import core.unified_engineering_runtime as unified_runtime_module
+import core.engineering_requirement_planning as requirement_planning_module
 from core.engineering_agent import EngineeringAgentFacade
 from core.engineering_requirements import (
     CHANGE_TEST_V1,
@@ -410,7 +410,7 @@ class TestFacadeBoundary:
         )
         calls = []
 
-        def route(question):
+        def route(question, *, router_version):
             calls.append(question)
             return requirement
 
@@ -444,7 +444,7 @@ class TestFacadeBoundary:
 
         runtime = RecordingRuntime()
         monkeypatch.setattr(
-            unified_runtime_module,
+            requirement_planning_module,
             "route_engineering_evidence_requirement",
             route,
         )
@@ -491,13 +491,13 @@ class TestFacadeBoundary:
                     trace=(),
                 )
 
-        def route(question):
+        def route(question, *, router_version):
             calls.append(question)
             return requirement
 
         runtime = RecordingRuntime()
         monkeypatch.setattr(
-            unified_runtime_module,
+            requirement_planning_module,
             "route_engineering_evidence_requirement",
             route,
         )

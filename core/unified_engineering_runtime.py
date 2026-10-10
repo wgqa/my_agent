@@ -17,15 +17,17 @@ from typing import Callable
 from core.engineering_context import EngineeringContextResolver
 from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
-from core.engineering_requirements import (
-    EngineeringEvidenceRequirement,
-    route_engineering_evidence_requirement,
+from core.engineering_requirements import EngineeringEvidenceRequirement
+from core.engineering_requirement_planning import (
+    BaseRequirementProvider, RequirementPlanningOutcome, RuleRequirementProvider,
 )
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.tool_agent.activity import ActivityEvent
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import (
     ENGINEERING_RUN_DEADLINE_SECONDS,
+    ENGINEERING_RUN_CANCELLED,
+    ENGINEERING_RUN_DEADLINE_EXCEEDED,
     RuntimeTraceEvent,
     ToolAgentExecutionMetrics,
     ToolAgentRunResult,
@@ -109,6 +111,7 @@ class UnifiedEngineeringRuntime:
         evidence_planner: EngineeringEvidencePlanner,
         retrieval_component: EngineeringRetrievalComponent,
         evidence_verifier: EngineeringEvidenceVerifier,
+        requirement_provider: BaseRequirementProvider | None = None,
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
@@ -124,11 +127,20 @@ class UnifiedEngineeringRuntime:
             )
         if not isinstance(evidence_verifier, EngineeringEvidenceVerifier):
             raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
+        if requirement_provider is not None and not isinstance(requirement_provider, BaseRequirementProvider):
+            raise TypeError("requirement_provider must be BaseRequirementProvider")
+        # M1/M2 can run rule/shadow through the old verifier. M3 must provide
+        # actual material/goal coverage before candidate contracts take control.
+        # A valid model schema alone is never enough to activate goal_v2.
+        if requirement_provider is not None and requirement_provider.evidence_policy != "legacy":
+            raise ValueError("goal_v2 execution is not enabled: material/goal verification must be implemented first")
         self._execution_adapter = execution_adapter
         self._context_resolver = context_resolver
         self._evidence_planner = evidence_planner
         self._retrieval_component = retrieval_component
         self._evidence_verifier = evidence_verifier
+        self._requirement_provider = requirement_provider or RuleRequirementProvider()
+        self._record_requirement_planning = requirement_provider is not None
 
     def run(
         self,
@@ -150,20 +162,67 @@ class UnifiedEngineeringRuntime:
         """
 
         started = time.monotonic()
+        if cancel_requested is not None and not callable(cancel_requested):
+            raise TypeError("cancel_requested must be callable or None")
+        requirement_outcome = None
+
+        def lifecycle_boundary(force_reason=None):
+            # New opt-in planning consumes the same request deadline. Preserve
+            # the legacy default's lifecycle behavior for the frozen comparison.
+            if not self._record_requirement_planning:
+                return None
+            reason = force_reason
+            if cancel_requested is not None and cancel_requested():
+                reason = ENGINEERING_RUN_CANCELLED
+            elif reason is None and time.monotonic() - started >= ENGINEERING_RUN_DEADLINE_SECONDS:
+                reason = ENGINEERING_RUN_DEADLINE_EXCEEDED
+            if reason is None:
+                return None
+            event = RuntimeTraceEvent(iteration=0, event_type="runtime_stopped", error_code=reason)
+            if trace_sink is not None:
+                trace_sink(event)
+            return ToolAgentRunResult(
+                status="refused", answer=None, reason_code=reason, failure_code=None,
+                iterations_used=0, tool_calls_used=0, tool_errors_used=0,
+                trace=(event,), evidence=(),
+                execution=ToolAgentExecutionMetrics(
+                    elapsed_ms=int((time.monotonic() - started) * 1000), decision_llm_calls=0,
+                ), requirement_planning=requirement_outcome,
+            )
+
+        stopped = lifecycle_boundary()
+        if stopped is not None:
+            return stopped
         context_snapshot = self._context_resolver.resolve(
             user_input,
             conversation_context,
         )
         resolved_input = context_snapshot.resolved_input
+        stopped = lifecycle_boundary()
+        if stopped is not None:
+            return stopped
         # Form trusted planning state exactly once. ARCH-PLAN-04 kept this
         # passive; ARCH-RETRIEVAL-05 interprets it only through the finite
         # Knowledge Retrieval component below.
         planner_outcome = self._evidence_planner.plan(resolved_input)
+        stopped = lifecycle_boundary()
+        if stopped is not None:
+            return stopped
         # Requirement is a domain contract, not a post-retrieval observation.
         # Establish it before planned Knowledge Retrieval so the later
         # finalization binding can keep Knowledge supplementary for Project-only
         # tasks while preserving it as required for Theory-Code tasks.
-        requirement = route_engineering_evidence_requirement(context_snapshot.lexical_query)
+        requirement_outcome = self._requirement_provider.plan(context_snapshot)
+        if type(requirement_outcome) is not RequirementPlanningOutcome:
+            raise TypeError("requirement_provider must return RequirementPlanningOutcome")
+        requirement_outcome.validate_input(context_snapshot)
+        requirement = requirement_outcome.requirement
+        if (requirement_outcome.metadata.evidence_policy != "legacy"
+                or type(requirement) is not EngineeringEvidenceRequirement):
+            raise TypeError("legacy execution must receive exactly the frozen rule requirement")
+        stopped = lifecycle_boundary()
+        if stopped is not None:
+            return stopped
         retrieval_snapshot = self._retrieval_component.retrieve(
             resolved_input,
             planner_outcome,
@@ -174,6 +233,14 @@ class UnifiedEngineeringRuntime:
             retrieval_snapshot,
             requirement,
         )
+        stopped = lifecycle_boundary()
+        if stopped is not None:
+            return stopped
+        execution_deadline = ENGINEERING_RUN_DEADLINE_SECONDS
+        if self._record_requirement_planning:
+            execution_deadline -= time.monotonic() - started
+            if execution_deadline <= 0:
+                return lifecycle_boundary(ENGINEERING_RUN_DEADLINE_EXCEEDED)
         result = self._execution_adapter.run(
             resolved_input,
             evidence_requirement=requirement,
@@ -184,7 +251,7 @@ class UnifiedEngineeringRuntime:
             trace_sink=trace_sink,
             activity_sink=activity_sink,
             enforce_evidence_acquisition=True,
-            deadline_seconds=ENGINEERING_RUN_DEADLINE_SECONDS,
+            deadline_seconds=execution_deadline,
             cancel_requested=cancel_requested,
         )
         elapsed_ms = int((time.monotonic() - started) * 1000)
@@ -197,7 +264,8 @@ class UnifiedEngineeringRuntime:
             input_tokens=inner.input_tokens if inner is not None else None,
             output_tokens=inner.output_tokens if inner is not None else None,
         )
-        return replace(result, execution=execution)
+        return replace(result, execution=execution,
+                       requirement_planning=requirement_outcome if self._record_requirement_planning else None)
 
 
 __all__ = [

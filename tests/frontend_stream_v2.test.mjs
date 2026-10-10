@@ -49,6 +49,21 @@ test('HTML calls the project-bound v2 conversation endpoint and decodes all rich
   assert.equal(calls, 1);
 });
 
+test('shadow requirement attribution keeps the v2 answer and activity protocol intact', async () => {
+  const result = { status: 'completed', answer: '结论 [E1]', activity: rich,
+    execution: { decision_llm_calls: 2, input_tokens: 20, output_tokens: 10 },
+    requirement_planning: { schema_version: 'engineering_requirement_planning_metadata_v1',
+      requested_mode: 'shadow', effective_implementation: 'rule', evidence_policy: 'legacy',
+      call_count: 1, input_tokens: 123, output_tokens: 45 } };
+  install([...rich, { type: 'answer_start' }, { type: 'answer_delta', delta: result.answer },
+    { type: 'final', result }, { type: 'done' }], { chunked: true });
+  const events = [];
+  await api.streamConversation('C1', 'question', event => events.push(event), 'project-B');
+  assert.equal(events.find(event => event.type === 'final').result.answer, result.answer);
+  assert.deepEqual(events.find(event => event.type === 'final').result.requirement_planning, result.requirement_planning);
+  assert.equal(events.filter(event => event.type === 'answer_delta').map(event => event.delta).join(''), result.answer);
+});
+
 test('tool start/completion update one step; live and reopened activity have the same details', () => {
   const live = rich.reduce(updateActivity, []);
   const reopened = activityFromResult({ activity: JSON.parse(JSON.stringify(rich)), trace: [] });

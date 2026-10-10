@@ -9,6 +9,7 @@ from core.tool_agent.source_excerpt import (
     MAX_PROJECT_CONTEXT_CHARACTERS,
     project_evidence_character_limit,
 )
+from core.engineering_requirement_planning import RequirementPlanningMetadata
 
 MAX_QUESTION_CHARS = 4000
 MAX_TOP_K = 50
@@ -355,6 +356,20 @@ class EngineeringQueryResponse(BaseModel):
     evidence: List[EngineeringEvidence]
     execution: Optional[EngineeringExecutionMetrics] = None
     feedback: Optional[EngineeringFeedback] = None
+    # Additive v1 observability. The nested metadata has its own version;
+    # legacy responses omit the field entirely and never expose frozen goals.
+    requirement_planning: Optional[RequirementPlanningMetadata] = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
+
+    @field_validator("requirement_planning", mode="before")
+    @classmethod
+    def _validate_requirement_attribution(cls, value):
+        if value is None or type(value) is RequirementPlanningMetadata:
+            return value
+        if type(value) is not dict or set(value) != set(RequirementPlanningMetadata.__dataclass_fields__):
+            raise ValueError("invalid requirement attribution metadata")
+        return RequirementPlanningMetadata(**value)
 
 
 class EngineeringConversationMessageRequest(BaseModel):

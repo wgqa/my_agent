@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import core.unified_engineering_runtime as unified_runtime_module
+import core.engineering_requirement_planning as requirement_planning_module
 from core.conversation_context import (
     ConversationQueryResolution,
     ContextMessage,
@@ -170,12 +170,12 @@ def test_resolved_input_drives_planner_router_and_tool_agent(monkeypatch):
     runtime, provider = _runtime(planner, context_resolver=context)
     route_calls = []
 
-    def route_once(question):
+    def route_once(question, *, router_version):
         route_calls.append(question)
-        return route_engineering_evidence_requirement(question)
+        return route_engineering_evidence_requirement(question, router_version=router_version)
 
     monkeypatch.setattr(
-        unified_runtime_module,
+        requirement_planning_module,
         "route_engineering_evidence_requirement",
         route_once,
     )
@@ -298,22 +298,19 @@ def test_planner_fallback_is_deterministic_and_tool_agent_continues(
     assert provider.queries == ["fallback question"]
 
 
-def test_planner_programming_error_propagates_before_router_or_tool():
+def test_planner_programming_error_propagates_before_router_or_tool(monkeypatch):
     planner = _RaisingPlanner(RuntimeError("planner programming bug"))
     runtime, provider = _runtime(planner)
     route_calls = []
-    original_route = unified_runtime_module.route_engineering_evidence_requirement
+    original_route = requirement_planning_module.route_engineering_evidence_requirement
 
-    def recording_route(question):
+    def recording_route(question, *, router_version):
         route_calls.append(question)
-        return original_route(question)
+        return original_route(question, router_version=router_version)
 
-    unified_runtime_module.route_engineering_evidence_requirement = recording_route
-    try:
-        with pytest.raises(RuntimeError, match="planner programming bug"):
-            runtime.run("question")
-    finally:
-        unified_runtime_module.route_engineering_evidence_requirement = original_route
+    monkeypatch.setattr(requirement_planning_module, "route_engineering_evidence_requirement", recording_route)
+    with pytest.raises(RuntimeError, match="planner programming bug"):
+        runtime.run("question")
 
     assert planner.calls == ["question"]
     assert route_calls == []
