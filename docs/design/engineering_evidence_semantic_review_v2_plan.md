@@ -1,6 +1,6 @@
 # 证据需求与最终语义验收修复方案 V2
 
-日期：2026-10-11。状态：**S1—S3 候选材料、提交审查、有限反馈及公开通路已接通；S4 已完成三轮已知题开发对比和四项审核组件负例，最新严格工具路径 A 8/12、C/D 各 11/12。缺文件负例未通过，默认产品仍使用旧规则。详情见 [实现记录](../validation/2026-10-11-evidence-semantic-candidate.md)。S5 正式新题验收未开始。**
+日期：2026-10-11。状态：**S1—S3 候选材料、提交审查、有限反馈及公开通路已接通；S4 已完成四轮已知题开发对比，本轮补入 B 组，A/B/C/D 严格工具路径为 8/10/12/12（每组 12 题）。缺文件拒答衔接已修正；新审核协议的四项错误答案组件验证均要求修正。默认产品仍使用旧规则。详情见 [本轮修正与结果](../validation/2026-10-11-evidence-semantic-refusal.md) 和 [前三轮历史](../validation/2026-10-11-evidence-semantic-candidate.md)。S5 正式新题验收未开始。**
 
 业务代码审查基于提交 3484157fbc9abf36eb8e732e4308da2a9f00e584，分支 feat/evidence-requirement-llm-v1。复核开始时工作区干净，与该分支本地跟踪的远端提交一致。规则基线为 f3c9e28aec8b29ccfcad9476ea88871aacbefa06，标签 evidence-rule-v5-baseline-20261010；已完成 M1/M2 的检查点标签为 evidence-requirement-shadow-v1-20261010。
 

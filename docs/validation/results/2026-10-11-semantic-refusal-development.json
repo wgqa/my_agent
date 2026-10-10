@@ -1,0 +1,1236 @@
+{
+  "schema_version": "engineering_evidence_development_summary_v1",
+  "scope": "known development cases only; not formal or end-to-end acceptance",
+  "source_run": "semantic_pilot_20261011_v4",
+  "code_head": "16c1945e39c53c882057294eaff9868d8f71135a",
+  "model": "deepseek-chat",
+  "cases_sha256": "654d300da0de359adbe9b8a006502e79f54256d765b8b6183223a8e9f028d41c",
+  "evaluator_sha256": "31bcb9e76d90c43e940c79abc63ced19d927f3c177c8db2be12a037967431fa8",
+  "business_sha256": "3c1df62b9d0bdff0b8ef4b4c7bb34c052d6c83a29c0992af38c9f9cc34adb6c8",
+  "prompt_versions": {
+    "decision": "engineering_agent_decision_prompt_candidate_v11",
+    "requirement": "engineering_requirement_llm_v2",
+    "review": "engineering_completion_review_prompt_v3",
+    "decision_scope": "B/C/D; A retains project_overview_v7",
+    "requirement_scope": "C/D only",
+    "review_scope": "D only"
+  },
+  "review_schemas": {
+    "input": "engineering_completion_review_input_v2",
+    "output": "engineering_completion_review_output_v2"
+  },
+  "planned_tasks": 48,
+  "completed_tasks": 48,
+  "evaluation_level_retries": 0,
+  "fixture_changed": false,
+  "budget": {
+    "deadline_seconds": 60,
+    "decisions": 5,
+    "review_calls": 2,
+    "tool_errors": 2,
+    "tools": 4
+  },
+  "groups": {
+    "A": {
+      "tasks": 12,
+      "strict_tool_pass": 8,
+      "public_answers": 8,
+      "supported_target_answers": 8,
+      "minor_wording_findings": 2,
+      "correct_refusals": 0,
+      "over_refusal": 3,
+      "refusal_code_mismatch": 1,
+      "review_technical_failures": 0,
+      "p50_task_ms": 2477,
+      "p95_task_ms_inclusive": 3959,
+      "role_metrics": {
+        "planner": {
+          "calls": 12,
+          "input_tokens": 16522,
+          "output_tokens": 486,
+          "calls_with_incomplete_usage": 0
+        },
+        "requirement": {
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "calls_with_incomplete_usage": 0
+        },
+        "decision": {
+          "calls": 28,
+          "input_tokens": 188327,
+          "output_tokens": 2491,
+          "calls_with_incomplete_usage": 0
+        },
+        "review": {
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "calls_with_incomplete_usage": 0
+        }
+      }
+    },
+    "B": {
+      "tasks": 12,
+      "strict_tool_pass": 10,
+      "public_answers": 9,
+      "supported_target_answers": 9,
+      "minor_wording_findings": 0,
+      "correct_refusals": 1,
+      "over_refusal": 2,
+      "refusal_code_mismatch": 0,
+      "review_technical_failures": 0,
+      "p50_task_ms": 2374,
+      "p95_task_ms_inclusive": 3905,
+      "role_metrics": {
+        "planner": {
+          "calls": 12,
+          "input_tokens": 16522,
+          "output_tokens": 486,
+          "calls_with_incomplete_usage": 0
+        },
+        "requirement": {
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "calls_with_incomplete_usage": 0
+        },
+        "decision": {
+          "calls": 27,
+          "input_tokens": 226071,
+          "output_tokens": 2137,
+          "calls_with_incomplete_usage": 0
+        },
+        "review": {
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "calls_with_incomplete_usage": 0
+        }
+      }
+    },
+    "C": {
+      "tasks": 12,
+      "strict_tool_pass": 12,
+      "public_answers": 11,
+      "supported_target_answers": 11,
+      "minor_wording_findings": 0,
+      "correct_refusals": 1,
+      "over_refusal": 0,
+      "refusal_code_mismatch": 0,
+      "review_technical_failures": 0,
+      "p50_task_ms": 3486,
+      "p95_task_ms_inclusive": 5371,
+      "role_metrics": {
+        "planner": {
+          "calls": 12,
+          "input_tokens": 16522,
+          "output_tokens": 486,
+          "calls_with_incomplete_usage": 0
+        },
+        "requirement": {
+          "calls": 12,
+          "input_tokens": 37390,
+          "output_tokens": 1409,
+          "calls_with_incomplete_usage": 0
+        },
+        "decision": {
+          "calls": 27,
+          "input_tokens": 232632,
+          "output_tokens": 2210,
+          "calls_with_incomplete_usage": 0
+        },
+        "review": {
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "calls_with_incomplete_usage": 0
+        }
+      }
+    },
+    "D": {
+      "tasks": 12,
+      "strict_tool_pass": 12,
+      "public_answers": 11,
+      "supported_target_answers": 11,
+      "minor_wording_findings": 0,
+      "correct_refusals": 1,
+      "over_refusal": 0,
+      "refusal_code_mismatch": 0,
+      "review_technical_failures": 0,
+      "p50_task_ms": 4300,
+      "p95_task_ms_inclusive": 5876,
+      "role_metrics": {
+        "planner": {
+          "calls": 12,
+          "input_tokens": 16522,
+          "output_tokens": 486,
+          "calls_with_incomplete_usage": 0
+        },
+        "requirement": {
+          "calls": 12,
+          "input_tokens": 37390,
+          "output_tokens": 1405,
+          "calls_with_incomplete_usage": 0
+        },
+        "decision": {
+          "calls": 26,
+          "input_tokens": 221818,
+          "output_tokens": 2167,
+          "calls_with_incomplete_usage": 0
+        },
+        "review": {
+          "calls": 12,
+          "input_tokens": 88203,
+          "output_tokens": 1258,
+          "calls_with_incomplete_usage": 0
+        }
+      }
+    }
+  },
+  "manual_review": {
+    "reviewer": "developer_assistant",
+    "blinded": false,
+    "formal_acceptance": false,
+    "source_sha256": "f9f68e3c8cdd737783f4fd4b57bb66a56b781b249afbcfe7277d06eeda9a9b78"
+  },
+  "negative_component": {
+    "schema_version": "engineering_completion_negative_replay_v1",
+    "component_only": true,
+    "calls": 4,
+    "cases": 4,
+    "rejected": 4,
+    "wrong_accept": 0,
+    "technical_failure": 0,
+    "source_run": "semantic_negative_replay_20261011_v2",
+    "summary_sha256": "9092e4dec2d393d6a78e4bfa92a7fadb9fc35786c097489c1fe16d61c0d15f55"
+  },
+  "per_case_results": [
+    {
+      "case_id": "dev-001",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "720e7e3f6493eb34adcada9461758ef59150cb1a3383c16cd6b1cd1ae503da91",
+      "answer_sha256": "7c0f97e3aa4f78baaaab725735da7cd3726a6ffb6b05ebaf4c73aa9287c348ee",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-001",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "61fdd4cbbebba472697398abf5221a8058b9c5ef3581db7b6c0db8e5c697586e",
+      "answer_sha256": "73be94fa356d0ee612bd1f1f291d36e5cdeece88154a4831a0b1caec323edd92",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-001",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "637cf75186f7528936ddbcdbaae3df0555cbb2aaea3347050acc707dfb11fbd5",
+      "answer_sha256": "1d5623168cb091f38cd13146ef31f3bd6c1cb771f16c2fb19c0d7e22615bc209",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-001",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "d258dfe7d4bd7d7083a69e7ced35c584317a31ad4aaac0605ae03bd465f655b5",
+      "answer_sha256": "73be94fa356d0ee612bd1f1f291d36e5cdeece88154a4831a0b1caec323edd92",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-005",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "ac27da8e3f192b18aaaf704ebcdfc4e7060cc100cd79502704b07e6ff66c7f62",
+      "answer_sha256": "2926a22684a4f0438969c05a1789bc546028d46da7f2cb2656840f341bd3ac88",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-005",
+      "group": "B",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "judgment": "OVER_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "8d5ab90b0ba2d207f3c31684e7ed00e7f03858c4bfa9eb56176049e74d32f9c0",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PARTIAL"
+    },
+    {
+      "case_id": "dev-005",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "49c097670f9ed57ba5f7291817e6b8db5dc100ac3b27015668065b8df1b666ee",
+      "answer_sha256": "8f56b6f74bf627f49e5efe84f13778f11255dad4a35125d0de0e6d162aba6c8d",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-005",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "5dd73e1932052cdd2a3de1526e99d5e3880bf789acbcb0d9ccc9c3175c9e6bda",
+      "answer_sha256": "307a1bd7d276012fcd2ab6b1e728662d5396d28b32c5a0da29d5bbe104be660c",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-009",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "ed9e7d0645125f65c39c3665c41183d96665d4bcf04203f1aa2c83909291fd5d",
+      "answer_sha256": "66e4fa8b09f963efab83a4aa494f2ba0081a420a78588731a64288e8054fdf77",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-009",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "b63f2654f5e04bda73079105a7c0b7d0d6ea88813c9cbd7473f5e3a19e2022c9",
+      "answer_sha256": "e6a178826d8505925cc2eb90b9467ad1fb7c351a66d4ff4d87c994a4d757aee7",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-009",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "1e65ae1d84a8f9cf9b93b6e146ca70db3f3325ca5c085350b5262a6647d34e56",
+      "answer_sha256": "14eb9e3e62c22c64f6424250d907070771856569dd2360af3e88a2c05b2aabcf",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-009",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "73481dc5d5ad34d1d19e0d8719675254cbd9f9506beac493136908c8f8b660b5",
+      "answer_sha256": "57cbea12064f3244dadf680a3699958b9ca09876b638925bcf911b6e9e19de9a",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-010",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_TARGET_WITH_MINOR_WORDING",
+      "minor_finding": "Requested full implementation is quoted correctly, but prose suggests this method lowercases keys; it actually returns keys already stored lowercase.",
+      "source_sha256": "ee0137e08ff082cc0db1537cbc9416922859d3afa0f5b4697e4c060ea3a2a392",
+      "answer_sha256": "f86b4b834b34f0a000df035ad9b61381243a77acde92f84ea20a8ba7d96ee81e",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-010",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "01bd8197133e7b5729e32122b787080db75b07a9b40a66d3b6ff1411420133c9",
+      "answer_sha256": "d55d669920ee89131c61e612eb60d74ed23cff253a98a77273397579926f14fa",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-010",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "a5678d87ab4bf5b87871d82720624a783faaebb2909ef57b4e78d80175bdfc2d",
+      "answer_sha256": "60c983d552811ff08a5eebda8e9f99c1d232d38e19e8401f751dd7265129740b",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-010",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "cfbc53402be848de0519b5e4786bb9a04f6f06276c3a8a9f62cb9529cc3dccbf",
+      "answer_sha256": "417cd8d386c70a631ddb5b0715075d30db43aa8a031074852d95d5aa7348f873",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-012",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_TARGET_WITH_MINOR_WORDING",
+      "minor_finding": "Both bodies are correct, but phrase two reads is imprecise: actual execution has one tool call with two symbol targets.",
+      "source_sha256": "6661f339146222e56ff5d790a4b76a7dbd75135d4ce77354d919a67a5579a613",
+      "answer_sha256": "a479fad7e4fbcdbb90be9d6b4553cbd3ef9551fe6302ba033284a880bcb5a49c",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-012",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "036c8f3b9ebf41d126e37a891f091a4777fd407446924ee8271c61ddf6b8f8ff",
+      "answer_sha256": "d61d2c027157a399267d86ac1e0a565749bad084c2654d164de29476f0c836b8",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-012",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "da99718f6e7fe5f40bdaa8a0bb5dba05373607fb4273d9cb104031f8244565ba",
+      "answer_sha256": "b76b91834a1dbf6cef781279edcbb4f23770913acab21bd4625d46973c2ce62e",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-012",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "30282e79ecf610d7e1773e34717ca1c3c0fb3bf3f9bbf67ccb12dea481ca029e",
+      "answer_sha256": "ab52ac12a3d2ef321c34bf95cf53cc384db9588efdb821ae30b36e2443d9f124",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-013",
+      "group": "A",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "judgment": "OVER_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "26a1e2450017747e1a6b51a2dc83aa65178e3197878e4c234853dd2587458aef",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PARTIAL"
+    },
+    {
+      "case_id": "dev-013",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "ddf93ede6e5aab079b32cb884403e0728b283048d6e69e7edec97077f61ebb38",
+      "answer_sha256": "c794bd23386e285d07544da82a22d7328baaa39782137ccba082d8117ac18979",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-013",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "01d1cd046a52ed5d76ea1b9551a44d49b1cad3c240a3389b651681786bc1cd40",
+      "answer_sha256": "5c5886ddd8194378658843cd67acbf3f9fd6b29500c4c6308289d30c7a4a5006",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-013",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "49afa6a24dcd9b223c450d80e807f32f1786f164c731fd5ca70e1a4d80e8d3b7",
+      "answer_sha256": "219bbec08c394c210ca30a6c62c1f89c5b21c99d0932b12bdc472aa5eca63d6e",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-015",
+      "group": "A",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "judgment": "OVER_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "09719282f42925e2e42238237c9dcce287138978dc03325d4ffe04f063ada5b6",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PARTIAL"
+    },
+    {
+      "case_id": "dev-015",
+      "group": "B",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "judgment": "OVER_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "275bfcbb1eeff584bc54a6cf971d5cf0a4dec24392029b7b12aefe5c45e75108",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PARTIAL"
+    },
+    {
+      "case_id": "dev-015",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "2e8f34ceaef48b829732449bb093d0e25f2b4a4fbe15f07b5881f34350103032",
+      "answer_sha256": "afca30c74a7a861adb80c4360bf8a234fb8e43d8755badc95d251660751caafd",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-015",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "c6fd70e8e59542585e7793e2eb823f4fd7b4760c566a6b865b69603983067e3a",
+      "answer_sha256": "d4df782925b154b919a8aa7e988926f59faa52d925eb2d34496f05e435f6f711",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-021",
+      "group": "A",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "judgment": "OVER_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "650fb798f2fcd237c27bc6a8bfd5f504277b7e4bcc5a4d5a378788c7058e60d6",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PARTIAL"
+    },
+    {
+      "case_id": "dev-021",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "69cfe3bceab070472c7bced7b44deb32f8a535f1403513a56c88f8fad5aec01b",
+      "answer_sha256": "a35a1ef7a6a4200f15f997eef3da9571b0709109d8e842b971f130da59d410aa",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-021",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "f89d1e966d9303271bc59c5b3a692bcec62629ebfdc64db42d890544963e02a8",
+      "answer_sha256": "e817c1aa8a1eece30ca738b71dee6965d895bd5de9bff8d01068786a3d0d2dc7",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-021",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "b2805517cd07334270abee363fb2588a61dbb2c2b3aad67b2be8ba766fdf3550",
+      "answer_sha256": "0f3c43f44947fc0e6cd4c3cbad9c191fc9f037817f75692db5eb600b7378871f",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-026",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "76fafee809a0f3b3c0e63e647750756fe1252eba2f9ef76618aea94877a6b008",
+      "answer_sha256": "253ca32d5381b9c2419ab6faf0e9624e70dbcfac2feb0c5d28b5b249a95a24b6",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-026",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "aa85edcbcebf2bda2942a3d0c311c2124ab519c5014850a879bf0623e4431c1c",
+      "answer_sha256": "fc6d89642178e403a20ee38824c6bb4bf8179d735fa456c26692339995dc7757",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-026",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "1da945fdc7cc154e1eb815f1627b76be29b520835f847358f6dcd45b905a5a45",
+      "answer_sha256": "b0188f4bfd55424d38985c4f756f28ea8ceacf9eb0f28fa61078a134d557ef27",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-026",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "e2e4cd8602c6e6c8e8599ee574897cadf70ab7d796d44457a6b6c800854cc445",
+      "answer_sha256": "77def27a2a57ce587ae9da8b186392a2e59547643992e141a18fb4f0433a14ea",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-037",
+      "group": "A",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+      "failure_code": null,
+      "judgment": "REFUSAL_CODE_MISMATCH",
+      "minor_finding": null,
+      "source_sha256": "333464b4cfcce47754d17596e937f96c1f1056ba0c731e3525d7b7372085de0a",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PARTIAL"
+    },
+    {
+      "case_id": "dev-037",
+      "group": "B",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_INFORMATION",
+      "failure_code": null,
+      "judgment": "CORRECT_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "7985eafaad58825e1be95e6e89aed10ea30c105edb8948e266096891d527f916",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-037",
+      "group": "C",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_INFORMATION",
+      "failure_code": null,
+      "judgment": "CORRECT_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "ef8436a826db95f1c129b2e4a460ef94ceb7e6e4b21aaaf26e9748b35a36774f",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-037",
+      "group": "D",
+      "public_status": "refused",
+      "reason_code": "INSUFFICIENT_INFORMATION",
+      "failure_code": null,
+      "judgment": "CORRECT_REFUSAL",
+      "minor_finding": null,
+      "source_sha256": "c913ad3bbeb2ee97ebfb0a060bdcc01cdefb6e39240585f318aec3ceb39b4af1",
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-043",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "9c8fff3a87758bca9d2a9504f5c5c013426effecd98f601e63b7310eff935176",
+      "answer_sha256": "6c8b5899739b87ff368a60d7d10a328aa00877ddb17164adda4b2094f434917e",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-043",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "3cf5e6f401ea68760708c21c963d750a93d84eea730cd29933ef6a151b87c77c",
+      "answer_sha256": "7f23e993836478a507f5798989a9ea06acc3555c5d4bc82531b57567167c4e5f",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-043",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "c88bda1971d5f5758075ca882f514507c6d60b1a7bdb4b7a0f81a30455a245c3",
+      "answer_sha256": "10f658fde9fc4cf6dbd37594faf90e9fc30d3f2f58aecd65bdd18cd9a0d3f960",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-043",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "303bd06e8aa1ba78d534b04ac57db8bd6d3a5762c20afdc16bda2a810bc12eec",
+      "answer_sha256": "30e10958eeb56809b47ebe07264c6b41024308f3540a60c0895a59db92125240",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-048",
+      "group": "A",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "603e840d44307b94e8b0cc77808033fdf196ac1d325a0bd1a43a3664f4ec11fe",
+      "answer_sha256": "59d7e7d904312eeafaf913fd4b554527848dfaabb94c9291e9896ee56cd68492",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-048",
+      "group": "B",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "e5aa226bfc3853e39d963dd544a4460c28f4ad12c39334267de75aea4649278b",
+      "answer_sha256": "804845d0f996f469b8ea36e099a31e47734150b0ae55ab9e52258a65dc690afa",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-048",
+      "group": "C",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "ce0796bdb8846b0dfe6ad42dafccee5ae6552e89cfb37a021e6a4d262bce6feb",
+      "answer_sha256": "f615b23fdf110c9f70878b1f50c01f7a5f2a29f5d5ba4455bddced967c0fa4e1",
+      "tool_path_verdict": "PASS"
+    },
+    {
+      "case_id": "dev-048",
+      "group": "D",
+      "public_status": "completed",
+      "reason_code": null,
+      "failure_code": null,
+      "judgment": "SUPPORTED_ANSWER",
+      "minor_finding": null,
+      "source_sha256": "1ed5db884e554fcaf4bdee317a1b2fcccf2e57cce32adc7dc3bc6677b1d965a7",
+      "answer_sha256": "b40d9d394109b644e37a656a82b51f42f2024db8c9510cd42ff52ba462c1091d",
+      "tool_path_verdict": "PASS"
+    }
+  ],
+  "product_default": "rule/legacy/legacy",
+  "formal_new_case_acceptance": "not_started",
+  "group_runtime_identities": {
+    "A": {
+      "decision_sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+      "decision_version": "engineering_agent_decision_prompt_project_overview_v7",
+      "runtime": {
+        "assembly": "api.app._build_engineering_project_runtime -> EngineeringAgentFacade",
+        "budget": {
+          "deadline_seconds": 60,
+          "decisions": 5,
+          "tool_errors": 2,
+          "tools": 4
+        },
+        "context": {
+          "history_scope": "empty for independent single-turn tool evaluation cases",
+          "output_cap": 160,
+          "sdk_retries": 0,
+          "sha256": "719fbf8373605ef5923e0b249bdd32469f79edc1e294bca0d2f2bca9275e6d39",
+          "version": "engineering_context_references_v2"
+        },
+        "decision": {
+          "max_parse_repairs": 1,
+          "output_cap": 1200,
+          "sdk_retries": 0,
+          "sha256": "dc8838b484db443572178beeebfb9746a3cd0c40f20bf69786c4cc8481e7374c",
+          "timeout_seconds": 20.0,
+          "version": "engineering_agent_decision_prompt_project_overview_v7"
+        },
+        "disabled_tools": [
+          "knowledge_search"
+        ],
+        "model": "deepseek-chat",
+        "planner": {
+          "output_cap": 800,
+          "sdk_retries": 0,
+          "sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+          "timeout_seconds": 20.0,
+          "version": "engineering_planner_project_overview_prompt_v5"
+        },
+        "primary_tools": [
+          "calculator",
+          "changed_files",
+          "code_search",
+          "find_tests",
+          "get_project_info",
+          "git_diff",
+          "read_project_context"
+        ],
+        "primary_toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+        "provider": "deepseek",
+        "registered_tools": [
+          {
+            "input_schema_sha256": "c7d4702b92ab7e37814246892976fab662424b6ed578df899e178de2971113cd",
+            "name": "calculator",
+            "output_schema_sha256": "2c3b6f52cf59051a229a1032374562cddf409ed846df939de3db8e66c895aa32",
+            "version": "calculator_v1"
+          },
+          {
+            "input_schema_sha256": "d7b16b2d98a342f0bdf3b3489fdcfd8e7327cdee2247954e3321bdeee7d535a6",
+            "name": "changed_files",
+            "output_schema_sha256": "333c1ea884f8c5c45ae16a11c18e091cde81113f06e778ddc8134b67bffa7525",
+            "version": "changed_files_v1"
+          },
+          {
+            "input_schema_sha256": "e67773c92d859143d3fc251b30c95251172ae2a6724ed29e36b8c5b2920ded66",
+            "name": "code_search",
+            "output_schema_sha256": "5ef7941ef1927fac4bd71b99942b55de0848102cd1015b5fe84ca3c8e14ee8a6",
+            "version": "code_search_v7"
+          },
+          {
+            "input_schema_sha256": "57ae3c832ca9b9cb4a2e523d2637a76605de4962f8d6dd557f82430f45146f36",
+            "name": "find_tests",
+            "output_schema_sha256": "6964fd2cde6e8db5749c8b3ea8783ea665e47e8b705888c778030b393ac6bf62",
+            "version": "find_tests_v1"
+          },
+          {
+            "input_schema_sha256": "cbc239c0413036df4f4d4085a30468d345aa74b0c749238f7787cdbd8610fb1e",
+            "name": "get_project_info",
+            "output_schema_sha256": "19883d467813a7afd4252da5253dbedea2312e5bea93e25444dd25938059f089",
+            "version": "get_project_info_v2"
+          },
+          {
+            "input_schema_sha256": "c883640338ad84b073e12ad9149c21051906bf36ad6ed004c57c221f444e71b2",
+            "name": "git_diff",
+            "output_schema_sha256": "c192967e52812be0babe18e627adae5c80a58aa654cb93e226139f04fa292ce5",
+            "version": "git_diff_v1"
+          },
+          {
+            "input_schema_sha256": "f8999d9e23d6c40a7cd4c43c08183f555e3d8acf3640398b7220b0df667283e1",
+            "name": "knowledge_search",
+            "output_schema_sha256": "7d72c6ea86ac0b88c106d89353da0956ba192a53fc938e94a8c8c2567763c4ef",
+            "version": "knowledge_search_v2"
+          },
+          {
+            "input_schema_sha256": "63436b300071599bc9afffc9bd3d0411f1d462446c65423cca6cb771b31e710d",
+            "name": "read_project_context",
+            "output_schema_sha256": "b9b3065c5fbc4570af2ca6cea496b93ad5f76093ca35b7d893460dd13b57f7fa",
+            "version": "read_project_context_v4"
+          }
+        ]
+      },
+      "settings": {
+        "ENGINEERING_EVIDENCE_POLICY": "legacy",
+        "ENGINEERING_FINALIZATION_POLICY": "legacy",
+        "ENGINEERING_REQUIREMENT_MODE": "rule"
+      }
+    },
+    "B": {
+      "decision_sha256": "69affcd1b5837f7cd76ca63a37e2a90f9c2d695dd6c3be2b77fdffbabc95fe70",
+      "decision_version": "engineering_agent_decision_prompt_candidate_v11",
+      "runtime": {
+        "assembly": "api.app._build_engineering_project_runtime -> EngineeringAgentFacade",
+        "budget": {
+          "deadline_seconds": 60,
+          "decisions": 5,
+          "tool_errors": 2,
+          "tools": 4
+        },
+        "context": {
+          "history_scope": "empty for independent single-turn tool evaluation cases",
+          "output_cap": 160,
+          "sdk_retries": 0,
+          "sha256": "719fbf8373605ef5923e0b249bdd32469f79edc1e294bca0d2f2bca9275e6d39",
+          "version": "engineering_context_references_v2"
+        },
+        "decision": {
+          "max_parse_repairs": 1,
+          "output_cap": 1200,
+          "sdk_retries": 0,
+          "sha256": "69affcd1b5837f7cd76ca63a37e2a90f9c2d695dd6c3be2b77fdffbabc95fe70",
+          "timeout_seconds": 20.0,
+          "version": "engineering_agent_decision_prompt_candidate_v11"
+        },
+        "disabled_tools": [
+          "knowledge_search"
+        ],
+        "model": "deepseek-chat",
+        "planner": {
+          "output_cap": 800,
+          "sdk_retries": 0,
+          "sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+          "timeout_seconds": 20.0,
+          "version": "engineering_planner_project_overview_prompt_v5"
+        },
+        "primary_tools": [
+          "calculator",
+          "changed_files",
+          "code_search",
+          "find_tests",
+          "get_project_info",
+          "git_diff",
+          "read_project_context"
+        ],
+        "primary_toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+        "provider": "deepseek",
+        "registered_tools": [
+          {
+            "input_schema_sha256": "c7d4702b92ab7e37814246892976fab662424b6ed578df899e178de2971113cd",
+            "name": "calculator",
+            "output_schema_sha256": "2c3b6f52cf59051a229a1032374562cddf409ed846df939de3db8e66c895aa32",
+            "version": "calculator_v1"
+          },
+          {
+            "input_schema_sha256": "d7b16b2d98a342f0bdf3b3489fdcfd8e7327cdee2247954e3321bdeee7d535a6",
+            "name": "changed_files",
+            "output_schema_sha256": "333c1ea884f8c5c45ae16a11c18e091cde81113f06e778ddc8134b67bffa7525",
+            "version": "changed_files_v1"
+          },
+          {
+            "input_schema_sha256": "e67773c92d859143d3fc251b30c95251172ae2a6724ed29e36b8c5b2920ded66",
+            "name": "code_search",
+            "output_schema_sha256": "5ef7941ef1927fac4bd71b99942b55de0848102cd1015b5fe84ca3c8e14ee8a6",
+            "version": "code_search_v7"
+          },
+          {
+            "input_schema_sha256": "57ae3c832ca9b9cb4a2e523d2637a76605de4962f8d6dd557f82430f45146f36",
+            "name": "find_tests",
+            "output_schema_sha256": "6964fd2cde6e8db5749c8b3ea8783ea665e47e8b705888c778030b393ac6bf62",
+            "version": "find_tests_v1"
+          },
+          {
+            "input_schema_sha256": "cbc239c0413036df4f4d4085a30468d345aa74b0c749238f7787cdbd8610fb1e",
+            "name": "get_project_info",
+            "output_schema_sha256": "19883d467813a7afd4252da5253dbedea2312e5bea93e25444dd25938059f089",
+            "version": "get_project_info_v2"
+          },
+          {
+            "input_schema_sha256": "c883640338ad84b073e12ad9149c21051906bf36ad6ed004c57c221f444e71b2",
+            "name": "git_diff",
+            "output_schema_sha256": "c192967e52812be0babe18e627adae5c80a58aa654cb93e226139f04fa292ce5",
+            "version": "git_diff_v1"
+          },
+          {
+            "input_schema_sha256": "f8999d9e23d6c40a7cd4c43c08183f555e3d8acf3640398b7220b0df667283e1",
+            "name": "knowledge_search",
+            "output_schema_sha256": "7d72c6ea86ac0b88c106d89353da0956ba192a53fc938e94a8c8c2567763c4ef",
+            "version": "knowledge_search_v2"
+          },
+          {
+            "input_schema_sha256": "63436b300071599bc9afffc9bd3d0411f1d462446c65423cca6cb771b31e710d",
+            "name": "read_project_context",
+            "output_schema_sha256": "b9b3065c5fbc4570af2ca6cea496b93ad5f76093ca35b7d893460dd13b57f7fa",
+            "version": "read_project_context_v4"
+          }
+        ]
+      },
+      "settings": {
+        "ENGINEERING_EVIDENCE_POLICY": "goal_v2",
+        "ENGINEERING_FINALIZATION_POLICY": "structural_v2",
+        "ENGINEERING_REQUIREMENT_MODE": "rule"
+      }
+    },
+    "C": {
+      "decision_sha256": "69affcd1b5837f7cd76ca63a37e2a90f9c2d695dd6c3be2b77fdffbabc95fe70",
+      "decision_version": "engineering_agent_decision_prompt_candidate_v11",
+      "runtime": {
+        "assembly": "api.app._build_engineering_project_runtime -> EngineeringAgentFacade",
+        "budget": {
+          "deadline_seconds": 60,
+          "decisions": 5,
+          "tool_errors": 2,
+          "tools": 4
+        },
+        "context": {
+          "history_scope": "empty for independent single-turn tool evaluation cases",
+          "output_cap": 160,
+          "sdk_retries": 0,
+          "sha256": "719fbf8373605ef5923e0b249bdd32469f79edc1e294bca0d2f2bca9275e6d39",
+          "version": "engineering_context_references_v2"
+        },
+        "decision": {
+          "max_parse_repairs": 1,
+          "output_cap": 1200,
+          "sdk_retries": 0,
+          "sha256": "69affcd1b5837f7cd76ca63a37e2a90f9c2d695dd6c3be2b77fdffbabc95fe70",
+          "timeout_seconds": 20.0,
+          "version": "engineering_agent_decision_prompt_candidate_v11"
+        },
+        "disabled_tools": [
+          "knowledge_search"
+        ],
+        "model": "deepseek-chat",
+        "planner": {
+          "output_cap": 800,
+          "sdk_retries": 0,
+          "sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+          "timeout_seconds": 20.0,
+          "version": "engineering_planner_project_overview_prompt_v5"
+        },
+        "primary_tools": [
+          "calculator",
+          "changed_files",
+          "code_search",
+          "find_tests",
+          "get_project_info",
+          "git_diff",
+          "read_project_context"
+        ],
+        "primary_toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+        "provider": "deepseek",
+        "registered_tools": [
+          {
+            "input_schema_sha256": "c7d4702b92ab7e37814246892976fab662424b6ed578df899e178de2971113cd",
+            "name": "calculator",
+            "output_schema_sha256": "2c3b6f52cf59051a229a1032374562cddf409ed846df939de3db8e66c895aa32",
+            "version": "calculator_v1"
+          },
+          {
+            "input_schema_sha256": "d7b16b2d98a342f0bdf3b3489fdcfd8e7327cdee2247954e3321bdeee7d535a6",
+            "name": "changed_files",
+            "output_schema_sha256": "333c1ea884f8c5c45ae16a11c18e091cde81113f06e778ddc8134b67bffa7525",
+            "version": "changed_files_v1"
+          },
+          {
+            "input_schema_sha256": "e67773c92d859143d3fc251b30c95251172ae2a6724ed29e36b8c5b2920ded66",
+            "name": "code_search",
+            "output_schema_sha256": "5ef7941ef1927fac4bd71b99942b55de0848102cd1015b5fe84ca3c8e14ee8a6",
+            "version": "code_search_v7"
+          },
+          {
+            "input_schema_sha256": "57ae3c832ca9b9cb4a2e523d2637a76605de4962f8d6dd557f82430f45146f36",
+            "name": "find_tests",
+            "output_schema_sha256": "6964fd2cde6e8db5749c8b3ea8783ea665e47e8b705888c778030b393ac6bf62",
+            "version": "find_tests_v1"
+          },
+          {
+            "input_schema_sha256": "cbc239c0413036df4f4d4085a30468d345aa74b0c749238f7787cdbd8610fb1e",
+            "name": "get_project_info",
+            "output_schema_sha256": "19883d467813a7afd4252da5253dbedea2312e5bea93e25444dd25938059f089",
+            "version": "get_project_info_v2"
+          },
+          {
+            "input_schema_sha256": "c883640338ad84b073e12ad9149c21051906bf36ad6ed004c57c221f444e71b2",
+            "name": "git_diff",
+            "output_schema_sha256": "c192967e52812be0babe18e627adae5c80a58aa654cb93e226139f04fa292ce5",
+            "version": "git_diff_v1"
+          },
+          {
+            "input_schema_sha256": "f8999d9e23d6c40a7cd4c43c08183f555e3d8acf3640398b7220b0df667283e1",
+            "name": "knowledge_search",
+            "output_schema_sha256": "7d72c6ea86ac0b88c106d89353da0956ba192a53fc938e94a8c8c2567763c4ef",
+            "version": "knowledge_search_v2"
+          },
+          {
+            "input_schema_sha256": "63436b300071599bc9afffc9bd3d0411f1d462446c65423cca6cb771b31e710d",
+            "name": "read_project_context",
+            "output_schema_sha256": "b9b3065c5fbc4570af2ca6cea496b93ad5f76093ca35b7d893460dd13b57f7fa",
+            "version": "read_project_context_v4"
+          }
+        ],
+        "requirement": {
+          "output_cap": 1600,
+          "sdk_retries": 0,
+          "sha256": "e81fd4771ae3e580116b2174d21c14750058f951a848826d21a49dcb9d6eb6b7",
+          "temperature": 0.0,
+          "timeout_seconds": 20,
+          "version": "engineering_requirement_llm_v2"
+        }
+      },
+      "settings": {
+        "ENGINEERING_EVIDENCE_POLICY": "goal_v2",
+        "ENGINEERING_FINALIZATION_POLICY": "structural_v2",
+        "ENGINEERING_REQUIREMENT_MODE": "llm"
+      }
+    },
+    "D": {
+      "decision_sha256": "69affcd1b5837f7cd76ca63a37e2a90f9c2d695dd6c3be2b77fdffbabc95fe70",
+      "decision_version": "engineering_agent_decision_prompt_candidate_v11",
+      "runtime": {
+        "assembly": "api.app._build_engineering_project_runtime -> EngineeringAgentFacade",
+        "budget": {
+          "deadline_seconds": 60,
+          "decisions": 5,
+          "tool_errors": 2,
+          "tools": 4
+        },
+        "context": {
+          "history_scope": "empty for independent single-turn tool evaluation cases",
+          "output_cap": 160,
+          "sdk_retries": 0,
+          "sha256": "719fbf8373605ef5923e0b249bdd32469f79edc1e294bca0d2f2bca9275e6d39",
+          "version": "engineering_context_references_v2"
+        },
+        "decision": {
+          "max_parse_repairs": 1,
+          "output_cap": 1200,
+          "sdk_retries": 0,
+          "sha256": "69affcd1b5837f7cd76ca63a37e2a90f9c2d695dd6c3be2b77fdffbabc95fe70",
+          "timeout_seconds": 20.0,
+          "version": "engineering_agent_decision_prompt_candidate_v11"
+        },
+        "disabled_tools": [
+          "knowledge_search"
+        ],
+        "model": "deepseek-chat",
+        "planner": {
+          "output_cap": 800,
+          "sdk_retries": 0,
+          "sha256": "96d15a63d472ee3f27ad6827ba8676686536416e79e6291c224e286118f36e37",
+          "timeout_seconds": 20.0,
+          "version": "engineering_planner_project_overview_prompt_v5"
+        },
+        "primary_tools": [
+          "calculator",
+          "changed_files",
+          "code_search",
+          "find_tests",
+          "get_project_info",
+          "git_diff",
+          "read_project_context"
+        ],
+        "primary_toolset_sha256": "bd1b5e9db4e4de64bb1328bb08cfa50924b5bf391b83994d3d541c6fadf8bd61",
+        "provider": "deepseek",
+        "registered_tools": [
+          {
+            "input_schema_sha256": "c7d4702b92ab7e37814246892976fab662424b6ed578df899e178de2971113cd",
+            "name": "calculator",
+            "output_schema_sha256": "2c3b6f52cf59051a229a1032374562cddf409ed846df939de3db8e66c895aa32",
+            "version": "calculator_v1"
+          },
+          {
+            "input_schema_sha256": "d7b16b2d98a342f0bdf3b3489fdcfd8e7327cdee2247954e3321bdeee7d535a6",
+            "name": "changed_files",
+            "output_schema_sha256": "333c1ea884f8c5c45ae16a11c18e091cde81113f06e778ddc8134b67bffa7525",
+            "version": "changed_files_v1"
+          },
+          {
+            "input_schema_sha256": "e67773c92d859143d3fc251b30c95251172ae2a6724ed29e36b8c5b2920ded66",
+            "name": "code_search",
+            "output_schema_sha256": "5ef7941ef1927fac4bd71b99942b55de0848102cd1015b5fe84ca3c8e14ee8a6",
+            "version": "code_search_v7"
+          },
+          {
+            "input_schema_sha256": "57ae3c832ca9b9cb4a2e523d2637a76605de4962f8d6dd557f82430f45146f36",
+            "name": "find_tests",
+            "output_schema_sha256": "6964fd2cde6e8db5749c8b3ea8783ea665e47e8b705888c778030b393ac6bf62",
+            "version": "find_tests_v1"
+          },
+          {
+            "input_schema_sha256": "cbc239c0413036df4f4d4085a30468d345aa74b0c749238f7787cdbd8610fb1e",
+            "name": "get_project_info",
+            "output_schema_sha256": "19883d467813a7afd4252da5253dbedea2312e5bea93e25444dd25938059f089",
+            "version": "get_project_info_v2"
+          },
+          {
+            "input_schema_sha256": "c883640338ad84b073e12ad9149c21051906bf36ad6ed004c57c221f444e71b2",
+            "name": "git_diff",
+            "output_schema_sha256": "c192967e52812be0babe18e627adae5c80a58aa654cb93e226139f04fa292ce5",
+            "version": "git_diff_v1"
+          },
+          {
+            "input_schema_sha256": "f8999d9e23d6c40a7cd4c43c08183f555e3d8acf3640398b7220b0df667283e1",
+            "name": "knowledge_search",
+            "output_schema_sha256": "7d72c6ea86ac0b88c106d89353da0956ba192a53fc938e94a8c8c2567763c4ef",
+            "version": "knowledge_search_v2"
+          },
+          {
+            "input_schema_sha256": "63436b300071599bc9afffc9bd3d0411f1d462446c65423cca6cb771b31e710d",
+            "name": "read_project_context",
+            "output_schema_sha256": "b9b3065c5fbc4570af2ca6cea496b93ad5f76093ca35b7d893460dd13b57f7fa",
+            "version": "read_project_context_v4"
+          }
+        ],
+        "requirement": {
+          "output_cap": 1600,
+          "sdk_retries": 0,
+          "sha256": "e81fd4771ae3e580116b2174d21c14750058f951a848826d21a49dcb9d6eb6b7",
+          "temperature": 0.0,
+          "timeout_seconds": 20,
+          "version": "engineering_requirement_llm_v2"
+        },
+        "review": {
+          "input_character_limit": 60000,
+          "max_calls": 2,
+          "output_cap": 1600,
+          "sdk_retries": 0,
+          "sha256": "35963ede8c04f84b80ab62eff385b391a16c1ff0cdc75981941c2586839ba4b5",
+          "temperature": 0.0,
+          "timeout_seconds": 20,
+          "version": "engineering_completion_review_prompt_v3"
+        }
+      },
+      "settings": {
+        "ENGINEERING_EVIDENCE_POLICY": "goal_v2",
+        "ENGINEERING_FINALIZATION_POLICY": "semantic_v1",
+        "ENGINEERING_REQUIREMENT_MODE": "llm"
+      }
+    }
+  }
+}
