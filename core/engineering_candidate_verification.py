@@ -12,7 +12,7 @@ from core.agent_runtime.runtime import MinimalEvidenceVerifier
 from core.engineering_candidate_models import CandidateFinalizationSummary, ReviewRecord, CandidateSubmissionRecord
 from core.engineering_completion_review import (
     BaseCompletionReviewer, CompletionReviewInput, CompletionReviewOutcome,
-    REVIEW_MAX_ATTEMPTS, REVIEW_MAX_INPUT_CHARACTERS, REVIEW_TIMEOUT_SECONDS, parse_review_output,
+    REVIEW_MAX_ATTEMPTS, REVIEW_MAX_INPUT_CHARACTERS, REVIEW_TIMEOUT_SECONDS, parse_review_output, goal_availability,
 )
 from core.engineering_materials import MaterialLedger, ToolResultEvidence
 from core.engineering_requirement_contract import RequirementContract, PRODUCER_TOOLS, canonical_json
@@ -50,6 +50,7 @@ class CandidateSubmissionCheck:
     missing_goals: tuple[str, ...] = ()
     failure_code: str | None = None
     feedback: str = ""
+    refusal_reason_code: str | None = None
 
 
 def material_matches_goal(goal, record):
@@ -184,8 +185,9 @@ class CandidateVerificationSession:
         return CandidateProgress(matches, missing, unsupported, knowledge.can_generate, legacy_ready)
 
     def task_context(self):
-        return {"schema_version": "engineering_candidate_task_context_v1",
+        return {"schema_version": "engineering_candidate_task_context_v2",
                 "requirement": self.bound.contract.to_dict(), "progress": self.progress().to_dict(),
+                "goal_availability": goal_availability(self.bound.contract, self.ledger),
                 "material_catalog": [m.to_dict() for m in self.ledger.records],
                 "tool_attempts": self.ledger.tool_attempts,
                 "review_feedback": self.feedback}
@@ -196,7 +198,7 @@ class CandidateVerificationSession:
         review_input = CompletionReviewInput.create(self.bound.snapshot, self.bound.contract, self.ledger, action, remaining)
         check = self._submit(action, review_input, timeout_seconds=timeout_seconds)
         self.submissions.append(CandidateSubmissionRecord(review_input, check.decision, check.missing_goals,
-                                                         check.failure_code, check.feedback))
+                                                         check.failure_code, check.feedback, check.refusal_reason_code))
         return check
 
     def _submit(self, action, review_input, *, timeout_seconds):
@@ -218,6 +220,12 @@ class CandidateVerificationSession:
         if self.bound.verifier.policy == "structural_v2":
             if type(action) is RefuseAction:
                 return self._check("refuse")
+            unavailable = {item["goal_id"] for item in review_input.payload["goal_availability"]
+                           if item["state"] == "unavailable"}
+            if progress.missing_goals and set(progress.missing_goals).issubset(unavailable):
+                return self._check("refuse", progress.missing_goals,
+                    feedback="已实际尝试读取目标文件，但未取得所需资料，不能编造其内容。",
+                    refusal_reason="INSUFFICIENT_INFORMATION")
             return self._check("structural_accept" if progress.structurally_ready else "need_material",
                                progress.missing_goals, feedback="尚未取得所需对象与范围的材料。")
         if self.review_calls >= REVIEW_MAX_ATTEMPTS:
@@ -250,12 +258,15 @@ class CandidateVerificationSession:
                 if ((goal.source_kinds and not any(material_matches_goal(goal, records_by_id[eid]) for eid in verdict.evidence_ids))
                         or not set(verdict.evidence_ids).issubset(refs)):
                     return self._check("revise_answer", (goal.goal_id,), feedback="审核批准所需的资料与答案引用不一致，需要修正提交。")
-        return self._check(reviewed.decision, missing, feedback=reviewed.feedback)
+        refusal_reason = None
+        if reviewed.decision == "refuse":
+            refusal_reason = {"material": "INSUFFICIENT_INFORMATION", "capability": "UNSUPPORTED_REQUEST"}.get(reviewed.missing_category)
+        return self._check(reviewed.decision, missing, feedback=reviewed.feedback, refusal_reason=refusal_reason)
 
-    def _check(self, decision, missing=(), *, failure=None, feedback=""):
-        self.last_check = CandidateSubmissionCheck(decision, tuple(missing), failure, feedback)
+    def _check(self, decision, missing=(), *, failure=None, feedback="", refusal_reason=None):
+        self.last_check = CandidateSubmissionCheck(decision, tuple(missing), failure, feedback, refusal_reason)
         self.feedback = {"decision": decision, "missing_goals": list(missing),
-                         "failure_code": failure, "message": feedback}
+                         "failure_code": failure, "message": feedback, "refusal_reason_code": refusal_reason}
         return self.last_check
 
     def can_recover(self, check, *, iterations, tool_calls, tool_errors, budget, enabled_tools):

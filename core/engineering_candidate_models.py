@@ -8,7 +8,7 @@ from typing import Sequence
 from core.engineering_materials import MaterialRecord, ToolResultEvidence
 from core.engineering_completion_review import REVIEW_FAILURE_CODES, CompletionReviewInput, CompletionReviewOutcome
 from core.engineering_requirement_planning import REQUIREMENT_FAILURE_CODES, RequirementPlanningOutcome
-from core.tool_agent.actions import AGENT_DECISION_FAILURE_CODES
+from core.tool_agent.actions import AGENT_DECISION_FAILURE_CODES, REFUSE_REASON_CODES
 from core.tool_agent.runtime_models import (
     EngineeringEvidence, KnowledgeEvidence, RuntimeTraceEvent,
     ToolAgentExecutionMetrics, ToolAgentRunResult, validate_run_state,
@@ -29,7 +29,7 @@ class CandidateTaskContext:
         from core.engineering_requirement_contract import canonical_json
         payload = json.loads(self.payload_json)
         if (canonical_json(payload) != self.payload_json
-                or payload.get("schema_version") != "engineering_candidate_task_context_v1"):
+                or payload.get("schema_version") != "engineering_candidate_task_context_v2"):
             raise ValueError("invalid candidate task context")
         return payload
 
@@ -107,11 +107,14 @@ class CandidateSubmissionRecord:
     missing_goals: tuple[str, ...] = ()
     failure_code: str | None = None
     feedback: str = ""
+    refusal_reason_code: str | None = None
 
     def __post_init__(self):
         if (type(self.submission_input) is not CompletionReviewInput
                 or self.decision not in {"accept", "need_material", "revise_answer", "refuse", "structural_accept", "failed"}
                 or self.failure_code not in (None, *CANDIDATE_FAILURE_CODES)
+                or self.refusal_reason_code not in (None, *REFUSE_REASON_CODES)
+                or (self.refusal_reason_code is not None and self.decision != "refuse")
                 or type(self.missing_goals) is not tuple or type(self.feedback) is not str):
             raise ValueError("invalid candidate submission record")
         goals = {g["goal_id"] for g in self.submission_input.payload["contract"]["goals"]}
@@ -121,7 +124,8 @@ class CandidateSubmissionRecord:
     def to_dict(self):
         return {"input": self.submission_input.payload, "input_sha256": self.submission_input.input_sha256,
                 "check": {"decision": self.decision, "missing_goals": list(self.missing_goals),
-                          "failure_code": self.failure_code, "feedback": self.feedback}}
+                          "failure_code": self.failure_code, "feedback": self.feedback,
+                          "refusal_reason_code": self.refusal_reason_code}}
 
 
 @dataclass(frozen=True)
@@ -184,7 +188,7 @@ class CandidateToolAgentRunResult:
         return result
 
     def to_audit_dict(self):
-        return {"schema_version": "engineering_candidate_audit_v2", "result": self.to_dict(),
+        return {"schema_version": "engineering_candidate_audit_v3", "result": self.to_dict(),
                 "materials": [m.to_dict() for m in self.materials],
                 "reviews": [r.to_dict() for r in self.review_records],
                 "submissions": [r.to_dict() for r in self.submission_records]}

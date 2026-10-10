@@ -13,6 +13,8 @@ from core.engineering_materials import MaterialLedger, capability_manifest
 from core.engineering_requirement_contract import canonical_json
 from core.engineering_requirement_planning import LLMRequirementProvider, REQUIREMENT_CANDIDATE_PROMPT_VERSION
 from core.tool_agent.actions import FinalAnswerAction
+from core.tool_agent.executor import ToolExecutor
+from core.tool_agent.models import ToolCall, ToolObservation
 from core.tool_agent.tools.calculator import CALCULATOR_SPEC
 from tests.test_engineering_requirement_planning import Client, llm, snapshot, output, goal
 from core.engineering_completion_review import REVIEW_OUTPUT_VERSION
@@ -20,7 +22,7 @@ from core.engineering_completion_review import REVIEW_OUTPUT_VERSION
 
 def review(verdicts):
     return {"schema_version": REVIEW_OUTPUT_VERSION, "decision": "accept",
-            "goals": [{"goal_id": f"g{i}", "verdict": verdict, "evidence_ids": ids}
+            "goals": [{"goal_id": f"g{i}", "verdict": verdict, "evidence_ids": ids, "attempt_ids": []}
                       for i, (verdict, ids) in enumerate(verdicts, 1)],
             "request_coverage": True, "missing_category": "none", "feedback": "审核通过", "contract_issues": []}
 
@@ -87,7 +89,7 @@ def test_programming_fault_is_not_misreported_as_bad_evidence():
 def test_unknown_goal_extra_keys_and_stale_identity_are_rejected():
     item = review_input()
     raw = review(verdicts=(("fulfilled", []),))
-    for altered in ({**raw, "tool_action": {}}, {**raw, "goals": [{"goal_id": "g8", "verdict": "fulfilled", "evidence_ids": []}]}):
+    for altered in ({**raw, "tool_action": {}}, {**raw, "goals": [{"goal_id": "g8", "verdict": "fulfilled", "evidence_ids": [], "attempt_ids": []}]}):
         with pytest.raises(ValueError):
             parse_review_output(json.dumps(altered), item)
     outcome = CompletionReviewOutcome("0" * 64, parse_review_output(json.dumps(raw), item), None, 1, 0)
@@ -117,3 +119,84 @@ def test_candidate_requirement_uses_real_capabilities_without_changing_v2_contra
     assert payload["capabilities"] == list(capabilities)
     assert client.calls[0]["timeout"] == 2
     assert [entry["tool_name"] for entry in payload["capabilities"]] == ["calculator"]
+
+
+def failed_read_input(tmp_path, *, error_code=None, read_path="missing.py", successful_read=False, depth="locator"):
+    from tests.test_engineering_materials import registry
+    context = snapshot("检查 missing.py 是否能读取，无法读取时拒绝编造实现")
+    requested = goal("missing.py", None, depth, ["project_code"], False)
+    requested["target"]["path"] = "missing.py"
+    contract = llm(Client(output(requested))).plan(context).requirement
+    reg = registry(tmp_path)
+    ledger = MaterialLedger(reg.list_specs())
+    call = ToolCall.create("read_project_context", {"path": read_path, "target": {"kind": "file", "start_line": 1}})
+    observation = (ToolExecutor(reg).execute(call) if error_code is None
+                   else ToolObservation(call.call_id, call.tool_name, "error", None, error_code))
+    ledger.observe(call, observation)
+    if successful_read:
+        (tmp_path / "missing.py").write_text("DEFAULT_VALUE = 6\n", encoding="utf-8")
+        next_call = ToolCall.create(call.tool_name, call.arguments)
+        ledger.observe(next_call, ToolExecutor(reg).execute(next_call))
+    return CompletionReviewInput.create(context, contract, ledger,
+        FinalAnswerAction("final_answer", "没有读到文件，不能编造实现"), {"iterations": 3, "review_calls": 2})
+
+
+def unavailable_review(item):
+    raw = review((("unavailable", []),))
+    raw.update(decision="refuse", missing_category="material", feedback="实际读取失败，无法提供实现")
+    raw["goals"][0]["attempt_ids"] = [item.payload["materials"]["tool_attempts"][0]["call_id"]]
+    return raw
+
+
+@pytest.mark.parametrize("depth", ["locator", "body", "implementation"])
+@pytest.mark.parametrize("error_code", [None, "PROJECT_CONTEXT_FILE_UNREADABLE"])
+def test_failed_read_can_explain_refusal_but_never_fulfill_content(tmp_path, depth, error_code):
+    item = failed_read_input(tmp_path, depth=depth, error_code=error_code)
+    assert item.payload["goal_availability"][0]["state"] == "unavailable"
+    assert item.payload["materials"]["materials"] == []
+    raw = unavailable_review(item)
+    result = parse_review_output(json.dumps(raw), item)
+    assert result.decision == "refuse" and result.goals[0].verdict == "unavailable"
+    assert result.goals[0].evidence_ids == () and result.goals[0].attempt_ids
+    raw.update(decision="accept", missing_category="none", feedback="")
+    with pytest.raises(ValueError, match="approval invariant"):
+        parse_review_output(json.dumps(raw), item)
+    raw["goals"][0].update(verdict="fulfilled", attempt_ids=[])
+    with pytest.raises(ValueError, match="fulfilled direct/material"):
+        parse_review_output(json.dumps(raw), item)
+
+
+@pytest.mark.parametrize("read_path,error_code,successful_read", [
+    ("another.py", None, False),
+    ("missing.py", "TOOL_EXECUTION_FAILED", False),
+    ("missing.py", "INVALID_TOOL_ARGUMENTS", False),
+    ("missing.py", "PROJECT_CONTEXT_LINE_OUT_OF_RANGE", False),
+    ("missing.py", "PROJECT_CONTEXT_PATH_NOT_ALLOWED", False),
+    ("missing.py", None, True),
+])
+def test_unavailable_verdict_rejects_other_path_transient_errors_and_successful_reads(tmp_path, read_path, error_code, successful_read):
+    item = failed_read_input(tmp_path, read_path=read_path, error_code=error_code, successful_read=successful_read)
+    assert item.payload["goal_availability"][0]["state"] != "unavailable"
+    with pytest.raises(ValueError, match="unavailable goal support"):
+        parse_review_output(json.dumps(unavailable_review(item)), item)
+
+
+def test_refusal_attempt_ids_are_actual_and_cannot_be_used_as_evidence(tmp_path):
+    item = failed_read_input(tmp_path)
+    raw = unavailable_review(item)
+    raw["goals"][0]["attempt_ids"] = ["call_invented"]
+    with pytest.raises(ValueError, match="unavailable goal support"):
+        parse_review_output(json.dumps(raw), item)
+    raw = unavailable_review(item)
+    raw["goals"][0]["evidence_ids"] = raw["goals"][0]["attempt_ids"]
+    with pytest.raises(ValueError, match="goal verdict/references"):
+        parse_review_output(json.dumps(raw), item)
+
+
+def test_new_review_schema_does_not_silently_accept_old_goal_output():
+    raw = review((("fulfilled", []),))
+    raw["schema_version"] = "engineering_completion_review_output_v1"
+    raw["goals"][0].pop("attempt_ids")
+    result = online(Client(json.dumps(raw))).review(review_input(), timeout_seconds=1)
+    assert result.failure_code == "REVIEW_OUTPUT_INVALID"
+    assert result.validation_error == "ENVELOPE_INVALID" and result.call_count == 1

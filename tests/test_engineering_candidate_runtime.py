@@ -17,7 +17,7 @@ from core.engineering_requirement_planning import SelectedRequirementProvider, R
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.tool_agent.actions import AgentDecisionOutcome, FinalAnswerAction, RefuseAction, ToolCallAction
 from core.tool_agent.default_tools import build_readonly_tool_registry
-from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE
+from core.tool_agent.decision_prompt import ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_PROFILE
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import ToolAgentBudget, ToolAgentRunResult
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
@@ -40,7 +40,7 @@ def read(names):
 
 def review(decision="accept", verdicts=(("fulfilled", ["E1"]), ("fulfilled", ["E2"])), **kwargs):
     return {"schema_version": REVIEW_OUTPUT_VERSION, "decision": decision,
-            "goals": [{"goal_id": f"g{i}", "verdict": verdict, "evidence_ids": ids}
+            "goals": [{"goal_id": f"g{i}", "verdict": verdict, "evidence_ids": ids, "attempt_ids": []}
                       for i, (verdict, ids) in enumerate(verdicts, 1)],
             "request_coverage": True, "missing_category": "none" if decision == "accept" else "material",
             "feedback": "审核通过" if decision == "accept" else "需要补充 B 的材料",
@@ -71,7 +71,7 @@ class Decision:
 
     def decide(self, registry, query, *, context=(), control_state=None):
         self.contexts.append(context)
-        self.messages.append(ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE.build_messages(
+        self.messages.append(ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_PROFILE.build_messages(
             registry.list_specs(), query, context, control_state=control_state))
         action = self.actions[min(len(self.messages)-1, len(self.actions)-1)]
         return AgentDecisionOutcome(action=action, failure_code=None, call_metadata=None)
@@ -168,6 +168,65 @@ def test_review_sees_actual_failed_attempt_and_preserves_confirmed_refusal_reaso
     assert result.finalization.review_calls == 1 and result.tool_errors_used == 1
 
 
+@pytest.mark.parametrize("semantic", [False, True])
+def test_failed_read_explanation_becomes_information_refusal_not_published_answer(tmp_path, semantic):
+    from tests._engineering_runtime_support import StaticKnowledgeRetrievalPort
+    from tests.test_engineering_retrieval import _outcome
+
+    class Planner(NoRetrievalPlanner):
+        def plan(self, query):
+            return _outcome(query)
+
+    requested = goal("missing.py", None, "locator", ["project_code"], False)
+    requested["target"]["path"] = "missing.py"
+
+    def check_unavailability(review_input):
+        payload = review_input.payload
+        assert payload["goal_availability"][0]["state"] == "unavailable"
+        assert all(item["form"] == "knowledge" for item in payload["materials"]["materials"])
+        raw = review("refuse", (("unavailable", []),), feedback="实际缺文件，不能编造正文")
+        raw["goals"][0]["attempt_ids"] = payload["goal_availability"][0]["unavailable_attempt_ids"]
+        return raw
+
+    reviewer = Reviewer([check_unavailability]) if semantic else None
+    runtime, decision = build(tmp_path, [ToolCallAction(action="tool_call", tool_name="read_project_context",
+        arguments={"path": "missing.py", "target": {"kind": "file", "start_line": 1}}),
+        answer("文件不存在，无法提供其实现 [E1]。")], reviewer=reviewer, goals=[requested],
+        port=StaticKnowledgeRetrievalPort(), planner=Planner())
+    result = runtime.run("检查 missing.py 是否能读取；文件不存在时拒绝编造其实现")
+    assert result.status == "refused" and result.reason_code == "INSUFFICIENT_INFORMATION"
+    assert result.failure_code is None and result.answer is None
+    assert result.iterations_used == 2 and result.tool_calls_used == 1
+    assert result.finalization.review_calls == int(semantic)
+    assert all(item.kind == "knowledge" for item in result.evidence)
+    assert result.submission_records[-1].refusal_reason_code == "INSUFFICIENT_INFORMATION"
+    assert "unavailable_attempt_ids" in decision.messages[-1][-1]["content"]
+
+
+def test_one_failed_path_does_not_mark_another_requested_object_unavailable(tmp_path):
+    missing = goal("missing.py", None, "body", ["project_code"], False)
+    missing["target"]["path"] = "missing.py"
+    second = goal("a.py", None, "body", ["project_code"], False)
+    second["target"]["path"] = "a.py"
+
+    def check_goals(review_input):
+        states = review_input.payload["goal_availability"]
+        assert states[0]["state"] == "unavailable" and states[1]["state"] == "missing"
+        assert states[1]["unavailable_attempt_ids"] == []
+        raw = review("need_material", (("unavailable", []), ("missing", [])), feedback="继续取得 a.py 的正文")
+        raw["goals"][0]["attempt_ids"] = states[0]["unavailable_attempt_ids"]
+        return raw
+
+    reviewer = Reviewer([check_goals, review("refuse", (("missing", []), ("fulfilled", ["E1"])), feedback="缺文件不能完成全部要求")])
+    runtime, _ = build(tmp_path, [ToolCallAction(action="tool_call", tool_name="read_project_context",
+        arguments={"path": "missing.py", "target": {"kind": "file", "start_line": 1}}),
+        RefuseAction("refuse", "INSUFFICIENT_INFORMATION"), read(["A"]), RefuseAction("refuse", "INSUFFICIENT_INFORMATION")],
+        reviewer=reviewer, goals=[missing, second])
+    result = runtime.run("读取 missing.py 和 a.py")
+    assert result.status == "refused" and result.reason_code == "INSUFFICIENT_INFORMATION"
+    assert result.tool_calls_used == 2 and result.finalization.review_calls == 2
+
+
 def test_early_refusal_requires_agent_to_write_answer_then_review(tmp_path):
     direct = goal("你好", None, "direct", [], False)
     reviewer = Reviewer([review("revise_answer", (("fulfilled", []),), missing_category="answer", feedback="可以直接回答问候"),
@@ -196,7 +255,7 @@ def test_unknown_citation_can_be_fixed_without_tools_or_review_retry(tmp_path):
     result = runtime.run("计算 2+3")
     assert [s.decision for s in result.submission_records] == ["revise_answer", "accept"]
     assert result.submission_records[0].submission_input.payload["submission"]["answer"] == "等于5。[E999]"
-    assert result.to_audit_dict()["schema_version"] == "engineering_candidate_audit_v2"
+    assert result.to_audit_dict()["schema_version"] == "engineering_candidate_audit_v3"
     assert "available_evidence_refs" not in decision.messages[1][0]["content"]
     assert "material_catalog" in decision.messages[1][-1]["content"]
     assert result.status == "completed" and result.tool_calls_used == 1 and result.iterations_used == 3

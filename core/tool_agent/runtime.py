@@ -804,9 +804,10 @@ class ToolAgentRuntime:
                     return make_result(status="completed", answer=action.answer, reason_code=None, failure_code=None,
                         iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors,
                         trace=tuple(trace), evidence=tuple(evidence))
-                if check.decision == "refuse" and type(action) is RefuseAction:
+                if check.decision == "refuse":
                     return hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
-                                     action.reason_code, trace_sink)
+                        action.reason_code if type(action) is RefuseAction
+                        else check.refusal_reason_code or INSUFFICIENT_EVIDENCE_TO_FINALIZE, trace_sink)
                 if session.can_recover(check, iterations=iterations, tool_calls=tool_calls, tool_errors=tool_errors,
                                        budget=self._budget, enabled_tools={s.name for s in run_registry.list_specs()}):
                     self._record_trace(trace, CandidateSubmissionBlockedTrace(iteration=iterations, decision=check.decision,

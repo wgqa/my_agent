@@ -55,6 +55,41 @@ def test_candidate_v2_sse_only_streams_approved_answer_and_keeps_actual_sources(
         assert "".join(event["delta"] for event in deltas) == "等于5。[E1]"
 
 
+@pytest.mark.parametrize("semantic", [False, True])
+@pytest.mark.parametrize("surface", ["http", "sse_v2"])
+def test_actual_missing_file_has_refusal_feedback_without_body_or_answer_stream(tmp_path, monkeypatch, semantic, surface):
+    requested = goal("missing.py", None, "body", ["project_code"], False)
+    requested["target"]["path"] = "missing.py"
+
+    def unavailable(review_input):
+        state = review_input.payload["goal_availability"][0]
+        raw = review("refuse", (("unavailable", []),), feedback="读取失败，拒绝编造实现")
+        raw["goals"][0]["attempt_ids"] = state["unavailable_attempt_ids"]
+        return raw
+
+    runtime, _ = build(tmp_path, [ToolCallAction(action="tool_call", tool_name="read_project_context",
+        arguments={"path": "missing.py", "target": {"kind": "file", "start_line": 1}}),
+        answer("无法读取 missing.py，不能编造实现")], goals=[requested],
+        reviewer=Reviewer([unavailable]) if semantic else None)
+    facade = EngineeringAgentFacade(runtime)
+    question = "读取 missing.py 的正文，无法读取时拒绝编造实现"
+    if surface == "http":
+        monkeypatch.setattr(app_module, "_get_engineering_agent_facade", lambda: facade)
+        response = TestClient(app_module.app).post("/engineering/query", json={"question": question})
+        assert response.status_code == 200
+        result = response.json()
+    else:
+        frames = stream_engineering_query_v2(facade, question, build_response=app_module._build_engineering_response)
+        events = [json.loads(frame[6:].strip()) for frame in frames if frame.startswith("data: ")]
+        assert not {"answer_start", "answer_delta", "evidence_added", "error"} & {event["type"] for event in events}
+        result = next(event["result"] for event in events if event["type"] == "final")
+    assert result["status"] == "refused" and result["reason_code"] == "INSUFFICIENT_INFORMATION"
+    assert result["failure_code"] is None and result["answer"] is None and result["evidence"] == []
+    assert result["feedback"]["action"] == "revise" and result["feedback"]["next_steps"]
+    assert result["finalization"]["decision"] == "refuse"
+    assert "reviews" not in result and "materials" not in result and "submissions" not in result
+
+
 @pytest.mark.parametrize("mode,evidence,finalization", [
     ("rule", "legacy", "legacy"), ("shadow", "legacy", "legacy"),
     ("rule", "goal_v2", "structural_v2"), ("llm", "goal_v2", "structural_v2"),

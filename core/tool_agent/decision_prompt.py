@@ -663,6 +663,16 @@ ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE = DecisionPromptProfile(
     template=ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_TEMPLATE,
     render_control_state=True, render_evidence_reference_control=False,
 )
+ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_TEMPLATE = ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_TEMPLATE + """
+goal_availability 区分资料已取得、尚未取得、已尝试但不可取得。unavailable 的 unavailable_attempt_ids 是本轮真实失败调用编号，只用于判断合理拒答，不是可用于正文的 E-ID，也不表示目标的正文已取得或实现已解释。
+用户要求检查文件、不可读时拒绝编造的条件分支，读取失败后应提交 refuse/INSUFFICIENT_INFORMATION。不能为了描述失败而提交带知识库引用的 final_answer。其他路径、重试或对象是否还值得调查，按原问题和剩余额度判断；通用错误或参数错误不证明文件不存在。
+"""
+ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_PROFILE = DecisionPromptProfile(
+    version="engineering_agent_decision_prompt_candidate_v11",
+    sha256=hashlib.sha256(ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_TEMPLATE.encode("utf-8")).hexdigest(),
+    template=ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_TEMPLATE,
+    render_control_state=True, render_evidence_reference_control=False,
+)
 ENGINEERING_DECISION_PROMPT_V3_PROFILE = DecisionPromptProfile(
     version="engineering_agent_decision_prompt_v3",
     sha256=ENGINEERING_DECISION_PROMPT_V3_SHA256,
@@ -684,6 +694,7 @@ ENGINEERING_REPAIR_ENABLED_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
@@ -703,6 +714,7 @@ ENGINEERING_OUTPUT_CAP_PROFILE_VERSIONS = frozenset(
         ENGINEERING_DECISION_PROMPT_CANDIDATE_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_CANDIDATE_V3_PROFILE.version,
+        ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_UNIFIED_V2_PROFILE.version,
         ENGINEERING_DECISION_PROMPT_V3_PROFILE.version,
     }
