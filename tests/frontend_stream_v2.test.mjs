@@ -16,6 +16,16 @@ const rich = [
   { type: 'verification', state: 'blocked', iteration: 2, missing_evidence_kinds: ['project_test'] },
 ];
 
+test('structured source activity has a real tool identity without fake line numbers', () => {
+  const event = { type: 'evidence_added', evidence_id: 'E2', kind: 'tool_result',
+    schema_version: 'engineering_tool_result_evidence_v1', tool_name: 'calculator', result_type: 'calculation' };
+  const item = activityItem(event);
+  assert.deepEqual(item.evidenceIds, ['E2']);
+  assert.deepEqual(item.details, ['计算']);
+  assert.equal(activityItem({ ...event, tool_name: 'unregistered_tool' }), null);
+  assert.equal(activityItem({ ...event, schema_version: 'unknown' }), null);
+});
+
 function install(events, { schema = 'engineering_query_stream_v2', chunked = false, onFetch = () => {} } = {}) {
   const body = ': keep-alive\r\n\r\n' + events.map(event => 'data: ' + JSON.stringify(event) + '\r\n\r\n').join('');
   const bytes = new TextEncoder().encode(body);

@@ -317,6 +317,37 @@ EngineeringEvidence = Annotated[
 ]
 
 
+class ToolResultEvidence(BaseModel):
+    """Candidate facts reuse each registered tool's strict output schema."""
+
+    model_config = {"extra": "forbid", "strict": True}
+    schema_version: Literal["engineering_tool_result_evidence_v1"]
+    evidence_id: str = Field(pattern=r"^E[1-9][0-9]*$")
+    kind: Literal["tool_result"]
+    tool_name: str
+    tool_version: str
+    result_type: Literal["locator_set", "change_list", "test_candidates", "calculation", "project_binding", "reader_locator"]
+    arguments: dict
+    payload: dict
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def _validate_registered_tool_fact(self):
+        from core.engineering_materials import ToolResultEvidence as RuntimeFact
+        from core.engineering_requirement_contract import canonical_json
+        fact = RuntimeFact(self.evidence_id, self.tool_name, self.tool_version,
+                           canonical_json(self.arguments), canonical_json(self.payload))
+        if fact.result_type != self.result_type or fact.content_sha256 != self.content_sha256:
+            raise ValueError("structured evidence identity mismatch")
+        return self
+
+
+CandidateEngineeringEvidence = Annotated[
+    Union[KnowledgeEvidence, ToolAgentEvidence, ToolResultEvidence],
+    Field(discriminator="kind"),
+]
+
+
 class EngineeringExecutionMetrics(BaseModel):
     """Safe execution summary (PRODUCT-ENGINEERING-24B).
 

@@ -551,7 +551,10 @@ function buildEvidenceCard(item, { selected = false } = {}) {
   location.className = 'evidence-card__location';
   const lineInfo = document.createElement('div');
   lineInfo.className = 'evidence-card__line';
-  if (item.kind === 'knowledge') {
+  if (item.kind === 'tool_result') {
+    location.textContent = text(item.tool_name, '工具结果');
+    lineInfo.textContent = '本次查询返回的结构化资料';
+  } else if (item.kind === 'knowledge') {
     location.textContent = text(item.source_name, 'Knowledge source');
   } else {
     const lineStart = item.start_line || '?';
@@ -562,7 +565,9 @@ function buildEvidenceCard(item, { selected = false } = {}) {
 
   const snippet = document.createElement('p');
   snippet.className = 'evidence-card__snippet';
-  snippet.textContent = item.kind === 'knowledge'
+  snippet.textContent = item.kind === 'tool_result'
+    ? (item.payload ? JSON.stringify(item.payload, null, 2) : '资料将在分析完成后显示')
+    : item.kind === 'knowledge'
     ? cleanKnowledgeSnippet(item.snippet)
     : text(item.snippet, 'No public snippet');
   card.append(heading, location);

@@ -417,6 +417,35 @@ class EvidenceAddedActivity:
 
 
 @dataclass(frozen=True)
+class ToolResultEvidenceAddedActivity:
+    """Candidate identity for a structured fact, without invented line numbers."""
+
+    evidence_id: str
+    tool_name: str
+    result_type: str
+    schema_version: str = "engineering_tool_result_evidence_v1"
+
+    def __post_init__(self):
+        from core.engineering_materials import RESULT_TYPES, TOOL_RESULT_SCHEMA_VERSION
+        if (not re.fullmatch(r"E[1-9][0-9]*", self.evidence_id)
+                or RESULT_TYPES.get(self.tool_name) != self.result_type
+                or self.schema_version != TOOL_RESULT_SCHEMA_VERSION):
+            raise ValueError("invalid structured evidence activity")
+
+    @classmethod
+    def from_public_evidence(cls, evidence):
+        from core.engineering_materials import ToolResultEvidence
+        if type(evidence) is not ToolResultEvidence:
+            raise TypeError("expected structured tool evidence")
+        return cls(evidence.evidence_id, evidence.tool_name, evidence.result_type)
+
+    def to_dict(self):
+        return {"type": "evidence_added", "kind": "tool_result", "evidence_id": self.evidence_id,
+                "schema_version": self.schema_version, "tool_name": self.tool_name,
+                "result_type": self.result_type}
+
+
+@dataclass(frozen=True)
 class VerificationBlockedActivity:
     """A safe Guard explanation containing only missing public evidence kinds."""
 
@@ -446,6 +475,7 @@ ActivityEvent: TypeAlias = (
     RunStartedActivity
     | ToolActivityEvent
     | EvidenceAddedActivity
+    | ToolResultEvidenceAddedActivity
     | VerificationBlockedActivity
 )
 

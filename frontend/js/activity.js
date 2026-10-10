@@ -4,6 +4,7 @@ export const ACTIVITY_EVENT_TYPES = new Set(['run_started', 'activity', 'evidenc
 const KINDS = {
   knowledge: '知识库资料', project_code: '项目源码', project_doc: '项目文档',
   project_change: '代码变更', project_test: '测试文件',
+  tool_result: '工具查询结果',
 };
 const TOOLS = {
   knowledge_search: '搜索知识库', code_search: '搜索项目文件',
@@ -34,6 +35,9 @@ export function isActivityEvent(event) {
   }
   if (event.type === 'evidence_added') {
     if (!evidenceId(event.evidence_id) || !Object.hasOwn(KINDS, event.kind)) return false;
+    if (event.kind === 'tool_result') return event.schema_version === 'engineering_tool_result_evidence_v1'
+      && Object.hasOwn(TOOLS, event.tool_name)
+      && ['locator_set', 'change_list', 'test_candidates', 'calculation', 'project_binding', 'reader_locator'].includes(event.result_type);
     return event.kind === 'knowledge' ? nonempty(event.source_name)
       : nonempty(event.path) && positive(event.start_line) && positive(event.end_line)
         && event.end_line >= event.start_line;
@@ -91,7 +95,7 @@ export function activityItem(event) {
   if (event.type === 'evidence_added') return {
     key: event.evidence_id, name: '已取得资料 ' + event.evidence_id,
     state: 'completed', stateLabel: KINDS[event.kind],
-    details: [event.kind === 'knowledge' ? event.source_name
+    details: [event.kind === 'tool_result' ? TOOLS[event.tool_name] : event.kind === 'knowledge' ? event.source_name
       : event.path + ':' + event.start_line + '–' + event.end_line], evidenceIds: [event.evidence_id],
   };
   return {
