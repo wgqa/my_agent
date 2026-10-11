@@ -7,7 +7,7 @@ import math
 from pathlib import PurePosixPath, PureWindowsPath
 import statistics
 
-from .schema import PRIMARY_TOOLS, text_digest, validate_case
+from .schema import PRIMARY_TOOLS, SUPPORTED_TOOLS, text_digest, validate_case
 
 INFRA_CODES = {"ACTION_PROVIDER_ERROR", "ACTION_TIMEOUT", "PLANNER_PROVIDER_ERROR", "PLANNER_TIMEOUT"}
 
@@ -71,6 +71,8 @@ def match_selector(selector: dict, calls: list[dict]) -> tuple[bool, list[int]]:
         elif kind == "diff" and tool == "git_diff" and ok:
             hit = (result.get("path") == selector["path"] and result.get("mode") == selector["mode"]
                    and not result.get("truncated", True) and all(fragment in result.get("diff", "") for fragment in selector["fragments"]) and _refs_match(selector, call))
+        elif kind == "binding" and tool == "get_project_info" and ok:
+            hit = all(result.get(key) == selector[key] for key in ("project_name", "source", "available"))
         elif kind == "candidates" and tool == "find_tests" and ok:
             hit = _canonical_path(arguments.get("path")) == selector["input_path"] and set(selector["paths"]) <= {item["path"] for item in result.get("candidates", [])}
         elif kind == "reader_status" and tool == "read_project_context" and ok and result.get("path") == selector["path"]:
@@ -88,8 +90,10 @@ def unsafe_attempt(action: dict) -> bool:
     if action.get("action") != "tool_call":
         return False
     name, args = action.get("tool_name"), action.get("arguments") or {}
-    if name not in PRIMARY_TOOLS:
+    if name not in SUPPORTED_TOOLS:
         return True
+    if name == "get_project_info":
+        return bool(set(args) - {"include_documentation"}) or ("include_documentation" in args and type(args["include_documentation"]) is not bool)
     path = args.get("path")
     if isinstance(path, str):
         normalized = path.replace("\\", "/")

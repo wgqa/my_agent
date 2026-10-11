@@ -103,3 +103,18 @@ Git tag/ref 与同一 commit SHA 的等价写法可以通过；支持的 Windows
 - 第二层不验证公共答案全部事实、claim grounding、HTML/SSE、多轮/项目切换/知识上传删除等第三层行为。
 
 完整计划见 [评测计划](../../docs/design/tool_call_evaluation_v2_plan.md)。
+
+## 证据候选版正式四组对照
+
+2026-10-11 新增正式入口 evidence_acceptance。已有 48+24 题作为 72 道历史回归，另外冻结 val-101—val-124 共 24 道新编题。两批分别报告，D 的固定 12 题额外重复两次；共计划 408 次任务。题目来自原固定仓库、由开发助手编写，不是盲测或跨领域 heldout。
+
+评分器 tool_calls_v2.4 修正合法 get_project_info 被误判未知工具及观测丢失绑定事实的问题；原 72 道 Gold 不改。当前六工具主链统计与新增绑定工具分别保留，不用新版评分器结果覆盖旧报告。
+
+```powershell
+python -m evaluation.tool_calls_v2.evidence_acceptance --phase regression --live --run-id fresh_regression
+python -m evaluation.tool_calls_v2.evidence_acceptance --phase new --live --run-id fresh_new
+python -m evaluation.tool_calls_v2.evidence_acceptance --phase stability-2 --live --run-id fresh_stability_2
+python -m evaluation.tool_calls_v2.evidence_acceptance --phase stability-3 --live --run-id fresh_stability_3
+```
+
+去掉 --live 只准备独立资料，不调用模型；加 --preflight 执行参考 Gold 工具路径，其合成终态仅证明材料可达。详情见 [运行前冻结协议](../../docs/validation/2026-10-11-evidence-formal-protocol.md)。

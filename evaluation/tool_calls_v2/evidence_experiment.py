@@ -178,7 +178,8 @@ def run_case(case, project, library, group, recorder):
                     "settings": dict(zip(keys, GROUP_SETTINGS[group]))}
 
 
-def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live):
+def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live,
+            experiment_version=EXPERIMENT_VERSION, scope="known development only; no heldout cases", protocol_identity=None):
     if output.exists():
         raise ValueError("experiment output already exists; never overwrite a run")
     if not groups or len(set(groups)) != len(groups) or any(group not in GROUP_SETTINGS for group in groups):
@@ -198,7 +199,7 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live):
         verify_gold_sources(case, roots[case["project"]])
     library = copy_seed_library(state / "knowledge.sqlite3", corpus_root=corpus_root)
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT).decode().strip()
-    manifest = {"schema_version": EXPERIMENT_VERSION, "run_id": run_id,
+    manifest = {"schema_version": experiment_version, "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(), "code_head": head,
         "business": business_fingerprint(), "evaluator": evaluator_fingerprint(),
         "groups": list(groups), "group_settings": {g: GROUP_SETTINGS[g] for g in groups},
@@ -207,7 +208,7 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live):
         "live": live, "planned_runs": len(cases) * len(groups),
         "budget": {"decisions": 5, "tools": 4, "tool_errors": 2, "deadline_seconds": 60, "review_calls": 2},
         "answer_quality": "independent review required; review accept is not Gold",
-        "scope": "known development only; no heldout cases", "status": "running" if live else "prepared"}
+        "scope": scope, "protocol_identity": protocol_identity, "status": "running" if live else "prepared"}
     write_json(output / "manifest.json", manifest)
     _jsonl(output / "cases.jsonl", cases)
     if not live:
@@ -265,7 +266,7 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live):
     manifest.update(status="interrupted" if interrupted else "finished",
                     finished_at=datetime.now(timezone.utc).isoformat(), recorded_runs=len(records))
     write_json(output / "manifest.json", manifest)
-    summary = {"schema_version": EXPERIMENT_VERSION, "status": manifest["status"], "groups": {},
+    summary = {"schema_version": experiment_version, "status": manifest["status"], "groups": {},
                "answer_quality": "pending independent review; no end-to-end pass rate claimed"}
     for group in groups:
         group_runs = [entry for entry in records if entry["group"] == group]

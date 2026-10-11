@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from jsonschema import Draft202012Validator
 
 PRIMARY_TOOLS = ("calculator", "code_search", "read_project_context", "changed_files", "git_diff", "find_tests")
+SUPPORTED_TOOLS = (*PRIMARY_TOOLS, "get_project_info")
 DATASET_DIR = Path(__file__).parent / "datasets"
 
 
@@ -58,20 +59,22 @@ SELECTOR_SCHEMA = {"oneOf": [
     _selector("reader_status", {"path": _PATH, "status": _STRING, "requested": _STRING}, ("path", "status", "requested")),
     _selector("error", {"tool": {"enum": list(PRIMARY_TOOLS)}, "path": _PATH, "code": _STRING}, ("tool", "code")),
     _selector("truncation", {"path": _PATH}, ("path",)),
+    _selector("binding", {"project_name": _STRING, "source": {"enum": ["configured", "default_repo"]},
+                          "available": {"type": "boolean"}}, ("project_name", "source", "available")),
 ]}
-CALL_SCHEMA = _object({"tool": {"enum": list(PRIMARY_TOOLS)}, "arguments": {"type": "object"}}, ("tool", "arguments"))
+CALL_SCHEMA = _object({"tool": {"enum": list(SUPPORTED_TOOLS)}, "arguments": {"type": "object"}}, ("tool", "arguments"))
 GOAL_SCHEMA = _object({"id": _STRING, "description": _STRING,
                       "alternatives": {"type": "array", "minItems": 1, "items": SELECTOR_SCHEMA}}, ("id", "description", "alternatives"))
 CASE_SCHEMA = _object({
     "id": {"type": "string", "pattern": "^(dev|val)-[0-9]{3}$"},
     "split": {"enum": ["dev", "validation"]},
     "group": {"enum": ["target", "multistep", "recovery", "boundary"]},
-    "focus_tool": {"enum": [None, *PRIMARY_TOOLS]},
+    "focus_tool": {"enum": [None, *SUPPORTED_TOOLS]},
     "project": {"enum": ["fixture", "requests", "urllib3"]},
     "query": _STRING, "rationale": _STRING,
     "goals": {"type": "array", "items": GOAL_SCHEMA},
     "dependencies": {"type": "array", "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": _STRING}},
-    "required_tools": {"type": "array", "items": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": list(PRIMARY_TOOLS)}}},
+    "required_tools": {"type": "array", "items": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": list(SUPPORTED_TOOLS)}}},
     "first_actions": _STRINGS,
     "terminal_statuses": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": ["completed", "refused"]}},
     "refusal_codes": _STRINGS,

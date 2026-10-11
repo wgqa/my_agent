@@ -16,6 +16,7 @@ _ARG_KEYS = {
     "read_project_context": ("path", "target"), "changed_files": ("mode", "base_ref", "head_ref"),
     "git_diff": ("path", "mode", "base_ref", "head_ref"), "find_tests": ("path",),
     "knowledge_search": ("query",),
+    "get_project_info": ("include_documentation",),
 }
 _RESULT_KEYS = {
     "calculator": ("value",), "code_search": ("matches",),
@@ -24,6 +25,8 @@ _RESULT_KEYS = {
     "git_diff": ("path", "mode", "truncated", "diff", "start_line", "end_line"),
     "find_tests": ("candidates", "returned_count", "truncated", "omitted_sensitive_count"),
     "knowledge_search": ("matches",),
+    "get_project_info": ("project_name", "source", "available", "documentation_scope",
+                         "documentation_entrypoints", "documentation_truncated"),
 }
 _NESTED_KEYS = {
     "target": ("kind", "start_line", "line", "context_lines", "names", "query"),
