@@ -131,6 +131,9 @@ READ_PROJECT_TARGETS_SPEC = ToolSpec(
 class ReadProjectTargetsHandler(ReadProjectContextHandler):
     def execute(self, arguments):
         candidate, source_lines = self._load_source(arguments["path"])
+        return self._execute_loaded(candidate, source_lines, arguments)
+
+    def _execute_loaded(self, candidate, source_lines, arguments):
         target = arguments["target"]
         regions, targets = [], []
         selection_truncated = False

@@ -73,6 +73,7 @@ jobs:
           tests/test_engineering_requirement_planning.py
           tests/test_engineering_requirement_shadow.py
           tests/test_engineering_materials.py
+          tests/test_engineering_material_matching.py
           tests/test_engineering_completion_review.py
           tests/test_engineering_candidate_runtime.py
           tests/test_engineering_candidate_api.py

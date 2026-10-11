@@ -27,6 +27,9 @@ from core.tool_agent.tools.read_project_context import (
 from core.tool_agent.tools.read_project_targets import (
     READ_PROJECT_TARGETS_SPEC, READ_PROJECT_TARGETS_VERSION, ReadProjectTargetsHandler,
 )
+from core.tool_agent.tools.read_project_snapshot import (
+    READ_PROJECT_SNAPSHOT_SPEC, READ_PROJECT_SNAPSHOT_VERSION, ReadProjectSnapshotHandler,
+)
 from core.tool_agent.tools.knowledge_search import (
     KNOWLEDGE_SEARCH_SPEC,
     KnowledgeSearchHandler,
@@ -80,6 +83,8 @@ def build_readonly_tool_registry(
         reader_spec, reader_handler = READ_PROJECT_CONTEXT_SPEC, ReadProjectContextHandler
     elif read_project_context_version == READ_PROJECT_TARGETS_VERSION:
         reader_spec, reader_handler = READ_PROJECT_TARGETS_SPEC, ReadProjectTargetsHandler
+    elif read_project_context_version == READ_PROJECT_SNAPSHOT_VERSION:
+        reader_spec, reader_handler = READ_PROJECT_SNAPSHOT_SPEC, ReadProjectSnapshotHandler
     else:
         raise ValueError(f"Unsupported read_project_context version: {read_project_context_version!r}")
     registry.register(reader_spec, reader_handler(repo_root=repo_root))

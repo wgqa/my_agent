@@ -23,6 +23,7 @@ MATERIAL_SCHEMA_VERSION = "engineering_material_v1"
 LEDGER_SCHEMA_VERSION = "engineering_material_ledger_v2"
 TOOL_RESULT_SCHEMA_VERSION = "engineering_tool_result_evidence_v1"
 MATERIAL_ADAPTER_VERSION = "engineering_material_adapters_v1"
+MATERIAL_SNAPSHOT_ADAPTER_VERSION = "engineering_material_adapters_v2"
 
 
 def registered_material_specs() -> dict[tuple[str, str], ToolSpec]:
@@ -35,11 +36,12 @@ def registered_material_specs() -> dict[tuple[str, str], ToolSpec]:
     from core.tool_agent.tools.project_info import PROJECT_INFO_SPEC, PROJECT_INFO_DOCUMENTATION_SPEC
     from core.tool_agent.tools.read_project_context import READ_PROJECT_CONTEXT_SPEC
     from core.tool_agent.tools.read_project_targets import READ_PROJECT_TARGETS_SPEC
+    from core.tool_agent.tools.read_project_snapshot import READ_PROJECT_SNAPSHOT_SPEC
     from core.tool_agent.tools.test_discovery import FIND_TESTS_SPEC
     specs = (CALCULATOR_SPEC, CODE_SEARCH_SPEC, CODE_SEARCH_TEST_SPEC,
              CHANGED_FILES_SPEC, GIT_DIFF_SPEC, KNOWLEDGE_SEARCH_SPEC,
              PROJECT_INFO_SPEC, PROJECT_INFO_DOCUMENTATION_SPEC,
-             READ_PROJECT_CONTEXT_SPEC, READ_PROJECT_TARGETS_SPEC, FIND_TESTS_SPEC)
+             READ_PROJECT_CONTEXT_SPEC, READ_PROJECT_TARGETS_SPEC, READ_PROJECT_SNAPSHOT_SPEC, FIND_TESTS_SPEC)
     return {(s.name, s.version): s for s in specs}
 
 
@@ -50,13 +52,21 @@ def check_material_spec(spec: ToolSpec) -> None:
         raise ValueError("MATERIAL_ADAPTER_UNAVAILABLE")
 
 
+def material_adapter_version(specs):
+    from core.tool_agent.tools.read_project_snapshot import READ_PROJECT_SNAPSHOT_VERSION
+    return (MATERIAL_SNAPSHOT_ADAPTER_VERSION if any(s.name == "read_project_context"
+            and s.version == READ_PROJECT_SNAPSHOT_VERSION for s in specs) else MATERIAL_ADAPTER_VERSION)
+
+
 def capability_manifest(specs) -> tuple[dict, ...]:
+    specs = tuple(specs)
+    adapter_version = material_adapter_version(specs)
     result = []
     for spec in specs:
         check_material_spec(spec)
         result.append({"tool_name": spec.name, "tool_version": spec.version,
                        "input_schema": spec.input_schema, "output_schema": spec.output_schema,
-                       "adapter_version": MATERIAL_ADAPTER_VERSION})
+                       "adapter_version": adapter_version})
     return tuple(sorted(result, key=lambda item: item["tool_name"]))
 
 
@@ -174,7 +184,9 @@ class MaterialLedger:
     are stored separately for judging refusals; they never receive an E-ID.
     """
     def __init__(self, specs, initial_evidence=(), *, binding_identity=None, knowledge_provenance=()):
+        specs = tuple(specs)
         self.capabilities = capability_manifest(specs)
+        self.adapter_version = material_adapter_version(specs)
         self._specs = {s.name: s for s in specs}
         self._records: list[MaterialRecord] = []
         self._attempts_json: list[str] = []
@@ -204,7 +216,7 @@ class MaterialLedger:
         return tuple(record.evidence for record in self._records)
 
     def snapshot(self):
-        return {"schema_version": LEDGER_SCHEMA_VERSION, "adapter_version": MATERIAL_ADAPTER_VERSION,
+        return {"schema_version": LEDGER_SCHEMA_VERSION, "adapter_version": self.adapter_version,
                 "binding_identity": self.binding_identity,
                 "materials": [record.to_dict() for record in self._records],
                 "tool_attempts": self.tool_attempts}
@@ -267,6 +279,14 @@ class MaterialLedger:
                 complete = fragment.get("content_complete")
                 if target_results:
                     complete = all(t.get("content_complete") is True for t in target_results)
+                snapshot_details = {}
+                if "source_snapshot" in result:
+                    indices = [entry["region_index"] for entry in result["region_objects"]]
+                    if indices != list(range(len(result["regions"]))):
+                        raise ValueError("snapshot region identities must match actual regions")
+                    objects = result["region_objects"][index]
+                    snapshot_details = {"source_snapshot": result["source_snapshot"],
+                        "objects": objects["objects"], "object_index_truncated": objects["truncated"]}
                 candidates.append((item, (item.kind,), "body", {
                     "content_complete": complete, "completeness_scope": "requested_object",
                     "targets": target_results, "request": arguments,
@@ -274,6 +294,7 @@ class MaterialLedger:
                     "selection_truncated": result.get("selection_truncated", False),
                     "definition": fragment.get("definition"),
                     "truncation_reasons": fragment.get("truncation_reasons", []),
+                    **snapshot_details,
                 }))
             # Ambiguous/not-found Reader targets are locator facts, not bodies.
             if not candidates:

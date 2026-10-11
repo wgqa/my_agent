@@ -94,6 +94,8 @@ def test_actual_missing_file_has_refusal_feedback_without_body_or_answer_stream(
     ("rule", "legacy", "legacy"), ("shadow", "legacy", "legacy"),
     ("rule", "goal_v2", "structural_v2"), ("llm", "goal_v2", "structural_v2"),
     ("llm", "goal_v2", "semantic_v1"),
+    ("rule", "goal_v2", "structural_v3"), ("llm", "goal_v2", "structural_v3"),
+    ("llm", "goal_v2", "semantic_v2"),
 ])
 def test_product_only_accepts_explicit_valid_combinations(monkeypatch, mode, evidence, finalization):
     for key, value in (("ENGINEERING_REQUIREMENT_MODE", mode), ("ENGINEERING_EVIDENCE_POLICY", evidence),
@@ -103,7 +105,8 @@ def test_product_only_accepts_explicit_valid_combinations(monkeypatch, mode, evi
 
 
 @pytest.mark.parametrize("settings", [("llm", "legacy", "legacy"), ("shadow", "goal_v2", "semantic_v1"),
-    ("rule", "goal_v2", "semantic_v1"), ("llm", "goal_v2", "legacy"), ("unknown", "legacy", "legacy")])
+    ("rule", "goal_v2", "semantic_v1"), ("rule", "goal_v2", "semantic_v2"),
+    ("llm", "goal_v2", "legacy"), ("unknown", "legacy", "legacy")])
 def test_illegal_combinations_do_not_silently_fallback(monkeypatch, settings):
     for key, value in zip(("ENGINEERING_REQUIREMENT_MODE", "ENGINEERING_EVIDENCE_POLICY", "ENGINEERING_FINALIZATION_POLICY"), settings):
         monkeypatch.setenv(key, value)

@@ -85,13 +85,14 @@ def unavailable_attempt_ids(goal, material_snapshot):
                  and item["error_code"] in {"PROJECT_CONTEXT_FILE_NOT_FOUND", "PROJECT_CONTEXT_FILE_UNREADABLE"})
 
 
-def goal_availability(contract, ledger):
+def goal_availability(contract, ledger, *, matcher=None):
     # Local import avoids a module cycle; the check itself never invokes a model.
     from core.engineering_candidate_verification import material_matches_goal
     material_snapshot = ledger.snapshot()
     states = []
     for goal in contract.goals:
-        ids = tuple(record.evidence.evidence_id for record in ledger.records if material_matches_goal(goal, record))
+        ids = (matcher(goal, ledger.records) if matcher else
+               tuple(record.evidence.evidence_id for record in ledger.records if material_matches_goal(goal, record)))
         attempts = () if ids else unavailable_attempt_ids(goal.to_dict(), material_snapshot)
         states.append({"goal_id": goal.goal_id,
             "state": "available" if ids or goal.depth == "direct" else ("unavailable" if attempts else "missing"),
@@ -120,7 +121,7 @@ class CompletionReviewInput:
         return digest(self.payload)
 
     @classmethod
-    def create(cls, snapshot, contract, ledger, action, remaining):
+    def create(cls, snapshot, contract, ledger, action, remaining, *, matcher=None):
         from core.engineering_requirement_contract import RequirementContract, requirement_input
         from core.engineering_context import EngineeringContextSnapshot
         from core.engineering_materials import MaterialLedger
@@ -138,7 +139,7 @@ class CompletionReviewInput:
                          "material_snapshot_sha256": ledger.snapshot_sha256, "submission_sha256": digest(submission),
                          "prompt_version": REVIEW_PROMPT_VERSION, "prompt_sha256": REVIEW_PROMPT_SHA256},
             "request": request, "contract": contract.to_dict(), "capabilities": list(ledger.capabilities),
-            "materials": ledger.snapshot(), "goal_availability": goal_availability(contract, ledger),
+            "materials": ledger.snapshot(), "goal_availability": goal_availability(contract, ledger, matcher=matcher),
             "submission": submission, "remaining": remaining,
             "limits": {"max_input_characters": REVIEW_MAX_INPUT_CHARACTERS,
                        "max_output_tokens": REVIEW_MAX_OUTPUT_TOKENS, "max_attempts": REVIEW_MAX_ATTEMPTS}}))

@@ -109,7 +109,7 @@ def rescore_run(output):
     return {"status": "rescored", "model_calls": 0, "groups": summary}
 
 
-def run_case(case, project, library, group, recorder):
+def run_case(case, project, library, group, recorder, *, settings=None):
     from .product_runtime import build_product_runtime
     from core.engineering_agent import EngineeringAgentFacade
     from core.engineering_requirement_planning import RuleRequirementProvider
@@ -117,7 +117,8 @@ def run_case(case, project, library, group, recorder):
     from core.unified_engineering_runtime import UnifiedEngineeringRuntime, LegacyToolAgentExecutionAdapter
 
     keys = ("ENGINEERING_REQUIREMENT_MODE", "ENGINEERING_EVIDENCE_POLICY", "ENGINEERING_FINALIZATION_POLICY")
-    with patch.dict(os.environ, dict(zip(keys, GROUP_SETTINGS[group]))):
+    selected_settings = settings if settings is not None else GROUP_SETTINGS[group]
+    with patch.dict(os.environ, dict(zip(keys, selected_settings))):
         assembly = build_product_runtime(project, library)
     if group == "A":
         # Same whole-request cooperative deadline as candidates; no changing the
@@ -175,15 +176,21 @@ def run_case(case, project, library, group, recorder):
     if hasattr(result, "finalization"):
         recorder.add("review_summary", **result.finalization.to_dict())
     return result, {"runtime": identity, "decision_version": profile.version, "decision_sha256": profile.sha256,
-                    "settings": dict(zip(keys, GROUP_SETTINGS[group]))}
+                    "settings": dict(zip(keys, selected_settings))}
 
 
 def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live,
-            experiment_version=EXPERIMENT_VERSION, scope="known development only; no heldout cases", protocol_identity=None):
+            experiment_version=EXPERIMENT_VERSION, scope="known development only; no heldout cases", protocol_identity=None,
+            group_settings=None):
     if output.exists():
         raise ValueError("experiment output already exists; never overwrite a run")
-    if not groups or len(set(groups)) != len(groups) or any(group not in GROUP_SETTINGS for group in groups):
+    settings_matrix = GROUP_SETTINGS if group_settings is None else group_settings
+    if not groups or len(set(groups)) != len(groups) or any(group not in settings_matrix for group in groups):
         raise ValueError("invalid experiment groups")
+    if any(tuple(settings_matrix[g]) not in GROUP_SETTINGS.values()
+           and tuple(settings_matrix[g]) not in {("rule", "goal_v2", "structural_v3"),
+               ("llm", "goal_v2", "structural_v3"), ("llm", "goal_v2", "semantic_v2")} for g in groups):
+        raise ValueError("invalid product settings in experiment matrix")
     output.mkdir(parents=True, exist_ok=False)
     state = output / "state"
     state.mkdir()
@@ -202,7 +209,7 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live,
     manifest = {"schema_version": experiment_version, "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(), "code_head": head,
         "business": business_fingerprint(), "evaluator": evaluator_fingerprint(),
-        "groups": list(groups), "group_settings": {g: GROUP_SETTINGS[g] for g in groups},
+        "groups": list(groups), "group_settings": {g: settings_matrix[g] for g in groups},
         "case_ids": [case["id"] for case in cases], "cases_sha256": digest(cases),
         "projects": projects, "knowledge": library_identity(library, state / "knowledge.sqlite3"),
         "live": live, "planned_runs": len(cases) * len(groups),
@@ -222,7 +229,8 @@ def execute(*, cases, groups, run_id, output, source_cache, corpus_root, live,
                 try:
                     if (business_fingerprint() != manifest["business"] or evaluator_fingerprint() != manifest["evaluator"]):
                         raise RuntimeError("VERSION_CHANGED")
-                    result, identity = run_case(case, roots[case["project"]], library, group, recorder)
+                    result, identity = run_case(case, roots[case["project"]], library, group, recorder,
+                        **({"settings": settings_matrix[group]} if group_settings is not None else {}))
                     if business_fingerprint() != manifest["business"] or evaluator_fingerprint() != manifest["evaluator"]:
                         raise RuntimeError("VERSION_CHANGED")
                     score = score_tool_records(case, recorder.events)

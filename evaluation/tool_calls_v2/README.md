@@ -118,3 +118,8 @@ python -m evaluation.tool_calls_v2.evidence_acceptance --phase stability-3 --liv
 ```
 
 去掉 --live 只准备独立资料，不调用模型；加 --preflight 执行参考 Gold 工具路径，其合成终态仅证明材料可达。详情见 [运行前冻结协议](../../docs/validation/2026-10-11-evidence-formal-protocol.md)。
+# 材料层修复回归（独立于原四组协议）
+
+`python -m evaluation.tool_calls_v2.material_repair --component --run-id <新ID>` 固定原 D 组合同和答案，重新读取同一 fixture 以补充 Reader v5 身份；原 Reader 输出必须逐条相同。零模型，只输出材料支持诊断，不改变原分数/终态。
+
+`python -m evaluation.tool_calls_v2.material_repair --live --run-id <新ID>` 默认运行已固定的 18 道已知题、D/D2 两组，共 36 次；`--selection all-known` 为全部 96 道已知回归。D 为原 semantic_v1 / Reader v4，D2 为 semantic_v2 / Reader v5；三个提示词、预算、Gold 与工具评分器不同时修改。自然合同可能不同，不能宣称纯审核或材料的因果消融。原四组 GROUP_SETTINGS 与原正式评测入口继续保留。所有 run ID 必须新建，不覆盖旧记录。

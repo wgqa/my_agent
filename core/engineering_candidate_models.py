@@ -65,14 +65,14 @@ class CandidateFinalizationSummary:
 
     def __post_init__(self):
         if (self.schema_version != CANDIDATE_FINALIZATION_VERSION
-                or self.policy not in {"structural_v2", "semantic_v1"}
+                or self.policy not in {"structural_v2", "semantic_v1", "structural_v3", "semantic_v2"}
                 or type(self.review_calls) is not int or not 0 <= self.review_calls <= 2
                 or self.decision not in {None, "accept", "need_material", "revise_answer", "refuse", "structural_accept"}
                 or self.failure_code not in (None, *CANDIDATE_FAILURE_CODES)
                 or type(self.missing_goals) is not tuple
                 or any(goal not in {f"g{i}" for i in range(1, 9)} for goal in self.missing_goals)):
             raise ValueError("invalid candidate finalization summary")
-        if self.policy == "structural_v2" and self.review_calls:
+        if self.policy.startswith("structural_") and self.review_calls:
             raise ValueError("structural comparison cannot claim semantic reviews")
         for value in (self.review_input_tokens, self.review_output_tokens, self.review_latency_ms):
             if value is not None and (type(value) is not int or value < 0):
@@ -169,7 +169,7 @@ class CandidateToolAgentRunResult:
         if self.execution is not None and type(self.execution) is not ToolAgentExecutionMetrics:
             raise TypeError("invalid candidate execution metrics")
         if self.status == "completed":
-            if self.finalization.policy == "semantic_v1":
+            if self.finalization.policy.startswith("semantic_"):
                 if (self.finalization.decision != "accept" or not self.review_records
                         or self.review_records[-1].outcome.result is None
                         or self.review_records[-1].outcome.result.decision != "accept"

@@ -68,6 +68,7 @@ from core.tool_agent.decision_prompt import (
 )
 from core.tool_agent.tools.code_search import CODE_SEARCH_TEST_VERSION
 from core.tool_agent.tools.read_project_targets import READ_PROJECT_TARGETS_VERSION
+from core.tool_agent.tools.read_project_snapshot import READ_PROJECT_SNAPSHOT_VERSION
 from core.tool_agent.tools.project_info import PROJECT_INFO_DOCUMENTATION_VERSION, ProjectBinding
 from api.schemas import (
     AgentQueryRequest,
@@ -164,7 +165,9 @@ def _product_evidence_settings():
     settings = (mode, evidence, finalization)
     if settings not in {("rule", "legacy", "legacy"), ("shadow", "legacy", "legacy"),
                         ("rule", "goal_v2", "structural_v2"), ("llm", "goal_v2", "structural_v2"),
-                        ("llm", "goal_v2", "semantic_v1")}:
+                        ("llm", "goal_v2", "semantic_v1"),
+                        ("rule", "goal_v2", "structural_v3"), ("llm", "goal_v2", "structural_v3"),
+                        ("llm", "goal_v2", "semantic_v2")}:
         if evidence == "legacy" and finalization == "legacy":
             raise ValueError("ENGINEERING_REQUIREMENT_MODE must be rule or shadow with legacy policies; candidate llm requires goal_v2")
         raise ValueError("Invalid ENGINEERING_REQUIREMENT_MODE/evidence/finalization combination")
@@ -197,7 +200,8 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
         prompt_profile=(ENGINEERING_DECISION_PROMPT_CANDIDATE_V4_PROFILE if settings[1] == "goal_v2"
                         else ENGINEERING_DECISION_PROMPT_PROJECT_OVERVIEW_PROFILE),
         code_search_version=CODE_SEARCH_TEST_VERSION,
-        read_project_context_version=READ_PROJECT_TARGETS_VERSION,
+        read_project_context_version=(READ_PROJECT_SNAPSHOT_VERSION if settings[2] in {"structural_v3", "semantic_v2"}
+                                      else READ_PROJECT_TARGETS_VERSION),
         project_binding=ProjectBinding(project.root, project.project_name, project.source),
         project_info_version=PROJECT_INFO_DOCUMENTATION_VERSION,
     )
@@ -208,7 +212,7 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
     if settings[1] == "goal_v2":
         reviewer = (LLMCompletionReviewer(provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
                     api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL)
-                    if settings[2] == "semantic_v1" else None)
+                    if settings[2] in {"semantic_v1", "semantic_v2"} else None)
         candidate_verifier = CandidateEvidenceVerifier(policy=settings[2], reviewer=reviewer)
     context_resolver = EngineeringContextResolver(OpenAICompatibleConversationQueryResolver(
         provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,

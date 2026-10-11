@@ -7,6 +7,7 @@ import pytest
 
 from core.engineering_candidate_models import CandidateToolAgentRunResult, CandidateTaskContext
 from core.engineering_candidate_verification import CandidateEvidenceVerifier
+from core.engineering_requirement_contract import digest
 from core.engineering_completion_review import (
     BaseCompletionReviewer, CompletionReviewOutcome, REVIEW_OUTPUT_VERSION, parse_review_output,
 )
@@ -77,22 +78,24 @@ class Decision:
         return AgentDecisionOutcome(action=action, failure_code=None, call_metadata=None)
 
 
-def build(tmp_path, actions, *, reviewer=None, goals=None, budget=None, requirements=None, port=None, planner=None):
+def build(tmp_path, actions, *, reviewer=None, goals=None, budget=None, requirements=None, port=None, planner=None,
+          policy=None, reader_version=READ_PROJECT_TARGETS_VERSION):
     (tmp_path / "a.py").write_text("def A():\n    return 1\n\ndef B():\n    return 2\n", encoding="utf-8")
     port = port or EmptyRetrievalPort()
     registry = build_readonly_tool_registry(tmp_path, port, code_search_version=CODE_SEARCH_TEST_VERSION,
-        read_project_context_version=READ_PROJECT_TARGETS_VERSION,
+        read_project_context_version=reader_version,
         project_binding=ProjectBinding(tmp_path, "fixture", "configured"),
         project_info_version=PROJECT_INFO_DOCUMENTATION_VERSION)
     decision = Decision(actions)
-    runtime = ToolAgentRuntime(registry=registry, provider=decision, budget=budget)
+    runtime = ToolAgentRuntime(registry=registry, provider=decision, budget=budget,
+        binding_identity=digest({"root": str(tmp_path), "project_name": "fixture", "source": "configured"}))
     provider = requirements or SelectedRequirementProvider(mode="llm", evidence_policy="goal_v2",
                                       llm=llm(Client(output(*(goals or [goal(), goal("B", "B")])))))
     unified = UnifiedEngineeringRuntime(LegacyToolAgentExecutionAdapter(runtime),
         context_resolver=EngineeringContextResolver(), evidence_planner=EngineeringEvidencePlanner(planner or NoRetrievalPlanner()),
         retrieval_component=EngineeringRetrievalComponent(port), evidence_verifier=EngineeringEvidenceVerifier(),
         requirement_provider=provider,
-        candidate_verifier=CandidateEvidenceVerifier(policy="semantic_v1" if reviewer else "structural_v2", reviewer=reviewer))
+        candidate_verifier=CandidateEvidenceVerifier(policy=policy or ("semantic_v1" if reviewer else "structural_v2"), reviewer=reviewer))
     return unified, decision
 
 

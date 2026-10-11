@@ -110,9 +110,9 @@ def material_matches_goal(goal, record):
 
 class CandidateEvidenceVerifier:
     def __init__(self, *, policy="structural_v2", reviewer=None):
-        if policy not in {"structural_v2", "semantic_v1"}:
+        if policy not in {"structural_v2", "semantic_v1", "structural_v3", "semantic_v2"}:
             raise ValueError("unknown candidate finalization policy")
-        if (policy == "semantic_v1") != isinstance(reviewer, BaseCompletionReviewer):
+        if policy.startswith("semantic_") != isinstance(reviewer, BaseCompletionReviewer):
             raise ValueError("semantic policy requires its reviewer; structural comparison has none")
         self.policy, self.reviewer = policy, reviewer
 
@@ -120,7 +120,7 @@ class CandidateEvidenceVerifier:
         if type(outcome.requirement) is not RequirementContract or outcome.metadata.evidence_policy != "goal_v2":
             raise TypeError("candidate verification requires a frozen candidate contract")
         outcome.validate_input(snapshot)
-        if self.policy == "semantic_v1" and outcome.metadata.effective_implementation != "llm":
+        if self.policy.startswith("semantic_") and outcome.metadata.effective_implementation != "llm":
             raise ValueError("semantic candidate requires strict LLM requirements")
         if retrieval_snapshot.planner_outcome != planner_outcome:
             raise ValueError("candidate retrieval/planner identity mismatch")
@@ -141,8 +141,13 @@ class BoundCandidateEvidenceVerifier:
             "rank": item.rank, "query_id": item.query_id,
             "required_query_ids": list(retrieval.required_query_ids),
             "covered_query_ids": list(retrieval.covered_query_ids)} for item in retrieval.evidence_bundle.items)
-        return CandidateVerificationSession(self, MaterialLedger(specs, initial_evidence,
+        session = CandidateVerificationSession(self, MaterialLedger(specs, initial_evidence,
             binding_identity=binding_identity, knowledge_provenance=knowledge_provenance))
+        if self.verifier.policy in {"structural_v3", "semantic_v2"}:
+            from core.engineering_materials import MATERIAL_SNAPSHOT_ADAPTER_VERSION
+            if session.ledger.adapter_version != MATERIAL_SNAPSHOT_ADAPTER_VERSION:
+                raise ValueError("material matcher v2 requires snapshot Reader v5")
+        return session
 
 
 class CandidateVerificationSession:
@@ -163,7 +168,7 @@ class CandidateVerificationSession:
     def progress(self, records=None):
         records = self.ledger.records if records is None else tuple(records)
         contract = self.bound.contract
-        matches = tuple((goal.goal_id, tuple(r.evidence.evidence_id for r in records if material_matches_goal(goal, r)))
+        matches = tuple((goal.goal_id, self.material_ids(goal, records))
                         for goal in contract.goals)
         missing = tuple(goal.goal_id for goal, (_, ids) in zip(contract.goals, matches)
                         if goal.depth not in {"direct", "unsupported"} and not ids)
@@ -184,18 +189,32 @@ class CandidateVerificationSession:
             retrieval_required=knowledge_required)
         return CandidateProgress(matches, missing, unsupported, knowledge.can_generate, legacy_ready)
 
+    def material_ids(self, goal, records):
+        if self.bound.verifier.policy in {"structural_v3", "semantic_v2"}:
+            from core.engineering_material_matching import goal_material_ids
+            return goal_material_ids(goal, records)
+        return tuple(r.evidence.evidence_id for r in records if material_matches_goal(goal, r))
+
+    def availability(self):
+        return goal_availability(self.bound.contract, self.ledger, matcher=self.material_ids)
+
     def task_context(self):
-        return {"schema_version": "engineering_candidate_task_context_v2",
+        context = {"schema_version": "engineering_candidate_task_context_v2",
                 "requirement": self.bound.contract.to_dict(), "progress": self.progress().to_dict(),
-                "goal_availability": goal_availability(self.bound.contract, self.ledger),
+                "goal_availability": self.availability(),
                 "material_catalog": [m.to_dict() for m in self.ledger.records],
                 "tool_attempts": self.ledger.tool_attempts,
                 "review_feedback": self.feedback}
+        if self.bound.verifier.policy in {"structural_v3", "semantic_v2"}:
+            from core.engineering_material_matching import MATERIAL_MATCHER_VERSION
+            context["material_matcher_version"] = MATERIAL_MATCHER_VERSION
+        return context
 
     def submit(self, action, *, remaining, timeout_seconds):
         if type(action) not in (FinalAnswerAction, RefuseAction):
             raise TypeError("review requires an actual submission")
-        review_input = CompletionReviewInput.create(self.bound.snapshot, self.bound.contract, self.ledger, action, remaining)
+        review_input = CompletionReviewInput.create(self.bound.snapshot, self.bound.contract, self.ledger, action, remaining,
+                                                   matcher=self.material_ids)
         check = self._submit(action, review_input, timeout_seconds=timeout_seconds)
         self.submissions.append(CandidateSubmissionRecord(review_input, check.decision, check.missing_goals,
                                                          check.failure_code, check.feedback, check.refusal_reason_code))
@@ -217,7 +236,7 @@ class CandidateVerificationSession:
             if progress.structurally_ready and not self.progress(cited).structurally_ready:
                 references = "；".join(f"{goal}: {', '.join('[' + eid + ']' for eid in ids)}" for goal, ids in progress.goals if ids)
                 return self._check("revise_answer", feedback="资料已取得。引用必须使用半角方括号 [E数字]，只写 E6 或（E6）不算引用。目标对应资料：" + references)
-        if self.bound.verifier.policy == "structural_v2":
+        if self.bound.verifier.policy.startswith("structural_"):
             if type(action) is RefuseAction:
                 return self._check("refuse")
             unavailable = {item["goal_id"] for item in review_input.payload["goal_availability"]
@@ -255,7 +274,7 @@ class CandidateVerificationSession:
             records_by_id = {m.evidence.evidence_id: m for m in self.ledger.records}
             refs = set(parse_answer_evidence_references(action.answer))
             for goal, verdict in zip(self.bound.contract.goals, reviewed.goals):
-                if ((goal.source_kinds and not any(material_matches_goal(goal, records_by_id[eid]) for eid in verdict.evidence_ids))
+                if ((goal.source_kinds and not self.material_ids(goal, [records_by_id[eid] for eid in verdict.evidence_ids]))
                         or not set(verdict.evidence_ids).issubset(refs)):
                     return self._check("revise_answer", (goal.goal_id,), feedback="审核批准所需的资料与答案引用不一致，需要修正提交。")
         refusal_reason = None
@@ -271,7 +290,7 @@ class CandidateVerificationSession:
 
     def can_recover(self, check, *, iterations, tool_calls, tool_errors, budget, enabled_tools):
         if (iterations >= budget.max_agent_iterations
-                or (self.bound.verifier.policy == "semantic_v1" and self.review_calls >= REVIEW_MAX_ATTEMPTS)):
+                or (self.bound.verifier.policy.startswith("semantic_") and self.review_calls >= REVIEW_MAX_ATTEMPTS)):
             return False
         if check.decision == "revise_answer":
             if self.submission_corrections >= 1:

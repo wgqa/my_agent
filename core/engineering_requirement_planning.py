@@ -342,15 +342,19 @@ class LLMRequirementProvider(BaseRequirementProvider):
         self._prompt_version = prompt_version
         self._capabilities_json = None
         if prompt_version == REQUIREMENT_CANDIDATE_PROMPT_VERSION:
-            from core.engineering_materials import registered_material_specs, MATERIAL_ADAPTER_VERSION
+            from core.engineering_materials import registered_material_specs, material_adapter_version
             if type(capabilities) not in (tuple, list) or not capabilities:
                 raise ValueError("candidate planning requires actual capabilities")
             known = registered_material_specs()
+            resolved = [known.get((entry.get("tool_name"), entry.get("tool_version"))) for entry in capabilities]
+            if any(spec is None for spec in resolved):
+                raise ValueError("invalid requirement capability manifest")
+            adapter_version = material_adapter_version(resolved)
             for entry in capabilities:
                 spec = known.get((entry.get("tool_name"), entry.get("tool_version")))
                 if (spec is None or entry.get("input_schema") != spec.input_schema
                         or entry.get("output_schema") != spec.output_schema
-                        or entry.get("adapter_version") != MATERIAL_ADAPTER_VERSION):
+                        or entry.get("adapter_version") != adapter_version):
                     raise ValueError("invalid requirement capability manifest")
             self._capabilities_json = canonical_json(list(capabilities))
         elif capabilities is not None:
