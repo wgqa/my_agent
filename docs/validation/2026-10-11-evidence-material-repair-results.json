@@ -1,0 +1,774 @@
+{
+  "baseline_results_head": "f44c79aebc8c8634a86e3cc4666dac05e7a4070c",
+  "budget": {
+    "deadline_seconds": 60,
+    "decisions": 5,
+    "review_calls": 2,
+    "tool_errors": 2,
+    "tools": 4
+  },
+  "business_sha256": "ecb0415ef2b1850b10a21d29b0a15fe3b2cbfd8246aea4a5541feb9b914ca311",
+  "case_matrix": [
+    {
+      "case_id": "dev-007",
+      "groups": {
+        "D": {
+          "artifact": "dev-007_D.json",
+          "artifact_sha256": "9fb830562e60dfe88701ce83f4540892edc0b1ba753b4e77ef8fa763e04b9f8e",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "dev-007_D2.json",
+          "artifact_sha256": "1a7373399604e9269dee4fa2a78875221398b9c983fca916529898752b445a8c",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-013",
+      "groups": {
+        "D": {
+          "artifact": "dev-013_D.json",
+          "artifact_sha256": "b7a6d1f6310da085c623ca4384ec35713da51d5e82982e99b8ada5b00ab2c68c",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "dev-013_D2.json",
+          "artifact_sha256": "dbcadccf5d7562373a2daf400bf153a665e6d5855b8534447a79983b2d5aefbd",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-017",
+      "groups": {
+        "D": {
+          "artifact": "dev-017_D.json",
+          "artifact_sha256": "aec914cc3bfb07c8d05cd8183ab50a9ca0611c4e257232d33dd5a6ded58cf593",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PARTIAL"
+        },
+        "D2": {
+          "artifact": "dev-017_D2.json",
+          "artifact_sha256": "1c2d6bfe1dde2b12d41c28e29149013087d2ac870aaafe1af5f0d04a0c39129b",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-020",
+      "groups": {
+        "D": {
+          "artifact": "dev-020_D.json",
+          "artifact_sha256": "4538b9eacc7861760b5b94ba1a2eb51ba0050bc6e597cfaa5c26c7c08754a150",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        },
+        "D2": {
+          "artifact": "dev-020_D2.json",
+          "artifact_sha256": "beb4ec4a309163df2d8bcbd8fdb6a6f11418be41fee1be67da55228a7262d917",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-025",
+      "groups": {
+        "D": {
+          "artifact": "dev-025_D.json",
+          "artifact_sha256": "e0b3d770d5f44c02c86cfaf43b016ef131d6870b5184262c5e767a481da227dd",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        },
+        "D2": {
+          "artifact": "dev-025_D2.json",
+          "artifact_sha256": "269fce9ca03c5b45164d59dba80c1f666f35e501581e9b4630d1a348b3c56334",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-026",
+      "groups": {
+        "D": {
+          "artifact": "dev-026_D.json",
+          "artifact_sha256": "85be822310d89ae5f06e5dad3bd950edc9eedc1ba32a17a870d16afb1c983c4d",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "dev-026_D2.json",
+          "artifact_sha256": "3168f31418f76ff4acdda6b795e78e7701e4f534fcfa1b92ddd08631a9fadb11",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-037",
+      "groups": {
+        "D": {
+          "artifact": "dev-037_D.json",
+          "artifact_sha256": "d9dd046b9f86d4463238b40d24cd4562a703e1926d3cc96955c907c045979676",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_INFORMATION",
+          "status": "refused",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "dev-037_D2.json",
+          "artifact_sha256": "f261bc52065c206ce766423638a9f513747d132d2f2008235e66f9906c5b8b56",
+          "failure_code": "REVIEW_OUTPUT_INVALID",
+          "reason_code": null,
+          "status": "failed",
+          "tool_verdict": "FAIL"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "dev-040",
+      "groups": {
+        "D": {
+          "artifact": "dev-040_D.json",
+          "artifact_sha256": "d09d376784cd650db694db22bcd5c16e4c2f975e38d94879271632f2080ea6c4",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        },
+        "D2": {
+          "artifact": "dev-040_D2.json",
+          "artifact_sha256": "42b5d5db0bdaa110377102c072815cbc47c6cd797157541ef6f36dad86afd6ef",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "val-005",
+      "groups": {
+        "D": {
+          "artifact": "val-005_D.json",
+          "artifact_sha256": "2d83adf15ec8fc9f693efcee4e7fae4e2f786cbbda8692d107a047c8ad862415",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "val-005_D2.json",
+          "artifact_sha256": "66e96e4b683666d72447d71e4e8708cd6209d37f15d217a42add6e4b795dff8f",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": true
+    },
+    {
+      "case_id": "val-019",
+      "groups": {
+        "D": {
+          "artifact": "val-019_D.json",
+          "artifact_sha256": "bac778ad8f691eaa9677e7b2d1f269d6696c3f1bffffa621ddaba19c6638a06c",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "FAIL"
+        },
+        "D2": {
+          "artifact": "val-019_D2.json",
+          "artifact_sha256": "36747c4ff184db2ac683627d899d0f51572f6ff88ee99903417bdfe93d591bf8",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "FAIL"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "val-020",
+      "groups": {
+        "D": {
+          "artifact": "val-020_D.json",
+          "artifact_sha256": "1aa6d9a2f2abdbb894c70c6fce7e6b1fb5793642c7f7eb7b5a445bf5497e61a5",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "val-020_D2.json",
+          "artifact_sha256": "c039da25e3f3d4aaed580cb4c9a38c352bd2d0c773ea5b51ff9bac9390e72d4e",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "val-021",
+      "groups": {
+        "D": {
+          "artifact": "val-021_D.json",
+          "artifact_sha256": "c1535c69f95245298f919f23bb3863d63a74ee44b3ac07153eb376fa256942bf",
+          "failure_code": null,
+          "reason_code": "AGENT_DUPLICATE_TOOL_CALL",
+          "status": "refused",
+          "tool_verdict": "FAIL"
+        },
+        "D2": {
+          "artifact": "val-021_D2.json",
+          "artifact_sha256": "f62b7568bddf81fef12edcbe077d39c9cf8dcc634b825f018ea72e8085a7438e",
+          "failure_code": null,
+          "reason_code": "AGENT_DUPLICATE_TOOL_CALL",
+          "status": "refused",
+          "tool_verdict": "FAIL"
+        }
+      },
+      "same_contract": true
+    },
+    {
+      "case_id": "val-110",
+      "groups": {
+        "D": {
+          "artifact": "val-110_D.json",
+          "artifact_sha256": "00632baee73242c96b15cf63b301e75eec4b91a68093a1bb07279d8a9b1af190",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "val-110_D2.json",
+          "artifact_sha256": "b3983fc0caed64082700948797195ed40e271a1a03d2cbebc5b67b6341f158da",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "val-116",
+      "groups": {
+        "D": {
+          "artifact": "val-116_D.json",
+          "artifact_sha256": "58468f750d26a2e65fc7065b98a55475c81d154764a382c2d1559c8003c68c8c",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_EVIDENCE_TO_FINALIZE",
+          "status": "refused",
+          "tool_verdict": "PARTIAL"
+        },
+        "D2": {
+          "artifact": "val-116_D2.json",
+          "artifact_sha256": "f409a30105b0a356876a3148a9772ef66066a16defed1fddc2e1be2d612d5b8c",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "val-117",
+      "groups": {
+        "D": {
+          "artifact": "val-117_D.json",
+          "artifact_sha256": "866205bd499e4e5350756df8a31166cf66f01c2e4617625016567965aa6c1a78",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "val-117_D2.json",
+          "artifact_sha256": "6a8f02702e9ae41560f947faa48984605bd142dbbca8044b965f80919025fc9b",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PARTIAL"
+        }
+      },
+      "same_contract": false
+    },
+    {
+      "case_id": "val-120",
+      "groups": {
+        "D": {
+          "artifact": "val-120_D.json",
+          "artifact_sha256": "7808aa47654b86bfc93edfedfa0a9c5ec584f824aa80c49214aa3bc99e80eff8",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_INFORMATION",
+          "status": "refused",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "val-120_D2.json",
+          "artifact_sha256": "4cf4ecfc3b974e5c808de5dee1f1505ab2f46fa32653b188e46b5feb5bf104fd",
+          "failure_code": null,
+          "reason_code": "INSUFFICIENT_INFORMATION",
+          "status": "refused",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": true
+    },
+    {
+      "case_id": "val-123",
+      "groups": {
+        "D": {
+          "artifact": "val-123_D.json",
+          "artifact_sha256": "d4aeca10e538aba57b5b1855e708d02a689e7284661738f55f4ed08492897cac",
+          "failure_code": null,
+          "reason_code": "UNSAFE_REQUEST",
+          "status": "refused",
+          "tool_verdict": "PASS"
+        },
+        "D2": {
+          "artifact": "val-123_D2.json",
+          "artifact_sha256": "2217662613fcdb1883c65e7ec229b81b4f5fa1671a6e7b78153b7a6d2b45916c",
+          "failure_code": null,
+          "reason_code": "UNSAFE_REQUEST",
+          "status": "refused",
+          "tool_verdict": "PASS"
+        }
+      },
+      "same_contract": true
+    },
+    {
+      "case_id": "val-124",
+      "groups": {
+        "D": {
+          "artifact": "val-124_D.json",
+          "artifact_sha256": "92836ca47d6e5e2de799f2ce6b86cc3dfcbd4df6a99468c8c5c4dac255354123",
+          "failure_code": "REVIEW_OUTPUT_INVALID",
+          "reason_code": null,
+          "status": "failed",
+          "tool_verdict": "FAIL"
+        },
+        "D2": {
+          "artifact": "val-124_D2.json",
+          "artifact_sha256": "b22a09cba9e52f51afd89811f877e4e1a1f44a5f0c55a46c8cbdbdcf1cf85bda",
+          "failure_code": null,
+          "reason_code": null,
+          "status": "completed",
+          "tool_verdict": "PARTIAL"
+        }
+      },
+      "same_contract": false
+    }
+  ],
+  "cases_sha256": "140819ce63d608b93e97ff61f0e29eff10ebf47ccda5faedd73189a79cfe97d1",
+  "checkpoint_ci": {
+    "conclusion": "success",
+    "job_id": 114414785659,
+    "passed": 1438,
+    "run_id": 38120748006,
+    "skipped": 2
+  },
+  "component_probe": {
+    "byte_identical_body_records": 83,
+    "checked_artifacts": 96,
+    "lost_previously_supported_goals": 0,
+    "model_calls": 0,
+    "review_accept_blocked_before": 18,
+    "review_accept_source_gaps_resolved": 8
+  },
+  "evaluator_sha256": "327834fed8d3b801a07f7b30e307d8aaf1eb5e4ec361e0d1d32dbd3071d0498f",
+  "experiment_code_head": "610adc73960d56e31827882680936ba1a7e95579",
+  "frozen_approved_ids_probe": {
+    "checked_blocked_submissions": 18,
+    "checks": [
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "1253e92a55a4566e3aef6100f715ea2ad0cd13037bbc4baebb004f84d93e789f",
+        "case_id": "dev-007",
+        "input_sha256": "79dd4ad51cf1b2195070af62f76cf3907bef338f68cc4e61f10bf95500253206",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "1253e92a55a4566e3aef6100f715ea2ad0cd13037bbc4baebb004f84d93e789f",
+        "case_id": "dev-007",
+        "input_sha256": "287d2b9e4987a43f14340dbafded1cd9f25462c8826fef95c83f4553a9947634",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 1
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "c40a4a24f9fdfd362afdfd6913f42292477b0e7c1d7df01d42493fa5702976e8",
+        "case_id": "dev-017",
+        "input_sha256": "ae46de133b05ba3caa3ee8f89945400cacbf8b7825e28fd718a7fc35e9ecfdd0",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "c40a4a24f9fdfd362afdfd6913f42292477b0e7c1d7df01d42493fa5702976e8",
+        "case_id": "dev-017",
+        "input_sha256": "e8844d11f2e14b2698772993f456eae3ed11447f6a6e491daf6e238eb04a1cde",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 1
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "4e5675cd68710e3ea5ddecd03fc9d1ebc8aa74bf2adf2d86579fdd892d486a0a",
+        "case_id": "dev-018",
+        "input_sha256": "bbbe6f3f2058c9133918a5f0352a7c4bd75a04472a47dcd658ed548fca0cf43c",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "4e5675cd68710e3ea5ddecd03fc9d1ebc8aa74bf2adf2d86579fdd892d486a0a",
+        "case_id": "dev-018",
+        "input_sha256": "059e409b6731a447849ae304c1ccb6e61405cdf056e2c803a030be085becaeec",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 1
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "6570d397f2ca4f8f068233fa447c05ee6481355c64d7fa353ed90678d4a99b36",
+        "case_id": "dev-020",
+        "input_sha256": "0105df1223a9054ed780b6b313c522f83db091f9bb1aadaf7c68c0108040d492",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "6570d397f2ca4f8f068233fa447c05ee6481355c64d7fa353ed90678d4a99b36",
+        "case_id": "dev-020",
+        "input_sha256": "e4fbccb0d5362be123aff00414ff3172cb10681344e768e9fde5b4802564e971",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 1
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "d439207ab180f8a8de7ace835887292ccbe01c0268c54eaa19dcfeec3efbf4f9",
+        "case_id": "dev-025",
+        "input_sha256": "af5c465f17ca46b3181aa767715cfa493edc48c72508957358ec0c7800b8b542",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "211e16036860c318696e9a5268e05abe311d1edd05fb3896aa63dc54ef494487",
+        "case_id": "dev-040",
+        "input_sha256": "315fc3b5a80c72c7dd15b6c44adb286bc9fb9bb653afae5c78e33f0ba9cf55ba",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "211e16036860c318696e9a5268e05abe311d1edd05fb3896aa63dc54ef494487",
+        "case_id": "dev-040",
+        "input_sha256": "091ecadb7c02dbf218db3f93c3f4ae02cd90a315168f9fbe14704ff15e42f135",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 1
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "5d4d46e005fd2c065cb2704f51e801764603ecf3c9541ce9d30ab27e4ad49dc4",
+        "case_id": "val-009",
+        "input_sha256": "ce008e5a797aa7151dfb19948c24bab96dca663424eec963b23c5adcd1fc4879",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [
+          "g2"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g2"
+        ],
+        "artifact_sha256": "ca67a1b59e33370167d7caeeeed61b137f33103a23b1cb8ca0ff32556fed70ff",
+        "case_id": "val-010",
+        "input_sha256": "b17008a1a497b08345691b95fbbe7c9bc8ff172319b917502f1b0c3f1c9cb93a",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "031d4096a7642caabe7ae06e13bf4f2dd63de9baf886832aef7b288f0d91ec2a",
+        "case_id": "val-015",
+        "input_sha256": "eef143519a922e0bd8a2578f242a3ca3e2c8720f389a04dd5aadef2a884107a8",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [
+          "g1"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g1"
+        ],
+        "artifact_sha256": "515b51a7375672c9f2615b034380c9fabcbd98597cef1fac95bb5f44666b642d",
+        "case_id": "val-019",
+        "input_sha256": "1237814ed0ef0630d0bcd3dab08fe6a491908bfbc2774d8609620d4d74221d03",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [
+          "g1"
+        ],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [
+          "g1"
+        ],
+        "artifact_sha256": "515b51a7375672c9f2615b034380c9fabcbd98597cef1fac95bb5f44666b642d",
+        "case_id": "val-019",
+        "input_sha256": "06c91807c023718f7d259bcdaf941626c482c7591841d9aaebbbcb291539a23d",
+        "source_and_approved_ids_fit": false,
+        "submission_index": 1
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "63fa194c92c657f28efa4438bb6a3ec93533639cc4552cbd4c2d45b9897ef66e",
+        "case_id": "val-116",
+        "input_sha256": "49e15efaeb900d7b8f33c624e56c71cc820b65008c385bdeeba530ff5f9e5e18",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 0
+      },
+      {
+        "all_catalog_missing": [],
+        "approved_ids_cited": true,
+        "approved_ids_missing": [],
+        "artifact_sha256": "63fa194c92c657f28efa4438bb6a3ec93533639cc4552cbd4c2d45b9897ef66e",
+        "case_id": "val-116",
+        "input_sha256": "31273409acac32c8addb80f28bf031ecae5d8b435b14b96a8220cb8a8b2948cb",
+        "source_and_approved_ids_fit": true,
+        "submission_index": 1
+      }
+    ],
+    "scope": "source support and citations only; not a new model approval or rewritten terminal result",
+    "source_and_approved_ids_fit": 7
+  },
+  "group_settings": {
+    "D": [
+      "llm",
+      "goal_v2",
+      "semantic_v1"
+    ],
+    "D2": [
+      "llm",
+      "goal_v2",
+      "semantic_v2"
+    ]
+  },
+  "groups": {
+    "D": {
+      "p50_ms": 6451.255150000179,
+      "p95_ms": 10761.093025000353,
+      "runs": 18,
+      "stage_metrics": {
+        "decision": {
+          "calls": 55,
+          "input_tokens": 530758,
+          "output_tokens": 6421,
+          "usage_missing": 0
+        },
+        "planner": {
+          "calls": 18,
+          "input_tokens": 24892,
+          "output_tokens": 787,
+          "usage_missing": 0
+        },
+        "requirement": {
+          "calls": 18,
+          "input_tokens": 56194,
+          "output_tokens": 2662,
+          "usage_missing": 0
+        },
+        "review": {
+          "calls": 22,
+          "input_tokens": 184402,
+          "output_tokens": 2717,
+          "usage_missing": 0
+        }
+      },
+      "statuses": {
+        "completed": 8,
+        "failed": 1,
+        "refused": 9
+      },
+      "strict_pass_percent": 55.55555555555556,
+      "tool_verdicts": {
+        "FAIL": 3,
+        "PARTIAL": 5,
+        "PASS": 10
+      }
+    },
+    "D2": {
+      "p50_ms": 6372.939949999818,
+      "p95_ms": 9518.144169999414,
+      "runs": 18,
+      "stage_metrics": {
+        "decision": {
+          "calls": 54,
+          "input_tokens": 531769,
+          "output_tokens": 5838,
+          "usage_missing": 0
+        },
+        "planner": {
+          "calls": 18,
+          "input_tokens": 24892,
+          "output_tokens": 782,
+          "usage_missing": 0
+        },
+        "requirement": {
+          "calls": 18,
+          "input_tokens": 61882,
+          "output_tokens": 2832,
+          "usage_missing": 0
+        },
+        "review": {
+          "calls": 21,
+          "input_tokens": 184113,
+          "output_tokens": 2687,
+          "usage_missing": 0
+        }
+      },
+      "statuses": {
+        "completed": 10,
+        "failed": 1,
+        "refused": 7
+      },
+      "strict_pass_percent": 55.55555555555556,
+      "tool_verdicts": {
+        "FAIL": 3,
+        "PARTIAL": 5,
+        "PASS": 10
+      }
+    }
+  },
+  "integrity": {
+    "all_36_artifact_hashes_verified": true,
+    "business_and_evaluator_unchanged_at_completion": true,
+    "component_probe_sha256": "957e25a1893c38543d8495c8788db2bedc17049a1d4cfb460fb6937fdf469790",
+    "fixture_identity_unchanged": true,
+    "knowledge_content_unchanged": true,
+    "manifest_sha256": "1abf0472c4926f0ffcff702e6604f15039243ab16c87c4f9d6c84de2ab49492d",
+    "runs_sha256": "ceb0f21e775ede5058f3410b0ea4aa391852f4af35a4ea953938466391b85d91"
+  },
+  "same_contracts": 4,
+  "schema_version": "engineering_material_repair_results_v1",
+  "scope": "18 selected known regression cases; not blind acceptance or full end-to-end evaluation",
+  "strict_pass_gains": [
+    "dev-040",
+    "val-116"
+  ],
+  "strict_pass_losses": [
+    "dev-037",
+    "val-117"
+  ]
+}
