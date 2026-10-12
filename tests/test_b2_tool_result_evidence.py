@@ -61,6 +61,7 @@ def _tool_evidence(
     tool_name="code_search",
     granularity="locator",
     completeness="complete",
+    call_id="call_test",
     path="src/cache.py",
     line=9,
     scope_paths=("src/cache.py",),
@@ -72,7 +73,7 @@ def _tool_evidence(
         evidence_id=evidence_id,
         kind=kind,
         tool_name=tool_name,
-        call_id="call_test",
+        call_id=call_id,
         tool_version="contract_v1",
         arguments_json=_EMPTY_ARGUMENTS_JSON,
         arguments_sha256=_EMPTY_ARGUMENTS_HASH,
@@ -345,6 +346,41 @@ def test_no_requirement_locator_cannot_bind_a_final_conclusion():
     assert locator_with_body_claim[0] == ANSWER_BINDING_STATUS_INCOMPLETE
 
 
+def test_requirement_eligibility_is_separate_from_bounded_citation_eligibility():
+    query = "TAIL_POLICY"
+    arguments_json = '{"query":"TAIL_POLICY"}'
+    locator = replace(
+        _tool_evidence(),
+        arguments_json=arguments_json,
+        arguments_sha256=hashlib.sha256(arguments_json.encode("utf-8")).hexdigest(),
+    )
+    location_answer = "TAIL_POLICY 位于 `src/cache.py:9` [E1]"
+
+    # The locator is citable for its bounded location, but cannot fill a
+    # PROJECT_CODE_V1 source-body requirement.
+    requirement = _requirement(PROJECT_CODE_V1)
+    assert evaluate_evidence_requirement(requirement, (locator,)).satisfied is False
+    assert _evaluate_answer_evidence_binding(
+        requirement, (locator,), location_answer
+    )[0] == ANSWER_BINDING_STATUS_INCOMPLETE
+
+    source_body = EngineeringEvidence(
+        evidence_id="E2",
+        kind="project_code",
+        path="src/cache.py",
+        start_line=9,
+        end_line=10,
+        snippet="def cache(): return value",
+    )
+    supported_answer = (
+        f"{query} 位于 `src/cache.py:9` [E1]\n"
+        "源码正文：src/cache.py [E2]"
+    )
+    assert _evaluate_answer_evidence_binding(
+        requirement, (locator, source_body), supported_answer
+    )[0] == ANSWER_BINDING_STATUS_VALID
+
+
 def test_no_requirement_candidate_and_status_list_cannot_masquerade_as_body_or_diff():
     requirement = _requirement(NO_ADDITIONAL_REQUIREMENT)
     candidate = _tool_evidence(
@@ -403,6 +439,13 @@ def test_no_requirement_candidate_and_status_list_cannot_masquerade_as_body_or_d
     assert status_claim[0] == ANSWER_BINDING_STATUS_VALID
     assert status_overclaim[0] == ANSWER_BINDING_STATUS_INCOMPLETE
 
+    candidate_path_only = _evaluate_answer_evidence_binding(
+        requirement,
+        (candidate,),
+        "关联测试文件：`tests/test_cache.py` [E1]",
+    )
+    assert candidate_path_only[0] == ANSWER_BINDING_STATUS_VALID
+
 
 def test_complete_changed_files_status_list_binds_only_the_exact_complete_inventory():
     status_list = _tool_evidence(
@@ -432,6 +475,179 @@ def test_complete_changed_files_status_list_binds_only_the_exact_complete_invent
     assert _evaluate_answer_evidence_binding(requirement, (status_list,), full_inventory)[0] == ANSWER_BINDING_STATUS_VALID
     assert _evaluate_answer_evidence_binding(requirement, (status_list,), omitted_entry)[0] == ANSWER_BINDING_STATUS_INCOMPLETE
     assert _evaluate_answer_evidence_binding(requirement, (status_list,), incorrect_status)[0] == ANSWER_BINDING_STATUS_INCOMPLETE
+
+    localized_inventory = (
+        "当前 working_tree 变更清单：\n"
+        "src/old.py → src/new.py (重命名) [E1]\n"
+        "README.md (已修改) [E1]"
+    )
+    assert _evaluate_answer_evidence_binding(
+        requirement, (status_list,), localized_inventory
+    )[0] == ANSWER_BINDING_STATUS_VALID
+
+
+def test_change_test_accepts_supplemental_low_granularity_citations_but_requires_body_and_diff():
+    requirement = _requirement(CHANGE_TEST_V1)
+    status_list = _tool_evidence(
+        evidence_id="E6",
+        kind="project_change",
+        tool_name="changed_files",
+        granularity="status_list",
+        path=None,
+        line=None,
+        scope_paths=("agent_demo/transport.py",),
+        status_entries=(("agent_demo/transport.py", "modified", None),),
+        call_id="call_status",
+    )
+    diff = _tool_evidence(
+        evidence_id="E7",
+        kind="project_change",
+        tool_name="git_diff",
+        granularity="diff",
+        path="agent_demo/transport.py",
+        line=3,
+        scope_paths=("agent_demo/transport.py",),
+        call_id="call_diff",
+    )
+    candidate = _tool_evidence(
+        evidence_id="E8",
+        kind="project_test",
+        tool_name="find_tests",
+        granularity="candidate",
+        path="tests/test_transport.py",
+        line=1,
+        scope_paths=("agent_demo/transport.py", "tests/test_transport.py"),
+        call_id="call_candidate",
+    )
+    test_body = EngineeringEvidence(
+        evidence_id="E9",
+        kind="project_test",
+        path="tests/test_transport.py",
+        start_line=4,
+        end_line=5,
+        snippet="def test_backoff_cap(): assert backoff(8) == 30",
+    )
+    answer = (
+        "工作区变更文件及状态：\n"
+        "agent_demo/transport.py — modified [E6]\n"
+        "候选测试文件：tests/test_transport.py [E8]\n"
+        "退避实现的 diff 位于 agent_demo/transport.py [E7]\n"
+        "测试正文位于 tests/test_transport.py [E9]"
+    )
+    evidence = (status_list, diff, candidate, test_body)
+    assert _evaluate_answer_evidence_binding(requirement, evidence, answer)[0] == ANSWER_BINDING_STATUS_VALID
+
+    # The two supplemental references remain ineligible to satisfy the frozen
+    # CHANGE_TEST_V1 project_change and project_test requirements.
+    without_diff = (status_list, candidate, test_body)
+    answer_without_diff = answer.replace(
+        "退避实现的 diff 位于 agent_demo/transport.py [E7]\n", ""
+    )
+    assert _evaluate_answer_evidence_binding(
+        requirement, without_diff, answer_without_diff
+    )[0] == ANSWER_BINDING_STATUS_INCOMPLETE
+
+
+def test_same_observation_cannot_be_split_by_a_mismatched_result_hash():
+    first = _tool_evidence(
+        evidence_id="E1",
+        kind="project_test",
+        tool_name="find_tests",
+        granularity="candidate",
+        path="tests/test_cache.py",
+        line=4,
+        scope_paths=("src/cache.py", "tests/test_cache.py"),
+        call_id="call_candidates",
+    )
+    second = replace(
+        first,
+        evidence_id="E2",
+        path="tests/test_session.py",
+        scope_paths=("src/cache.py", "tests/test_session.py"),
+        start_line=2,
+        end_line=2,
+        result_sha256=_HASH_A,
+    )
+    binding = _evaluate_answer_evidence_binding(
+        _requirement(NO_ADDITIONAL_REQUIREMENT),
+        (first, second),
+        "tests/test_cache.py:4 [E1]",
+    )
+    assert binding[0] == ANSWER_BINDING_STATUS_INCOMPLETE
+
+
+def test_single_file_diff_cannot_support_an_exhaustive_workspace_claim():
+    diff = _tool_evidence(
+        evidence_id="E1",
+        kind="project_change",
+        tool_name="git_diff",
+        granularity="diff",
+        path="src/cache.py",
+        line=9,
+        scope_paths=("src/cache.py",),
+        call_id="call_diff",
+    )
+    answer = "整个工作区只有 src/cache.py 这一处变更 [E1]"
+    assert _evaluate_answer_evidence_binding(
+        _requirement(NO_ADDITIONAL_REQUIREMENT), (diff,), answer
+    )[0] == ANSWER_BINDING_STATUS_INCOMPLETE
+
+    status_list = _tool_evidence(
+        evidence_id="E2",
+        kind="project_change",
+        tool_name="changed_files",
+        granularity="status_list",
+        path=None,
+        line=None,
+        scope_paths=("src/cache.py",),
+        status_entries=(("src/cache.py", "modified", None),),
+        call_id="call_status",
+    )
+    staged_arguments = '{"mode":"staged"}'
+    staged_inventory = replace(
+        status_list,
+        arguments_json=staged_arguments,
+        arguments_sha256=hashlib.sha256(staged_arguments.encode("utf-8")).hexdigest(),
+    )
+    answer_with_staged_inventory = (
+        "src/cache.py — modified [E2]\n"
+        "整个工作区只有 src/cache.py 这一处变更 [E1]"
+    )
+    assert _evaluate_answer_evidence_binding(
+        _requirement(NO_ADDITIONAL_REQUIREMENT),
+        (diff, staged_inventory),
+        answer_with_staged_inventory,
+    )[0] == ANSWER_BINDING_STATUS_INCOMPLETE
+
+    working_tree_arguments = '{"mode":"working_tree"}'
+    working_tree_inventory = replace(
+        status_list,
+        arguments_json=working_tree_arguments,
+        arguments_sha256=hashlib.sha256(
+            working_tree_arguments.encode("utf-8")
+        ).hexdigest(),
+    )
+    assert _evaluate_answer_evidence_binding(
+        _requirement(NO_ADDITIONAL_REQUIREMENT),
+        (diff, working_tree_inventory),
+        answer_with_staged_inventory,
+    )[0] == ANSWER_BINDING_STATUS_VALID
+
+
+def test_prior_project_eid_is_not_valid_in_the_current_evidence_inventory():
+    current_project = _tool_evidence(
+        evidence_id="E2",
+        tool_name="code_search",
+        path="src/cache.py",
+        line=9,
+        scope_paths=("src/cache.py",),
+    )
+    binding = _evaluate_answer_evidence_binding(
+        _requirement(NO_ADDITIONAL_REQUIREMENT),
+        (current_project,),
+        "tests from another project: other/tests/test_cache.py [E1]",
+    )
+    assert binding[0] == ANSWER_BINDING_STATUS_INVALID
 
 
 def test_complete_empty_changed_files_inventory_can_only_say_there_are_no_visible_changes():

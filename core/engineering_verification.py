@@ -9,6 +9,7 @@ single ToolAgent finalization point.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -108,9 +109,11 @@ def _evaluate_answer_evidence_binding(
     """Return (status, required, cited_evidence_ids, invalid_evidence_ids).
 
     Reference truth comes only from current public evidence; a reference to
-    any other ID is INVALID with precedence over all other outcomes. The
-    cited evidence subset is evaluated with the one frozen G12 requirement
-    evaluator; no second requirement algorithm exists here.
+    any other ID is INVALID with precedence over all other outcomes. Citation
+    eligibility is checked at each source's complete, bounded granularity.
+    Requirement eligibility is a separate projection into the frozen G12
+    evaluator, so a narrow locator can be cited without filling a body/diff
+    requirement.
     """
 
     evidence_ids = {item.evidence_id for item in evidence}
@@ -170,7 +173,12 @@ def _evaluate_answer_evidence_binding(
             references,
             (),
         )
-    if evaluate_evidence_requirement(requirement, cited_evidence).satisfied:
+    requirement_evidence = tuple(
+        item
+        for item in cited_evidence
+        if type(item) is not ToolResultEvidence or item.requirement_eligible
+    )
+    if evaluate_evidence_requirement(requirement, requirement_evidence).satisfied:
         return (
             ANSWER_BINDING_STATUS_VALID,
             True,
@@ -187,6 +195,11 @@ def _evaluate_answer_evidence_binding(
 
 _REPO_PATH_MENTION_PATTERN = re.compile(
     r"(?<![\w./-])(?:[A-Za-z0-9_.@+-]+/)+[A-Za-z0-9_.@+-]+\.[A-Za-z0-9_+-]+"
+)
+_EXHAUSTIVE_WORKSPACE_CLAIM_PATTERN = re.compile(
+    r"(?:整个|全|全部|所有|全量).{0,8}(?:工作区|工作树|仓库|项目|变更|修改)|"
+    r"(?:whole|entire|all)\s+(?:workspace|working tree|repository|repo|changes)",
+    re.IGNORECASE,
 )
 
 
@@ -210,6 +223,7 @@ def _answer_line_without_references(line: str) -> tuple[tuple[str, ...], str]:
     )
     text = _EVIDENCE_REFERENCE_PATTERN.sub("", line).strip()
     text = re.sub(r"^(?:[-*•]\s+)", "", text).strip()
+    text = re.sub(r"`([^`]+)`", r"\1", text)
     text = text.strip("` \t\r\n。.!?；;")
     return references, text
 
@@ -229,15 +243,41 @@ def _is_bounded_location_line(line: str, item: ToolResultEvidence) -> bool:
             "Location: ",
             "Located at: ",
         )
+        accepted = {f"{prefix}{location}" for prefix in prefixes}
+        try:
+            arguments = json.loads(item.arguments_json)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            arguments = {}
+        query = arguments.get("query") if isinstance(arguments, dict) else None
+        if type(query) is str and query.strip():
+            query = query.strip()
+            accepted.update(
+                {
+                    f"{query}: {location}",
+                    f"{query}：{location}",
+                    f"{query} 在 {location}",
+                    f"{query} 位于 {location}",
+                    f"{query} is at {location}",
+                    f"{query} is located at {location}",
+                }
+            )
     else:
         prefixes = (
             "",
             "候选测试：",
+            "候选测试文件：",
             "候选测试位置：",
             "工具返回的候选测试位置：",
+            "关联测试文件：",
+            "关联测试文件是 ",
             "Candidate test location: ",
+            "Candidate test: ",
         )
-    return any(text == f"{prefix}{location}" for prefix in prefixes)
+        # A candidate observation proves the candidate file's location. A
+        # requester who only asks for the file does not need a line suffix.
+        locations = {location, item.path}
+        accepted = {f"{prefix}{value}" for prefix in prefixes for value in locations}
+    return text in accepted
 
 
 def _is_bounded_status_line(line: str, item: ToolResultEvidence) -> tuple[str, str, str | None] | None:
@@ -245,20 +285,41 @@ def _is_bounded_status_line(line: str, item: ToolResultEvidence) -> tuple[str, s
     if references != (item.evidence_id,):
         return None
     for path, status, old_path in item.status_entries:
+        status_labels = {
+            "modified": ("modified", "已修改", "修改"),
+            "added": ("added", "新增"),
+            "deleted": ("deleted", "已删除", "删除"),
+            "renamed": ("renamed", "重命名"),
+            "untracked": ("untracked", "未跟踪"),
+        }[status]
         if status == "renamed":
             assert old_path is not None
-            accepted = {
-                f"{old_path} -> {path} — renamed",
-                f"{old_path} → {path} — renamed",
-                f"{old_path} -> {path} - renamed",
-                f"{old_path} → {path} - renamed",
-            }
+            accepted = set()
+            for label in status_labels:
+                accepted.update(
+                    {
+                        f"{old_path} -> {path} — {label}",
+                        f"{old_path} → {path} — {label}",
+                        f"{old_path} -> {path} - {label}",
+                        f"{old_path} → {path} - {label}",
+                        f"{old_path} -> {path} ({label})",
+                        f"{old_path} → {path} ({label})",
+                        f"{old_path} renamed to {path}",
+                        f"{old_path} 重命名为 {path}",
+                    }
+                )
         else:
-            accepted = {
-                f"{path} — {status}",
-                f"{path} - {status}",
-                f"{path}: {status}",
-            }
+            accepted = set()
+            for label in status_labels:
+                accepted.update(
+                    {
+                        f"{path} — {label}",
+                        f"{path} - {label}",
+                        f"{path}: {label}",
+                        f"{path} ({label})",
+                        f"{path} [{label}]",
+                    }
+                )
         if text in accepted:
             return path, status, old_path
     return None
@@ -277,6 +338,21 @@ def _is_bounded_empty_status_line(line: str, item: ToolResultEvidence) -> bool:
             "No changed files",
         }
     )
+
+
+def _is_complete_working_tree_inventory(item: object) -> bool:
+    if (
+        type(item) is not ToolResultEvidence
+        or item.tool_name != "changed_files"
+        or item.granularity != "status_list"
+        or item.completeness != "complete"
+    ):
+        return False
+    try:
+        arguments = json.loads(item.arguments_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return False
+    return type(arguments) is dict and arguments.get("mode") == "working_tree"
 
 
 def _tool_result_citations_have_complete_matching_scope(
@@ -300,6 +376,21 @@ def _tool_result_citations_have_complete_matching_scope(
     if not tool_by_id:
         return True
     all_evidence = cited_evidence if all_evidence is None else all_evidence
+    call_identities: dict[str, tuple[str, str, str, str]] = {}
+    for item in all_evidence:
+        if type(item) is not ToolResultEvidence:
+            continue
+        identity = (
+            item.tool_name,
+            item.tool_version,
+            item.arguments_sha256,
+            item.result_sha256,
+        )
+        previous = call_identities.setdefault(item.call_id, identity)
+        if previous != identity:
+            # Evidence emitted by one Observation must share one immutable
+            # source identity; a mismatched digest cannot split a batch.
+            return False
     answer_grade_ids = {
         item.evidence_id
         for item in cited_evidence
@@ -381,7 +472,12 @@ def _tool_result_citations_have_complete_matching_scope(
             if not line.strip():
                 continue
             if not _EVIDENCE_REFERENCE_PATTERN.search(line):
-                if line.strip() == "变更文件清单：":
+                if line.strip() in {
+                    "变更文件清单：",
+                    "当前工作区变更文件清单：",
+                    "当前 working_tree 变更清单：",
+                    "工作区变更文件及状态：",
+                }:
                     continue
                 return False
             if not any(
@@ -402,6 +498,15 @@ def _tool_result_citations_have_complete_matching_scope(
         clause = _citation_clause(answer, match.start(), match.end())
         mentioned_paths = set(_REPO_PATH_MENTION_PATTERN.findall(clause))
         if not mentioned_paths or not mentioned_paths.issubset(set(item.scope_paths)):
+            return False
+        if (
+            item.granularity == "diff"
+            and _EXHAUSTIVE_WORKSPACE_CLAIM_PATTERN.search(clause)
+            and not any(_is_complete_working_tree_inventory(other) for other in cited_evidence)
+        ):
+            # A path-scoped diff cannot establish that it is the exhaustive
+            # workspace change set. That claim needs a complete changed_files
+            # inventory as separate provenance.
             return False
     return True
 def _strict_evidence_sequence(
