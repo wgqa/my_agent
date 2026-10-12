@@ -209,7 +209,10 @@ def test_guard_blocked_answer_never_enters_sse_and_approved_answer_streams(monke
                         "context_lines": 0,
                     },
                 ),
-                FinalAnswerAction("final_answer", "APPROVED grounded answer [E1] [E2]"),
+                FinalAnswerAction(
+                    "final_answer",
+                    "src/service.py changed [E1]. Tests/test_service.py contains the test source [E2].",
+                ),
             ]
         ),
     )
@@ -266,7 +269,7 @@ def test_guard_blocked_answer_never_enters_sse_and_approved_answer_streams(monke
     assert (
         "".join(deltas)
         == final["result"]["answer"]
-        == "APPROVED grounded answer [E1] [E2]"
+        == "src/service.py changed [E1]. Tests/test_service.py contains the test source [E2]."
     )
     assert all(1 <= len(delta) <= 16 for delta in deltas)
     assert events[-1] == {"type": "done"}

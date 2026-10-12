@@ -24,7 +24,11 @@ from core.engineering_requirements import (
 from core.engineering_retrieval import EngineeringRetrievalSnapshot
 from core.generator.citation import CitationValidator
 from core.query_planning import PlannerOutcome
-from core.tool_agent.runtime_models import EngineeringEvidence, KnowledgeEvidence
+from core.tool_agent.runtime_models import (
+    EngineeringEvidence,
+    KnowledgeEvidence,
+    ToolResultEvidence,
+)
 
 
 CITATION_STATUS_NOT_CHECKED = "NOT_CHECKED"
@@ -98,7 +102,7 @@ def parse_answer_evidence_references(answer: str) -> tuple[str, ...]:
 
 def _evaluate_answer_evidence_binding(
     requirement: EngineeringEvidenceRequirement,
-    evidence: tuple[EngineeringEvidence | KnowledgeEvidence, ...],
+    evidence: tuple[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence, ...],
     proposed_answer: str | None,
 ) -> tuple[str, bool, tuple[str, ...], tuple[str, ...]]:
     """Return (status, required, cited_evidence_ids, invalid_evidence_ids).
@@ -157,6 +161,15 @@ def _evaluate_answer_evidence_binding(
     cited_evidence = tuple(
         item for item in evidence if item.evidence_id in references
     )
+    if not _tool_result_citations_have_complete_matching_scope(
+        proposed_answer, cited_evidence, evidence
+    ):
+        return (
+            ANSWER_BINDING_STATUS_INCOMPLETE,
+            True,
+            references,
+            (),
+        )
     if evaluate_evidence_requirement(requirement, cited_evidence).satisfied:
         return (
             ANSWER_BINDING_STATUS_VALID,
@@ -172,16 +185,241 @@ def _evaluate_answer_evidence_binding(
     )
 
 
+_REPO_PATH_MENTION_PATTERN = re.compile(
+    r"(?<![\w./-])(?:[A-Za-z0-9_.@+-]+/)+[A-Za-z0-9_.@+-]+\.[A-Za-z0-9_+-]+"
+)
+
+
+def _citation_clause(answer: str, start: int, end: int) -> str:
+    """Return the line/sentence fragment attached to one citation marker."""
+    # A bare period also occurs inside repo paths (for example src/app.py),
+    # so treat it as sentence punctuation only when followed by whitespace or
+    # the end of the answer.
+    boundaries = [
+        match.start()
+        for match in re.finditer(r"\n|[。！？!?;；]|\.(?=\s|$)", answer)
+    ]
+    left = max((index + 1 for index in boundaries if index < start), default=0)
+    right = min((index for index in boundaries if index >= end), default=len(answer))
+    return answer[left:right]
+
+
+def _answer_line_without_references(line: str) -> tuple[tuple[str, ...], str]:
+    references = tuple(
+        f"E{match.group(1)}" for match in _EVIDENCE_REFERENCE_PATTERN.finditer(line)
+    )
+    text = _EVIDENCE_REFERENCE_PATTERN.sub("", line).strip()
+    text = re.sub(r"^(?:[-*•]\s+)", "", text).strip()
+    text = text.strip("` \t\r\n。.!?；;")
+    return references, text
+
+
+def _is_bounded_location_line(line: str, item: ToolResultEvidence) -> bool:
+    references, text = _answer_line_without_references(line)
+    if references != (item.evidence_id,):
+        return False
+    location = f"{item.path}:{item.start_line}"
+    if item.granularity == "locator":
+        prefixes = (
+            "",
+            "位置：",
+            "命中位置：",
+            "文件和行号：",
+            "文件/行号：",
+            "Location: ",
+            "Located at: ",
+        )
+    else:
+        prefixes = (
+            "",
+            "候选测试：",
+            "候选测试位置：",
+            "工具返回的候选测试位置：",
+            "Candidate test location: ",
+        )
+    return any(text == f"{prefix}{location}" for prefix in prefixes)
+
+
+def _is_bounded_status_line(line: str, item: ToolResultEvidence) -> tuple[str, str, str | None] | None:
+    references, text = _answer_line_without_references(line)
+    if references != (item.evidence_id,):
+        return None
+    for path, status, old_path in item.status_entries:
+        if status == "renamed":
+            assert old_path is not None
+            accepted = {
+                f"{old_path} -> {path} — renamed",
+                f"{old_path} → {path} — renamed",
+                f"{old_path} -> {path} - renamed",
+                f"{old_path} → {path} - renamed",
+            }
+        else:
+            accepted = {
+                f"{path} — {status}",
+                f"{path} - {status}",
+                f"{path}: {status}",
+            }
+        if text in accepted:
+            return path, status, old_path
+    return None
+
+
+def _is_bounded_empty_status_line(line: str, item: ToolResultEvidence) -> bool:
+    references, text = _answer_line_without_references(line)
+    return (
+        references == (item.evidence_id,)
+        and text
+        in {
+            "没有可见变更",
+            "当前没有可见变更",
+            "变更文件清单为空",
+            "No visible changes",
+            "No changed files",
+        }
+    )
+
+
+def _tool_result_citations_have_complete_matching_scope(
+    answer: str,
+    cited_evidence: tuple[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence, ...],
+    all_evidence: tuple[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence, ...] | None = None,
+) -> bool:
+    """Check structured Tool citations at the granularity they actually prove.
+
+    This is deliberately a syntax-and-provenance check, not semantic
+    entailment. Locator/candidate evidence can support only a bare bounded
+    location row. A status list can support only the complete path/status rows
+    returned by changed_files. None of these records becomes source_body or
+    diff evidence, and the frozen Requirement evaluator remains authoritative.
+    """
+    tool_by_id = {
+        item.evidence_id: item
+        for item in cited_evidence
+        if type(item) is ToolResultEvidence
+    }
+    if not tool_by_id:
+        return True
+    all_evidence = cited_evidence if all_evidence is None else all_evidence
+    answer_grade_ids = {
+        item.evidence_id
+        for item in cited_evidence
+        if type(item) is not ToolResultEvidence
+        or item.granularity in {"source_body", "diff"}
+    }
+    references = tuple(
+        f"E{match.group(1)}" for match in _EVIDENCE_REFERENCE_PATTERN.finditer(answer)
+    )
+    if not references:
+        return False
+
+    low_granularity_items = tuple(
+        item
+        for item in tool_by_id.values()
+        if item.granularity in {"locator", "candidate", "status_list"}
+    )
+    for item in low_granularity_items:
+        if item.completeness != "complete":
+            return False
+        cited_lines = [
+            line
+            for line in answer.splitlines()
+            if item.evidence_id
+            in tuple(
+                f"E{match.group(1)}"
+                for match in _EVIDENCE_REFERENCE_PATTERN.finditer(line)
+            )
+        ]
+        if not cited_lines:
+            return False
+        if item.granularity in {"locator", "candidate"}:
+            if any(not _is_bounded_location_line(line, item) for line in cited_lines):
+                return False
+            # One result may produce several locators/candidates. A complete
+            # list is accepted only when every row from that same Observation
+            # is cited, so the metadata cannot silently stand for a subset.
+            batch = tuple(
+                other
+                for other in all_evidence
+                if type(other) is ToolResultEvidence
+                and other.tool_name == item.tool_name
+                and other.granularity == item.granularity
+                and other.call_id == item.call_id
+                and other.result_sha256 == item.result_sha256
+            )
+            batch_ids = {other.evidence_id for other in batch}
+            answer_batch_ids = set(references) & batch_ids
+            if not batch_ids or answer_batch_ids != batch_ids:
+                return False
+        else:
+            if item.tool_name != "changed_files":
+                return False
+            if not item.status_entries:
+                if (
+                    item.scope_paths
+                    or item.completeness != "complete"
+                    or len(cited_lines) != 1
+                    or not _is_bounded_empty_status_line(cited_lines[0], item)
+                ):
+                    return False
+                continue
+            observed_entries = [
+                parsed
+                for line in cited_lines
+                if (parsed := _is_bounded_status_line(line, item)) is not None
+            ]
+            expected_entries = list(item.status_entries)
+            if len(observed_entries) != len(cited_lines):
+                return False
+            if sorted(observed_entries) != sorted(expected_entries):
+                return False
+
+    if not answer_grade_ids:
+        # With only acquisition metadata cited, every non-empty answer line
+        # must itself be one of the exact bounded rows above; no free-form
+        # conclusion can ride on a low-granularity E-ID.
+        for line in answer.splitlines():
+            if not line.strip():
+                continue
+            if not _EVIDENCE_REFERENCE_PATTERN.search(line):
+                if line.strip() == "变更文件清单：":
+                    continue
+                return False
+            if not any(
+                _is_bounded_location_line(line, item)
+                or _is_bounded_status_line(line, item) is not None
+                or _is_bounded_empty_status_line(line, item)
+                for item in low_granularity_items
+            ):
+                return False
+
+    for match in _EVIDENCE_REFERENCE_PATTERN.finditer(answer):
+        evidence_id = f"E{match.group(1)}"
+        item = tool_by_id.get(evidence_id)
+        if item is None or item.granularity in {"locator", "candidate", "status_list"}:
+            continue
+        if item.completeness != "complete":
+            return False
+        clause = _citation_clause(answer, match.start(), match.end())
+        mentioned_paths = set(_REPO_PATH_MENTION_PATTERN.findall(clause))
+        if not mentioned_paths or not mentioned_paths.issubset(set(item.scope_paths)):
+            return False
+    return True
 def _strict_evidence_sequence(
     value: object,
-) -> tuple[EngineeringEvidence | KnowledgeEvidence, ...]:
+) -> tuple[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence, ...]:
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
         raise TypeError("current_public_evidence 必须是 public evidence 序列")
     normalized = tuple(value)
-    if any(type(item) not in (EngineeringEvidence, KnowledgeEvidence) for item in normalized):
+    if any(
+        type(item) not in (EngineeringEvidence, KnowledgeEvidence, ToolResultEvidence)
+        for item in normalized
+    ):
         raise TypeError(
-            "current_public_evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
+            "current_public_evidence 必须全部是受信任的 public Evidence 类型"
         )
+    evidence_ids = [item.evidence_id for item in normalized]
+    if len(evidence_ids) != len(set(evidence_ids)):
+        raise ValueError("current_public_evidence 的 evidence_id 不得重复")
     return normalized
 
 
@@ -449,7 +687,7 @@ class BoundEngineeringEvidenceVerifier:
 
     def verify(
         self,
-        current_public_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence],
+        current_public_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence],
         proposed_answer: str | None = None,
     ) -> EngineeringVerificationResult:
         return self._verifier.verify(
@@ -501,7 +739,7 @@ class EngineeringEvidenceVerifier:
         planner_outcome: PlannerOutcome,
         retrieval_snapshot: EngineeringRetrievalSnapshot,
         requirement: EngineeringEvidenceRequirement,
-        current_public_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence],
+        current_public_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence],
         *,
         proposed_answer: str | None = None,
     ) -> EngineeringVerificationResult:

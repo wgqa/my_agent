@@ -79,10 +79,13 @@ def test_reader_tail_survives_full_runtime_api_and_both_streams(monkeypatch, tmp
             assert [e["evidence"] for e in events if e["type"] == "evidence"] == data["evidence"]
     assert data["status"] == "completed"
     assert (data["iterations_used"], data["tool_calls_used"], data["tool_errors_used"]) == (2, 1, 0)
-    assert data["evidence"] == [{
-        "evidence_id": "E1", "kind": kind, "path": path,
-        "start_line": 1, "end_line": 61, "snippet": expected,
-    }]
+    assert len(data["evidence"]) == 1
+    public_evidence = data["evidence"][0]
+    assert (public_evidence["evidence_id"], public_evidence["kind"]) == ("E1", kind)
+    assert (public_evidence["path"], public_evidence["start_line"], public_evidence["end_line"]) == (path, 1, 61)
+    assert public_evidence["snippet"] == expected
+    assert public_evidence["granularity"] == "source_body"
+    assert public_evidence["completeness"] == "unknown"
     actual = provider.contexts[-1][-1].observation_result
     assert "\n".join(line["text"] for line in actual["lines"]) == expected
     # Only locators enter trusted control, never source text.

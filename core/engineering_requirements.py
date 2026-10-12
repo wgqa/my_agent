@@ -24,6 +24,12 @@ PUBLIC_EVIDENCE_KINDS = (
     "project_test",
 )
 _PUBLIC_EVIDENCE_KINDS = frozenset(PUBLIC_EVIDENCE_KINDS)
+_REQUIREMENT_SOURCE_GRANULARITIES = {
+    "project_code": frozenset({"source_body"}),
+    "project_doc": frozenset({"source_body"}),
+    "project_test": frozenset({"source_body"}),
+    "project_change": frozenset({"diff"}),
+}
 # v5 adds only bound-project overviews to the existing document requirement.
 # v4 remains selectable for reproducible R02 comparisons. Frozen profile
 # shapes and all source/mixed requirements stay intact.
@@ -218,7 +224,9 @@ def evaluate_evidence_requirement(
 
     Snippet text, answers, questions, Gold, and semantic relevance are not
     consulted. ``changed_files`` and other observations without one of the
-    five public kinds are intentionally ignored.
+    five public kinds are intentionally ignored. Structured ToolResultEvidence
+    must also have a requirement-compatible source granularity and complete
+    material; its boolean eligibility flag alone is not sufficient.
     """
 
     if not isinstance(requirement, EngineeringEvidenceRequirement):
@@ -232,6 +240,24 @@ def evaluate_evidence_requirement(
     for item in public_evidence:
         kind = _public_value(item, "kind")
         if kind not in _PUBLIC_EVIDENCE_KINDS:
+            continue
+        eligible = _public_value(item, "requirement_eligible")
+        granularity = _public_value(item, "granularity")
+        completeness = _public_value(item, "completeness")
+        if eligible is not None:
+            if type(eligible) is not bool or not eligible:
+                continue
+            if (
+                granularity not in _REQUIREMENT_SOURCE_GRANULARITIES.get(kind, ())
+                or completeness != "complete"
+            ):
+                continue
+        elif granularity is not None and (
+            granularity not in _REQUIREMENT_SOURCE_GRANULARITIES.get(kind, ())
+            or completeness != "complete"
+        ):
+            # Fail closed for any structured source metadata even if a caller
+            # omitted the convenience eligibility field.
             continue
         counts[kind] += 1
         if kind == "project_code":

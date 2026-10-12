@@ -165,7 +165,10 @@ class TestCodeSearchLoop:
         assert result.tool_calls_used == 1
         assert counters["code_search"].calls == 1
         assert any(e.tool_status == "ok" for e in result.trace)
-        assert result.evidence == ()
+        assert len(result.evidence) == 1
+        assert result.evidence[0].kind == "project_code"
+        assert result.evidence[0].granularity == "locator"
+        assert result.evidence[0].requirement_eligible is False
 
 
 # ---- §23D 真实 Knowledge Search（Fake port） ----

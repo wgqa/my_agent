@@ -419,8 +419,12 @@ def test_changed_files_git_diff_final_vertical_slice(git_repo: Path):
     assert result.status == "completed"
     assert result.tool_calls_used == 2
     assert result.answer == "The change is in src/app.py."
-    assert len(result.evidence) == 1
-    assert result.evidence[0].kind == "project_change"
-    assert result.evidence[0].path == "src/app.py"
-    assert "-return old" in result.evidence[0].snippet
-    assert "+return changed" in result.evidence[0].snippet
+    assert len(result.evidence) == 2
+    status, diff = result.evidence
+    assert status.kind == "project_change"
+    assert status.granularity == "status_list"
+    assert status.status_entries == (("src/app.py", "modified", None),)
+    assert diff.kind == "project_change"
+    assert diff.granularity == "diff"
+    assert diff.completeness == "complete"
+    assert diff.path == "src/app.py"

@@ -235,8 +235,40 @@ class ToolAgentQueryRequest(BaseModel):
         return v
 
 
+class ToolAgentChangeStatus(BaseModel):
+    """One source-verified row from a changed_files status inventory."""
+
+    model_config = {"extra": "forbid"}
+
+    path: str = Field(min_length=1)
+    status: Literal["modified", "added", "deleted", "renamed", "untracked"]
+    old_path: Optional[str] = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_rename_shape(self):
+        if (self.status == "renamed") != (self.old_path is not None):
+            raise ValueError("renamed status must carry old_path, and other statuses must not")
+        for path in (self.path, self.old_path):
+            if path is None:
+                continue
+            windows_path = PureWindowsPath(path)
+            posix_path = PurePosixPath(path)
+            if (
+                not path.strip()
+                or path != path.strip()
+                or "\\" in path
+                or windows_path.is_absolute()
+                or windows_path.drive
+                or posix_path.is_absolute()
+                or any(part in ("", ".", "..") for part in path.split("/"))
+                or any(ord(char) < 32 for char in path)
+            ):
+                raise ValueError("status entry path must be a safe repo-relative POSIX path")
+        return self
+
+
 class ToolAgentEvidence(BaseModel):
-    """Public Reader excerpts retain all returned text; diff stays at 2000 chars."""
+    """Public project evidence and provenance-bound Tool result records."""
 
     model_config = {"json_schema_extra": {"allOf": [{
         "if": {"properties": {"kind": {"const": "project_change"}}, "required": ["kind"]},
@@ -245,16 +277,158 @@ class ToolAgentEvidence(BaseModel):
 
     evidence_id: str = Field(pattern=r"^E[1-9][0-9]*$")
     kind: Literal["project_code", "project_doc", "project_change", "project_test"]
-    path: str = Field(min_length=1)
-    start_line: int = Field(ge=1)
-    end_line: int = Field(ge=1)
-    snippet: str = Field(min_length=1, max_length=MAX_PROJECT_CONTEXT_CHARACTERS)
+    path: Optional[str] = None
+    start_line: Optional[int] = Field(default=None, ge=1)
+    end_line: Optional[int] = Field(default=None, ge=1)
+    snippet: Optional[str] = Field(default=None, min_length=1, max_length=MAX_PROJECT_CONTEXT_CHARACTERS)
+    granularity: Optional[Literal["locator", "candidate", "status_list", "source_body", "diff"]] = None
+    completeness: Optional[Literal["complete", "partial", "unknown"]] = None
+    tool_name: Optional[Literal["code_search", "changed_files", "find_tests", "read_project_context", "git_diff"]] = None
+    call_id: Optional[str] = None
+    tool_version: Optional[str] = None
+    arguments_json: Optional[str] = None
+    arguments_sha256: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    result_sha256: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    scope: Optional[str] = None
+    scope_paths: List[str] = Field(default_factory=list)
+    requirement_eligible: Optional[bool] = None
+    status_entries: List[ToolAgentChangeStatus] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _enforce_kind_snippet_limit(self):
-        limit = project_evidence_character_limit(self.kind)
-        if len(self.snippet) > limit:
-            raise ValueError(f"{self.kind} snippet must have at most {limit} characters")
+        if self.snippet is not None:
+            limit = project_evidence_character_limit(self.kind)
+            if len(self.snippet) > limit:
+                raise ValueError(f"{self.kind} snippet must have at most {limit} characters")
+        if self.granularity is None:
+            if (
+                not self.path
+                or self.start_line is None
+                or self.end_line is None
+                or self.snippet is None
+                or self.completeness is not None
+                or self.tool_name is not None
+            ):
+                raise ValueError("legacy project Evidence requires path, line range, and snippet")
+            if self.status_entries or self.scope_paths or any(
+                getattr(self, label) is not None
+                for label in (
+                    "call_id", "tool_version", "arguments_json", "arguments_sha256",
+                    "result_sha256", "scope", "requirement_eligible",
+                )
+            ):
+                raise ValueError("legacy project Evidence cannot carry partial Tool provenance")
+            return self
+        if self.completeness is None:
+            raise ValueError("granular Evidence requires a completeness state")
+        if self.tool_name is None and (
+            self.granularity not in {"source_body", "diff"}
+            or self.completeness != "unknown"
+            or self.scope_paths
+            or any(
+                getattr(self, label) is not None
+                for label in (
+                    "call_id", "tool_version", "arguments_json", "arguments_sha256",
+                    "result_sha256", "scope", "requirement_eligible",
+                )
+            )
+        ):
+            raise ValueError("legacy granular Evidence must be source_body/diff with unknown completeness")
+        if self.path is not None:
+            windows_path = PureWindowsPath(self.path)
+            posix_path = PurePosixPath(self.path)
+            if (
+                not self.path.strip()
+                or self.path != self.path.strip()
+                or "\\" in self.path
+                or windows_path.is_absolute()
+                or windows_path.drive
+                or posix_path.is_absolute()
+                or any(part in ("", ".", "..") for part in self.path.split("/"))
+                or any(ord(char) < 32 for char in self.path)
+            ):
+                raise ValueError("path must be a safe repo-relative POSIX path")
+        if (self.start_line is None) != (self.end_line is None):
+            raise ValueError("line range must provide both start_line and end_line")
+        if self.start_line is not None and self.end_line < self.start_line:
+            raise ValueError("end_line must be >= start_line")
+        if self.granularity == "source_body":
+            if self.kind not in {"project_code", "project_doc", "project_test"}:
+                raise ValueError("source_body requires code, documentation, or test kind")
+        elif self.granularity == "diff":
+            if self.kind != "project_change":
+                raise ValueError("diff requires project_change kind")
+        elif self.granularity == "locator":
+            if self.tool_name != "code_search" or self.kind not in {"project_code", "project_doc", "project_test"}:
+                raise ValueError("locator requires a code_search result kind")
+        elif self.granularity == "candidate":
+            if self.tool_name != "find_tests" or self.kind != "project_test":
+                raise ValueError("candidate requires a find_tests project_test result")
+        elif self.granularity == "status_list":
+            if self.tool_name != "changed_files" or self.kind != "project_change":
+                raise ValueError("status_list requires a changed_files project_change result")
+            if not self.status_entries and not (
+                self.completeness == "complete" and not self.scope_paths
+            ):
+                raise ValueError("status_list requires structured status entries")
+        elif self.status_entries:
+            raise ValueError("status_entries are valid only for status_list Evidence")
+        if self.granularity in {"locator", "candidate"} and (
+            not self.path or self.start_line is None or self.start_line != self.end_line
+        ):
+            raise ValueError("locator/candidate Evidence requires one path and line")
+        if self.granularity == "status_list" and (self.path is not None or self.start_line is not None or self.snippet is not None):
+            raise ValueError("status_list must not impersonate a single file body or diff")
+        if self.granularity in {"source_body", "diff"} and (
+            not self.path or self.start_line is None
+        ):
+            raise ValueError("source_body/diff Evidence requires a source path and line range")
+        if self.tool_name is not None:
+            for label in ("call_id", "tool_version", "arguments_json", "arguments_sha256", "result_sha256", "scope"):
+                if not getattr(self, label):
+                    raise ValueError(f"Tool result Evidence requires {label}")
+            if self.requirement_eligible is None:
+                raise ValueError("Tool result Evidence requires requirement_eligible")
+            if not self.scope_paths and not (
+                self.granularity == "status_list"
+                and self.completeness == "complete"
+                and not self.status_entries
+            ):
+                raise ValueError("Tool result Evidence requires scope_paths")
+            if len(set(self.scope_paths)) != len(self.scope_paths):
+                raise ValueError("scope_paths must not contain duplicates")
+            if self.path is not None and self.path not in self.scope_paths:
+                raise ValueError("path must be included in scope_paths")
+            if any(
+                entry.path not in self.scope_paths
+                or (entry.old_path is not None and entry.old_path not in self.scope_paths)
+                for entry in self.status_entries
+            ):
+                raise ValueError("status entries must be within scope_paths")
+            entry_keys = {
+                (entry.path, entry.status, entry.old_path)
+                for entry in self.status_entries
+            }
+            if len(entry_keys) != len(self.status_entries):
+                raise ValueError("status_entries must not contain duplicates")
+            if any(
+                type(path) is not str
+                or not path.strip()
+                or "\\" in path
+                or PureWindowsPath(path).is_absolute()
+                or PureWindowsPath(path).drive
+                or PurePosixPath(path).is_absolute()
+                or any(part in ("", ".", "..") for part in path.split("/"))
+                or any(ord(char) < 32 for char in path)
+                for path in self.scope_paths
+            ):
+                raise ValueError("scope_paths must be safe repo-relative paths")
+        eligible = (
+            (self.kind in {"project_code", "project_doc", "project_test"} and self.granularity == "source_body")
+            or (self.kind == "project_change" and self.granularity == "diff")
+        ) and self.completeness == "complete"
+        if self.requirement_eligible is not None and self.requirement_eligible != eligible:
+            raise ValueError("requirement_eligible does not match source granularity/completeness")
         return self
 
 

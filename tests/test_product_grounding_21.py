@@ -266,6 +266,8 @@ def test_b_project_evidence_enters_catalog_on_next_decision():
         "path": "core/example.py",
         "start_line": 1,
         "end_line": 2,
+        "granularity": "source_body",
+        "completeness": "unknown",
     }
 
 
@@ -294,6 +296,8 @@ def test_c_trusted_catalog_carries_metadata_only():
             "path": "core/example.py",
             "start_line": 1,
             "end_line": 2,
+            "granularity": "source_body",
+            "completeness": "unknown",
         }
     ]
     serialized = repr(catalog)

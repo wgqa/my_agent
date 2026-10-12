@@ -162,7 +162,7 @@ def _answer(text):
 
 
 @pytest.mark.parametrize("answer,status", [
-    ("The test asserts an error for parallel finalization [E1]. Suggested command: pytest tests/test_actions.py -k cannot_finalize_in_parallel. Not run.", "completed"),
+    ("The test asserts an error for parallel finalization [E2]. Suggested command: pytest tests/test_actions.py -k cannot_finalize_in_parallel. Not run.", "completed"),
     ("The test asserts an error [E99].", "refused"),
     ("The test asserts an error.", "refused"),
 ])

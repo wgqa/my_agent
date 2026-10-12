@@ -145,7 +145,12 @@ class TestToolAgentEndpoint:
         assert data["status"] == "completed"
         assert "core/tool_agent/runtime.py" in data["answer"]
         assert data["tool_calls_used"] == 1
-        assert data["evidence"] == []
+        assert 1 <= len(data["evidence"]) <= 10
+        assert all(item["granularity"] == "locator" for item in data["evidence"])
+        assert all(item["tool_name"] == "code_search" for item in data["evidence"])
+        assert all(item["completeness"] == "partial" for item in data["evidence"])
+        assert all(item["requirement_eligible"] is False for item in data["evidence"])
+        assert all(item["snippet"] is None for item in data["evidence"])
 
     def test_code_search_then_read_project_context_trace(self, monkeypatch):
         def read_context(_registry, _user_query, context):
@@ -256,28 +261,26 @@ class TestToolAgentEndpoint:
         data = response.json()
         assert data["status"] == "completed"
         assert data["tool_calls_used"] == 4
-        assert data["evidence"] == [
-            {
-                "evidence_id": "E1",
-                "kind": "project_doc",
-                "path": "README.md",
-                "start_line": 1,
-                "end_line": 1,
-                "snippet": "ENABLE_CACHE=true enables application caching.",
-            },
-            {
-                "evidence_id": "E2",
-                "kind": "project_code",
-                "path": "src/config.py",
-                "start_line": 1,
-                "end_line": 3,
-                "snippet": (
-                    "def load_settings():\n"
-                    "    enable_cache = True\n"
-                    "    return {\"enable_cache\": enable_cache}"
-                ),
-            },
+        assert [item["granularity"] for item in data["evidence"]] == [
+            "locator", "source_body", "locator", "source_body",
         ]
+        assert [item["evidence_id"] for item in data["evidence"]] == ["E1", "E2", "E3", "E4"]
+        assert [item["path"] for item in data["evidence"]] == [
+            "README.md", "README.md", "src/config.py", "src/config.py",
+        ]
+        assert data["evidence"][0]["completeness"] == "complete"
+        assert data["evidence"][0]["requirement_eligible"] is False
+        assert data["evidence"][1]["completeness"] == "unknown"
+        assert data["evidence"][2]["completeness"] == "complete"
+        assert data["evidence"][2]["requirement_eligible"] is False
+        assert data["evidence"][3]["completeness"] == "unknown"
+        assert data["evidence"][0]["snippet"] is None
+        assert data["evidence"][1]["snippet"] == "ENABLE_CACHE=true enables application caching."
+        assert "def load_settings():" in data["evidence"][3]["snippet"]
+        assert all(
+            len(item["arguments_sha256"]) == len(item["result_sha256"]) == 64
+            for item in (data["evidence"][0], data["evidence"][2])
+        )
         assert str(repo) not in response.text
         trace_text = json.dumps(data["trace"])
         assert "ENABLE_CACHE" not in trace_text
@@ -334,17 +337,28 @@ class TestToolAgentEndpoint:
         data = response.json()
         assert data["status"] == "completed"
         assert data["tool_calls_used"] == 2
-        assert len(data["evidence"]) == 1
-        evidence = data["evidence"][0]
-        assert evidence["evidence_id"] == "E1"
+        assert [item["granularity"] for item in data["evidence"]] == ["status_list", "diff"]
+        status, evidence = data["evidence"]
+        assert status["evidence_id"] == "E1"
+        assert status["kind"] == "project_change"
+        assert status["tool_name"] == "changed_files"
+        assert status["completeness"] == "complete"
+        assert status["requirement_eligible"] is False
+        assert status["scope_paths"] == ["src/app.py"]
+        assert status["status_entries"] == [
+            {"path": "src/app.py", "status": "modified", "old_path": None}
+        ]
+        assert evidence["evidence_id"] == "E2"
         assert evidence["kind"] == "project_change"
+        assert evidence["tool_name"] == "git_diff"
+        assert evidence["completeness"] == "complete"
         assert evidence["path"] == "src/app.py"
         assert evidence["start_line"] == 1
         assert evidence["end_line"] == 1
-        assert "-return old" in evidence["snippet"]
-        assert "+return new" in evidence["snippet"]
+        assert evidence["scope_paths"] == ["src/app.py"]
+        assert all(len(evidence[key]) == 64 for key in ("arguments_sha256", "result_sha256"))
         assert str(repo) not in response.text
-        assert "\\" not in data["evidence"][0]["path"]
+        assert "\\" not in evidence["path"]
 
     def test_git_change_and_test_evidence_http_vertical_slice(self, monkeypatch, tmp_path):
         repo = tmp_path / "demo_project"
@@ -421,16 +435,28 @@ class TestToolAgentEndpoint:
         assert data["status"] == "completed"
         assert data["tool_calls_used"] == 4
         assert data["iterations_used"] == 5
+        assert [item["granularity"] for item in data["evidence"]] == [
+            "status_list",
+            "diff",
+            "candidate",
+            "source_body",
+        ]
         assert [item["kind"] for item in data["evidence"]] == [
             "project_change",
+            "project_change",
+            "project_test",
             "project_test",
         ]
-        assert [item["path"] for item in data["evidence"]] == [
+        assert [item.get("path") for item in data["evidence"]] == [
+            None,
             "src/service.py",
             "tests/test_service.py",
+            "tests/test_service.py",
         ]
+        assert data["evidence"][2]["completeness"] == "complete"
+        assert data["evidence"][3]["completeness"] == "unknown"
         assert str(repo) not in response.text
-        assert all("\\" not in item["path"] for item in data["evidence"])
+        assert all("\\" not in item["path"] for item in data["evidence"] if item.get("path"))
 
     def test_failed_context_has_no_evidence(self, monkeypatch, tmp_path):
         repo = tmp_path / "demo_project"
@@ -537,6 +563,42 @@ class TestToolAgentBoundaries:
             snippet="@@ -1 +1 @@\n-old\n+new",
         )
         assert evidence.model_dump()["kind"] == "project_change"
+
+    def test_status_list_public_evidence_requires_structured_complete_rows(self):
+        with pytest.raises(ValueError):
+            ToolAgentEvidence(
+                evidence_id="E1",
+                kind="project_change",
+                granularity="status_list",
+                completeness="complete",
+                tool_name="changed_files",
+                call_id="call-1",
+                tool_version="changed_files_v1",
+                arguments_json='{"mode":"working_tree"}',
+                arguments_sha256="a" * 64,
+                result_sha256="b" * 64,
+                scope="{}",
+                scope_paths=["src/app.py"],
+                requirement_eligible=False,
+            )
+
+        with pytest.raises(ValueError):
+            ToolAgentEvidence(
+                evidence_id="E1",
+                kind="project_change",
+                granularity="status_list",
+                completeness="complete",
+                tool_name="changed_files",
+                call_id="call-1",
+                tool_version="changed_files_v1",
+                arguments_json='{"mode":"working_tree"}',
+                arguments_sha256="a" * 64,
+                result_sha256="b" * 64,
+                scope="{}",
+                scope_paths=["src/app.py"],
+                requirement_eligible=False,
+                status_entries=[{"path": "../outside.py", "status": "modified"}],
+            )
 
     def test_runtime_none_returns_503(self, monkeypatch):
         monkeypatch.setattr(api.app, "tool_agent_runtime", None)

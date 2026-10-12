@@ -299,9 +299,26 @@ def test_changed_diff_find_tests_read_test_final_uses_four_calls_five_iterations
     assert result.status == "completed"
     assert result.tool_calls_used == 4
     assert result.iterations_used == 5
-    assert [item.kind for item in result.evidence] == ["project_change", "project_test"]
+    assert [item.kind for item in result.evidence] == [
+        "project_change",
+        "project_change",
+        "project_test",
+        "project_test",
+    ]
+    assert [getattr(item, "granularity", "source_body") for item in result.evidence] == [
+        "status_list",
+        "diff",
+        "candidate",
+        "source_body",
+    ]
     assert [item.path for item in result.evidence] == [
+        None,
         "src/service.py",
         "tests/test_service.py",
+        "tests/test_service.py",
     ]
-    assert all("\\" not in item.path for item in result.evidence)
+    assert all(
+        "\\" not in path
+        for item in result.evidence
+        for path in getattr(item, "scope_paths", (item.path,))
+    )

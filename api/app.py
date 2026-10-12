@@ -110,6 +110,7 @@ from api.engineering_stream_v2 import (
 from core.tool_agent.runtime_models import (
     EngineeringEvidence as RuntimeEngineeringEvidence,
     KnowledgeEvidence as RuntimeKnowledgeEvidence,
+    ToolResultEvidence as RuntimeToolResultEvidence,
 )
 
 logger = logging.getLogger(__name__)
@@ -541,6 +542,25 @@ def _assistant_display_content(public_result: dict) -> str:
     return feedback_content(public_result)
 
 
+def _serialize_project_evidence(item) -> ToolAgentEvidence:
+    """Serialize one project Evidence item without losing its runtime E-ID."""
+
+    if type(item) is RuntimeToolResultEvidence:
+        return ToolAgentEvidence(**item.to_dict())
+    if type(item) is RuntimeEngineeringEvidence:
+        return ToolAgentEvidence(
+            evidence_id=item.evidence_id,
+            kind=item.kind,
+            path=item.path,
+            start_line=item.start_line,
+            end_line=item.end_line,
+            snippet=item.snippet,
+            granularity=("diff" if item.kind == "project_change" else "source_body"),
+            completeness="unknown",
+        )
+    raise TypeError("unsupported project Evidence type")
+
+
 def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResponse:
     return ToolAgentQueryResponse(
         schema_version="tool_agent_query_response_v1",
@@ -553,18 +573,9 @@ def _build_tool_agent_response(result: ToolAgentRunResult) -> ToolAgentQueryResp
         tool_errors_used=result.tool_errors_used,
         trace=_safe_legacy_trace([event.to_dict() for event in result.trace]),
         evidence=[
-            ToolAgentEvidence(
-                evidence_id=f"E{legacy_id}",
-                kind=item.kind,
-                path=item.path,
-                start_line=item.start_line,
-                end_line=item.end_line,
-                snippet=item.snippet,
-            )
-            for legacy_id, item in enumerate(
-                (item for item in result.evidence if type(item) is RuntimeEngineeringEvidence),
-                1,
-            )
+            _serialize_project_evidence(item)
+            for item in result.evidence
+            if type(item) in (RuntimeEngineeringEvidence, RuntimeToolResultEvidence)
         ],
     )
 
@@ -617,16 +628,9 @@ def _build_engineering_response(
                 )
             )
         elif type(item) is RuntimeEngineeringEvidence:
-            evidence.append(
-                ToolAgentEvidence(
-                    evidence_id=item.evidence_id,
-                    kind=item.kind,
-                    path=item.path,
-                    start_line=item.start_line,
-                    end_line=item.end_line,
-                    snippet=item.snippet,
-                )
-            )
+            evidence.append(_serialize_project_evidence(item))
+        elif type(item) is RuntimeToolResultEvidence:
+            evidence.append(_serialize_project_evidence(item))
     execution = (
         EngineeringExecutionMetrics(
             elapsed_ms=result.execution.elapsed_ms,

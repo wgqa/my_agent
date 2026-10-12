@@ -219,7 +219,10 @@ def test_v2_uses_real_tool_lifecycle_evidence_and_guard_events(monkeypatch):
                         "context_lines": 0,
                     },
                 ),
-                FinalAnswerAction("final_answer", "APPROVED grounded answer [E1] [E2]"),
+                FinalAnswerAction(
+                    "final_answer",
+                    "src/service.py changed [E1]. Tests/test_service.py contains the test source [E2].",
+                ),
             ]
         ),
     )
@@ -269,7 +272,7 @@ def test_v2_uses_real_tool_lifecycle_evidence_and_guard_events(monkeypatch):
     assert (
         "".join(deltas)
         == final["result"]["answer"]
-        == "APPROVED grounded answer [E1] [E2]"
+        == "src/service.py changed [E1]. Tests/test_service.py contains the test source [E2]."
     )
     assert events[-1] == {"type": "done"}
     for forbidden in ("prompt", "raw", "api_key", r"C:\\", "chain_of_thought"):

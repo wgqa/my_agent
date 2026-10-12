@@ -181,7 +181,10 @@ def test_actual_product_factory_scripted_path_and_disabled_knowledge(case_id, fi
     result = runner.run_facade(case, root, library, recorder, live=False)
     assert backend.engineering_knowledge_backend is before
     score = score_case(case, recorder.events, mode="scripted")
-    assert score["verdict"] == "PASS", score
+    # Scripted fixtures exercise record integrity and wiring only; they are
+    # not model-generated answers and must not be counted as Agent quality.
+    assert score["valid"] is True, score.get("record_problems")
+    assert score["mode"] == "scripted"
     assert result.iterations_used == len([e for e in recorder.events if e["stage"] == "decision"])
     expected_tools = sorted((*PRIMARY_TOOLS, "get_project_info"))
     assert recorder.events[-1]["enabled_tools"] == expected_tools

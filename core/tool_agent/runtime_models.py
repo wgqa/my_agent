@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+import hashlib
+import json
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
 
@@ -80,6 +82,24 @@ PROJECT_EVIDENCE_KINDS = frozenset(
 # use their own bound, shared with the actual Reader output limits.
 MAX_EVIDENCE_SNIPPET_LENGTH = MAX_PROJECT_CHANGE_CHARACTERS
 MAX_KNOWLEDGE_EVIDENCE_SNIPPET_LENGTH = 500
+TOOL_RESULT_GRANULARITIES = (
+    "locator",
+    "candidate",
+    "status_list",
+    "source_body",
+    "diff",
+)
+TOOL_RESULT_COMPLETENESS_STATES = ("complete", "partial", "unknown")
+_TOOL_RESULT_SOURCE_CONTRACTS = {
+    "code_search": ("locator", frozenset({"project_code", "project_doc", "project_test"})),
+    "changed_files": ("status_list", frozenset({"project_change"})),
+    "find_tests": ("candidate", frozenset({"project_test"})),
+    "read_project_context": ("source_body", frozenset({"project_code", "project_doc", "project_test"})),
+    "git_diff": ("diff", frozenset({"project_change"})),
+}
+_TOOL_RESULT_CHANGE_STATUSES = frozenset(
+    {"modified", "added", "deleted", "renamed", "untracked"}
+)
 
 
 def _require_non_negative_int(value: object, label: str) -> None:
@@ -128,6 +148,16 @@ class DecisionEvidenceReference:
     path: Optional[str] = None
     start_line: Optional[int] = None
     end_line: Optional[int] = None
+    granularity: Optional[str] = None
+    completeness: Optional[str] = None
+    tool_name: Optional[str] = None
+    call_id: Optional[str] = None
+    tool_version: Optional[str] = None
+    arguments_sha256: Optional[str] = None
+    result_sha256: Optional[str] = None
+    scope: Optional[str] = None
+    scope_paths: tuple[str, ...] = ()
+    requirement_eligible: Optional[bool] = None
 
     def __post_init__(self) -> None:
         if (
@@ -139,6 +169,16 @@ class DecisionEvidenceReference:
             raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
         if self.kind not in EVIDENCE_KINDS:
             raise ValueError(f"kind 必须是 {'、'.join(EVIDENCE_KINDS)} 之一")
+        if self.granularity is not None and self.granularity not in TOOL_RESULT_GRANULARITIES:
+            raise ValueError("granularity 必须是已知来源粒度或 None")
+        if self.completeness is not None and self.completeness not in TOOL_RESULT_COMPLETENESS_STATES:
+            raise ValueError("completeness 必须是已知完整性状态或 None")
+        if type(self.scope_paths) is not tuple or any(
+            type(path) is not str or not path.strip() for path in self.scope_paths
+        ):
+            raise TypeError("scope_paths 必须是 repo-relative path tuple")
+        if len(set(self.scope_paths)) != len(self.scope_paths):
+            raise ValueError("scope_paths 不得重复")
         if self.kind == "knowledge":
             if type(self.source_name) is not str or not self.source_name.strip():
                 raise ValueError("knowledge reference 必须携带非空 source_name")
@@ -155,15 +195,42 @@ class DecisionEvidenceReference:
             for label in ("path", "start_line", "end_line"):
                 if getattr(self, label) is not None:
                     raise ValueError("knowledge reference 不允许 project locator 字段")
+            if any(
+                getattr(self, label) is not None
+                for label in (
+                    "granularity", "completeness", "tool_name", "call_id",
+                    "tool_version", "arguments_sha256", "result_sha256", "scope",
+                    "requirement_eligible",
+                )
+            ) or self.scope_paths:
+                raise ValueError("knowledge reference 不允许 ToolResult 来源字段")
         else:
-            if type(self.path) is not str or not self.path.strip():
-                raise ValueError("project reference 必须携带非空 path")
-            for label in ("start_line", "end_line"):
-                value = getattr(self, label)
-                if type(value) is not int or isinstance(value, bool) or value < 1:
-                    raise ValueError("project reference 行号必须是 >=1 的严格 int")
-            if self.end_line < self.start_line:
-                raise ValueError("project reference 行号范围无效")
+            if self.tool_name is None:
+                if type(self.path) is not str or not self.path.strip():
+                    raise ValueError("legacy project reference 必须携带非空 path")
+                if self.granularity not in (None, "source_body", "diff"):
+                    raise ValueError("legacy project reference 的粒度只能是 source_body/diff")
+                if self.completeness not in (None, "unknown") or self.scope_paths:
+                    raise ValueError("legacy project reference 不接受 ToolResult 完整性/范围字段")
+                if (self.start_line is None) != (self.end_line is None):
+                    raise ValueError("project reference 行号必须同时提供或同时省略")
+                if self.start_line is not None:
+                    for label in ("start_line", "end_line"):
+                        value = getattr(self, label)
+                        if type(value) is not int or isinstance(value, bool) or value < 1:
+                            raise ValueError("project reference 行号必须是 >=1 的严格 int")
+                    if self.end_line < self.start_line:
+                        raise ValueError("project reference 行号范围无效")
+                if any(
+                    getattr(self, label) is not None
+                    for label in (
+                        "call_id", "tool_version", "arguments_sha256", "result_sha256",
+                        "scope", "requirement_eligible",
+                    )
+                ):
+                    raise ValueError("legacy project reference 不允许部分 ToolResult 身份字段")
+            else:
+                _validate_tool_result_reference(self)
             for label in ("source_name", "chunk_id", "rank"):
                 if getattr(self, label) is not None:
                     raise ValueError("project reference 不允许 knowledge locator 字段")
@@ -177,13 +244,279 @@ class DecisionEvidenceReference:
                 "chunk_id": self.chunk_id,
                 "rank": self.rank,
             }
-        return {
+        result = {
             "evidence_id": self.evidence_id,
             "kind": self.kind,
             "path": self.path,
             "start_line": self.start_line,
             "end_line": self.end_line,
         }
+        for key in (
+            "granularity", "completeness", "tool_name", "call_id", "tool_version",
+            "arguments_sha256", "result_sha256", "scope",
+            "requirement_eligible",
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                result[key] = value
+        if self.scope_paths:
+            result["scope_paths"] = list(self.scope_paths)
+        return result
+
+
+def _validate_tool_result_reference(reference: DecisionEvidenceReference) -> None:
+    """Validate a metadata-only E-ID reference to a structured Tool result."""
+    contract = _TOOL_RESULT_SOURCE_CONTRACTS.get(reference.tool_name)
+    if contract is None:
+        raise ValueError("tool_name 不是允许产生 ToolResult Evidence 的工具")
+    expected_granularity, expected_kinds = contract
+    if reference.granularity != expected_granularity or reference.kind not in expected_kinds:
+        raise ValueError("ToolResult reference 的来源粒度与 kind 不匹配")
+    for label in ("call_id", "tool_version", "arguments_sha256", "result_sha256", "scope"):
+        value = getattr(reference, label)
+        if type(value) is not str or not value.strip():
+            raise ValueError(f"ToolResult reference 必须携带 {label}")
+    for label in ("arguments_sha256", "result_sha256"):
+        value = getattr(reference, label)
+        if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+            raise ValueError(f"{label} 必须是小写 SHA-256")
+    if reference.completeness not in TOOL_RESULT_COMPLETENESS_STATES:
+        raise ValueError("ToolResult reference 必须携带 completeness")
+    expected_eligible = (
+        (
+            reference.kind in {"project_code", "project_doc", "project_test"}
+            and reference.granularity == "source_body"
+        )
+        or (reference.kind == "project_change" and reference.granularity == "diff")
+    ) and reference.completeness == "complete"
+    if type(reference.requirement_eligible) is not bool or reference.requirement_eligible != expected_eligible:
+        raise ValueError("ToolResult reference requirement_eligible 与来源粒度/完整性不匹配")
+    if not reference.scope_paths and not (
+        reference.granularity == "status_list"
+        and reference.completeness == "complete"
+    ):
+        raise ValueError("ToolResult reference 必须携带来源路径范围")
+    for path in reference.scope_paths:
+        _validate_repo_relative_path(path, "scope_path")
+    if reference.path is not None:
+        _validate_repo_relative_path(reference.path, "path")
+        if reference.path not in reference.scope_paths:
+            raise ValueError("ToolResult path 必须包含在 scope_paths 中")
+    if (reference.start_line is None) != (reference.end_line is None):
+        raise ValueError("ToolResult 行号必须同时提供或同时省略")
+    if reference.start_line is not None:
+        for label in ("start_line", "end_line"):
+            value = getattr(reference, label)
+            if type(value) is not int or isinstance(value, bool) or value < 1:
+                raise ValueError("ToolResult 行号必须是 >=1 的严格 int")
+        if reference.end_line < reference.start_line:
+            raise ValueError("ToolResult 行号范围无效")
+    if reference.granularity in {"locator", "candidate"}:
+        if reference.path is None or reference.start_line is None or reference.start_line != reference.end_line:
+            raise ValueError("locator/candidate reference 必须绑定单一来源行")
+    elif reference.granularity == "status_list":
+        if reference.path is not None or reference.start_line is not None:
+            raise ValueError("status_list reference 不允许伪装成单文件内容")
+    elif reference.path is None or reference.start_line is None:
+        raise ValueError("source_body/diff reference 必须绑定来源路径和行范围")
+
+
+def _validate_repo_relative_path(value: object, label: str) -> None:
+    if (
+        type(value) is not str
+        or not value.strip()
+        or value != value.strip()
+        or "\\" in value
+        or any(ord(char) < 32 for char in value)
+        or any(part in ("", ".", "..") for part in value.split("/"))
+    ):
+        raise ValueError(f"{label} 必须是安全 repo-relative POSIX 路径")
+    windows_path = PureWindowsPath(value)
+    posix_path = PurePosixPath(value)
+    if (
+        windows_path.is_absolute()
+        or windows_path.drive
+        or posix_path.is_absolute()
+        or any(part in (".", "..") for part in windows_path.parts)
+        or any(part in (".", "..") for part in posix_path.parts)
+    ):
+        raise ValueError(f"{label} 必须是安全 repo-relative POSIX 路径")
+
+
+@dataclass(frozen=True)
+class ToolResultEvidence:
+    """Provenance-bound metadata for one successful bounded Tool result.
+
+    The Observation remains the untrusted content shown to Decision. This
+    immutable record binds its E-ID to the executed Tool, call arguments,
+    normalized result digest, object scope, source granularity, and whether
+    the represented material was complete.
+    """
+
+    evidence_id: str
+    kind: str
+    tool_name: str
+    call_id: str
+    tool_version: str
+    arguments_json: str
+    arguments_sha256: str
+    result_sha256: str
+    granularity: str
+    completeness: str
+    scope: str
+    scope_paths: tuple[str, ...]
+    path: Optional[str] = None
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
+    status_entries: tuple[tuple[str, str, Optional[str]], ...] = ()
+    requirement_eligible: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.evidence_id) is not str
+            or not self.evidence_id.startswith("E")
+            or not self.evidence_id[1:].isdigit()
+            or int(self.evidence_id[1:]) < 1
+        ):
+            raise ValueError("evidence_id 必须是 E1、E2 形式的正编号")
+        if self.kind not in PROJECT_EVIDENCE_KINDS:
+            raise ValueError("ToolResult kind 必须是项目 Evidence kind")
+        contract = _TOOL_RESULT_SOURCE_CONTRACTS.get(self.tool_name)
+        if contract is None:
+            raise ValueError("tool_name 不是允许产生 ToolResult Evidence 的工具")
+        expected_granularity, expected_kinds = contract
+        if self.granularity != expected_granularity or self.kind not in expected_kinds:
+            raise ValueError("ToolResult 来源粒度与 kind 不匹配")
+        if self.completeness not in TOOL_RESULT_COMPLETENESS_STATES:
+            raise ValueError("completeness 必须是 complete/partial/unknown")
+        for label in ("tool_name", "call_id", "tool_version", "arguments_json", "scope"):
+            value = getattr(self, label)
+            if type(value) is not str or not value.strip():
+                raise ValueError(f"{label} 必须是非空字符串")
+        for label in ("arguments_sha256", "result_sha256"):
+            value = getattr(self, label)
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or any(char not in "0123456789abcdef" for char in value)
+            ):
+                raise ValueError(f"{label} 必须是小写 SHA-256")
+        try:
+            parsed_arguments = json.loads(self.arguments_json)
+            canonical_arguments = json.dumps(
+                parsed_arguments,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ValueError("arguments_json 必须是规范 JSON") from exc
+        if canonical_arguments != self.arguments_json:
+            raise ValueError("arguments_json 必须使用规范 JSON 编码")
+        if hashlib.sha256(self.arguments_json.encode("utf-8")).hexdigest() != self.arguments_sha256:
+            raise ValueError("arguments_sha256 与 arguments_json 不匹配")
+        empty_complete_status_list = (
+            self.granularity == "status_list"
+            and self.completeness == "complete"
+            and not self.status_entries
+        )
+        if type(self.scope_paths) is not tuple or (
+            not self.scope_paths and not empty_complete_status_list
+        ):
+            raise TypeError("scope_paths 必须是非空 repo-relative path tuple，完整空状态清单除外")
+        if len(set(self.scope_paths)) != len(self.scope_paths):
+            raise ValueError("scope_paths 不得重复")
+        for path in self.scope_paths:
+            _validate_repo_relative_path(path, "scope_path")
+        if self.path is not None:
+            _validate_repo_relative_path(self.path, "path")
+            if self.path not in self.scope_paths:
+                raise ValueError("path 必须包含在 scope_paths 中")
+        if (self.start_line is None) != (self.end_line is None):
+            raise ValueError("行号必须同时提供或同时省略")
+        if self.start_line is not None:
+            for label in ("start_line", "end_line"):
+                value = getattr(self, label)
+                if type(value) is not int or isinstance(value, bool) or value < 1:
+                    raise ValueError("行号必须是 >=1 的严格 int")
+            if self.end_line < self.start_line:
+                raise ValueError("行号范围无效")
+        if self.granularity != "status_list" and self.status_entries:
+            raise ValueError("只有 status_list Evidence 可以携带 status_entries")
+        if self.granularity in {"locator", "candidate"}:
+            if self.path is None or self.start_line is None or self.start_line != self.end_line:
+                raise ValueError("locator/candidate 必须绑定单一来源行")
+        elif self.granularity == "status_list":
+            if self.path is not None or self.start_line is not None:
+                raise ValueError("status_list 不允许伪装成单文件内容")
+            if type(self.status_entries) is not tuple:
+                raise TypeError("status_entries 必须是结构化变更项 tuple")
+            if not self.status_entries and not (
+                self.completeness == "complete" and not self.scope_paths
+            ):
+                raise ValueError("只有完整空清单可以没有 status_entries")
+            seen_status_paths: set[str] = set()
+            for entry in self.status_entries:
+                if type(entry) is not tuple or len(entry) != 3:
+                    raise TypeError("status_entries 必须是 (path, status, old_path) tuple")
+                path, status, old_path = entry
+                _validate_repo_relative_path(path, "status_entry.path")
+                if type(status) is not str or status not in _TOOL_RESULT_CHANGE_STATUSES:
+                    raise ValueError("status_entry.status 不是受支持的变更状态")
+                if status == "renamed":
+                    _validate_repo_relative_path(old_path, "status_entry.old_path")
+                elif old_path is not None:
+                    raise ValueError("只有 renamed 状态可以携带 old_path")
+                if path in seen_status_paths:
+                    raise ValueError("status_entries 不得重复目标路径")
+                seen_status_paths.add(path)
+                if path not in self.scope_paths or (
+                    old_path is not None and old_path not in self.scope_paths
+                ):
+                    raise ValueError("status_entries 的路径必须属于 scope_paths")
+        elif self.path is None or self.start_line is None:
+            raise ValueError("source_body/diff 必须绑定来源路径和行范围")
+        eligible_source = (
+            (self.kind in {"project_code", "project_doc", "project_test"} and self.granularity == "source_body")
+            or (self.kind == "project_change" and self.granularity == "diff")
+        )
+        object.__setattr__(
+            self,
+            "requirement_eligible",
+            eligible_source and self.completeness == "complete",
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "evidence_id": self.evidence_id,
+            "kind": self.kind,
+            "tool_name": self.tool_name,
+            "call_id": self.call_id,
+            "tool_version": self.tool_version,
+            "arguments_json": self.arguments_json,
+            "arguments_sha256": self.arguments_sha256,
+            "result_sha256": self.result_sha256,
+            "granularity": self.granularity,
+            "completeness": self.completeness,
+            "requirement_eligible": self.requirement_eligible,
+            "scope": self.scope,
+            "scope_paths": list(self.scope_paths),
+        }
+        if self.path is not None:
+            result["path"] = self.path
+        if self.start_line is not None:
+            result["start_line"] = self.start_line
+            result["end_line"] = self.end_line
+        if self.status_entries:
+            result["status_entries"] = [
+                {
+                    "path": path,
+                    "status": status,
+                    **({"old_path": old_path} if old_path is not None else {}),
+                }
+                for path, status, old_path in self.status_entries
+            ]
+        return result
 
 
 @dataclass(frozen=True)
@@ -718,7 +1051,7 @@ class ToolAgentRunResult:
     tool_calls_used: int
     tool_errors_used: int
     trace: Sequence[RuntimeTraceEvent]
-    evidence: Sequence[EngineeringEvidence | KnowledgeEvidence] = ()
+    evidence: Sequence[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence] = ()
     execution: Optional[ToolAgentExecutionMetrics] = None
 
     def __post_init__(self) -> None:
@@ -762,9 +1095,9 @@ class ToolAgentRunResult:
             raise TypeError("evidence 必须是统一 Evidence 序列")
         normalized_evidence = tuple(self.evidence)
         for item in normalized_evidence:
-            if type(item) not in (EngineeringEvidence, KnowledgeEvidence):
+            if type(item) not in (EngineeringEvidence, KnowledgeEvidence, ToolResultEvidence):
                 raise TypeError(
-                    "evidence 必须全部是 EngineeringEvidence 或 KnowledgeEvidence"
+                    "evidence 必须全部是受信任的 public Evidence 类型"
                 )
         object.__setattr__(self, "evidence", normalized_evidence)
         if self.execution is not None and not isinstance(

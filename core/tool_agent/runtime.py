@@ -11,10 +11,12 @@ DecisionContextItem 反馈给模型，但绝不作为系统指令。本模块不
 from __future__ import annotations
 
 import json
+import hashlib
 import inspect
 import time
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Callable
 
 from core.engineering_requirements import (
@@ -54,13 +56,16 @@ from core.tool_agent.runtime_models import (
     DecisionEvidenceReference,
     EngineeringEvidence,
     KnowledgeEvidence,
-    MAX_EVIDENCE_SNIPPET_LENGTH,
     RuntimeTraceEvent,
+    ToolResultEvidence,
     ToolAgentBudget,
     ToolAgentExecutionMetrics,
     ToolAgentRunResult,
 )
 from core.tool_agent.source_excerpt import project_context_fragments, project_context_snippet
+from core.tool_agent.tools.code_search import MAX_MATCHES as CODE_SEARCH_MAX_MATCHES
+
+PublicEvidence = EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence
 
 _EVIDENCE_PRODUCER_TOOLS = {
     "knowledge": ("knowledge_search",),
@@ -94,13 +99,23 @@ def _normalize_initial_context(value: object) -> tuple[DecisionContextItem, ...]
 
 
 def _evidence_identity(
-    item: EngineeringEvidence | KnowledgeEvidence,
+    item: EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence,
 ) -> tuple:
     if isinstance(item, KnowledgeEvidence):
         return (
             "knowledge",
             item.source_name,
             item.chunk_id if item.chunk_id is not None else item.snippet,
+        )
+    if isinstance(item, ToolResultEvidence):
+        return (
+            "tool_result",
+            item.tool_name,
+            item.tool_version,
+            item.call_id,
+            item.arguments_sha256,
+            item.result_sha256,
+            item.scope,
         )
     return (item.kind, item.path, item.start_line, item.end_line)
 
@@ -195,37 +210,306 @@ def _evidence_from_project_context_regions(observation) -> tuple[EngineeringEvid
     return tuple(evidence)
 
 
-def _evidence_from_git_diff(observation) -> EngineeringEvidence | None:
-    """Convert one successful bounded git_diff observation into public evidence."""
+def _canonical_json(value: object) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
-    if observation.status != "ok" or observation.tool_name != "git_diff":
-        return None
-    result = observation.result
-    if type(result) is not dict:
-        return None
-    path = result.get("path")
-    start_line = result.get("start_line")
-    end_line = result.get("end_line")
-    snippet = result.get("diff")
+
+def _sha256_json(value: object) -> str:
+    return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _safe_repo_path(value: object) -> bool:
     if (
-        type(path) is not str
-        or type(start_line) is not int
-        or type(end_line) is not int
-        or type(snippet) is not str
-        or not snippet
+        type(value) is not str
+        or not value.strip()
+        or value != value.strip()
+        or "\\" in value
+        or any(ord(char) < 32 for char in value)
+        or any(part in ("", ".", "..") for part in value.split("/"))
+    ):
+        return False
+    windows_path = PureWindowsPath(value)
+    posix_path = PurePosixPath(value)
+    return not (
+        windows_path.is_absolute()
+        or windows_path.drive
+        or posix_path.is_absolute()
+        or any(part in (".", "..") for part in windows_path.parts)
+        or any(part in (".", "..") for part in posix_path.parts)
+    )
+
+
+def _make_tool_result_evidence(
+    observation,
+    arguments: Mapping,
+    tool_version: str,
+    *,
+    kind: str,
+    granularity: str,
+    completeness: str,
+    scope: str,
+    scope_paths: tuple[str, ...],
+    path: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    status_entries: tuple[tuple[str, str, str | None], ...] = (),
+) -> ToolResultEvidence | None:
+    complete_empty_status_list = (
+        granularity == "status_list"
+        and completeness == "complete"
+        and not status_entries
+    )
+    if (
+        observation.status != "ok"
+        or observation.tool_name not in {"code_search", "changed_files", "find_tests", "git_diff"}
+        or type(tool_version) is not str
+        or not tool_version.strip()
+        or not isinstance(arguments, Mapping)
+        or type(observation.result) is not dict
+        or type(observation.call_id) is not str
+        or not observation.call_id.strip()
+        or (not scope_paths and not complete_empty_status_list)
+        or any(not _safe_repo_path(item) for item in scope_paths)
     ):
         return None
     try:
-        return EngineeringEvidence(
+        return ToolResultEvidence(
             evidence_id="E1",
-            kind="project_change",
+            kind=kind,
+            tool_name=observation.tool_name,
+            call_id=observation.call_id,
+            tool_version=tool_version,
+            arguments_json=_canonical_json(arguments),
+            arguments_sha256=_sha256_json(arguments),
+            result_sha256=_sha256_json(observation.result),
+            granularity=granularity,
+            completeness=completeness,
+            scope=scope,
+            scope_paths=scope_paths,
             path=path,
             start_line=start_line,
             end_line=end_line,
-            snippet=snippet[:MAX_EVIDENCE_SNIPPET_LENGTH],
+            status_entries=status_entries,
         )
     except (TypeError, ValueError):
         return None
+
+
+def _evidence_from_code_search(observation, arguments: Mapping, tool_version: str) -> tuple[ToolResultEvidence, ...]:
+    """Convert literal search hits to locator-only, never source-body Evidence."""
+    if observation.status != "ok" or observation.tool_name != "code_search":
+        return ()
+    result = observation.result
+    if type(result) is not dict or type(result.get("matches")) is not list:
+        return ()
+    requested_kind = arguments.get("artifact_kind", "any")
+    if requested_kind not in {"any", "project_code", "project_doc", "project_test"}:
+        return ()
+    evidence: list[ToolResultEvidence] = []
+    completeness = "partial" if len(result["matches"]) >= CODE_SEARCH_MAX_MATCHES else "complete"
+    for match in result["matches"]:
+        if type(match) is not dict:
+            return ()
+        path, line, text = match.get("path"), match.get("line"), match.get("text")
+        if (
+            not _safe_repo_path(path)
+            or type(line) is not int
+            or isinstance(line, bool)
+            or line < 1
+            or type(text) is not str
+            or not text
+        ):
+            return ()
+        try:
+            kind = classify_project_evidence_path(path)
+        except (TypeError, ValueError):
+            return ()
+        if requested_kind != "any" and kind != requested_kind:
+            return ()
+        item = _make_tool_result_evidence(
+            observation,
+            arguments,
+            tool_version,
+            kind=kind,
+            granularity="locator",
+            completeness=completeness,
+            scope=f"literal search hit at {path}:{line}",
+            scope_paths=(path,),
+            path=path,
+            start_line=line,
+            end_line=line,
+        )
+        if item is None:
+            return ()
+        evidence.append(item)
+    return tuple(evidence)
+
+
+def _evidence_from_changed_files(observation, arguments: Mapping, tool_version: str) -> ToolResultEvidence | None:
+    """Keep a changed_files inventory as a status list, never as diff/source."""
+    if observation.status != "ok" or observation.tool_name != "changed_files":
+        return None
+    result = observation.result
+    if type(result) is not dict or type(result.get("changes")) is not list:
+        return None
+    changes = result["changes"]
+    paths: list[str] = []
+    status_entries: list[tuple[str, str, str | None]] = []
+    seen_change_paths: set[str] = set()
+    for change in changes:
+        if (
+            type(change) is not dict
+            or not _safe_repo_path(change.get("path"))
+            or type(change.get("status")) is not str
+            or change.get("status") not in {"modified", "added", "deleted", "renamed", "untracked"}
+        ):
+            return None
+        path = change["path"]
+        status = change["status"]
+        if path in seen_change_paths:
+            return None
+        seen_change_paths.add(path)
+        paths.append(path)
+        old_path = change.get("old_path")
+        if status == "renamed":
+            if old_path is None or not _safe_repo_path(old_path) or old_path == path:
+                return None
+            paths.append(old_path)
+        elif old_path is not None:
+            return None
+        status_entries.append((path, status, old_path))
+    returned = result.get("returned_count")
+    total = result.get("total_count")
+    truncated = result.get("truncated")
+    omitted = result.get("omitted_sensitive_count")
+    if (
+        type(returned) is not int or isinstance(returned, bool)
+        or type(total) is not int or isinstance(total, bool)
+        or type(truncated) is not bool
+        or type(omitted) is not int or isinstance(omitted, bool)
+        or returned != len(changes)
+    ):
+        return None
+    complete = not truncated and omitted == 0 and total == returned
+    if not paths and not (complete and not changes):
+        return None
+    scope_args = {
+        key: arguments.get(key)
+        for key in ("mode", "base_ref", "head_ref")
+        if key in arguments
+    }
+    return _make_tool_result_evidence(
+        observation,
+        arguments,
+        tool_version,
+        kind="project_change",
+        granularity="status_list",
+        completeness="complete" if complete else "partial",
+        scope=_canonical_json(scope_args),
+        scope_paths=tuple(dict.fromkeys(paths)),
+        status_entries=tuple(status_entries),
+    )
+
+
+def _evidence_from_find_tests(observation, arguments: Mapping, tool_version: str) -> tuple[ToolResultEvidence, ...]:
+    """Keep find_tests output at candidate granularity, not test-body evidence."""
+    if observation.status != "ok" or observation.tool_name != "find_tests":
+        return ()
+    result = observation.result
+    source_path = arguments.get("path")
+    candidates = result.get("candidates") if type(result) is dict else None
+    if not _safe_repo_path(source_path) or type(candidates) is not list:
+        return ()
+    returned = result.get("returned_count")
+    truncated = result.get("truncated")
+    omitted = result.get("omitted_sensitive_count")
+    if (
+        type(returned) is not int or isinstance(returned, bool)
+        or type(truncated) is not bool
+        or type(omitted) is not int or isinstance(omitted, bool)
+        or returned != len(candidates)
+    ):
+        return ()
+    completeness = "complete" if not truncated and omitted == 0 else "partial"
+    evidence: list[ToolResultEvidence] = []
+    for candidate in candidates:
+        if type(candidate) is not dict:
+            return ()
+        path, line, reasons = candidate.get("path"), candidate.get("line"), candidate.get("reasons")
+        if (
+            not _safe_repo_path(path)
+            or type(line) is not int
+            or isinstance(line, bool)
+            or line < 1
+            or type(reasons) is not list
+            or not reasons
+            or any(type(reason) is not str for reason in reasons)
+        ):
+            return ()
+        item = _make_tool_result_evidence(
+            observation,
+            arguments,
+            tool_version,
+            kind="project_test",
+            granularity="candidate",
+            completeness=completeness,
+            scope=f"candidate {path}:{line} for {source_path}",
+            scope_paths=tuple(dict.fromkeys((source_path, path))),
+            path=path,
+            start_line=line,
+            end_line=line,
+        )
+        if item is None:
+            return ()
+        evidence.append(item)
+    return tuple(evidence)
+
+
+def _evidence_from_tool_result(observation, call, tool_version: str | None) -> tuple[ToolResultEvidence, ...]:
+    if (
+        observation.status != "ok"
+        or observation.call_id != call.call_id
+        or observation.tool_name != call.tool_name
+        or type(tool_version) is not str
+    ):
+        return ()
+    arguments = call.arguments_copy()
+    if call.tool_name == "code_search":
+        return _evidence_from_code_search(observation, arguments, tool_version)
+    if call.tool_name == "changed_files":
+        item = _evidence_from_changed_files(observation, arguments, tool_version)
+        return (item,) if item is not None else ()
+    if call.tool_name == "find_tests":
+        return _evidence_from_find_tests(observation, arguments, tool_version)
+    if call.tool_name == "git_diff":
+        result = observation.result
+        path = result.get("path") if type(result) is dict else None
+        start_line = result.get("start_line") if type(result) is dict else None
+        end_line = result.get("end_line") if type(result) is dict else None
+        truncated = result.get("truncated") if type(result) is dict else None
+        if (
+            not _safe_repo_path(path)
+            or type(start_line) is not int or isinstance(start_line, bool) or start_line < 1
+            or type(end_line) is not int or isinstance(end_line, bool) or end_line < start_line
+            or type(result.get("diff")) is not str or not result.get("diff")
+            or type(truncated) is not bool
+        ):
+            return ()
+        item = _make_tool_result_evidence(
+            observation,
+            arguments,
+            tool_version,
+            kind="project_change",
+            granularity="diff",
+            completeness="partial" if truncated else "complete",
+            scope=f"{result.get('mode')} diff for {path}",
+            scope_paths=(path,),
+            path=path,
+            start_line=start_line,
+            end_line=end_line,
+        )
+        return (item,) if item is not None else ()
+    return ()
 
 
 def _evidence_from_knowledge_search(observation) -> tuple[KnowledgeEvidence, ...]:
@@ -259,7 +543,7 @@ def _evidence_from_knowledge_search(observation) -> tuple[KnowledgeEvidence, ...
 
 
 def _evidence_fingerprint(
-    evidence: list[EngineeringEvidence | KnowledgeEvidence],
+    evidence: list[PublicEvidence],
 ) -> tuple[tuple]:
     """Return an order-independent identity fingerprint without content."""
 
@@ -273,6 +557,8 @@ def _evidence_fingerprint(
                     item.chunk_id if item.chunk_id is not None else item.rank,
                 )
             )
+        elif isinstance(item, ToolResultEvidence):
+            identities.append(_evidence_identity(item))
         else:
             identities.append(
                 (item.kind, item.path, item.start_line, item.end_line)
@@ -325,13 +611,33 @@ def _recovery_is_feasible(
 
 
 def _evidence_reference_catalog(
-    evidence: list[EngineeringEvidence | KnowledgeEvidence],
+    evidence: list[PublicEvidence],
 ) -> tuple[DecisionEvidenceReference, ...]:
     """Deterministic metadata-only E-ID catalog of current public evidence."""
 
     refs: list[DecisionEvidenceReference] = []
     for item in evidence:
-        if isinstance(item, KnowledgeEvidence):
+        if isinstance(item, ToolResultEvidence):
+            refs.append(
+                DecisionEvidenceReference(
+                    evidence_id=item.evidence_id,
+                    kind=item.kind,
+                    path=item.path,
+                    start_line=item.start_line,
+                    end_line=item.end_line,
+                    granularity=item.granularity,
+                    completeness=item.completeness,
+                    tool_name=item.tool_name,
+                    call_id=item.call_id,
+                    tool_version=item.tool_version,
+                    arguments_sha256=item.arguments_sha256,
+                    result_sha256=item.result_sha256,
+                    scope=item.scope,
+                    scope_paths=item.scope_paths,
+                    requirement_eligible=item.requirement_eligible,
+                )
+            )
+        elif isinstance(item, KnowledgeEvidence):
             refs.append(
                 DecisionEvidenceReference(
                     evidence_id=item.evidence_id,
@@ -349,6 +655,8 @@ def _evidence_reference_catalog(
                     path=item.path,
                     start_line=item.start_line,
                     end_line=item.end_line,
+                    granularity=("diff" if item.kind == "project_change" else "source_body"),
+                    completeness="unknown",
                 )
             )
     return tuple(refs)
@@ -356,7 +664,7 @@ def _evidence_reference_catalog(
 
 def _run_finalization_verifier(
     verifier,
-    evidence: list[EngineeringEvidence | KnowledgeEvidence],
+    evidence: list[PublicEvidence],
     proposed_answer: str | None,
 ):
     """Run the one trusted Engineering verification seam, fail-fast on drift."""
@@ -553,7 +861,7 @@ class ToolAgentRuntime:
         tool_calls = 0
         tool_errors = 0
         trace: list[RuntimeTraceEvent] = []
-        evidence: list[EngineeringEvidence | KnowledgeEvidence] = list(seed_evidence)
+        evidence: list[PublicEvidence] = list(seed_evidence)
         seen_evidence: set[tuple] = {
             _evidence_identity(item) for item in seed_evidence
         }
@@ -1101,30 +1409,19 @@ class ToolAgentRuntime:
                     observation_error_code=observation.error_code,
                 )
             )
-            observed_evidence = list(_evidence_from_knowledge_search(observation))
+            observed_evidence: list[PublicEvidence] = list(_evidence_from_knowledge_search(observation))
             observed_evidence.extend(_evidence_from_project_context_regions(observation))
+            current_spec = run_registry.get_spec(call.tool_name)
             observed_evidence.extend(
-                item
-                for item in (
-                    _evidence_from_git_diff(observation),
+                _evidence_from_tool_result(
+                    observation,
+                    call,
+                    current_spec.version if current_spec is not None else None,
                 )
-                if item is not None
             )
             added_evidence_ids: list[str] = []
             for observed in observed_evidence:
-                if isinstance(observed, KnowledgeEvidence):
-                    key = (
-                        "knowledge",
-                        observed.source_name,
-                        observed.chunk_id or observed.snippet,
-                    )
-                else:
-                    key = (
-                        observed.kind,
-                        observed.path,
-                        observed.start_line,
-                        observed.end_line,
-                    )
+                key = _evidence_identity(observed)
                 if key in seen_evidence:
                     continue
                 seen_evidence.add(key)
@@ -1249,7 +1546,7 @@ class ToolAgentRuntime:
     def _hard_stop(
         self,
         trace: list[RuntimeTraceEvent],
-        evidence: list[EngineeringEvidence | KnowledgeEvidence],
+        evidence: list[PublicEvidence],
         iterations: int,
         tool_calls: int,
         tool_errors: int,
