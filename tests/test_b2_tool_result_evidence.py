@@ -246,6 +246,32 @@ def test_find_tests_is_candidate_only_and_truncation_stays_partial():
     assert partial[0].requirement_eligible is False
 
 
+def test_find_tests_candidate_reasons_are_preserved_from_the_observation_enum():
+    arguments = {"path": "src/cache.py"}
+    result = {
+        "candidates": [
+            {
+                "path": "tests/test_cache.py",
+                "line": 4,
+                "reasons": ["filename_match", "content_reference"],
+            }
+        ],
+        "returned_count": 1,
+        "truncated": False,
+        "omitted_sensitive_count": 0,
+    }
+    evidence = _evidence_from_find_tests(
+        _observation("find_tests", result), arguments, "find_tests_v1"
+    )
+    assert evidence[0].candidate_reasons == ("filename_match", "content_reference")
+
+    for reasons in (["unknown_reason"], ["filename_match", "filename_match"]):
+        invalid = {**result, "candidates": [{**result["candidates"][0], "reasons": reasons}]}
+        assert _evidence_from_find_tests(
+            _observation("find_tests", invalid), arguments, "find_tests_v1"
+        ) == ()
+
+
 def test_tool_granularity_and_completeness_are_an_independent_gate():
     requirement_eligible_but_locator = {
         "kind": "project_code",

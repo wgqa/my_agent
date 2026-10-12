@@ -369,6 +369,7 @@ class ToolResultEvidence:
     start_line: Optional[int] = None
     end_line: Optional[int] = None
     status_entries: tuple[tuple[str, str, Optional[str]], ...] = ()
+    candidate_reasons: tuple[str, ...] = ()
     requirement_eligible: bool = field(init=False)
 
     def __post_init__(self) -> None:
@@ -443,6 +444,16 @@ class ToolResultEvidence:
                 raise ValueError("行号范围无效")
         if self.granularity != "status_list" and self.status_entries:
             raise ValueError("只有 status_list Evidence 可以携带 status_entries")
+        if type(self.candidate_reasons) is not tuple or any(
+            type(reason) is not str
+            or reason not in {"mirrored_path", "filename_match", "content_reference"}
+            for reason in self.candidate_reasons
+        ):
+            raise ValueError("candidate_reasons 必须是受支持的 find_tests 原因 tuple")
+        if len(set(self.candidate_reasons)) != len(self.candidate_reasons):
+            raise ValueError("candidate_reasons 不得重复")
+        if self.granularity != "candidate" and self.candidate_reasons:
+            raise ValueError("只有 candidate Evidence 可以携带 candidate_reasons")
         if self.granularity in {"locator", "candidate"}:
             if self.path is None or self.start_line is None or self.start_line != self.end_line:
                 raise ValueError("locator/candidate 必须绑定单一来源行")
@@ -516,6 +527,8 @@ class ToolResultEvidence:
                 }
                 for path, status, old_path in self.status_entries
             ]
+        if self.candidate_reasons:
+            result["candidate_reasons"] = list(self.candidate_reasons)
         return result
 
 

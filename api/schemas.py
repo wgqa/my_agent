@@ -293,6 +293,7 @@ class ToolAgentEvidence(BaseModel):
     scope_paths: List[str] = Field(default_factory=list)
     requirement_eligible: Optional[bool] = None
     status_entries: List[ToolAgentChangeStatus] = Field(default_factory=list)
+    candidate_reasons: List[Literal["mirrored_path", "filename_match", "content_reference"]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _enforce_kind_snippet_limit(self):
@@ -300,6 +301,10 @@ class ToolAgentEvidence(BaseModel):
             limit = project_evidence_character_limit(self.kind)
             if len(self.snippet) > limit:
                 raise ValueError(f"{self.kind} snippet must have at most {limit} characters")
+        if self.candidate_reasons and self.granularity != "candidate":
+            raise ValueError("candidate_reasons are valid only for candidate Evidence")
+        if len(set(self.candidate_reasons)) != len(self.candidate_reasons):
+            raise ValueError("candidate_reasons must not contain duplicates")
         if self.granularity is None:
             if (
                 not self.path

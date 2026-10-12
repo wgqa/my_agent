@@ -1,0 +1,206 @@
+{
+  "fixture_kind": "Task011 actual model candidate answer plus captured real tool Observation; offline verifier replay only",
+  "source_artifacts": {
+    "actual_answers_and_sources": {
+      "path": "Task011 saved results/b2_fixed_flash_6case_20261012/ACTUAL_ANSWERS_AND_SOURCES.md",
+      "sha256": "599d1c02f7a86a9c3fc592e22726e754b50e8bee0c7c4147fcb5164e6c811b41"
+    },
+    "calls": {
+      "path": "Task011 saved results/b2_fixed_flash_6case_20261012_dev_r01/calls.jsonl",
+      "sha256": "4dc59f03c13cc52c619a5ec7224d864d089a2f6b8308e6152d9fecb477fb0719"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "dev-006",
+      "candidate_answer": "TAIL_POLICY 位于 docs/late.md 第 161 行 [E6]。",
+      "answer_sha256": "2688120cbc5e964f06fe0d071958614559542926b4a21b20ac322fbeece5c1ed",
+      "evidence_id": "E6",
+      "tool_version": "code_search_v7",
+      "observation": {
+        "call_id": "call_9328f4a667524adeb1849335e857ca8e",
+        "tool_name": "code_search",
+        "status": "ok",
+        "arguments": {
+          "artifact_kind": "project_doc",
+          "query": "TAIL_POLICY"
+        },
+        "result": {
+          "matches": [
+            {
+              "line": 161,
+              "path": "docs/late.md",
+              "text": "TAIL_POLICY: expiry is 90 seconds and stale entries must be removed."
+            }
+          ]
+        },
+        "error_code": null,
+        "event_seq": 7
+      },
+      "recorded_identity": {
+        "arguments_sha256": "2808d08f5cd72ef54a010f776cf81316dd1479d3975a3609607ad8eee662ad6a",
+        "call_id": "call_9328f4a667524adeb1849335e857ca8e",
+        "completeness": "complete",
+        "end_line": 161,
+        "evidence_id": "E6",
+        "granularity": "locator",
+        "kind": "project_doc",
+        "path": "docs/late.md",
+        "requirement_eligible": false,
+        "result_sha256": "5606fa87460501881edebfc13e125563b506e227f83005e76b637b87cf740bd0",
+        "scope": "literal search hit at docs/late.md:161",
+        "scope_paths": [
+          "docs/late.md"
+        ],
+        "start_line": 161,
+        "tool_name": "code_search",
+        "tool_version": "code_search_v7"
+      }
+    },
+    {
+      "case_id": "dev-013",
+      "candidate_answer": "当前 working_tree 的可见变更文件共 5 个（truncated=false，omitted_sensitive_count=0）[E6]：\n\n| 路径 | 状态 |\n|---|---|\n| agent_demo/retired.py | deleted（已删除） |\n| agent_demo/scoring.py | renamed（由 agent_demo/ranking.py 重命名而来） |\n| agent_demo/settings.py | modified（已修改） |\n| agent_demo/transport.py | modified（已修改） |\n| notes/new_note.md | untracked（未跟踪） |\n\n说明：以上仅为变更文件清单与状态，未读取各文件的具体 diff 内容；untracked 文件正文不在该工具返回范围内。",
+      "answer_sha256": "93a312a4860d71630bf497ce48dbdb3e83e3925ebec3e0367bebd7df4da52a86",
+      "evidence_id": "E6",
+      "tool_version": "changed_files_v1",
+      "observation": {
+        "call_id": "call_97bf97be394b4b348aee37289943e903",
+        "tool_name": "changed_files",
+        "status": "ok",
+        "arguments": {
+          "mode": "working_tree"
+        },
+        "result": {
+          "changes": [
+            {
+              "path": "agent_demo/retired.py",
+              "status": "deleted"
+            },
+            {
+              "old_path": "agent_demo/ranking.py",
+              "path": "agent_demo/scoring.py",
+              "status": "renamed"
+            },
+            {
+              "path": "agent_demo/settings.py",
+              "status": "modified"
+            },
+            {
+              "path": "agent_demo/transport.py",
+              "status": "modified"
+            },
+            {
+              "path": "notes/new_note.md",
+              "status": "untracked"
+            }
+          ],
+          "omitted_sensitive_count": 0,
+          "returned_count": 5,
+          "total_count": 5,
+          "truncated": false
+        },
+        "error_code": null,
+        "event_seq": 7
+      },
+      "recorded_identity": {
+        "arguments_sha256": "2358b72699a3f21317cff36d676309bd68f7ffc54e64fd0092c33c16f93ce7d7",
+        "call_id": "call_97bf97be394b4b348aee37289943e903",
+        "completeness": "complete",
+        "end_line": null,
+        "evidence_id": "E6",
+        "granularity": "status_list",
+        "kind": "project_change",
+        "path": null,
+        "requirement_eligible": false,
+        "result_sha256": "ac7aec15f46f4b501ee4316c1e79a3b1ebee81e6c070ce2a4d756699d33bfd7c",
+        "scope": "{\"mode\":\"working_tree\"}",
+        "scope_paths": [
+          "agent_demo/retired.py",
+          "agent_demo/scoring.py",
+          "agent_demo/ranking.py",
+          "agent_demo/settings.py",
+          "agent_demo/transport.py",
+          "notes/new_note.md"
+        ],
+        "start_line": null,
+        "status_entries": [
+          {
+            "path": "agent_demo/retired.py",
+            "status": "deleted"
+          },
+          {
+            "old_path": "agent_demo/ranking.py",
+            "path": "agent_demo/scoring.py",
+            "status": "renamed"
+          },
+          {
+            "path": "agent_demo/settings.py",
+            "status": "modified"
+          },
+          {
+            "path": "agent_demo/transport.py",
+            "status": "modified"
+          },
+          {
+            "path": "notes/new_note.md",
+            "status": "untracked"
+          }
+        ],
+        "tool_name": "changed_files",
+        "tool_version": "changed_files_v1"
+      }
+    },
+    {
+      "case_id": "dev-021",
+      "candidate_answer": "find_tests 工具针对 `agent_demo/search.py` 返回 1 个候选关联测试文件：\n\n- `tests/test_search.py`（候选理由：filename_match、content_reference）[E6]\n\n说明：这是候选关联测试，不代表已证明受影响，也未执行任何测试。结果未截断，omitted_sensitive_count 为 0。",
+      "answer_sha256": "f0f74b52924a5878342b947790f9ad7e329462026555923ef00a68d1ca8bfb9c",
+      "evidence_id": "E6",
+      "tool_version": "find_tests_v1",
+      "observation": {
+        "call_id": "call_21bcea87892c4b4184ffa412da5ab156",
+        "tool_name": "find_tests",
+        "status": "ok",
+        "arguments": {
+          "path": "agent_demo/search.py"
+        },
+        "result": {
+          "candidates": [
+            {
+              "line": 1,
+              "path": "tests/test_search.py",
+              "reasons": [
+                "filename_match",
+                "content_reference"
+              ]
+            }
+          ],
+          "omitted_sensitive_count": 0,
+          "returned_count": 1,
+          "truncated": false
+        },
+        "error_code": null,
+        "event_seq": 7
+      },
+      "recorded_identity": {
+        "arguments_sha256": "634790df8aa2648a579896f64ad5473d3638bfcbbfc83e7d56b65a1341a5c220",
+        "call_id": "call_21bcea87892c4b4184ffa412da5ab156",
+        "completeness": "complete",
+        "end_line": 1,
+        "evidence_id": "E6",
+        "granularity": "candidate",
+        "kind": "project_test",
+        "path": "tests/test_search.py",
+        "requirement_eligible": false,
+        "result_sha256": "14dbc00aa91422cb37aaabcedc5bb8bea96602cba1c26dabfff3b2b25d87d7cd",
+        "scope": "candidate tests/test_search.py:1 for agent_demo/search.py",
+        "scope_paths": [
+          "agent_demo/search.py",
+          "tests/test_search.py"
+        ],
+        "start_line": 1,
+        "tool_name": "find_tests",
+        "tool_version": "find_tests_v1"
+      }
+    }
+  ]
+}

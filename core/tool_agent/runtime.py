@@ -253,6 +253,7 @@ def _make_tool_result_evidence(
     start_line: int | None = None,
     end_line: int | None = None,
     status_entries: tuple[tuple[str, str, str | None], ...] = (),
+    candidate_reasons: tuple[str, ...] = (),
 ) -> ToolResultEvidence | None:
     complete_empty_status_list = (
         granularity == "status_list"
@@ -290,6 +291,7 @@ def _make_tool_result_evidence(
             start_line=start_line,
             end_line=end_line,
             status_entries=status_entries,
+            candidate_reasons=candidate_reasons,
         )
     except (TypeError, ValueError):
         return None
@@ -443,7 +445,12 @@ def _evidence_from_find_tests(observation, arguments: Mapping, tool_version: str
             or line < 1
             or type(reasons) is not list
             or not reasons
-            or any(type(reason) is not str for reason in reasons)
+            or any(
+                type(reason) is not str
+                or reason not in {"mirrored_path", "filename_match", "content_reference"}
+                for reason in reasons
+            )
+            or len(set(reasons)) != len(reasons)
         ):
             return ()
         item = _make_tool_result_evidence(
@@ -458,6 +465,7 @@ def _evidence_from_find_tests(observation, arguments: Mapping, tool_version: str
             path=path,
             start_line=line,
             end_line=line,
+            candidate_reasons=tuple(reasons),
         )
         if item is None:
             return ()

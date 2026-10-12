@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -228,101 +229,208 @@ def _answer_line_without_references(line: str) -> tuple[tuple[str, ...], str]:
     return references, text
 
 
-def _is_bounded_location_line(line: str, item: ToolResultEvidence) -> bool:
-    references, text = _answer_line_without_references(line)
-    if references != (item.evidence_id,):
+_STATUS_WORDS = {
+    "modified": ("modified", "已修改", "修改"),
+    "added": ("added", "新增"),
+    "deleted": ("deleted", "已删除", "删除"),
+    "renamed": ("renamed", "重命名"),
+    "untracked": ("untracked", "未跟踪"),
+}
+_CANDIDATE_REASON_WORDS = frozenset(
+    {"mirrored_path", "filename_match", "content_reference"}
+)
+_BOUNDED_FACT_PATH_PATTERN = re.compile(
+    r"(?<![\w./-])(?:[A-Za-z0-9_.@+-]+/)*[A-Za-z0-9_.@+-]+\.[A-Za-z0-9_+-]+"
+)
+
+
+def _formatting_only(text: str) -> bool:
+    """Return true only when the remaining text is punctuation/Markdown."""
+    return not re.sub(
+        r"[\s|:：,，、;；.!?。()（）\[\]{}<>`'\"*_#~—–→-]", "", text
+    )
+
+
+def _remove_terms(text: str, terms: Sequence[str]) -> str:
+    for term in sorted((term for term in terms if term), key=len, reverse=True):
+        text = re.sub(re.escape(term), "", text, flags=re.IGNORECASE)
+    return text
+
+
+def _line_and_path(text: str, path: str) -> tuple[tuple[int, int] | None, int | None]:
+    """Find one common path/line spelling and return its span and line."""
+    escaped = re.escape(path)
+    patterns = (
+        re.compile(rf"(?<![\w./-]){escaped}\s*[:：]\s*(\d+)(?:\s*行)?"),
+        re.compile(rf"(?<![\w./-]){escaped}\s+(?:第\s*)?(\d+)\s*行"),
+        re.compile(rf"(?:第\s*)?(\d+)\s*行\s*(?:位于|在|in)?\s*{escaped}(?![\w./-])", re.IGNORECASE),
+        re.compile(rf"\bline\s+(\d+)\s+(?:in|at)\s+{escaped}(?![\w./-])", re.IGNORECASE),
+    )
+    for pattern in patterns:
+        match = pattern.search(text)
+        if match:
+            number = next(group for group in match.groups() if group is not None)
+            return match.span(), int(number)
+    return None, None
+
+
+def _source_arguments(item: ToolResultEvidence) -> dict:
+    try:
+        value = json.loads(item.arguments_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    return value if type(value) is dict else {}
+
+
+def _bounded_location_fact(line: str, item: ToolResultEvidence) -> bool:
+    """Extract one path/line fact and reject any extra substantive claim."""
+    _, text = _answer_line_without_references(line)
+    text = text.replace("`", "")
+    if type(item.path) is not str or not item.path:
         return False
-    location = f"{item.path}:{item.start_line}"
+    paths = _BOUNDED_FACT_PATH_PATTERN.findall(text)
+    if paths != [item.path]:
+        return False
+    span, line_number = _line_and_path(text, item.path)
     if item.granularity == "locator":
-        prefixes = (
-            "",
-            "位置：",
-            "命中位置：",
-            "文件和行号：",
-            "文件/行号：",
-            "Location: ",
-            "Located at: ",
-        )
-        accepted = {f"{prefix}{location}" for prefix in prefixes}
-        try:
-            arguments = json.loads(item.arguments_json)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            arguments = {}
-        query = arguments.get("query") if isinstance(arguments, dict) else None
-        if type(query) is str and query.strip():
-            query = query.strip()
-            accepted.update(
-                {
-                    f"{query}: {location}",
-                    f"{query}：{location}",
-                    f"{query} 在 {location}",
-                    f"{query} 位于 {location}",
-                    f"{query} is at {location}",
-                    f"{query} is located at {location}",
-                }
-            )
+        if span is None or line_number != item.start_line:
+            return False
+    elif item.granularity == "candidate":
+        if span is not None and line_number != item.start_line:
+            return False
+        if span is None and re.search(r"(?:第\s*)?\d+\s*行|\bline\s+\d+", text, re.IGNORECASE):
+            return False
     else:
-        prefixes = (
-            "",
-            "候选测试：",
-            "候选测试文件：",
-            "候选测试位置：",
-            "工具返回的候选测试位置：",
-            "关联测试文件：",
-            "关联测试文件是 ",
-            "Candidate test location: ",
-            "Candidate test: ",
+        return False
+
+    residual = text
+    if span is not None:
+        residual = residual[:span[0]] + " " + residual[span[1]:]
+    residual = re.sub(re.escape(item.path), "", residual)
+    terms = [
+        "位置", "命中位置", "文件和行号", "文件/行号", "定位结果", "位于", "在",
+        "Located at", "Location", "is located", "is at", "at", "line", "行",
+        "候选测试位置", "候选测试文件", "候选测试", "关联测试文件", "关联测试",
+        "候选文件", "候选", "测试文件", "文件", "工具返回的", "返回的",
+        "candidate test location", "candidate test", "candidate", "test file",
+    ]
+    if item.granularity == "locator":
+        query = _source_arguments(item).get("query")
+        if type(query) is str and query.strip():
+            terms.append(query.strip())
+    else:
+        reasons, reason_spans_ok = _candidate_reason_claims(residual, item)
+        if not reason_spans_ok:
+            return False
+        if reasons is not None:
+            residual = reasons
+        terms.extend(("候选理由", "reason", "reasons"))
+    residual = _remove_terms(residual, terms)
+    return _formatting_only(residual)
+
+
+def _candidate_reason_claims(
+    text: str, item: ToolResultEvidence
+) -> tuple[str | None, bool]:
+    """Remove only reason labels whose tokens match the observed result."""
+    matches = list(
+        re.finditer(
+            r"(?:候选理由|reasons?)\s*[:：]\s*([^）)\n;；。]+)",
+            text,
+            re.IGNORECASE,
         )
-        # A candidate observation proves the candidate file's location. A
-        # requester who only asks for the file does not need a line suffix.
-        locations = {location, item.path}
-        accepted = {f"{prefix}{value}" for prefix in prefixes for value in locations}
-    return text in accepted
+    )
+    reason_words = [
+        word
+        for word in _CANDIDATE_REASON_WORDS
+        if re.search(rf"(?<![A-Za-z0-9_]){re.escape(word)}(?![A-Za-z0-9_])", text)
+    ]
+    if not matches:
+        return text, not reason_words
+    if len(matches) != 1:
+        return text, False
+    match = matches[0]
+    claimed = tuple(
+        token.strip()
+        for token in re.split(r"[\s,，、]+", match.group(1).strip())
+        if token.strip()
+    )
+    if (
+        not claimed
+        or len(claimed) != len(set(claimed))
+        or set(claimed) != set(item.candidate_reasons)
+        or not item.candidate_reasons
+    ):
+        return text, False
+    remaining = text[:match.start()] + " " + text[match.end():]
+    return remaining, True
+
+
+def _status_fact(line: str) -> tuple[str, str, str | None] | None:
+    """Parse a single file/status row, including common Markdown rename forms."""
+    _, text = _answer_line_without_references(line)
+    text = text.replace("`", "").strip()
+    if not text:
+        return None
+    cells = [cell.strip() for cell in text.strip("|").split("|")] if "|" in text else [text]
+    if cells and all(cell and set(cell) <= {"-", ":", " "} for cell in cells):
+        return None
+    statuses: set[str] = set()
+    for status, aliases in _STATUS_WORDS.items():
+        for alias in aliases:
+            if alias.isascii():
+                found = re.search(rf"(?<![A-Za-z0-9_]){re.escape(alias)}(?![A-Za-z0-9_])", text, re.IGNORECASE)
+            else:
+                found = re.search(re.escape(alias), text)
+            if found:
+                statuses.add(status)
+    if len(statuses) != 1:
+        return None
+    status = next(iter(statuses))
+    paths = _BOUNDED_FACT_PATH_PATTERN.findall(text)
+    if status != "renamed":
+        if len(paths) != 1:
+            return None
+        target, old_path = paths[0], None
+    else:
+        if len(paths) != 2:
+            return None
+        if re.search(r"由\s*" + re.escape(paths[1]) + r"\s*重命名而来", text):
+            target, old_path = paths[0], paths[1]
+        elif re.search(re.escape(paths[1]) + r"\s+(?:renamed\s+from)\s+" + re.escape(paths[0]), text, re.IGNORECASE):
+            target, old_path = paths[1], paths[0]
+        elif re.search(re.escape(paths[0]) + r"\s*(?:->|→)\s*" + re.escape(paths[1]), text):
+            old_path, target = paths[0], paths[1]
+        elif re.search(re.escape(paths[0]) + r"\s+(?:renamed\s+to)\s+" + re.escape(paths[1]), text, re.IGNORECASE):
+            old_path, target = paths[0], paths[1]
+        elif len(cells) == 2 and _REPO_PATH_MENTION_PATTERN.fullmatch(cells[0]):
+            # The status cell may say "renamed (from old/path.py)".
+            target, old_path = paths[0], paths[1]
+        else:
+            return None
+
+    residual = text
+    for path in paths:
+        residual = re.sub(re.escape(path), "", residual)
+    words = [alias for aliases in _STATUS_WORDS.values() for alias in aliases]
+    words.extend(("由", "重命名而来", "重命名为", "renamed from", "renamed to", "status", "状态"))
+    residual = _remove_terms(residual, words)
+    if not _formatting_only(residual):
+        return None
+    return target, status, old_path
+
+
+def _is_bounded_location_line(line: str, item: ToolResultEvidence) -> bool:
+    references, _ = _answer_line_without_references(line)
+    return item.evidence_id in references and _bounded_location_fact(line, item)
 
 
 def _is_bounded_status_line(line: str, item: ToolResultEvidence) -> tuple[str, str, str | None] | None:
-    references, text = _answer_line_without_references(line)
-    if references != (item.evidence_id,):
+    references, _ = _answer_line_without_references(line)
+    if item.evidence_id not in references:
         return None
-    for path, status, old_path in item.status_entries:
-        status_labels = {
-            "modified": ("modified", "已修改", "修改"),
-            "added": ("added", "新增"),
-            "deleted": ("deleted", "已删除", "删除"),
-            "renamed": ("renamed", "重命名"),
-            "untracked": ("untracked", "未跟踪"),
-        }[status]
-        if status == "renamed":
-            assert old_path is not None
-            accepted = set()
-            for label in status_labels:
-                accepted.update(
-                    {
-                        f"{old_path} -> {path} — {label}",
-                        f"{old_path} → {path} — {label}",
-                        f"{old_path} -> {path} - {label}",
-                        f"{old_path} → {path} - {label}",
-                        f"{old_path} -> {path} ({label})",
-                        f"{old_path} → {path} ({label})",
-                        f"{old_path} renamed to {path}",
-                        f"{old_path} 重命名为 {path}",
-                    }
-                )
-        else:
-            accepted = set()
-            for label in status_labels:
-                accepted.update(
-                    {
-                        f"{path} — {label}",
-                        f"{path} - {label}",
-                        f"{path}: {label}",
-                        f"{path} ({label})",
-                        f"{path} [{label}]",
-                    }
-                )
-        if text in accepted:
-            return path, status, old_path
-    return None
+    fact = _status_fact(line)
+    return fact if fact in item.status_entries else None
 
 
 def _is_bounded_empty_status_line(line: str, item: ToolResultEvidence) -> bool:
@@ -340,6 +448,136 @@ def _is_bounded_empty_status_line(line: str, item: ToolResultEvidence) -> bool:
     )
 
 
+def _is_status_heading(line: str, item: ToolResultEvidence) -> bool:
+    """Check a scoped inventory heading and any numeric completeness claims."""
+    _, text = _answer_line_without_references(line)
+    text = text.replace("`", "")
+    if _status_fact(line) is not None:
+        return False
+    arguments = _source_arguments(item)
+    mode = arguments.get("mode")
+    mentions_workspace = bool(re.search(r"工作区|工作树|workspace|working\s*tree", text, re.IGNORECASE))
+    if mentions_workspace and mode != "working_tree":
+        return False
+    if mode and re.search(r"working_tree|staged|unstaged|committed", text, re.IGNORECASE):
+        mode_match = re.search(r"working_tree|staged|unstaged|committed", text, re.IGNORECASE)
+        if mode_match and mode_match.group(0).lower() != mode:
+            return False
+    counts = [
+        int(value)
+        for value in re.findall(
+            r"(?:共(?:计)?\s*|(?:returned_count|total_count)\s*[=:：]\s*)(\d+)\s*(?:个|项|文件)?",
+            text,
+            re.IGNORECASE,
+        )
+    ]
+    if any(count != len(item.status_entries) for count in counts):
+        return False
+    truncation = re.search(r"truncated\s*[=:：]\s*(true|false)", text, re.IGNORECASE)
+    if truncation and truncation.group(1).lower() != "false":
+        return False
+    omitted = re.search(r"omitted_sensitive_count\s*(?:[=:：]|为)\s*(\d+)", text, re.IGNORECASE)
+    if omitted and int(omitted.group(1)) != 0:
+        return False
+    if re.search(r"(?:全部|所有|全量|完整|complete|all|entire)", text, re.IGNORECASE) and item.completeness != "complete":
+        return False
+    # Remove only verifiable scope/count/completeness fields and neutral labels.
+    residual = re.sub(r"truncated\s*[=:：]\s*false", "", text, flags=re.IGNORECASE)
+    residual = re.sub(r"omitted_sensitive_count\s*(?:[=:：]|为)\s*0", "", residual, flags=re.IGNORECASE)
+    residual = re.sub(
+        r"(?:共(?:计)?\s*|(?:returned_count|total_count)\s*[=:：]\s*)\d+\s*(?:个|项|文件)?",
+        "",
+        residual,
+        flags=re.IGNORECASE,
+    )
+    terms = [
+        "当前", "工作区", "工作树", "可见", "变更", "文件", "清单", "列表", "状态", "共", "个", "项", "的", "及", "与", "和",
+        "working_tree", "staged", "unstaged", "committed", "workspace", "working tree",
+        "visible", "changed", "files", "list", "inventory", "status", "returned", "truncated",
+        "omitted_sensitive_count", "说明", "以上", "项目",
+    ]
+    residual = _remove_terms(residual, terms)
+    if not _formatting_only(residual):
+        return False
+    return any(term in text.lower() for term in ("变更", "清单", "列表", "status", "inventory", "files"))
+
+
+def _is_candidate_heading(line: str, batch: tuple[ToolResultEvidence, ...]) -> bool:
+    """Check a candidate list heading against its source path and exact count."""
+    _, text = _answer_line_without_references(line)
+    text = text.replace("`", "")
+    if not batch or any(item.completeness != "complete" for item in batch):
+        return False
+    if any(_bounded_location_fact(line, item) for item in batch):
+        return False
+    paths = _BOUNDED_FACT_PATH_PATTERN.findall(text)
+    arguments = [_source_arguments(item) for item in batch]
+    source_paths = {arg.get("path") for arg in arguments if type(arg.get("path")) is str}
+    if len(source_paths) != 1 or paths != [next(iter(source_paths))]:
+        return False
+    counts = [int(value) for value in re.findall(r"(?:返回|found|returned)\s*(\d+)\s*(?:个|项|files?|candidates?)?", text, re.IGNORECASE)]
+    if any(count != len(batch) for count in counts):
+        return False
+    truncation = re.search(r"truncated\s*[=:：]\s*(true|false)", text, re.IGNORECASE)
+    if truncation and truncation.group(1).lower() != "false":
+        return False
+    omitted = re.search(r"omitted_sensitive_count\s*(?:[=:：]|为)\s*(\d+)", text, re.IGNORECASE)
+    if omitted and int(omitted.group(1)) != 0:
+        return False
+    residual = re.sub(r"(?:返回|found|returned)\s*\d+\s*(?:个|项|files?|candidates?)?", "", text, flags=re.IGNORECASE)
+    residual = re.sub(r"truncated\s*[=:：]\s*false", "", residual, flags=re.IGNORECASE)
+    residual = re.sub(r"omitted_sensitive_count\s*(?:[=:：]|为)\s*0", "", residual, flags=re.IGNORECASE)
+    residual = re.sub(re.escape(next(iter(source_paths))), "", residual)
+    residual = _remove_terms(
+        residual,
+        (
+            "find_tests", "工具", "针对", "返回", "候选", "关联", "测试", "文件", "个", "项",
+            "未截断", "结果", "candidate", "related", "test", "files", "truncated",
+            "omitted_sensitive_count", "说明", "工具针对", "候选关联测试",
+        ),
+    )
+    return _formatting_only(residual)
+
+
+def _is_bounded_boundary_note(line: str, item: ToolResultEvidence) -> bool:
+    """Allow only explicit, source-consistent caveats around low-granularity facts."""
+    _, text = _answer_line_without_references(line)
+    text = text.replace("`", "")
+    if item.granularity == "candidate":
+        if item.completeness != "complete":
+            return False
+        patterns = (
+            r"说明\s*[:：]?", r"这是候选(?:关联)?测试(?:文件)?", r"以上(?:均为|是)候选(?:关联)?测试(?:文件)?",
+            r"不代表已证明受影响", r"(?:也)?未执行任何测试", r"(?:也)?未运行任何测试",
+            r"结果未截断", r"truncated\s*[=:：]\s*false", r"omitted_sensitive_count\s*(?:[=:：]|为)\s*0",
+        )
+    elif item.granularity == "status_list":
+        if item.completeness != "complete":
+            return False
+        mode = _source_arguments(item).get("mode")
+        if re.search(r"工作区|工作树|workspace|working[_\s-]*tree", text, re.IGNORECASE) and mode != "working_tree":
+            return False
+        if "untracked" in {status for _, status, _ in item.status_entries}:
+            untracked_pattern = r"untracked\s*文件正文不在(?:该)?工具(?:返回)?范围内"
+        else:
+            untracked_pattern = r"(?!)"
+        patterns = (
+            r"说明\s*[:：]?", r"以上仅为(?:当前)?(?:working_tree)?变更文件清单(?:与|及)状态",
+            r"未读取各文件的具体\s*diff\s*内容", r"未读取(?:文件)?\s*diff(?:\s*内容)?",
+            r"truncated\s*[=:：]\s*false", r"omitted_sensitive_count\s*(?:[=:：]|为)\s*0",
+            untracked_pattern,
+        )
+    else:
+        return False
+    residual = text
+    changed = False
+    for pattern in patterns:
+        residual, count = re.subn(pattern, "", residual, flags=re.IGNORECASE)
+        changed = changed or count > 0
+    residual = _remove_terms(residual, ("以上", "结果", "本次", "仅", "该", "与", "和", "且", "也", "不", "任何"))
+    return changed and _formatting_only(residual)
+
+
 def _is_complete_working_tree_inventory(item: object) -> bool:
     if (
         type(item) is not ToolResultEvidence
@@ -355,18 +593,29 @@ def _is_complete_working_tree_inventory(item: object) -> bool:
     return type(arguments) is dict and arguments.get("mode") == "working_tree"
 
 
+def _is_table_decoration(line: str) -> bool:
+    """Recognize Markdown table headers and separators without facts."""
+    _, text = _answer_line_without_references(line)
+    if "|" not in text:
+        return False
+    cells = [cell.strip().lower() for cell in text.strip("|").split("|")]
+    if cells in (["路径", "状态"], ["path", "status"], ["file", "status"]):
+        return True
+    return bool(cells) and all(cell and set(cell) <= {"-", ":", " "} for cell in cells)
+
+
 def _tool_result_citations_have_complete_matching_scope(
     answer: str,
     cited_evidence: tuple[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence, ...],
     all_evidence: tuple[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence, ...] | None = None,
 ) -> bool:
-    """Check structured Tool citations at the granularity they actually prove.
+    """Bind low-granularity citations to facts extracted from their typed source.
 
-    This is deliberately a syntax-and-provenance check, not semantic
-    entailment. Locator/candidate evidence can support only a bare bounded
-    location row. A status list can support only the complete path/status rows
-    returned by changed_files. None of these records becomes source_body or
-    diff evidence, and the frozen Requirement evaluator remains authoritative.
+    The parser accepts a narrow set of Markdown and natural-language renderings
+    for paths, line numbers, candidate reasons, and status rows. It compares
+    those extracted facts to immutable Tool Evidence metadata. This is not a
+    general semantic-entailment check: low-granularity Evidence still cannot
+    establish implementation behavior, test execution, or test impact.
     """
     tool_by_id = {
         item.evidence_id: item
@@ -408,85 +657,170 @@ def _tool_result_citations_have_complete_matching_scope(
         for item in tool_by_id.values()
         if item.granularity in {"locator", "candidate", "status_list"}
     )
+    if any(item.completeness != "complete" for item in low_granularity_items):
+        return False
+
+    lines = answer.splitlines()
+    line_references = [
+        tuple(f"E{match.group(1)}" for match in _EVIDENCE_REFERENCE_PATTERN.finditer(line))
+        for line in lines
+    ]
+    status_items = tuple(item for item in low_granularity_items if item.granularity == "status_list")
+    status_anchors: dict[str, list[int]] = {item.evidence_id: [] for item in status_items}
+    for index, line in enumerate(lines):
+        for item in status_items:
+            if item.evidence_id in line_references[index] and _is_status_heading(line, item):
+                status_anchors[item.evidence_id].append(index)
+
+    # Locators and candidate batches are complete result sets. Every emitted
+    # fact row must map to its own E-ID; candidate result reasons are checked
+    # against the exact enum values retained from that Observation.
     for item in low_granularity_items:
-        if item.completeness != "complete":
+        if item.granularity not in {"locator", "candidate"}:
+            continue
+        batch = tuple(
+            other
+            for other in all_evidence
+            if type(other) is ToolResultEvidence
+            and other.tool_name == item.tool_name
+            and other.granularity == item.granularity
+            and other.call_id == item.call_id
+            and other.result_sha256 == item.result_sha256
+        )
+        batch_ids = {other.evidence_id for other in batch}
+        if not batch_ids or batch_ids - set(references):
             return False
+        for member in batch:
+            matched_rows = [
+                index
+                for index, line in enumerate(lines)
+                if _bounded_location_fact(line, member)
+                and (
+                    member.evidence_id in line_references[index]
+                    or (
+                        not line_references[index]
+                        and member.granularity == "candidate"
+                        and any(
+                            member.evidence_id in line_references[heading_index]
+                            and _is_candidate_heading(
+                                lines[heading_index], batch
+                            )
+                            for heading_index in range(index)
+                        )
+                    )
+                )
+            ]
+            if len(matched_rows) != 1:
+                return False
+        for index, line_refs in enumerate(line_references):
+            if item.evidence_id not in line_refs:
+                continue
+            if _bounded_location_fact(lines[index], item):
+                continue
+            if (
+                item.granularity == "candidate"
+                and _is_candidate_heading(lines[index], batch)
+                and set(line_refs).issubset(batch_ids)
+            ):
+                continue
+            return False
+
+    # A status-list citation can introduce a following structured list/table,
+    # or sit on each row. In either form every entry must occur exactly once,
+    # including the source/target direction for renames.
+    assigned_status_rows: dict[str, list[tuple[str, str, str | None]]] = {
+        item.evidence_id: [] for item in status_items
+    }
+    for index, line in enumerate(lines):
+        fact = _status_fact(line)
+        if fact is None:
+            continue
+        line_refs = line_references[index]
+        referenced_status = [item for item in status_items if item.evidence_id in line_refs]
+        if referenced_status:
+            if any(fact not in item.status_entries for item in referenced_status):
+                return False
+            if any(
+                reference in tool_by_id
+                and tool_by_id[reference].granularity in {"locator", "candidate"}
+                for reference in line_refs
+            ):
+                return False
+            for item in referenced_status:
+                assigned_status_rows[item.evidence_id].append(fact)
+            continue
+        # An unreferenced row inherits only the nearest explicit inventory
+        # heading. This is the citation binding for Markdown table rows.
+        prior_anchors = [
+            (anchor_index, item)
+            for item in status_items
+            for anchor_index in status_anchors[item.evidence_id]
+            if anchor_index < index
+        ]
+        if not prior_anchors:
+            return False
+        nearest_index = max(anchor_index for anchor_index, _ in prior_anchors)
+        owners = [
+            item
+            for anchor_index, item in prior_anchors
+            if anchor_index == nearest_index and fact in item.status_entries
+        ]
+        if len(owners) != 1:
+            return False
+        assigned_status_rows[owners[0].evidence_id].append(fact)
+
+    for item in status_items:
         cited_lines = [
-            line
-            for line in answer.splitlines()
-            if item.evidence_id
-            in tuple(
-                f"E{match.group(1)}"
-                for match in _EVIDENCE_REFERENCE_PATTERN.finditer(line)
-            )
+            index for index, refs_on_line in enumerate(line_references)
+            if item.evidence_id in refs_on_line
         ]
         if not cited_lines:
             return False
-        if item.granularity in {"locator", "candidate"}:
-            if any(not _is_bounded_location_line(line, item) for line in cited_lines):
+        if not item.status_entries:
+            if not any(_is_bounded_empty_status_line(lines[index], item) for index in cited_lines):
                 return False
-            # One result may produce several locators/candidates. A complete
-            # list is accepted only when every row from that same Observation
-            # is cited, so the metadata cannot silently stand for a subset.
-            batch = tuple(
-                other
-                for other in all_evidence
-                if type(other) is ToolResultEvidence
-                and other.tool_name == item.tool_name
-                and other.granularity == item.granularity
-                and other.call_id == item.call_id
-                and other.result_sha256 == item.result_sha256
-            )
-            batch_ids = {other.evidence_id for other in batch}
-            answer_batch_ids = set(references) & batch_ids
-            if not batch_ids or answer_batch_ids != batch_ids:
+            if assigned_status_rows[item.evidence_id]:
                 return False
-        else:
-            if item.tool_name != "changed_files":
+            continue
+        for index in cited_lines:
+            if _status_fact(lines[index]) is None and not _is_status_heading(lines[index], item):
                 return False
-            if not item.status_entries:
-                if (
-                    item.scope_paths
-                    or item.completeness != "complete"
-                    or len(cited_lines) != 1
-                    or not _is_bounded_empty_status_line(cited_lines[0], item)
-                ):
-                    return False
-                continue
-            observed_entries = [
-                parsed
-                for line in cited_lines
-                if (parsed := _is_bounded_status_line(line, item)) is not None
-            ]
-            expected_entries = list(item.status_entries)
-            if len(observed_entries) != len(cited_lines):
-                return False
-            if sorted(observed_entries) != sorted(expected_entries):
-                return False
+        if Counter(assigned_status_rows[item.evidence_id]) != Counter(item.status_entries):
+            return False
 
     if not answer_grade_ids:
-        # With only acquisition metadata cited, every non-empty answer line
-        # must itself be one of the exact bounded rows above; no free-form
-        # conclusion can ride on a low-granularity E-ID.
-        for line in answer.splitlines():
-            if not line.strip():
+        # When only low-granularity Tool Evidence is cited, every answer line
+        # must parse as a checked fact, a checked scope heading, Markdown
+        # structure, or a source-consistent boundary note.
+        for index, line in enumerate(lines):
+            if not line.strip() or _is_table_decoration(line):
                 continue
-            if not _EVIDENCE_REFERENCE_PATTERN.search(line):
-                if line.strip() in {
-                    "变更文件清单：",
-                    "当前工作区变更文件清单：",
-                    "当前 working_tree 变更清单：",
-                    "工作区变更文件及状态：",
-                }:
-                    continue
-                return False
-            if not any(
-                _is_bounded_location_line(line, item)
-                or _is_bounded_status_line(line, item) is not None
-                or _is_bounded_empty_status_line(line, item)
+            if _status_fact(line) is not None:
+                continue
+            if any(_bounded_location_fact(line, item) for item in low_granularity_items):
+                continue
+            if any(_is_bounded_empty_status_line(line, item) for item in status_items):
+                continue
+            if any(_is_status_heading(line, item) for item in status_items):
+                continue
+            candidate_batches = {
+                (item.tool_name, item.call_id, item.result_sha256): tuple(
+                    other
+                    for other in all_evidence
+                    if type(other) is ToolResultEvidence
+                    and other.tool_name == item.tool_name
+                    and other.call_id == item.call_id
+                    and other.result_sha256 == item.result_sha256
+                    and other.granularity == "candidate"
+                )
                 for item in low_granularity_items
-            ):
-                return False
+                if item.granularity == "candidate"
+            }
+            if any(_is_candidate_heading(line, batch) for batch in candidate_batches.values()):
+                continue
+            if any(_is_bounded_boundary_note(line, item) for item in low_granularity_items):
+                continue
+            return False
 
     for match in _EVIDENCE_REFERENCE_PATTERN.finditer(answer):
         evidence_id = f"E{match.group(1)}"
