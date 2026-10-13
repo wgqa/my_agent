@@ -28,7 +28,8 @@ Task 017 没有新增 Runtime 或 Agent Loop。Typed 分支仅挂在同一个 `F
 
 ## Typed 路径
 
-- 新模块：`core/tool_agent/changed_files_typed_finalization.py`。它只接受 `list_all`、五种状态的 `filter_status`，或两种显式拒绝；不接受模型提供的文件行、状态、重命名路径或范围。
+- 冻结 B2 基线未包含 Task 016 的实验模块；Task 016 版本位于 `evaluation/tool_calls_v2/changed_files_answer_protocol.py` 和 `evaluation/tool_calls_v2/changed_files_typed_finalization.py`。为避免生产 Core 依赖评测层，本次没有合并 Task 016 Runner，而是在 `core/tool_agent/changed_files_typed_finalization.py` 按其已验证的有限 Selector / Typed Finalization 规则做了生产接缝适配。
+- 新模块只接受 `list_all`、五种状态的 `filter_status`，或两种显式拒绝；不接受模型提供的文件行、状态、重命名路径或范围。
 - Selector 输入由真实用户请求、原 Router Requirement、当前实际 ToolCall、成功 ToolObservation 和对应 Evidence 构成；Gold 不进入请求。
 - `core/tool_agent/openai_compatible.py:399` 复用当前 Provider client 和模型，发出一个受限 JSON 请求：temperature 0、最多 128 输出 tokens、现有 20 秒 timeout、SDK `max_retries=0`。每个 Agent run 最多触发一次 Selector 请求，不做解析修复、不重试、不调用工具。它在 5 Decision/4 Tool Call/2 Tool Error 主循环之外，作为额外的单次 Provider 请求计量，不能误报成原决策预算内的调用。
 - `core/tool_agent/runtime.py:717` 限制触发原因；`:1112` 负责同一最终回答接缝中的调度。Selector 的实际调用数、延迟和 usage 被加入执行指标并传递到 API；Provider 请求失败/解析失败按失败结束，错误 E-ID、来源或 scope 按拒答封闭。显式 `unsupported_request` 不产生 Typed 答案，继续原自然语言答复的恢复/拒答流程；如果原 Gate 未通过，仍由旧机制决定恢复或拒答。`insufficient_source` 拒答。
