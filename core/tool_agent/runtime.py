@@ -24,6 +24,12 @@ from core.engineering_requirements import (
     EvidenceRequirementState,
     evaluate_evidence_requirement,
 )
+from core.engineering_verification import (
+    ANSWER_EVIDENCE_REFERENCE_INCOMPLETE,
+    ANSWER_EVIDENCE_REFERENCE_INVALID,
+    ANSWER_EVIDENCE_REFERENCE_MISSING,
+    INVALID_CITATION_REFERENCE,
+)
 from core.tool_agent.activity import (
     ActivityEvent,
     EvidenceAddedActivity,
@@ -32,10 +38,18 @@ from core.tool_agent.activity import (
     build_tool_activity_event,
 )
 from core.tool_agent.actions import (
+    ACTION_PARSE_FAILED,
+    ACTION_PROVIDER_ERROR,
+    ACTION_TIMEOUT,
     AgentDecisionOutcome,
     FinalAnswerAction,
     RefuseAction,
     ToolCallAction,
+)
+from core.tool_agent.changed_files_typed_finalization import (
+    ChangedFilesExecution,
+    ChangedFilesSelectorOutcome,
+    finalize_changed_files_typed,
 )
 from core.tool_agent.executor import ToolExecutor
 from core.tool_agent.models import AGENT_BUDGET_EXCEEDED, ToolCall, json_deep_copy
@@ -690,19 +704,44 @@ def _run_finalization_verifier(
     return result
 
 
-class _ExecutionUsage:
-    """Accumulate provider-reported usage from existing call metadata.
+_TYPED_SELECTOR_BINDING_BLOCKERS = frozenset(
+    {
+        INVALID_CITATION_REFERENCE,
+        ANSWER_EVIDENCE_REFERENCE_MISSING,
+        ANSWER_EVIDENCE_REFERENCE_INCOMPLETE,
+        ANSWER_EVIDENCE_REFERENCE_INVALID,
+    }
+)
 
-    No second metering system: values come straight from
-    ``AgentDecisionCallMetadata``. Calls that did not report usage simply do
-    not contribute, and a kind is reported as ``None`` when no call reported
-    it at all.
+
+def _typed_selector_is_applicable(verification) -> bool:
+    """Only replace a failed text binding when all existing hard checks pass."""
+
+    reasons = tuple(getattr(verification, "insufficiency_reasons", ()))
+    return (
+        not verification.can_finalize
+        and verification.retrieval_can_generate
+        and verification.evidence_requirement_satisfied
+        and bool(reasons)
+        and set(reasons).issubset(_TYPED_SELECTOR_BINDING_BLOCKERS)
+    )
+
+
+class _ExecutionUsage:
+    """Accumulate provider-reported usage from Decision and selector metadata.
+
+    No second metering system: usage comes from the provider outcomes. Calls
+    that did not report usage simply do not contribute, and a token total is
+    ``None`` when no call reported that token kind.
     """
 
     def __init__(self) -> None:
         self.decision_llm_calls = 0
+        self.selector_llm_calls = 0
         self.input_tokens = 0
         self.output_tokens = 0
+        self.selector_latency_ms = 0.0
+        self.selector_latency_seen = False
         self.input_seen = False
         self.output_seen = False
 
@@ -717,6 +756,17 @@ class _ExecutionUsage:
             self.output_tokens += call_metadata.output_tokens
             self.output_seen = True
 
+    def record_selector(self, outcome: ChangedFilesSelectorOutcome) -> None:
+        self.selector_llm_calls += outcome.call_metadata.call_count
+        self.selector_latency_ms += outcome.call_metadata.latency_ms
+        self.selector_latency_seen = True
+        if outcome.call_metadata.input_tokens is not None:
+            self.input_tokens += outcome.call_metadata.input_tokens
+            self.input_seen = True
+        if outcome.call_metadata.output_tokens is not None:
+            self.output_tokens += outcome.call_metadata.output_tokens
+            self.output_seen = True
+
 
 def _attach_execution_metrics(
     result: ToolAgentRunResult,
@@ -727,8 +777,12 @@ def _attach_execution_metrics(
     metrics = ToolAgentExecutionMetrics(
         elapsed_ms=elapsed_ms,
         decision_llm_calls=usage.decision_llm_calls,
+        selector_llm_calls=usage.selector_llm_calls,
         input_tokens=usage.input_tokens if usage.input_seen else None,
         output_tokens=usage.output_tokens if usage.output_seen else None,
+        selector_latency_ms=(
+            usage.selector_latency_ms if usage.selector_latency_seen else None
+        ),
     )
     return replace(result, execution=metrics)
 
@@ -873,6 +927,9 @@ class ToolAgentRuntime:
         seen_evidence: set[tuple] = {
             _evidence_identity(item) for item in seed_evidence
         }
+        changed_files_executions: list[ChangedFilesExecution] = []
+        changed_files_source_failed = False
+        changed_files_selector_attempted = False
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
         activity_number = 0
@@ -1059,7 +1116,150 @@ class ToolAgentRuntime:
                         evidence,
                         action.answer,
                     )
+                    if (
+                        changed_files_source_failed
+                        and not changed_files_executions
+                        and not evidence
+                        and finalization_result.can_finalize
+                    ):
+                        # A failed status-list request cannot be converted into
+                        # an evidence-free direct answer merely because the old
+                        # Requirement has no body prerequisite.
+                        return self._hard_stop(
+                            trace,
+                            evidence,
+                            iterations,
+                            tool_calls,
+                            tool_errors,
+                            INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                            trace_sink,
+                        )
                     if not finalization_result.can_finalize:
+                        selector = getattr(
+                            self._provider, "select_changed_files", None
+                        )
+                        if (
+                            not changed_files_selector_attempted
+                            and callable(selector)
+                            and len(changed_files_executions) == 1
+                            and _typed_selector_is_applicable(finalization_result)
+                        ):
+                            # One optional selector request per run. This is
+                            # outside the bounded Decision/Tool loop and is
+                            # explicitly counted in execution metrics.
+                            changed_files_selector_attempted = True
+                            selector_outcome = selector(
+                                user_query,
+                                execution=changed_files_executions[0],
+                                evidence_requirement=evidence_requirement,
+                            )
+                            if type(selector_outcome) is not ChangedFilesSelectorOutcome:
+                                raise TypeError(
+                                    "provider.select_changed_files 必须返回 "
+                                    "ChangedFilesSelectorOutcome"
+                                )
+                            usage.record_selector(selector_outcome)
+                            if selector_outcome.status == "failed":
+                                failure_code = selector_outcome.failure_code
+                                if failure_code not in {
+                                    ACTION_PARSE_FAILED,
+                                    ACTION_PROVIDER_ERROR,
+                                    ACTION_TIMEOUT,
+                                }:
+                                    failure_code = ACTION_PROVIDER_ERROR
+                                self._append_terminal(
+                                    trace,
+                                    iterations,
+                                    tool_calls,
+                                    tool_errors,
+                                    failure_code,
+                                    trace_sink,
+                                )
+                                return ToolAgentRunResult(
+                                    status="failed",
+                                    answer=None,
+                                    reason_code=None,
+                                    failure_code=failure_code,
+                                    iterations_used=iterations,
+                                    tool_calls_used=tool_calls,
+                                    tool_errors_used=tool_errors,
+                                    trace=tuple(trace),
+                                    evidence=tuple(evidence),
+                                )
+                            if selector_outcome.status == "refusal":
+                                if selector_outcome.refusal_reason == "insufficient_source":
+                                    return self._hard_stop(
+                                        trace,
+                                        evidence,
+                                        iterations,
+                                        tool_calls,
+                                        tool_errors,
+                                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                        trace_sink,
+                                    )
+                                if selector_outcome.refusal_reason != "unsupported_request":
+                                    return self._hard_stop(
+                                        trace,
+                                        evidence,
+                                        iterations,
+                                        tool_calls,
+                                        tool_errors,
+                                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                        trace_sink,
+                                    )
+                                # Explicit unsupported_request preserves the
+                                # old natural-language path and its Gate.
+                            elif selector_outcome.status == "selected":
+                                typed_result = finalize_changed_files_typed(
+                                    selector_outcome.selector,
+                                    execution=changed_files_executions[0],
+                                    current_public_evidence=tuple(evidence),
+                                    finalization_verifier=finalization_verifier,
+                                )
+                                if not typed_result.protocol_valid or not typed_result.source_valid:
+                                    return self._hard_stop(
+                                        trace,
+                                        evidence,
+                                        iterations,
+                                        tool_calls,
+                                        tool_errors,
+                                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                        trace_sink,
+                                    )
+                                if typed_result.accepted:
+                                    self._append_terminal(
+                                        trace,
+                                        iterations,
+                                        tool_calls,
+                                        tool_errors,
+                                        None,
+                                        trace_sink,
+                                    )
+                                    return ToolAgentRunResult(
+                                        status="completed",
+                                        answer=typed_result.rendered_answer,
+                                        reason_code=None,
+                                        failure_code=None,
+                                        iterations_used=iterations,
+                                        tool_calls_used=tool_calls,
+                                        tool_errors_used=tool_errors,
+                                        trace=tuple(trace),
+                                        evidence=tuple(evidence),
+                                    )
+                                # The typed protocol is valid, but a selected
+                                # status list did not satisfy the existing
+                                # Requirement/retrieval checks. Fall through to
+                                # the original recovery/refusal behavior.
+                            else:
+                                return self._hard_stop(
+                                    trace,
+                                    evidence,
+                                    iterations,
+                                    tool_calls,
+                                    tool_errors,
+                                    INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                                    trace_sink,
+                                )
                         state = finalization_result.evidence_requirement_state
                         if (
                             not finalization_result.recovery_allowed
@@ -1427,6 +1627,14 @@ class ToolAgentRuntime:
                     current_spec.version if current_spec is not None else None,
                 )
             )
+            if call.tool_name == "changed_files" and not any(
+                isinstance(item, ToolResultEvidence)
+                and item.tool_name == "changed_files"
+                for item in observed_evidence
+            ):
+                changed_files_source_failed = True
+            if call.tool_name == "changed_files" and observation.status != "ok":
+                changed_files_source_failed = True
             added_evidence_ids: list[str] = []
             for observed in observed_evidence:
                 key = _evidence_identity(observed)
@@ -1436,6 +1644,21 @@ class ToolAgentRuntime:
                 added = replace(observed, evidence_id=f"E{len(evidence) + 1}")
                 evidence.append(added)
                 added_evidence_ids.append(added.evidence_id)
+                if (
+                    call.tool_name == "changed_files"
+                    and observation.status == "ok"
+                    and isinstance(added, ToolResultEvidence)
+                    and added.tool_name == "changed_files"
+                    and current_spec is not None
+                ):
+                    changed_files_executions.append(
+                        ChangedFilesExecution(
+                            call=call,
+                            observation=observation,
+                            evidence=added,
+                            tool_version=current_spec.version,
+                        )
+                    )
                 evidence_activity = EvidenceAddedActivity.try_from_public_evidence(added)
                 if evidence_activity is not None:
                     self._record_activity(evidence_activity, activity_sink)

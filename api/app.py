@@ -635,8 +635,10 @@ def _build_engineering_response(
         EngineeringExecutionMetrics(
             elapsed_ms=result.execution.elapsed_ms,
             decision_llm_calls=result.execution.decision_llm_calls,
+            selector_llm_calls=result.execution.selector_llm_calls,
             input_tokens=result.execution.input_tokens,
             output_tokens=result.execution.output_tokens,
+            selector_latency_ms=result.execution.selector_latency_ms,
         )
         if result.execution is not None
         else None

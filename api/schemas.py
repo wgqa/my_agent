@@ -499,15 +499,17 @@ class EngineeringExecutionMetrics(BaseModel):
     """Safe execution summary (PRODUCT-ENGINEERING-24B).
 
     ``elapsed_ms`` covers the whole product request; ``decision_llm_calls``
-    counts provider decision calls from the existing call metadata; token
-    fields aggregate provider-reported usage and are null when no call
+    counts loop decisions and ``selector_llm_calls`` counts the optional typed
+    finalization request. Token fields aggregate provider-reported usage and are null when no call
     reported usage (never estimated or fabricated).
     """
 
     elapsed_ms: int
     decision_llm_calls: int
+    selector_llm_calls: int = 0
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
+    selector_latency_ms: Optional[float] = None
 
 
 class EngineeringFeedback(BaseModel):

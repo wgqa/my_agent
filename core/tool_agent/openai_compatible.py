@@ -34,6 +34,13 @@ from core.tool_agent.actions import (
     AgentDecisionCallMetadata,
     AgentDecisionOutcome,
 )
+from core.tool_agent.changed_files_typed_finalization import (
+    ChangedFilesExecution,
+    ChangedFilesSelectorOutcome,
+    SelectorCallMetadata,
+    build_changed_files_selector_messages,
+    selector_outcome_from_response,
+)
 from core.tool_agent.decision_prompt import (
     build_action_repair_instruction,
     DECISION_MAX_RETRIES,
@@ -388,6 +395,81 @@ class OpenAICompatibleAgentDecisionProvider:
                 initial_finish_reason=finish_reason,
             ),
         )
+
+    def select_changed_files(
+        self,
+        user_query: str,
+        *,
+        execution: ChangedFilesExecution,
+        evidence_requirement,
+    ) -> ChangedFilesSelectorOutcome:
+        """Make one bounded typed-finalization selection with the same client.
+
+        This optional capability is invoked only by ToolAgentRuntime after the
+        legacy finalizer rejected a draft solely at citation binding. It does
+        not enter the Decision loop, call tools, retry, or use another model.
+        """
+
+        messages, prompt_sha256 = build_changed_files_selector_messages(
+            user_query,
+            execution=execution,
+            requirement=evidence_requirement,
+        )
+        started = time.perf_counter()
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=DECISION_TEMPERATURE,
+                max_tokens=128,
+                response_format={"type": "json_object"},
+            )
+        except _KNOWN_PROVIDER_EXCEPTIONS as exc:
+            failure_code = _classify_provider_exception(exc)
+            metadata = SelectorCallMetadata(
+                provider=self._provider,
+                model=self._model,
+                prompt_sha256=prompt_sha256,
+                input_tokens=None,
+                output_tokens=None,
+                latency_ms=(time.perf_counter() - started) * 1000.0,
+            )
+            return ChangedFilesSelectorOutcome(
+                status="failed",
+                selector=None,
+                refusal_reason=None,
+                failure_code=failure_code or ACTION_PROVIDER_ERROR,
+                call_metadata=metadata,
+            )
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        try:
+            content = _extract_content(response)
+            input_tokens, output_tokens = _extract_usage(response)
+        except _ProviderResponseError:
+            metadata = SelectorCallMetadata(
+                provider=self._provider,
+                model=self._model,
+                prompt_sha256=prompt_sha256,
+                input_tokens=None,
+                output_tokens=None,
+                latency_ms=latency_ms,
+            )
+            return ChangedFilesSelectorOutcome(
+                status="failed",
+                selector=None,
+                refusal_reason=None,
+                failure_code=ACTION_PROVIDER_ERROR,
+                call_metadata=metadata,
+            )
+        metadata = SelectorCallMetadata(
+            provider=self._provider,
+            model=self._model,
+            prompt_sha256=prompt_sha256,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            latency_ms=latency_ms,
+        )
+        return selector_outcome_from_response(content, call_metadata=metadata)
 
     def _build_metadata(
         self,

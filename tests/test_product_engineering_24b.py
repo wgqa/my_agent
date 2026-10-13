@@ -285,6 +285,8 @@ class TestPublicMetricsContract:
         execution = data["execution"]
         assert execution is not None
         assert execution["decision_llm_calls"] == 1
+        assert execution["selector_llm_calls"] == 0
+        assert execution["selector_latency_ms"] is None
         assert execution["input_tokens"] == 123
         assert execution["output_tokens"] == 45
         assert execution["elapsed_ms"] >= 0

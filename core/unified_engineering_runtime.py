@@ -196,6 +196,12 @@ class UnifiedEngineeringRuntime:
             ),
             input_tokens=inner.input_tokens if inner is not None else None,
             output_tokens=inner.output_tokens if inner is not None else None,
+            selector_llm_calls=(
+                inner.selector_llm_calls if inner is not None else 0
+            ),
+            selector_latency_ms=(
+                inner.selector_latency_ms if inner is not None else None
+            ),
         )
         return replace(result, execution=execution)
 

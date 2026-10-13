@@ -709,6 +709,8 @@ function renderDrawerRun(result) {
     ['Tool errors', result?.tool_errors_used],
     ['Elapsed', execution.elapsed_ms === undefined ? null : execution.elapsed_ms + ' ms'],
     ['Decision calls', execution.decision_llm_calls],
+    ['Typed selector calls', execution.selector_llm_calls ?? 0],
+    ['Typed selector latency', execution.selector_latency_ms === undefined || execution.selector_latency_ms === null ? null : execution.selector_latency_ms + ' ms'],
   ];
   for (const [label, value] of values) {
     const term = document.createElement('dt');

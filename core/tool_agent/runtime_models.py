@@ -1008,8 +1008,8 @@ class KnowledgeEvidence:
 class ToolAgentExecutionMetrics:
     """Safe, product-visible execution summary for one Engineering run.
 
-    Values come only from the existing per-decision call metadata and one
-    wall-clock measurement: no price estimation, no raw provider response,
+    Values come from Decision/typed-selector call metadata and one wall-clock
+    measurement: no price estimation, no raw provider response,
     no prompt/CoT content. ``input_tokens``/``output_tokens`` aggregate the
     provider-reported usage of calls that reported it and are ``None`` when
     no call reported usage (usage is never fabricated).
@@ -1019,11 +1019,14 @@ class ToolAgentExecutionMetrics:
     decision_llm_calls: int
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
+    selector_llm_calls: int = 0
+    selector_latency_ms: Optional[float] = None
 
     def __post_init__(self) -> None:
         for label in (
             "elapsed_ms",
             "decision_llm_calls",
+            "selector_llm_calls",
             "input_tokens",
             "output_tokens",
         ):
@@ -1036,13 +1039,22 @@ class ToolAgentExecutionMetrics:
                 raise TypeError(f"{label} 必须是严格 int")
             if value < 0:
                 raise ValueError(f"{label} 必须非负")
+        if self.selector_latency_ms is not None and (
+            type(self.selector_latency_ms) not in (int, float)
+            or isinstance(self.selector_latency_ms, bool)
+            or not math.isfinite(self.selector_latency_ms)
+            or self.selector_latency_ms < 0
+        ):
+            raise ValueError("selector_latency_ms 必须是有限非负数或 None")
 
     def to_dict(self) -> dict:
         return {
             "elapsed_ms": self.elapsed_ms,
             "decision_llm_calls": self.decision_llm_calls,
+            "selector_llm_calls": self.selector_llm_calls,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
+            "selector_latency_ms": self.selector_latency_ms,
         }
 
 
