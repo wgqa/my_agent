@@ -20,6 +20,7 @@ from typing import Any, Mapping, Sequence
 from core.engineering_requirements import EngineeringEvidenceRequirement
 from core.engineering_task_contract import HybridTaskContract
 from core.engineering_verification import EngineeringVerificationResult
+from core.engineering_verification import explicit_git_scope_error
 from core.tool_agent.models import ToolCall, ToolObservation
 from core.tool_agent.runtime_models import ToolResultEvidence
 
@@ -448,6 +449,7 @@ def finalize_changed_files_typed(
     current_public_evidence: Sequence[object],
     finalization_verifier: object,
     task_contract: HybridTaskContract | None = None,
+    user_request: str | None = None,
 ) -> TypedFinalizationResult:
     """Validate one selector, preserve the frozen Requirement, and render facts."""
 
@@ -475,6 +477,41 @@ def finalize_changed_files_typed(
         return _failure(source_error, evidence_id=evidence_id)
 
     evidence = execution.evidence
+    request_rows = None
+    request_label = ""
+    if user_request is not None:
+        # Submission-specific checks, not a global task Router. Decision still
+        # chooses whether to submit this finite action.
+        task_error = explicit_git_scope_error(user_request, (evidence,))
+        if task_error:
+            return _failure(task_error, evidence_id=evidence_id)
+        if re.search(r"为什么|为何|最重要|风险|影响|原因|解释|实现|\b(?:why|risk|impact|important)\b", user_request, re.I):
+            return _failure("TASK_REQUIRES_NON_STATUS_ANSWER", evidence_id=evidence_id)
+        terms = {"deleted": r"deleted|(?:已|被)?删除|删掉|移除", "renamed": r"renamed|重命名|改名",
+                 "untracked": r"untracked|未跟踪|未追踪", "added": r"added|新增|新建",
+                 "modified": r"modified|已修改|(?:只|仅).{0,20}修改"}
+        requested = [status for status, term in terms.items() if re.search(term, user_request, re.I)]
+        if len(requested) > 1 or (requested and (operation != "filter_status" or status_filter != requested[0])):
+            return _failure("TASK_STATUS_SELECTION_MISMATCH", evidence_id=evidence_id)
+        if not requested and operation != "list_all":
+            return _failure("TASK_STATUS_SELECTION_MISMATCH", evidence_id=evidence_id)
+        request_rows = evidence.status_entries
+        categories = [(kind, label) for term, kind, label in (
+            (r"(?:源码|源代码)文件|\bsource (?:code )?files\b", "project_code", "源码文件"),
+            (r"测试文件|\btest files\b", "project_test", "测试文件"),
+            (r"文档文件|\bdocument files\b", "project_doc", "文档文件"))
+            if re.search(term, user_request, re.I)]
+        if len(categories) > 1:
+            return _failure("TASK_OBJECT_SELECTION_AMBIGUOUS", evidence_id=evidence_id)
+        if categories:
+            from core.tool_agent.project_files import classify_project_evidence_path
+            kind, request_label = categories[0]
+            request_rows = tuple(row for row in request_rows if classify_project_evidence_path(row[0]) == kind)
+        from core.engineering_verification import _BOUNDED_FACT_PATH_PATTERN
+        paths = set(_BOUNDED_FACT_PATH_PATTERN.findall(user_request))
+        if paths:
+            request_rows = tuple(row for row in request_rows if row[0] in paths or row[2] in paths)
+            request_label = "指定路径的" + (request_label or "变更文件")
     if task_contract is not None:
         if type(task_contract) is not HybridTaskContract:
             return _failure("INVALID_TASK_CONTRACT", evidence_id=evidence_id)
@@ -500,12 +537,12 @@ def finalize_changed_files_typed(
         evidence=evidence,
         observation_result=result,
         arguments=arguments,
-        rows=task_contract.status_rows(evidence) if task_contract is not None else None,
+        rows=task_contract.status_rows(evidence) if task_contract is not None else request_rows,
         object_label=(
             ("指定路径的" if task_contract.target_paths else "")
             + {"source_files": "源码文件", "documents": "文档文件", "tests": "测试文件"}.get(
                 task_contract.object_kind, "变更文件" if task_contract.target_paths else "")
-            if task_contract is not None else ""),
+            if task_contract is not None else request_label),
     )
     verify = getattr(finalization_verifier, "verify", None)
     if not callable(verify):

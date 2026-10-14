@@ -30,6 +30,8 @@ from core.engineering_verification import (
     ANSWER_EVIDENCE_REFERENCE_INVALID,
     ANSWER_EVIDENCE_REFERENCE_MISSING,
     INVALID_CITATION_REFERENCE,
+    explicit_material_gap,
+    explicit_git_scope_error,
 )
 from core.tool_agent.activity import (
     ActivityEvent,
@@ -746,7 +748,7 @@ _EVIDENCE_CITATION_LIKE = re.compile(r"\[\s*E[^\]\r\n]*\]")
 _EVIDENCE_ID = re.compile(r"E[1-9][0-9]*")
 
 
-def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str, *, context=()) -> str | None:
+def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str, *, context=(), limitations=None) -> str | None:
     """Check current-run sources and hard requirements without legacy Binding.
 
     This intentionally does not test whether each natural-language claim is
@@ -756,6 +758,89 @@ def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str,
     """
     if finalization_verifier is None:
         return "FINALIZATION_VERIFIER_REQUIRED"
+    request = getattr(finalization_verifier, "user_request", None)
+    if request is not None:
+        references = _EVIDENCE_CITATION_LIKE.findall(answer)
+        ids = {token[1:-1].strip() for token in references}
+        available = {item.evidence_id: item for item in evidence}
+        if any(not _EVIDENCE_ID.fullmatch(eid) or eid not in available for eid in ids):
+            return "INVALID_CURRENT_RUN_EVIDENCE_REFERENCE"
+        if not ids:
+            return "CURRENT_RUN_EVIDENCE_REFERENCE_MISSING"
+        if not finalization_verifier.knowledge_citations_valid(answer):
+            return "INVALID_CITATION_REFERENCE"
+        selected = tuple(available[eid] for eid in ids)
+        scope_error = explicit_git_scope_error(request, selected)
+        if scope_error:
+            return scope_error
+        # Recompute source identities from this loop's successful observations,
+        # not a model-provided E-ID, source hash or previous Run's catalog.
+        for item in selected:
+            if isinstance(item, ToolResultEvidence):
+                observed = [entry for entry in context if entry.call_id == item.call_id
+                            and entry.tool_name == item.tool_name and entry.observation_status == "ok"]
+                if len(observed) != 1:
+                    return "CURRENT_RUN_SOURCE_MISMATCH"
+                entry = observed[0]
+                from core.tool_agent.models import ToolObservation
+                observation = ToolObservation(tool_name=entry.tool_name, call_id=entry.call_id,
+                    status="ok", result=entry.observation_result, error_code=None)
+                call = ToolCall.create(entry.tool_name, entry.arguments)
+                replay = replace(observation, call_id=call.call_id)
+                expected = _evidence_from_tool_result(replay, call, item.tool_version)
+                if not any(replace(source, evidence_id=item.evidence_id, call_id=item.call_id) == item for source in expected):
+                    return "CURRENT_RUN_SOURCE_MISMATCH"
+            elif isinstance(item, EngineeringEvidence):
+                sources = []
+                from core.tool_agent.models import ToolObservation
+                for entry in context:
+                    if entry.observation_status == "ok" and entry.tool_name == "read_project_context":
+                        observation = ToolObservation(tool_name=entry.tool_name, call_id=entry.call_id,
+                            status="ok", result=entry.observation_result, error_code=None)
+                        sources.extend(_evidence_from_project_context_regions(observation))
+                if not any(replace(source, evidence_id=item.evidence_id) == item for source in sources):
+                    return "CURRENT_RUN_SOURCE_MISMATCH"
+        missing, _ = explicit_material_gap(request, selected)
+        if missing and not limitations:
+            return missing
+        symbols = re.findall(r"([A-Za-z_][A-Za-z0-9_]*)\s*函数.{0,8}(?:实现|源码)", request)
+        if symbols and not limitations:
+            complete_symbols = set()
+            cited_paths = {getattr(item, "path", None) for item in selected
+                           if getattr(item, "granularity", "source_body") == "source_body"}
+            for entry in context:
+                result = entry.observation_result
+                if entry.tool_name != "read_project_context" or entry.observation_status != "ok" or type(result) is not dict:
+                    continue
+                if result.get("path") not in cited_paths:
+                    continue
+                if result.get("mode") == "targets" and not result.get("selection_truncated", True):
+                    for target in result.get("targets", []):
+                        if target.get("status") != "read" or target.get("content_complete") is not True:
+                            continue
+                        definition = target.get("definition")
+                        if isinstance(definition, dict):
+                            complete_symbols.add(definition.get("name"))
+                        elif target.get("requested") == "file":
+                            index = target.get("region_index")
+                            regions = result.get("regions", [])
+                            if type(index) is int and 0 <= index < len(regions):
+                                from core.tool_agent.tools.source_navigation import python_symbols
+                                spans, error = python_symbols([line["text"] for line in regions[index]["lines"]])
+                                if error is None:
+                                    complete_symbols.update(span.name for span in spans if span.kind == "function")
+            if not set(symbols) <= complete_symbols:
+                return "REQUESTED_FUNCTION_BODY_INCOMPLETE"
+        if any(getattr(item, "completeness", None) == "partial" for item in selected) and not limitations:
+            return "PARTIAL_SOURCE_REQUIRES_LIMITATION"
+        # A candidate or source file never records test execution. This is a
+        # bounded safety check, not a general natural-language entailment test.
+        for clause in re.split(r"[。！？!?.\n]", answer):
+            if re.search(r"(?:测试|pytest).{0,16}(?:全部通过|执行成功|已通过)|"
+                         r"(?:已运行|已执行).{0,12}(?:pytest|测试)|\ball tests passed\b", clause, re.I):
+                if not re.search(r"未|不能|无法|不代表|不等于|没有|尚无|\b(?:not|cannot|no)\b", clause, re.I):
+                    return "TEST_EXECUTION_NOT_VERIFIED"
+        return None
     contract = getattr(finalization_verifier, "task_contract", None)
     if contract is not None and contract.operation == "file_status":
         return "TASK_REQUIRES_TYPED_FINALIZATION"
@@ -985,7 +1070,7 @@ class ToolAgentRuntime:
             raise TypeError("finalization_verifier 必须提供 verify 方法")
         if type(enforce_evidence_acquisition) is not bool:
             raise TypeError("enforce_evidence_acquisition 必须是 bool")
-        if finalization_strategy not in ("legacy", "direct_hybrid"):
+        if finalization_strategy not in ("legacy", "direct_hybrid", "converged_hybrid"):
             raise ValueError("finalization_strategy 必须是 legacy 或 direct_hybrid")
         seed_context = _normalize_initial_context(initial_context)
         seed_evidence = _normalize_initial_evidence(initial_evidence)
@@ -1008,6 +1093,7 @@ class ToolAgentRuntime:
         changed_files_source_failed = False
         changed_files_selector_attempted = False
         task_contract = getattr(finalization_verifier, "task_contract", None)
+        converged = finalization_strategy == "converged_hybrid"
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
         task_contract_recovery_attempted = False
@@ -1114,19 +1200,19 @@ class ToolAgentRuntime:
                 available_evidence_refs=_evidence_reference_catalog(evidence),
                 citation_required_evidence_groups=(
                     evidence_requirement.required_evidence_groups
-                    if evidence_requirement is not None
+                    if evidence_requirement is not None and not converged
                     else ()
                 ),
                 citation_required_min_distinct_project_code_paths=(
                     evidence_requirement.min_distinct_project_code_paths
-                    if evidence_requirement is not None
+                    if evidence_requirement is not None and not converged
                     else 0
                 ),
                 finalization_strategy=(
-                    "direct_hybrid" if finalization_strategy == "direct_hybrid" else None
+                    finalization_strategy if finalization_strategy in {"direct_hybrid", "converged_hybrid"} else None
                 ),
                 task_contract=task_contract,
-                task_contract_recovery_attempted=task_contract_recovery_attempted,
+                task_contract_recovery_attempted=task_contract_recovery_attempted if task_contract is not None else False,
                 task_contract_missing_material=(
                     task_contract.material_error(task_contract.scoped_evidence(evidence))
                     if task_contract is not None else None),
@@ -1196,6 +1282,22 @@ class ToolAgentRuntime:
                 )
 
             action = outcome.action
+            if (converged and guard_state is not None and not guard_state.satisfied
+                    and (isinstance(action, FinalAnswerAction) and not action.limitations
+                         or isinstance(action, RefuseAction) and action.reason_code == "INSUFFICIENT_INFORMATION")
+                    and not task_contract_recovery_attempted
+                    and explicit_material_gap(finalization_verifier.user_request, evidence)[0] != "TEST_EXECUTION_NOT_VERIFIED"
+                    and _recovery_is_feasible(run_registry, evidence_requirement, guard_state,
+                        iterations=iterations, tool_calls=tool_calls, tool_errors=tool_errors, budget=self._budget)):
+                task_contract_recovery_attempted = True
+                self._record_trace(trace, RuntimeTraceEvent(iteration=iterations,
+                    event_type="finalization_guard_blocked", guard_status="blocked",
+                    error_code=explicit_material_gap(finalization_verifier.user_request, evidence)[0],
+                    missing_evidence_groups=guard_state.missing_evidence_groups,
+                    distinct_project_code_paths=guard_state.distinct_project_code_paths,
+                    required_min_distinct_project_code_paths=guard_state.required_min_distinct_project_code_paths,
+                    iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors), trace_sink)
+                continue
             if (task_contract is not None and finalization_strategy == "direct_hybrid"
                     and (isinstance(action, FinalAnswerAction)
                          or isinstance(action, RefuseAction)
@@ -1228,10 +1330,12 @@ class ToolAgentRuntime:
                     INSUFFICIENT_EVIDENCE_TO_FINALIZE, trace_sink,
                     trace_code=material_error or "EXISTING_REQUIREMENT_NOT_SATISFIED")
             if isinstance(action, ChangedFilesFinalizationAction):
+                typed_executions = ([execution for execution in changed_files_executions
+                    if execution.evidence.evidence_id == action.evidence_id] if converged else changed_files_executions)
                 if (
-                    finalization_strategy != "direct_hybrid"
+                    finalization_strategy not in {"direct_hybrid", "converged_hybrid"}
                     or finalization_verifier is None
-                    or len(changed_files_executions) != 1
+                    or len(typed_executions) != 1
                 ):
                     return self._hard_stop(
                         trace,
@@ -1244,10 +1348,11 @@ class ToolAgentRuntime:
                     )
                 typed_result = finalize_changed_files_typed(
                     action.as_selector(),
-                    execution=changed_files_executions[0],
+                    execution=typed_executions[0],
                     current_public_evidence=tuple(evidence),
                     finalization_verifier=finalization_verifier,
                     **({"task_contract": task_contract} if task_contract is not None else {}),
+                    **({"user_request": finalization_verifier.user_request} if converged else {}),
                 )
                 if (not typed_result.protocol_valid or not typed_result.source_valid
                         or (typed_result.error_code or "").startswith("TASK_")):
@@ -1259,7 +1364,7 @@ class ToolAgentRuntime:
                         tool_errors,
                         INSUFFICIENT_EVIDENCE_TO_FINALIZE,
                         trace_sink,
-                        trace_code=typed_result.error_code if task_contract is not None else None,
+                        trace_code=typed_result.error_code,
                     )
                 if typed_result.accepted:
                     self._append_terminal(
@@ -1275,6 +1380,8 @@ class ToolAgentRuntime:
                         tool_errors_used=tool_errors,
                         trace=tuple(trace),
                         evidence=tuple(evidence),
+                        task_coverage=("complete" if converged and typed_result.completeness == "complete"
+                                       else "partial" if converged else "unknown"),
                     )
 
                 # A valid Typed choice that lacks the frozen Requirement may
@@ -1349,10 +1456,11 @@ class ToolAgentRuntime:
                 continue
 
             if isinstance(action, FinalAnswerAction):
-                if finalization_strategy == "direct_hybrid":
+                if finalization_strategy in {"direct_hybrid", "converged_hybrid"}:
                     error_code = _lightweight_open_answer_check(
                         finalization_verifier, evidence, action.answer,
-                        **({"context": tuple(context)} if task_contract is not None else {}),
+                        **({"context": tuple(context)} if task_contract is not None or converged else {}),
+                        **({"limitations": action.limitations} if converged else {}),
                     )
                     if error_code is not None:
                         return self._hard_stop(
@@ -1363,14 +1471,15 @@ class ToolAgentRuntime:
                             tool_errors,
                             INSUFFICIENT_EVIDENCE_TO_FINALIZE,
                             trace_sink,
-                            trace_code=error_code if task_contract is not None else None,
+                            trace_code=error_code,
                         )
                     self._append_terminal(
                         trace, iterations, tool_calls, tool_errors, None, trace_sink
                     )
                     return ToolAgentRunResult(
                         status="completed",
-                        answer=action.answer,
+                        answer=(action.answer + "\n\n未完成事项与范围限制：" + action.limitations
+                                if converged and action.limitations else action.answer),
                         reason_code=None,
                         failure_code=None,
                         iterations_used=iterations,
@@ -1378,6 +1487,7 @@ class ToolAgentRuntime:
                         tool_errors_used=tool_errors,
                         trace=tuple(trace),
                         evidence=tuple(evidence),
+                        task_coverage="partial" if converged and action.limitations else "unknown",
                     )
                 if finalization_verifier is not None:
                     finalization_result = _run_finalization_verifier(
@@ -1679,7 +1789,7 @@ class ToolAgentRuntime:
             if isinstance(action, RefuseAction):
                 if (
                     enforce_evidence_acquisition
-                    and task_contract is None
+                    and task_contract is None and not converged
                     and evidence_requirement is not None
                     and guard_state is not None
                     and not guard_state.satisfied

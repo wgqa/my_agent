@@ -137,7 +137,7 @@ class UnifiedEngineeringRuntime:
             )
         if not isinstance(evidence_verifier, EngineeringEvidenceVerifier):
             raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
-        if finalization_strategy not in ("legacy", "direct_hybrid", "hybrid_task_contract"):
+        if finalization_strategy not in ("legacy", "direct_hybrid", "hybrid_task_contract", "converged_hybrid"):
             raise ValueError("Unsupported finalization_strategy")
         self._execution_adapter = execution_adapter
         self._context_resolver = context_resolver
@@ -212,6 +212,8 @@ class UnifiedEngineeringRuntime:
             retrieval_snapshot,
             requirement,
             **({"task_contract": task_contract} if task_contract is not None else {}),
+            **({"user_request": context_snapshot.original_input}
+               if self._finalization_strategy == "converged_hybrid" else {}),
         )
         result = self._execution_adapter.run(
             resolved_input,

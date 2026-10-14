@@ -50,6 +50,7 @@ EXPECTED_B0_HEAD = "f3c9e28aec8b29ccfcad9476ea88871aacbefa06"
 EXPECTED_TASK021_HEAD = "5646e2cb919361989cd1b7d0b22644cbe275f44a"
 TASK022_BUDGET_ID = "task022-cross-capability-20261014-001"
 TASK022_MODE = False
+CONVERGENCE_MODE = False
 
 TASK022_GROUPS = {
     **{f"t22_gs_{i:02d}": "git_status" for i in range(1, 5)},
@@ -300,6 +301,8 @@ def _check_git_identity() -> dict[str, Any]:
             "b2": (B2_CHECKOUT, EXPECTED_B2_HEAD, None),
             "hybrid": (PROJECT_ROOT, None, "experiment/task022-cross-capability"),
         }
+        if CONVERGENCE_MODE:
+            roots = {"converged": (PROJECT_ROOT, None, "experiment/hybrid-convergence")}
         identities = {}
         for variant, (root, expected_head, expected_branch) in roots.items():
             head = _git(root, "rev-parse", "HEAD")
@@ -313,6 +316,8 @@ def _check_git_identity() -> dict[str, Any]:
                 raise RuntimeError(f"Task022 branch mismatch: {variant}")
             if variant == "hybrid":
                 _git(root, "merge-base", "--is-ancestor", EXPECTED_TASK021_HEAD, "HEAD")
+            if variant == "converged":
+                _git(root, "merge-base", "--is-ancestor", "ea1a83fe6c66a0a0924446bd6f6974fd2eb7f7af", "HEAD")
             fingerprint = _business_fingerprint(root)
             identities[variant] = {
                 "path": str(root), "head": head, "branch": branch,
@@ -440,7 +445,7 @@ def _run_child(*, item: dict[str, Any], run_id: str, output_dir: Path,
     checkout = B2_CHECKOUT if item["variant"] == "b2" else TASK019_CHECKOUT
     if TASK022_MODE:
         checkout = {"b0": B0_CHECKOUT, "b2": B2_CHECKOUT,
-                    "hybrid": PROJECT_ROOT}[item["variant"]]
+                    "hybrid": PROJECT_ROOT, "converged": PROJECT_ROOT}[item["variant"]]
     if TASK021_STAGE:
         checkout = {"direct_hybrid": PROJECTS_ROOT / "rag-knowledge-base-task019-direct-hybrid",
                     "task020": PROJECTS_ROOT / "rag-knowledge-base-hybrid-task-contract",
@@ -517,13 +522,15 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
     fixture_identity = _fixture_identity()
     probe_cases = _probe_cases() if TASK022_MODE else {}
     if TASK022_MODE:
-        if len(TASK022_GROUPS) != 28 or len(PLAN) != 84:
+        expected_count = 28 if CONVERGENCE_MODE else 84
+        variants = ("converged",) if CONVERGENCE_MODE else ("b0", "b2", "hybrid")
+        if len(TASK022_GROUPS) != 28 or len(PLAN) != expected_count:
             raise RuntimeError("Task022 fixed matrix shape mismatch")
         planned = [(item["case_id"], item["variant"]) for item in PLAN]
-        if len(set(planned)) != 84:
+        if len(set(planned)) != expected_count:
             raise RuntimeError("Task022 plan contains duplicate case/variant rows")
         if any(sum(item["variant"] == variant for item in PLAN) != 28
-               for variant in ("b0", "b2", "hybrid")):
+               for variant in variants):
             raise RuntimeError("Task022 variant count mismatch")
     prompt_hashes = {
         "shared_planner_context": _hash_map(TASK019_CHECKOUT, COMMON_PROMPT_FILES),
@@ -640,6 +647,13 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
             "price_source": "https://api-docs.deepseek.com/quick_start/pricing/",
             "history_constraint": "Task018-021 results informed case design only; the 84 Task022 attempts are new runs and are not pooled with historical scores.",
         })
+    if CONVERGENCE_MODE:
+        manifest.update(authorization="PROJECT_OWNER_AUTHORIZED_CONVERGENCE_28_AGENT_RUNS",
+            task="Hybrid_convergence_28_case_e2e",
+            task022_business_ancestor="afa384668e00401385b5cc2084d4e515b73474da",
+            runtime_source_sha256={"converged": _hash_map(PROJECT_ROOT, DIRECT_RUNTIME_IDENTITY_FILES)},
+            schedule="Task022 fixed case order; converged variant only; one attempt per case",
+            history_constraint="B0/B2/Task022 are historical references, not contemporaneous paired controls")
     _atomic_json(run_path / "manifest.json", manifest)
     _write_run_state(run_path / "run_state.json", run_id, cases_state, None, None)
     budget_db = (results_root / "task021_shared_budget.sqlite3"
@@ -762,6 +776,7 @@ def main() -> None:
     parser.add_argument("--task021-stage", choices=("controls", "candidate"))
     parser.add_argument("--task022", action="store_true",
                         help="select the fixed Task 022 B0/B2/Hybrid 28-case matrix")
+    parser.add_argument("--convergence", action="store_true")
     args = parser.parse_args()
     if not args.execute_live:
         raise SystemExit("Live execution is disabled without --execute-live")
@@ -773,6 +788,12 @@ def main() -> None:
             args.run_id = DEFAULT_RUN_ID
     if args.task022:
         configure_task022()
+        if args.results_root == PROJECTS_ROOT / "_task019_direct_hybrid_live_results":
+            args.results_root = DEFAULT_RESULTS_ROOT
+        if args.run_id == "task019-direct-hybrid-20261014-001":
+            args.run_id = DEFAULT_RUN_ID
+    if args.convergence:
+        configure_convergence()
         if args.results_root == PROJECTS_ROOT / "_task019_direct_hybrid_live_results":
             args.results_root = DEFAULT_RESULTS_ROOT
         if args.run_id == "task019-direct-hybrid-20261014-001":
@@ -821,6 +842,19 @@ def configure_task022() -> None:
             ((case_id, variant) for case_id in TASK022_GROUPS for variant in variants), start=1
         )
     ]
+
+
+def configure_convergence() -> None:
+    """One new candidate, same frozen questions/fixtures/grading and gate."""
+    global CONVERGENCE_MODE, PLAN, MAX_REQUESTS, MAX_TOKENS, MAX_ESTIMATED_USD
+    global DEFAULT_RESULTS_ROOT, DEFAULT_RUN_ID
+    configure_task022()
+    CONVERGENCE_MODE = True
+    MAX_REQUESTS, MAX_TOKENS, MAX_ESTIMATED_USD = 196, 750_000, 0.30
+    DEFAULT_RESULTS_ROOT = PROJECTS_ROOT / "_hybrid_convergence_results"
+    DEFAULT_RUN_ID = "hybrid-convergence-20261015-001"
+    PLAN = [{"task_order": index, "case_id": case_id, "variant": "converged",
+             "group": TASK022_GROUPS[case_id]} for index, case_id in enumerate(TASK022_GROUPS, 1)]
 
 
 if __name__ == "__main__":

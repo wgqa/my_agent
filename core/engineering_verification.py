@@ -21,6 +21,7 @@ from core.agent_runtime.runtime import MinimalEvidenceVerifier
 from core.context.assembler import ContextBlock
 from core.engineering_requirements import (
     EngineeringEvidenceRequirement,
+    EngineeringRequirementProfile,
     EvidenceRequirementState,
     evaluate_evidence_requirement,
 )
@@ -1105,6 +1106,57 @@ class EngineeringVerificationResult:
         return frozenset(kinds)
 
 
+def explicit_material_gap(request: str, evidence) -> tuple[str | None, tuple]:
+    """Small checks for observable, explicit obligations; no intent classifier.
+
+    Unknown prose is left for external answer review. Model operation/object
+    guesses, file counts and knowledge subquery counts never enter this check.
+    """
+    knowledge = bool(re.search(r"知识|资料|knowledge|corpus", request, re.I))
+    if knowledge and not any(item.kind == "knowledge" for item in evidence):
+        return "REQUESTED_KNOWLEDGE_MISSING", (("knowledge",),)
+    if re.search(r"^(?:请)?(?:现在)?(?:实际)?(?:运行|执行)\s*(?:pytest|测试)|"
+                 r"\b(?:run|execute)\s+(?:pytest|tests)\b", request, re.I):
+        return "TEST_EXECUTION_NOT_VERIFIED", (("project_test",),)
+    paths = set(_BOUNDED_FACT_PATH_PATTERN.findall(request))
+    # Locating a symbol does not request its implementation. A mixed source
+    # request accepts each file's own kind, including docs and test source.
+    body = bool(re.search(r"读取|阅读|源码实现|函数.{0,8}实现|解释.{0,25}实现|"
+                          r"检查.{0,60}断言|\b(?:read|implementation)\b", request, re.I))
+    if body and paths:
+        bodies = {item.path for item in evidence
+                  if getattr(item, "granularity", "source_body") == "source_body"
+                  and getattr(item, "completeness", "complete") == "complete"
+                  and item.kind in {"project_code", "project_doc", "project_test"}}
+        if not paths <= bodies:
+            return "REQUESTED_SOURCE_BODY_MISSING", (("project_code", "project_doc", "project_test"),)
+    if re.search(r"\bdiff\b", request, re.I):
+        diffs = [item for item in evidence if getattr(item, "granularity", None) == "diff"
+                 and getattr(item, "completeness", None) == "complete"]
+        if not diffs or (paths and not paths <= {p for item in diffs for p in item.scope_paths}):
+            return "REQUESTED_DIFF_MISSING", (("project_change",),)
+    return None, ()
+
+
+def explicit_git_scope_error(request: str, evidence) -> str | None:
+    """Validate user-given range against Git Evidence, independent of Planner."""
+    refs = re.findall(r"\b[0-9a-f]{40}\b", request, re.I)
+    if len(refs) != 2:
+        pair = re.search(r"(?<![\w/.])([A-Za-z0-9_./~^-]+)\.\.([A-Za-z0-9_./~^-]+)(?![\w/])", request)
+        if pair:
+            refs = list(pair.groups())
+    for item in evidence:
+        if getattr(item, "tool_name", None) not in {"changed_files", "git_diff"}:
+            continue
+        args = json.loads(item.arguments_json)
+        if len(refs) == 2 and (args.get("mode") != "commit_range" or
+                (args.get("base_ref"), args.get("head_ref")) != tuple(refs)):
+            return "REQUESTED_GIT_SCOPE_MISMATCH"
+        if re.search(r"working_tree|当前工作区|工作区当前", request, re.I) and args.get("mode") != "working_tree":
+            return "REQUESTED_GIT_SCOPE_MISMATCH"
+    return None
+
+
 class BoundEngineeringEvidenceVerifier:
     """Per-run binding; it delegates every check to one verifier instance."""
 
@@ -1115,6 +1167,7 @@ class BoundEngineeringEvidenceVerifier:
         retrieval_snapshot: EngineeringRetrievalSnapshot,
         requirement: EngineeringEvidenceRequirement,
         task_contract: HybridTaskContract | None = None,
+        user_request: str | None = None,
     ) -> None:
         verifier._validate_inputs(
             planner_outcome,
@@ -1126,6 +1179,11 @@ class BoundEngineeringEvidenceVerifier:
         self._retrieval_snapshot = retrieval_snapshot
         self._requirement = requirement
         self.task_contract = task_contract
+        self.user_request = user_request
+
+    def knowledge_citations_valid(self, answer: str) -> bool:
+        return not CitationValidator().validate(answer,
+            list(evidence_bundle_to_citation_blocks(self._retrieval_snapshot.evidence_bundle))).invalid
 
     def verify(
         self,
@@ -1139,6 +1197,7 @@ class BoundEngineeringEvidenceVerifier:
             current_public_evidence,
             proposed_answer=proposed_answer,
             **({"task_contract": self.task_contract} if self.task_contract is not None else {}),
+            **({"user_request": self.user_request} if self.user_request is not None else {}),
         )
 
 
@@ -1171,6 +1230,7 @@ class EngineeringEvidenceVerifier:
         requirement: EngineeringEvidenceRequirement,
         *,
         task_contract: HybridTaskContract | None = None,
+        user_request: str | None = None,
     ) -> BoundEngineeringEvidenceVerifier:
         return BoundEngineeringEvidenceVerifier(
             self,
@@ -1178,6 +1238,7 @@ class EngineeringEvidenceVerifier:
             retrieval_snapshot,
             requirement,
             task_contract,
+            user_request,
         )
 
     def verify(
@@ -1189,6 +1250,7 @@ class EngineeringEvidenceVerifier:
         *,
         proposed_answer: str | None = None,
         task_contract: HybridTaskContract | None = None,
+        user_request: str | None = None,
     ) -> EngineeringVerificationResult:
         """Run all orthogonal checks and return one finalization state."""
 
@@ -1196,6 +1258,12 @@ class EngineeringEvidenceVerifier:
         if task_contract is not None and type(task_contract) is not HybridTaskContract:
             raise TypeError("task_contract must be HybridTaskContract")
         evidence = _strict_evidence_sequence(current_public_evidence)
+        converged = user_request is not None
+        if converged:
+            # The old profile remains attached for diagnostics, not a second
+            # model-inferred task judge. Hard gaps come from explicit requests.
+            requirement = EngineeringEvidenceRequirement(
+                EngineeringRequirementProfile.NO_ADDITIONAL_REQUIREMENT, (), 0)
         if proposed_answer is not None and type(proposed_answer) is not str:
             raise TypeError("proposed_answer 必须是 str 或 None")
 
@@ -1215,6 +1283,10 @@ class EngineeringEvidenceVerifier:
         )
         if task_contract is not None and task_contract.operation != "other":
             planned_knowledge_required = task_contract.requires_knowledge
+        if converged:
+            # Subqueries are a retrieval plan, not user delivery obligations.
+            # Explicit knowledge gaps are checked against actual evidence below.
+            planned_knowledge_required = False
         retrieval_result = MinimalEvidenceVerifier().verify(
             planner_outcome.plan,
             retrieval_snapshot.evidence_bundle,
@@ -1228,6 +1300,10 @@ class EngineeringEvidenceVerifier:
             task_contract.scoped_evidence(evidence) if task_contract is not None else evidence
         )
         requirement_state = evaluate_evidence_requirement(requirement, requirement_evidence)
+        if converged:
+            error, missing = explicit_material_gap(user_request, evidence)
+            requirement_state = replace(requirement_state, satisfied=error is None,
+                                        missing_evidence_groups=missing)
         if task_contract is not None and task_contract.material_error(requirement_evidence):
             requirement_state = replace(requirement_state, satisfied=False)
 

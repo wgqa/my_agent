@@ -599,7 +599,7 @@ class DecisionControlState:
         _require_non_negative_int(self.iteration, "iteration")
         if self.iteration < 1:
             raise ValueError("iteration 必须 >= 1")
-        if self.finalization_strategy not in (None, "legacy", "direct_hybrid"):
+        if self.finalization_strategy not in (None, "legacy", "direct_hybrid", "converged_hybrid"):
             raise ValueError("finalization_strategy 必须为 legacy/direct_hybrid/None")
         _require_non_negative_int(self.remaining_iterations, "remaining_iterations")
         _require_non_negative_int(self.remaining_tool_calls, "remaining_tool_calls")
@@ -667,7 +667,7 @@ class DecisionControlState:
             "tool_call_allowed": self.tool_call_allowed,
             "must_terminate": self.must_terminate,
         }
-        if self.finalization_strategy == "direct_hybrid":
+        if self.finalization_strategy in {"direct_hybrid", "converged_hybrid"}:
             result["finalization_strategy"] = self.finalization_strategy
         if self.task_contract is not None:
             result["task_contract"] = self.task_contract.to_dict()
@@ -1105,8 +1105,17 @@ class ToolAgentRunResult:
     evidence: Sequence[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence] = ()
     execution: Optional[ToolAgentExecutionMetrics] = None
     task_contract: HybridTaskContract | None = None
+    task_coverage: str = "unknown"
+
+    @property
+    def can_finalize(self) -> bool:
+        return self.status == "completed"
 
     def __post_init__(self) -> None:
+        if self.task_coverage not in {"complete", "partial", "unknown"}:
+            raise ValueError("Invalid task coverage")
+        if self.status != "completed" and self.task_coverage == "complete":
+            raise ValueError("No delivery cannot establish complete coverage")
         if self.task_contract is not None and type(self.task_contract) is not HybridTaskContract:
             raise TypeError("task_contract must be HybridTaskContract")
         if self.status not in RUN_STATUSES:
@@ -1176,6 +1185,8 @@ class ToolAgentRunResult:
         }
         if self.task_contract is not None:
             result["task_contract"] = self.task_contract.to_dict()
+        result.update(can_finalize=self.can_finalize, task_coverage=self.task_coverage,
+                      semantic_correctness="not_evaluated")
         return result
 
 

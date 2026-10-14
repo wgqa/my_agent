@@ -290,7 +290,7 @@ class FakeHTTPProvider:
         if self.case.fixture == "commit_range":
             tool_arguments = {"mode": "commit_range", "base_ref": BASE_REF, "head_ref": HEAD_REF}
         steps.append(decision({"action": "tool_call", "tool_name": "changed_files", "arguments": tool_arguments}))
-        if self.variant in {"direct_hybrid", "task020", "task021"}:
+        if self.variant in {"direct_hybrid", "task020", "task021", "converged"}:
             selected = {"action": "changed_files_finalization", "evidence_id": "E1",
                         "operation": self.case.operation}
             if self.case.operation == "filter_status":
@@ -919,9 +919,9 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 stack.enter_context(patch.object(runtime_module, "finalize_changed_files_typed", record_typed))
             project = EngineeringProject(root=project_root.resolve(strict=True),
                 project_name=source_root.name, source="configured")
-            if variant in {"direct_hybrid", "task020", "task021", "hybrid"}:
+            if variant in {"direct_hybrid", "task020", "task021", "hybrid", "converged"}:
                 assembled = app_module._build_engineering_project_runtime(
-                    project, finalization_strategy=("hybrid_task_contract"
+                    project, finalization_strategy=("converged_hybrid" if variant == "converged" else "hybrid_task_contract"
                         if variant in {"task020", "task021", "hybrid"} else "direct_hybrid")
                 )
             else:
@@ -941,6 +941,9 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 "trace": [item.to_dict() for item in result.trace],
                 "task_contract": (result.task_contract.to_dict()
                     if getattr(result, "task_contract", None) is not None else None),
+                "can_finalize": result.status == "completed",
+                "task_coverage": getattr(result, "task_coverage", "unknown"),
+                "semantic_correctness": "not_evaluated",
             }
             output = {
                 "case_id": case.case_id,
@@ -1063,7 +1066,7 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Task 019 Runtime probe using the Task 018 fixture and recorder")
     parser.add_argument("--checkout", required=True, type=Path)
-    parser.add_argument("--variant", required=True, choices=("b0", "b2", "hybrid", "direct_hybrid", "task017", "task020", "task021"))
+    parser.add_argument("--variant", required=True, choices=("b0", "b2", "hybrid", "direct_hybrid", "task017", "task020", "task021", "converged"))
     parser.add_argument("--fixture-root", required=True, type=Path)
     parser.add_argument("--knowledge-db")
     parser.add_argument("--cases", nargs="+", choices=tuple(CASES), required=True)

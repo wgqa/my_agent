@@ -101,6 +101,7 @@ class FinalAnswerAction:
 
     action: str
     answer: str
+    limitations: str | None = None
 
     def __post_init__(self) -> None:
         if self.action != "final_answer":
@@ -115,6 +116,10 @@ class FinalAnswerAction:
             raise ActionValidationError(
                 f"answer 超过长度上限 {MAX_ANSWER_CHARS}"
             )
+        if self.limitations is not None:
+            _require_non_empty_str(self.limitations, "limitations")
+            if len(self.limitations) > 1000:
+                raise ActionValidationError("limitations 超过长度上限")
 
 
 @dataclass(frozen=True)
@@ -221,6 +226,9 @@ def parse_action_object(obj: object) -> AgentAction:
             operation=operation,
             status=obj.get("status"),
         )
+    if action == "final_answer" and set(obj) == {"action", "answer", "limitations"}:
+        _require_non_empty_str(obj["limitations"], "limitations")
+        return FinalAnswerAction(action=action, answer=obj["answer"], limitations=obj["limitations"])
     allowed = _ACTION_FIELD_SETS[action]
     supplied = set(obj.keys())
     if supplied != allowed:

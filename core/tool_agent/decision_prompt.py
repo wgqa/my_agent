@@ -182,10 +182,10 @@ def _append_direct_hybrid_policy(
     messages: list[dict], control_state: DecisionControlState | None
 ) -> list[dict]:
     """Add the opt-in direct action contract to this Decision only."""
-    if control_state is None or control_state.finalization_strategy != "direct_hybrid":
+    if control_state is None or control_state.finalization_strategy not in {"direct_hybrid", "converged_hybrid"}:
         return messages
     trusted_state = {
-        "finalization_strategy": "direct_hybrid",
+        "finalization_strategy": control_state.finalization_strategy,
         "finalization_blocked": control_state.finalization_blocked,
         "missing_evidence_groups": [
             list(group) for group in control_state.missing_evidence_groups
@@ -263,6 +263,29 @@ def _append_direct_hybrid_policy(
          if message.get("role") != "system"),
         len(messages),
     )
+    if control_state.finalization_strategy == "converged_hybrid":
+        policy += (
+            "\nConverged Hybrid: this policy supersedes the base profile's inferred Requirement "
+            "and answer-shape restrictions for this strategy; original tool permissions and "
+            "budgets still apply. The original user request is the task goal. Knowledge Planner "
+            "is only retrieval guidance, never a global task contract. No inferred operation, "
+            "object kind, subquery count or file count creates a new user obligation. "
+            "The displayed missing_evidence_groups describe explicit material gaps. If tools "
+            "and budget allow, fill the relevant gap before ending. For change importance, "
+            "select relevant files and obtain their actual diffs; importance does not require "
+            "exhaustively reviewing every file. Respect explicit all-files review requests. "
+            "Read directly referenced same-file constants when explaining implementations. "
+            "Closed Git status tasks still use changed_files_finalization directly, with "
+            "the user's exact scope/status/paths; there is no separate Selector request. "
+            "For an evidenced partial answer use {\"action\":\"final_answer\",\"answer\":\"... [E1]\","
+            "\"limitations\":\"specific unfinished obligations and source/scope limits\"}. "
+            "If no available tool can fill a gap (including actual test execution or disabled "
+            "knowledge_search), do not substitute a Reader/candidate for execution. "
+            "Never claim full completion, execution, test success or unseen content. "
+            "Limitations are shown to the user and partial delivery is not task completion. "
+            "When nothing useful is supported, refuse. For open answers cite actual current "
+            "sources and distinguish knowledge from repository and execution evidence."
+        )
     return [
         *messages[:insert_at],
         {"role": "system", "content": policy},
