@@ -52,6 +52,7 @@ class LegacyToolAgentExecutionAdapter:
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
         enforce_evidence_acquisition: bool = False,
+        finalization_strategy: str = "legacy",
         deadline_seconds: float | None = None,
         cancel_requested: Callable[[], bool] | None = None,
     ) -> ToolAgentRunResult:
@@ -95,6 +96,15 @@ class LegacyToolAgentExecutionAdapter:
                 "cancel_requested" in parameters or accepts_var_keyword
             ):
                 kwargs["cancel_requested"] = cancel_requested
+        if finalization_strategy != "legacy":
+            parameters = inspect.signature(self._runtime.run).parameters
+            accepts_var_keyword = any(
+                parameter.kind is inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            )
+            if "finalization_strategy" not in parameters and not accepts_var_keyword:
+                raise TypeError("ToolAgentRuntime 不支持 finalization_strategy")
+            kwargs["finalization_strategy"] = finalization_strategy
         return self._runtime.run(user_input, **kwargs)
 
 
@@ -109,6 +119,7 @@ class UnifiedEngineeringRuntime:
         evidence_planner: EngineeringEvidencePlanner,
         retrieval_component: EngineeringRetrievalComponent,
         evidence_verifier: EngineeringEvidenceVerifier,
+        finalization_strategy: str = "legacy",
     ) -> None:
         if not isinstance(execution_adapter, LegacyToolAgentExecutionAdapter):
             raise TypeError(
@@ -124,11 +135,14 @@ class UnifiedEngineeringRuntime:
             )
         if not isinstance(evidence_verifier, EngineeringEvidenceVerifier):
             raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
+        if finalization_strategy not in ("legacy", "direct_hybrid"):
+            raise ValueError("finalization_strategy 必须是 legacy 或 direct_hybrid")
         self._execution_adapter = execution_adapter
         self._context_resolver = context_resolver
         self._evidence_planner = evidence_planner
         self._retrieval_component = retrieval_component
         self._evidence_verifier = evidence_verifier
+        self._finalization_strategy = finalization_strategy
 
     def run(
         self,
@@ -181,6 +195,7 @@ class UnifiedEngineeringRuntime:
             initial_evidence=retrieval_snapshot.knowledge_evidence,
             disabled_tools=("knowledge_search",),
             finalization_verifier=finalization_verifier,
+            finalization_strategy=self._finalization_strategy,
             trace_sink=trace_sink,
             activity_sink=activity_sink,
             enforce_evidence_acquisition=True,

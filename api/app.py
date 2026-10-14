@@ -150,7 +150,11 @@ class EngineeringProjectRuntime:
     facade: EngineeringAgentFacade
 
 
-def _build_engineering_project_runtime(project: EngineeringProject) -> EngineeringProjectRuntime:
+def _build_engineering_project_runtime(
+    project: EngineeringProject,
+    *,
+    finalization_strategy: str = "legacy",
+) -> EngineeringProjectRuntime:
     """Assemble the existing Core chain with a product-selected local root."""
     if engineering_knowledge_backend is None:
         raise ValueError("Engineering knowledge is unavailable")
@@ -179,6 +183,7 @@ def _build_engineering_project_runtime(project: EngineeringProject) -> Engineeri
         LegacyToolAgentExecutionAdapter(tool_runtime), context_resolver=context_resolver,
         evidence_planner=planner, retrieval_component=retrieval,
         evidence_verifier=EngineeringEvidenceVerifier(),
+        finalization_strategy=finalization_strategy,
     )
     return EngineeringProjectRuntime(tool_runtime, context_resolver, planner, retrieval,
                                      runtime, EngineeringAgentFacade(runtime))

@@ -69,6 +69,7 @@ def build_full_unified_runtime(
     context_resolver=None,
     planner: BaseQueryPlanner | None = None,
     retrieval_port: RetrievalPort | None = None,
+    finalization_strategy: str = "legacy",
 ) -> UnifiedEngineeringRuntime:
     """Construct the production-shaped assembly required after cutover."""
 
@@ -89,4 +90,5 @@ def build_full_unified_runtime(
         evidence_planner=EngineeringEvidencePlanner(planner),
         retrieval_component=EngineeringRetrievalComponent(retrieval_port),
         evidence_verifier=EngineeringEvidenceVerifier(),
+        finalization_strategy=finalization_strategy,
     )

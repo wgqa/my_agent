@@ -25,7 +25,7 @@ AGENT_DECISION_FAILURE_CODES = (
     ACTION_TIMEOUT,
 )
 
-ACTION_NAMES = ("tool_call", "final_answer", "refuse")
+ACTION_NAMES = ("tool_call", "final_answer", "changed_files_finalization", "refuse")
 
 REFUSE_REASON_CODES = (
     "UNSUPPORTED_REQUEST",
@@ -39,6 +39,9 @@ MAX_ANSWER_CHARS = 4000
 _ACTION_FIELD_SETS = {
     "tool_call": frozenset({"action", "tool_name", "arguments"}),
     "final_answer": frozenset({"action", "answer"}),
+    "changed_files_finalization": frozenset(
+        {"action", "evidence_id", "operation", "status"}
+    ),
     "refuse": frozenset({"action", "reason_code"}),
 }
 
@@ -115,6 +118,42 @@ class FinalAnswerAction:
 
 
 @dataclass(frozen=True)
+class ChangedFilesFinalizationAction:
+    """A bounded changed_files selection from the existing Decision call."""
+
+    action: str
+    evidence_id: str
+    operation: str
+    status: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.action != "changed_files_finalization":
+            raise ActionValidationError(
+                "action 必须精确等于 'changed_files_finalization'"
+            )
+        if type(self.evidence_id) is not str or not re.fullmatch(
+            r"E[1-9][0-9]*", self.evidence_id
+        ):
+            raise ActionValidationError("evidence_id 必须是 E1、E2 形式")
+        if self.operation == "list_all":
+            if self.status is not None:
+                raise ActionValidationError("list_all 不接受 status")
+        elif self.operation == "filter_status":
+            if type(self.status) is not str or self.status not in (
+                "modified", "added", "deleted", "renamed", "untracked"
+            ):
+                raise ActionValidationError("filter_status 的 status 无效")
+        else:
+            raise ActionValidationError("changed_files operation 无效")
+
+    def as_selector(self) -> dict[str, str]:
+        result = {"evidence_id": self.evidence_id, "operation": self.operation}
+        if self.status is not None:
+            result["status"] = self.status
+        return result
+
+
+@dataclass(frozen=True)
 class RefuseAction:
     """模型拒绝回答。reason_code 必须是冻结集合之一。"""
 
@@ -135,7 +174,12 @@ class RefuseAction:
             )
 
 
-AgentAction = Union[ToolCallAction, FinalAnswerAction, RefuseAction]
+AgentAction = Union[
+    ToolCallAction,
+    FinalAnswerAction,
+    ChangedFilesFinalizationAction,
+    RefuseAction,
+]
 
 
 def parse_action_object(obj: object) -> AgentAction:
@@ -150,10 +194,38 @@ def parse_action_object(obj: object) -> AgentAction:
         raise ActionValidationError("action 必须是非空字符串")
     if action not in _ACTION_FIELD_SETS:
         raise ActionValidationError(f"未知 action：{action!r}")
+    if action == "changed_files_finalization":
+        supplied = set(obj.keys())
+        if "type" in supplied:
+            marker = obj.get("type")
+            if marker not in ("json_object", "changed_files_finalization"):
+                raise ActionValidationError("typed finalization type marker 无效")
+            supplied.remove("type")
+        operation = obj.get("operation")
+        if operation == "list_all":
+            expected = {"action", "evidence_id", "operation"}
+        elif operation == "filter_status":
+            expected = {"action", "evidence_id", "operation", "status"}
+        else:
+            raise ActionValidationError("changed_files operation 无效")
+        if supplied != expected:
+            extra = sorted(supplied - expected)
+            missing = sorted(expected - supplied)
+            raise ActionValidationError(
+                "changed_files_finalization 字段集合无效；"
+                f"多余 {extra}、缺失 {missing}"
+            )
+        return ChangedFilesFinalizationAction(
+            action=action,
+            evidence_id=obj["evidence_id"],
+            operation=operation,
+            status=obj.get("status"),
+        )
     allowed = _ACTION_FIELD_SETS[action]
-    if set(obj.keys()) != allowed:
-        extra = sorted(set(obj.keys()) - allowed)
-        missing = sorted(allowed - set(obj.keys()))
+    supplied = set(obj.keys())
+    if supplied != allowed:
+        extra = sorted(supplied - allowed)
+        missing = sorted(allowed - supplied)
         raise ActionValidationError(
             f"action={action!r} 字段集合必须恰好是 {sorted(allowed)}；"
             f"多余 {extra}、缺失 {missing}"
@@ -285,10 +357,17 @@ class AgentDecisionOutcome:
 
     def __post_init__(self) -> None:
         if self.action is not None and not isinstance(
-            self.action, (ToolCallAction, FinalAnswerAction, RefuseAction)
+            self.action,
+            (
+                ToolCallAction,
+                FinalAnswerAction,
+                ChangedFilesFinalizationAction,
+                RefuseAction,
+            ),
         ):
             raise TypeError(
-                "action 必须是 ToolCallAction / FinalAnswerAction / RefuseAction 之一"
+                "action 必须是 ToolCallAction / FinalAnswerAction / "
+                "ChangedFilesFinalizationAction / RefuseAction 之一"
             )
         if self.action is not None and self.failure_code is not None:
             raise ValueError("action 与 failure_code 不能同时非 None")
@@ -309,6 +388,11 @@ class AgentDecisionOutcome:
                 }
             elif isinstance(self.action, FinalAnswerAction):
                 action_data = {"action": self.action.action, "answer": self.action.answer}
+            elif isinstance(self.action, ChangedFilesFinalizationAction):
+                action_data = {
+                    "action": self.action.action,
+                    **self.action.as_selector(),
+                }
             else:
                 action_data = {"action": self.action.action, "reason_code": self.action.reason_code}
         return {

@@ -577,11 +577,14 @@ class DecisionControlState:
     available_evidence_refs: tuple[DecisionEvidenceReference, ...] = ()
     citation_required_evidence_groups: tuple[tuple[str, ...], ...] = ()
     citation_required_min_distinct_project_code_paths: int = 0
+    finalization_strategy: Optional[str] = None
 
     def __post_init__(self) -> None:
         _require_non_negative_int(self.iteration, "iteration")
         if self.iteration < 1:
             raise ValueError("iteration 必须 >= 1")
+        if self.finalization_strategy not in (None, "legacy", "direct_hybrid"):
+            raise ValueError("finalization_strategy 必须为 legacy/direct_hybrid/None")
         _require_non_negative_int(self.remaining_iterations, "remaining_iterations")
         _require_non_negative_int(self.remaining_tool_calls, "remaining_tool_calls")
         for label, value in (
@@ -648,6 +651,8 @@ class DecisionControlState:
             "tool_call_allowed": self.tool_call_allowed,
             "must_terminate": self.must_terminate,
         }
+        if self.finalization_strategy == "direct_hybrid":
+            result["finalization_strategy"] = self.finalization_strategy
         if include_evidence_reference_control:
             result.update(
                 {

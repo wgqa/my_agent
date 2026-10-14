@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import hashlib
 import inspect
+import re
 import time
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import replace
@@ -42,6 +43,7 @@ from core.tool_agent.actions import (
     ACTION_PROVIDER_ERROR,
     ACTION_TIMEOUT,
     AgentDecisionOutcome,
+    ChangedFilesFinalizationAction,
     FinalAnswerAction,
     RefuseAction,
     ToolCallAction,
@@ -727,6 +729,45 @@ def _typed_selector_is_applicable(verification) -> bool:
     )
 
 
+_EVIDENCE_CITATION_LIKE = re.compile(r"\[\s*E[^\]\r\n]*\]")
+_EVIDENCE_ID = re.compile(r"E[1-9][0-9]*")
+
+
+def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str) -> str | None:
+    """Check current-run sources and hard requirements without legacy Binding.
+
+    This intentionally does not test whether each natural-language claim is
+    entailed by its cited source. It only checks the existing retrieval and
+    Requirement obligations plus citation identity against this Run's
+    Evidence objects.
+    """
+    if finalization_verifier is None:
+        return "FINALIZATION_VERIFIER_REQUIRED"
+    verification = _run_finalization_verifier(
+        finalization_verifier, evidence, None
+    )
+    if not verification.retrieval_can_generate:
+        return "RETRIEVAL_NOT_SATISFIED"
+    if not verification.evidence_requirement_satisfied:
+        return "EXISTING_REQUIREMENT_NOT_SATISFIED"
+
+    citations = _EVIDENCE_CITATION_LIKE.findall(answer)
+    available_ids = {
+        getattr(item, "evidence_id", None)
+        for item in evidence
+        if type(getattr(item, "evidence_id", None)) is str
+    }
+    if any(
+        not _EVIDENCE_ID.fullmatch(token.strip()[1:-1].strip())
+        or token.strip()[1:-1].strip() not in available_ids
+        for token in citations
+    ):
+        return "INVALID_CURRENT_RUN_EVIDENCE_REFERENCE"
+    if evidence and not citations:
+        return "CURRENT_RUN_EVIDENCE_REFERENCE_MISSING"
+    return None
+
+
 class _ExecutionUsage:
     """Accumulate provider-reported usage from Decision and selector metadata.
 
@@ -835,6 +876,7 @@ class ToolAgentRuntime:
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
         enforce_evidence_acquisition: bool = False,
+        finalization_strategy: str = "legacy",
         deadline_seconds: float | None = None,
         cancel_requested: Callable[[], bool] | None = None,
     ) -> ToolAgentRunResult:
@@ -873,6 +915,7 @@ class ToolAgentRuntime:
             trace_sink=trace_sink,
             activity_sink=activity_sink,
             enforce_evidence_acquisition=enforce_evidence_acquisition,
+            finalization_strategy=finalization_strategy,
             usage=usage,
             deadline_at=deadline_at,
             cancel_requested=cancel_requested,
@@ -892,6 +935,7 @@ class ToolAgentRuntime:
         trace_sink: Callable[[RuntimeTraceEvent], None] | None = None,
         activity_sink: Callable[[ActivityEvent], None] | None = None,
         enforce_evidence_acquisition: bool = False,
+        finalization_strategy: str = "legacy",
         usage: _ExecutionUsage,
         deadline_at: float | None,
         cancel_requested: Callable[[], bool] | None,
@@ -910,6 +954,8 @@ class ToolAgentRuntime:
             raise TypeError("finalization_verifier 必须提供 verify 方法")
         if type(enforce_evidence_acquisition) is not bool:
             raise TypeError("enforce_evidence_acquisition 必须是 bool")
+        if finalization_strategy not in ("legacy", "direct_hybrid"):
+            raise ValueError("finalization_strategy 必须是 legacy 或 direct_hybrid")
         seed_context = _normalize_initial_context(initial_context)
         seed_evidence = _normalize_initial_evidence(initial_evidence)
         disabled = _normalize_disabled_tools(disabled_tools, self._registry)
@@ -1043,6 +1089,9 @@ class ToolAgentRuntime:
                     if evidence_requirement is not None
                     else 0
                 ),
+                finalization_strategy=(
+                    "direct_hybrid" if finalization_strategy == "direct_hybrid" else None
+                ),
             )
             outcome = self._decide(
                 run_registry,
@@ -1109,7 +1158,153 @@ class ToolAgentRuntime:
                 )
 
             action = outcome.action
+            if isinstance(action, ChangedFilesFinalizationAction):
+                if (
+                    finalization_strategy != "direct_hybrid"
+                    or finalization_verifier is None
+                    or len(changed_files_executions) != 1
+                ):
+                    return self._hard_stop(
+                        trace,
+                        evidence,
+                        iterations,
+                        tool_calls,
+                        tool_errors,
+                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                        trace_sink,
+                    )
+                typed_result = finalize_changed_files_typed(
+                    action.as_selector(),
+                    execution=changed_files_executions[0],
+                    current_public_evidence=tuple(evidence),
+                    finalization_verifier=finalization_verifier,
+                )
+                if not typed_result.protocol_valid or not typed_result.source_valid:
+                    return self._hard_stop(
+                        trace,
+                        evidence,
+                        iterations,
+                        tool_calls,
+                        tool_errors,
+                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                        trace_sink,
+                    )
+                if typed_result.accepted:
+                    self._append_terminal(
+                        trace, iterations, tool_calls, tool_errors, None, trace_sink
+                    )
+                    return ToolAgentRunResult(
+                        status="completed",
+                        answer=typed_result.rendered_answer,
+                        reason_code=None,
+                        failure_code=None,
+                        iterations_used=iterations,
+                        tool_calls_used=tool_calls,
+                        tool_errors_used=tool_errors,
+                        trace=tuple(trace),
+                        evidence=tuple(evidence),
+                    )
+
+                # A valid Typed choice that lacks the frozen Requirement may
+                # continue through the same bounded evidence-acquisition loop.
+                current = _run_finalization_verifier(
+                    finalization_verifier, evidence, None
+                )
+                state = current.evidence_requirement_state
+                if (
+                    not current.recovery_allowed
+                    or not _recovery_is_feasible(
+                        run_registry,
+                        evidence_requirement,
+                        state,
+                        iterations=iterations,
+                        tool_calls=tool_calls,
+                        tool_errors=tool_errors,
+                        budget=self._budget,
+                    )
+                ):
+                    return self._hard_stop(
+                        trace,
+                        evidence,
+                        iterations,
+                        tool_calls,
+                        tool_errors,
+                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                        trace_sink,
+                    )
+                fingerprint = _evidence_fingerprint(evidence)
+                if (
+                    last_blocked_fingerprint is not None
+                    and fingerprint == last_blocked_fingerprint
+                ):
+                    return self._hard_stop(
+                        trace,
+                        evidence,
+                        iterations,
+                        tool_calls,
+                        tool_errors,
+                        INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                        trace_sink,
+                    )
+                self._record_trace(
+                    trace,
+                    RuntimeTraceEvent(
+                        iteration=iterations,
+                        event_type="finalization_guard_blocked",
+                        guard_status="blocked",
+                        missing_evidence_groups=state.missing_evidence_groups,
+                        distinct_project_code_paths=state.distinct_project_code_paths,
+                        required_min_distinct_project_code_paths=(
+                            state.required_min_distinct_project_code_paths
+                        ),
+                        iterations_used=iterations,
+                        tool_calls_used=tool_calls,
+                        tool_errors_used=tool_errors,
+                    ),
+                    trace_sink,
+                )
+                self._record_activity(
+                    VerificationBlockedActivity(
+                        iteration=iterations,
+                        missing_evidence_kinds=tuple(
+                            sorted(current.missing_evidence_kinds)
+                        ),
+                    ),
+                    activity_sink,
+                )
+                last_blocked_fingerprint = fingerprint
+                recovery_control_active = True
+                continue
+
             if isinstance(action, FinalAnswerAction):
+                if finalization_strategy == "direct_hybrid":
+                    error_code = _lightweight_open_answer_check(
+                        finalization_verifier, evidence, action.answer
+                    )
+                    if error_code is not None:
+                        return self._hard_stop(
+                            trace,
+                            evidence,
+                            iterations,
+                            tool_calls,
+                            tool_errors,
+                            INSUFFICIENT_EVIDENCE_TO_FINALIZE,
+                            trace_sink,
+                        )
+                    self._append_terminal(
+                        trace, iterations, tool_calls, tool_errors, None, trace_sink
+                    )
+                    return ToolAgentRunResult(
+                        status="completed",
+                        answer=action.answer,
+                        reason_code=None,
+                        failure_code=None,
+                        iterations_used=iterations,
+                        tool_calls_used=tool_calls,
+                        tool_errors_used=tool_errors,
+                        trace=tuple(trace),
+                        evidence=tuple(evidence),
+                    )
                 if finalization_verifier is not None:
                     finalization_result = _run_finalization_verifier(
                         finalization_verifier,

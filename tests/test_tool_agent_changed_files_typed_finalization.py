@@ -9,9 +9,12 @@ import pytest
 from core.engineering_requirements import route_engineering_evidence_requirement
 from core.tool_agent.actions import (
     ACTION_PARSE_FAILED,
+    ActionValidationError,
     AgentDecisionOutcome,
+    ChangedFilesFinalizationAction,
     FinalAnswerAction,
     ToolCallAction,
+    parse_action_object,
 )
 from core.tool_agent.changed_files_typed_finalization import (
     SelectorCallMetadata,
@@ -77,8 +80,10 @@ class ScriptedTypedProvider:
         self.decision_calls = 0
         self.selector_calls = 0
         self.selector_inputs = []
+        self.control_states = []
 
     def decide(self, registry, user_query, *, context=(), control_state=None):
+        self.control_states.append(control_state)
         item = self.decisions[min(self.decision_calls, len(self.decisions) - 1)]
         self.decision_calls += 1
         return AgentDecisionOutcome(action=item, failure_code=None, call_metadata=None)
@@ -122,6 +127,136 @@ def _run(
         retrieval_port=EmptyRetrievalPort(),
     )
     return unified.run(query), provider, handler
+
+
+def _run_direct(query, changes, final_action, *, tool_arguments=None):
+    handler = StaticChangedFilesHandler(_observation(changes))
+    registry = ToolRegistry()
+    registry.register(CHANGED_FILES_SPEC, handler)
+    provider = ScriptedTypedProvider(
+        [
+            ToolCallAction(
+                action="tool_call",
+                tool_name="changed_files",
+                arguments=tool_arguments or {"mode": "working_tree"},
+            ),
+            final_action,
+        ]
+    )
+    runtime = ToolAgentRuntime(registry=registry, provider=provider)
+    unified = build_full_unified_runtime(
+        runtime,
+        planner=NoRetrievalPlanner(),
+        retrieval_port=EmptyRetrievalPort(),
+        finalization_strategy="direct_hybrid",
+    )
+    return unified.run(query), provider, handler
+
+
+def test_direct_hybrid_uses_decision_typed_action_without_selector_call():
+    result, provider, handler = _run_direct(
+        "列出当前工作区所有变更文件",
+        [
+            {"path": "src/a.py", "status": "modified"},
+            {"path": "src/deleted.py", "status": "deleted"},
+        ],
+        ChangedFilesFinalizationAction(
+            action="changed_files_finalization",
+            evidence_id="E1",
+            operation="list_all",
+        ),
+    )
+    assert result.status == "completed"
+    assert "src/a.py" in result.answer and "src/deleted.py" in result.answer
+    assert provider.decision_calls == 2
+    assert provider.selector_calls == 0
+    assert handler.calls == 1
+    final_state = provider.control_states[-1]
+    assert final_state.finalization_strategy == "direct_hybrid"
+    assert [item.evidence_id for item in final_state.available_evidence_refs] == ["E1"]
+    assert result.execution.selector_llm_calls == 0
+
+
+def test_direct_hybrid_accepts_known_json_type_marker_but_not_wrong_eid():
+    typed = parse_action_object(
+        {
+            "action": "changed_files_finalization",
+            "type": "json_object",
+            "evidence_id": "E1",
+            "operation": "list_all",
+        }
+    )
+    assert typed == ChangedFilesFinalizationAction(
+        action="changed_files_finalization", evidence_id="E1", operation="list_all"
+    )
+    with pytest.raises(ActionValidationError):
+        parse_action_object(
+            {
+                "action": "changed_files_finalization",
+                "type": "wrong-kind",
+                "evidence_id": "E1",
+                "operation": "list_all",
+            }
+        )
+
+    result, provider, _ = _run_direct(
+        "列出当前工作区所有变更文件",
+        [{"path": "src/a.py", "status": "modified"}],
+        ChangedFilesFinalizationAction(
+            action="changed_files_finalization",
+            evidence_id="E99",
+            operation="list_all",
+        ),
+    )
+    assert result.status == "refused"
+    assert result.answer is None
+    assert provider.selector_calls == 0
+
+
+def test_direct_hybrid_open_text_uses_lightweight_current_source_check():
+    answer = "目前只能看到 src/main.py 的差异，无法比较其余文件的重要性。[E1]"
+    result, provider, _ = _run_direct(
+        "结合变更判断哪些最重要",
+        [{"path": "src/main.py", "status": "modified"}],
+        FinalAnswerAction(action="final_answer", answer=answer),
+    )
+    assert result.status == "completed"
+    assert result.answer == answer
+    assert provider.selector_calls == 0
+    assert all(
+        item.action != "changed_files_finalization"
+        for item in provider.decisions
+        if hasattr(item, "action")
+    )
+
+
+def test_direct_hybrid_open_answer_rejects_unknown_eid_without_legacy_binding():
+    result, provider, _ = _run_direct(
+        "结合变更判断哪些最重要",
+        [{"path": "src/main.py", "status": "modified"}],
+        FinalAnswerAction(
+            action="final_answer", answer="主要变更在 src/main.py。[E99]"
+        ),
+    )
+    assert result.status == "refused"
+    assert result.answer is None
+    assert provider.selector_calls == 0
+
+
+def test_direct_hybrid_does_not_bypass_project_code_requirement():
+    result, provider, _ = _run_direct(
+        "列出已删除的源码文件",
+        [{"path": "src/deleted.py", "status": "deleted"}],
+        ChangedFilesFinalizationAction(
+            action="changed_files_finalization",
+            evidence_id="E1",
+            operation="filter_status",
+            status="deleted",
+        ),
+    )
+    assert result.status == "refused"
+    assert result.answer is None
+    assert provider.selector_calls == 0
 
 
 @pytest.mark.parametrize(
