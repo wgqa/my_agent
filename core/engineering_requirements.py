@@ -35,7 +35,7 @@ _REQUIREMENT_SOURCE_GRANULARITIES = {
 # shapes and all source/mixed requirements stay intact.
 LEGACY_ROUTER_VERSION = "engineering_requirement_router_v4"
 ROUTER_VERSION = "engineering_requirement_router_v5"
-_SUPPORTED_ROUTER_VERSIONS = (LEGACY_ROUTER_VERSION, ROUTER_VERSION)
+_SUPPORTED_ROUTER_VERSIONS = (LEGACY_ROUTER_VERSION, ROUTER_VERSION, "hybrid_task_contract_v1")
 
 
 class EngineeringRequirementProfile(str, Enum):
@@ -50,6 +50,7 @@ class EngineeringRequirementProfile(str, Enum):
     PROJECT_DOC_V1 = "PROJECT_DOC_V1"
     PROJECT_TEST_V1 = "PROJECT_TEST_V1"
     NO_ADDITIONAL_REQUIREMENT = "NO_ADDITIONAL_REQUIREMENT"
+    TASK_CONTRACT_V1 = "TASK_CONTRACT_V1"
 
 
 THEORY_CODE_V1 = EngineeringRequirementProfile.THEORY_CODE_V1
@@ -146,11 +147,19 @@ class EngineeringEvidenceRequirement:
             raise ValueError("router_version must be a non-empty string")
         if self.router_version not in _SUPPORTED_ROUTER_VERSIONS:
             raise ValueError("router_version must be a supported system policy version")
-        expected_groups, expected_min_paths = _FROZEN_PROFILE_SPECS[profile]
-        if groups != expected_groups:
-            raise ValueError("required_evidence_groups do not match frozen profile")
-        if self.min_distinct_project_code_paths != expected_min_paths:
-            raise ValueError("min_distinct_project_code_paths does not match frozen profile")
+        if profile is EngineeringRequirementProfile.TASK_CONTRACT_V1:
+            if self.router_version != "hybrid_task_contract_v1":
+                raise ValueError("Task contract requires its own policy version")
+            if self.min_distinct_project_code_paths > 8:
+                raise ValueError("Task contract source targets exceed bound")
+        else:
+            if self.router_version == "hybrid_task_contract_v1":
+                raise ValueError("Legacy profiles retain the legacy policy version")
+            expected_groups, expected_min_paths = _FROZEN_PROFILE_SPECS[profile]
+            if groups != expected_groups:
+                raise ValueError("required_evidence_groups do not match frozen profile")
+            if self.min_distinct_project_code_paths != expected_min_paths:
+                raise ValueError("min_distinct_project_code_paths do not match frozen profile")
         if profile is DIAGNOSIS_CROSS_FILE_V1 and self.min_distinct_project_code_paths < 2:
             raise ValueError("cross-file Diagnosis requires at least two code paths")
         object.__setattr__(self, "requirement_profile", profile)

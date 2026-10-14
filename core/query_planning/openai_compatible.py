@@ -32,6 +32,7 @@ from core.query_planning.planner import (
     parse_planner_output,
 )
 from core.query_planning.prompt import (
+    ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_VERSION,
     PLANNER_MAX_OUTPUT_TOKENS,
     PLANNER_MAX_RETRIES,
     PLANNER_PROMPT_VERSION,
@@ -235,7 +236,8 @@ class OpenAICompatibleQueryPlanner(BaseQueryPlanner):
             )
 
         outcome = parse_planner_output(
-            original_query=original_query, raw_output=content
+            original_query=original_query, raw_output=content,
+            include_task_contract=self._prompt_version == ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_VERSION,
         )
         return PlannerOutcome(
             plan=outcome.plan,
@@ -244,6 +246,7 @@ class OpenAICompatibleQueryPlanner(BaseQueryPlanner):
             call_metadata=self._build_metadata(
                 latency_ms, input_tokens, output_tokens
             ),
+            task_contract=outcome.task_contract,
         )
 
     def _build_metadata(

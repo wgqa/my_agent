@@ -14,6 +14,7 @@ import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
+from core.engineering_task_contract import HybridTaskContract
 
 from core.query_planning.models import (
     QueryPlan,
@@ -164,8 +165,13 @@ class PlannerOutcome:
     fallback_used: bool
     failure_code: Optional[str]
     call_metadata: Optional[PlannerCallMetadata] = None
+    task_contract: HybridTaskContract | None = None
 
     def __post_init__(self) -> None:
+        if self.task_contract is not None and (
+            type(self.task_contract) is not HybridTaskContract or self.fallback_used
+        ):
+            raise ValueError("Only a valid Planner outcome can carry a task contract")
         if not isinstance(self.plan, QueryPlan):
             raise TypeError(
                 f"plan 必须是 QueryPlan，实际 {type(self.plan).__name__}"
@@ -220,7 +226,7 @@ class PlannerOutcome:
                 )
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "plan": self.plan.to_dict(),
             "fallback_used": self.fallback_used,
             "failure_code": self.failure_code,
@@ -230,6 +236,9 @@ class PlannerOutcome:
                 else None
             ),
         }
+        if self.task_contract is not None:
+            result["task_contract"] = self.task_contract.to_dict()
+        return result
 
 
 def build_planner_fallback_outcome(
@@ -261,6 +270,7 @@ def parse_planner_output(
     *,
     original_query: str,
     raw_output: str,
+    include_task_contract: bool = False,
 ) -> PlannerOutcome:
     """严格解析模型输出：正常 QueryPlan 或确定性 fallback。
 
@@ -289,12 +299,19 @@ def parse_planner_output(
     if not isinstance(obj, dict):
         return _make_fallback(fallback_plan, "PLAN_INVALID_SCHEMA")
 
-    extra = sorted(set(obj) - PLANNER_MODEL_ALLOWED_FIELDS)
+    allowed = PLANNER_MODEL_ALLOWED_FIELDS | ({"task_contract"} if include_task_contract else set())
+    extra = sorted(set(obj) - allowed)
     if extra:
         return _make_fallback(fallback_plan, "PLAN_INVALID_SCHEMA")
-    missing = sorted(PLANNER_MODEL_ALLOWED_FIELDS - set(obj))
+    missing = sorted(allowed - set(obj))
     if missing:
         return _make_fallback(fallback_plan, "PLAN_INVALID_SCHEMA")
+    contract = None
+    if include_task_contract:
+        try:
+            contract = HybridTaskContract.from_dict(obj["task_contract"], user_request=original_query)
+        except (TypeError, ValueError):
+            return _make_fallback(fallback_plan, "PLAN_INVALID_SCHEMA")
 
     # PLANNER_FALLBACK 是系统拥有的状态，模型无权主动声明。
     if obj["reason_code"] == "PLANNER_FALLBACK":
@@ -336,7 +353,7 @@ def parse_planner_output(
     except (TypeError, ValueError):
         return _make_fallback(fallback_plan, "PLAN_INVALID_SCHEMA")
 
-    return PlannerOutcome(plan=plan, fallback_used=False, failure_code=None)
+    return PlannerOutcome(plan=plan, fallback_used=False, failure_code=None, task_contract=contract)
 
 
 def _make_fallback(fallback_plan: QueryPlan, failure_code: str) -> PlannerOutcome:
