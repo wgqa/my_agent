@@ -500,7 +500,7 @@ def _diff_line_range(diff: str) -> tuple[int, int]:
         new_start = int(match.group(1))
         new_count = int(match.group(2) or "1")
         end = max(end, new_start + max(new_count, 1) - 1)
-    return max(start, 1), max(end, start)
+    return max(start, 1), max(end, start, 1)
 
 
 class ChangedFilesHandler(_GitHandlerBase):
@@ -535,8 +535,22 @@ class GitDiffHandler(_GitHandlerBase):
             raise ToolExecutionError(GIT_PATH_NOT_ALLOWED)
         self._check_existing_path(path)
         mode, base_commit, head_commit = self._comparison(arguments)
-        if not self._path_is_bound_change(path, mode, base_commit, head_commit):
+        changes, _ = self._name_status(mode, base_commit, head_commit)
+        change = next((item for item in changes
+                       if path == item.path or path == item.old_path), None)
+        if change is None:
             raise ToolExecutionError(GIT_DIFF_UNAVAILABLE)
+
+        # A path-limited diff for only the new side of a pure rename can look
+        # like a newly added implementation. Include both verified names so
+        # Git can report the rename relationship and similarity accurately.
+        paths = [path]
+        if change.status == "renamed" and change.old_path is not None:
+            paths = [change.old_path, change.path]
+            for related_path in paths:
+                if _path_is_sensitive(related_path):
+                    raise ToolExecutionError(GIT_PATH_NOT_ALLOWED)
+                self._check_existing_path(related_path)
 
         args = [
             "git",
@@ -550,7 +564,7 @@ class GitDiffHandler(_GitHandlerBase):
         if mode == "commit_range":
             assert head_commit is not None
             args.append(head_commit)
-        args.extend(["--", path])
+        args.extend(["--", *paths])
         raw_output, returncode, capture_truncated = _capture_process(
             args, self._root, max_bytes=MAX_GIT_CAPTURE_BYTES
         )

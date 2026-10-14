@@ -26,6 +26,7 @@ PROJECTS_ROOT = PROJECT_ROOT.parent
 TASK018_DIR = Path(__file__).resolve().parent
 PROBE_PATH = TASK018_DIR / "fake_e2e_probe.py"
 B2_CHECKOUT = PROJECTS_ROOT / "rag-knowledge-base-b2-exact-de0ca"
+B0_CHECKOUT = PROJECTS_ROOT / "rag-knowledge-base-b0"
 TASK019_CHECKOUT = PROJECT_ROOT
 FIXTURE_ROOT = PROJECTS_ROOT / "_task018_e2e_fixtures"
 DEFAULT_RESULTS_ROOT = PROJECTS_ROOT / "_task019_direct_hybrid_live_results"
@@ -45,6 +46,83 @@ TASK021_BUDGET_ID = "task021-authorized-20261014-001"
 TASK020_HEAD = "0af34f97d3bc0052b99341e00d1741ae2efd41d4"
 TASK020_FP = "211987e5d7a38bce9f456258e05bf5bb9b6ac7d1aff61f5de57759fd46bb1889"
 TASK019_HEAD = "4658857ce7a4b61dce0bdcea98f72cb9a3e5c0d2"
+EXPECTED_B0_HEAD = "f3c9e28aec8b29ccfcad9476ea88871aacbefa06"
+EXPECTED_TASK021_HEAD = "5646e2cb919361989cd1b7d0b22644cbe275f44a"
+TASK022_BUDGET_ID = "task022-cross-capability-20261014-001"
+TASK022_MODE = False
+
+TASK022_GROUPS = {
+    **{f"t22_gs_{i:02d}": "git_status" for i in range(1, 5)},
+    **{f"t22_ga_{i:02d}": "git_change_analysis" for i in range(1, 5)},
+    **{f"t22_src_{i:02d}": "source_location_and_explanation" for i in range(1, 5)},
+    **{f"t22_xt_{i:02d}": "cross_file_and_test_analysis" for i in range(1, 5)},
+    **{f"t22_rag_{i:02d}": "rag_question_answering" for i in range(1, 5)},
+    **{f"t22_mix_{i:02d}": "rag_and_code" for i in range(1, 5)},
+    **{f"t22_ev_{i:02d}": "insufficient_evidence_and_refusal" for i in range(1, 5)},
+}
+TASK022_ORIGINS = {
+    "t22_gs_01": "adapted from tool_calls_v2 dev-016/val-008 and Task018 case01",
+    "t22_gs_02": "adapted from tool_calls_v2 dev-015 and Task018 case02/case06",
+    "t22_gs_03": "adapted from tool_calls_v2 dev-014 and Task018 case03",
+    "t22_gs_04": "adapted from Task018 case05 untracked fixture",
+    "t22_ga_01": "adapted from Task018/021 case07 importance analysis",
+    "t22_ga_02": "adapted from tool_calls_v2 dev-017/dev-018 and Task021 scale analysis",
+    "t22_ga_03": "adapted from tool_calls_v2 dev-019 and Task018 commit-range fixture",
+    "t22_ga_04": "adapted from tool_calls_v2 dev-029 full multi-material analysis",
+    "t22_src_01": "adapted from tool_calls_v2 dev-005/dev-006 and val-003 locator tasks",
+    "t22_src_02": "adapted from tool_calls_v2 dev-009/dev-025 and Task021 scale case",
+    "t22_src_03": "adapted from tool_calls_v2 dev-010 implementation reading",
+    "t22_src_04": "adapted from tool_calls_v2 dev-027 multi-source calculation task",
+    "t22_xt_01": "adapted from tool_calls_v2 dev-029/dev-034 source-test cross-checks",
+    "t22_xt_02": "adapted from tool_calls_v2 dev-021..dev-024 and val-011/val-012 candidate tests",
+    "t22_xt_03": "adapted from tool_calls_v2 dev-029 git status plus diff and Task021 pure rename failure",
+    "t22_xt_04": "adapted from tool_calls_v2 dev-026 source-versus-test-body boundary",
+    "t22_rag_01": "adapted from integration_v7 v7h001 and existing local document-processing/RAG docs",
+    "t22_rag_02": "adapted from integration_v7 v7h003 and existing local advanced-RAG doc",
+    "t22_rag_03": "Task022 isolated copy of existing local document-processing knowledge document",
+    "t22_rag_04": "Task022 isolated copy of existing local unit-testing knowledge document",
+    "t22_mix_01": "local Function Calling document plus Task018 parser source; adapted cross-source task",
+    "t22_mix_02": "Task018 retry knowledge fixture plus scale source; negative relationship-inference task",
+    "t22_mix_03": "Task022 isolated unit-testing knowledge document plus current Git fixture source",
+    "t22_mix_04": "adapted from integration_v7 cross-source provenance tasks and dev-028 doc/source comparison",
+    "t22_ev_01": "adapted from tool_calls_v2 dev-037/dev-038 and val-019 missing-material cases",
+    "t22_ev_02": "adapted from tool_calls_v2 dev-047/val-023 execution-boundary cases",
+    "t22_ev_03": "Task022 negative transfer test against the isolated local knowledge corpus",
+    "t22_ev_04": "adapted from tool_calls_v2 dev-044/dev-047/val-022/val-023 boundary questions",
+}
+
+# Post-run grading facts only. These values are written to the parent manifest;
+# the worker receives only the original user question and project/knowledge data.
+TASK022_CRITERIA = {
+    "t22_gs_01": {"expected": ["docs/usage.md added", "src/main.py modified", "src/old_parser.py renamed_from", "src/new_parser.py renamed_to", "src/retired_source.py deleted", "tests/test_main.py modified"], "complete": True},
+    "t22_gs_02": {"expected": ["src/retired_source.py deleted"], "complete": True},
+    "t22_gs_03": {"expected": ["src/old_parser.py -> src/new_parser.py renamed"], "complete": True},
+    "t22_gs_04": {"expected": ["notes/local_sample.md untracked"], "complete": True},
+    "t22_ga_01": {"expected": ["importance judgment is bounded to actual diff/context", "does not infer feature from pure rename"], "complete": "bounded evidence-based prioritization or an explicit evidence limit"},
+    "t22_ga_02": {"expected": ["LIMIT changed 10 -> 12", "scale multiplies by LIMIT"], "complete": True},
+    "t22_ga_03": {"expected": ["docs/usage.md added with scale guidance", "src/main.py diff changed LIMIT 10 -> 12", "no unsupported causal rationale"], "complete": True},
+    "t22_ga_04": {"expected": ["all six changed paths covered before claiming complete analysis"], "complete": "only if all in-scope material is actually acquired; otherwise useful partial with scope stated"},
+    "t22_src_01": {"expected": ["src/main.py", "scale definition at line 3"], "complete": True},
+    "t22_src_02": {"expected": ["scale(value) returns value * LIMIT", "LIMIT = 12"], "complete": True},
+    "t22_src_03": {"expected": ["strips surrounding whitespace", "converts to lowercase"], "complete": True},
+    "t22_src_04": {"expected": ["scale(3) = 3 * 12 = 36"], "complete": True},
+    "t22_xt_01": {"expected": ["test asserts scale(2) == 24", "current function with LIMIT 12 gives 24", "does not claim test was run"], "complete": True},
+    "t22_xt_02": {"expected": ["tests/test_main.py as candidate if returned", "candidate does not prove execution or coverage"], "complete": "answer scoped to actual candidate observation"},
+    "t22_xt_03": {"expected": ["renamed old_parser.py -> new_parser.py", "100% content similarity/no implementation change"], "complete": True},
+    "t22_xt_04": {"expected": ["test_scale asserts scale(2) == 24", "no import in file", "source alone does not prove execution"], "complete": True},
+    "t22_rag_01": {"expected": ["parser, chunker, embedding versions are corpus/index identity", "fixed evaluation comparison and regression metrics after corpus changes"], "complete": True},
+    "t22_rag_02": {"expected": ["evidence support is distinct from world-fact correctness", "verification does not prove semantic entailment or truth"], "complete": True},
+    "t22_rag_03": {"expected": ["unchanged hash skip", "changed content updates chunks/index", "missing source marks deletion and cleans index", "chunker version identity"], "complete": True},
+    "t22_rag_04": {"expected": ["Mock verifies behavior; Stub supplies fixed data", "line coverage counts executed lines", "branch coverage checks alternatives"], "complete": True},
+    "t22_mix_01": {"expected": ["parse strips surrounding whitespace then lowercases", "source read is not an execution result", "Function Calling success requires actual tool execution result"], "complete": True},
+    "t22_mix_02": {"expected": ["knowledge standard retry window is 12 seconds", "scale returns value * LIMIT with LIMIT = 12", "equal numbers do not establish a configuration relationship"], "complete": True},
+    "t22_mix_03": {"expected": ["test source contains scale(2) == 24 assertion", "unit test intent from knowledge", "no execution evidence means no pass claim"], "complete": True},
+    "t22_mix_04": {"expected": ["docs/usage.md says to scale values with scale", "current implementation multiplies by LIMIT", "knowledge provenance metadata is distinct from current project source evidence"], "complete": True},
+    "t22_ev_01": {"expected": ["src/missing.py absent; no implementation claim"], "complete": "appropriate refusal or explicit missing-material boundary"},
+    "t22_ev_02": {"expected": ["no test-execution tool/result is available; do not fabricate count"], "complete": "appropriate capability-boundary refusal"},
+    "t22_ev_03": {"expected": ["12-second statement is a local test fixture, not verified production configuration"], "complete": "must not claim production setting without source"},
+    "t22_ev_04": {"expected": ["source status/test code alone cannot establish pytest pass state"], "complete": "appropriate refusal or explicit no-execution boundary"},
+}
 
 # Fixed Task 019 order: four paired comparisons and three direct diagnostics.
 PLAN = [
@@ -126,6 +204,13 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _probe_cases() -> dict[str, Any]:
+    if str(TASK018_DIR) not in sys.path:
+        sys.path.insert(0, str(TASK018_DIR))
+    from fake_e2e_probe import CASES
+    return CASES
+
+
 def _git(path: Path, *args: str) -> str:
     result = subprocess.run(["git", *args], cwd=path, check=True,
                             capture_output=True, text=True, encoding="utf-8")
@@ -184,11 +269,56 @@ def _fixture_identity() -> dict[str, Any]:
         raise RuntimeError("case08 corpus identity drift")
     if db_sha != "088ac276dfe81c0f74938450e2315dcc7400a3ebd077458573b3af3d70581dea":
         raise RuntimeError("case08 database identity drift")
+    task022_corpus = FIXTURE_ROOT / "task022_knowledge_corpus"
+    expected_task022_docs = {
+        "agent_FunctionCalling.md": "32d0c9e4ecc8dade3203c34e9432cde4c238ee3e2686d8fb0235f42b76b30d5b",
+        "rag_高级RAG.md": "782ee6f325300efd01bc7a420b82a34c2be3dd738ad5a8d1fd073655fd2340b0",
+        "rag_文档处理.md": "0215dffb3a7ea64e97a1aa974affb54d9a551c167834a4b2626d7d5ed25869fd",
+        "task018_retry.md": "a2d6e6b86116478e9a6dbdefb8b3bb2b611b69ae736a166b8f05ad8b659cff24",
+        "unit_单元测试.md": "8c4f3baa5660939656d427e3b478895af1944e9342daeb99e25ebeea4c075141",
+    }
+    actual_names = sorted(item.name for item in task022_corpus.glob("*.md"))
+    if actual_names != sorted(expected_task022_docs):
+        raise RuntimeError("Task022 corpus document set drift")
+    actual_task022_docs = {name: _sha256(task022_corpus / name) for name in actual_names}
+    if actual_task022_docs != expected_task022_docs:
+        raise RuntimeError("Task022 corpus source hash drift")
+    task022_db_sha = _sha256(FIXTURE_ROOT / "task022_knowledge.sqlite3")
+    if task022_db_sha != "5ae658d4d2448eabb90dc8ee263e584cfd9bba4660ce4e2908b83bba50d89e0a":
+        raise RuntimeError("Task022 knowledge database identity drift")
     return {"git": fixtures, "case08_corpus_sha256": corpus_sha,
-            "case08_database_sha256": db_sha}
+            "case08_database_sha256": db_sha,
+            "task022_corpus_files_sha256": actual_task022_docs,
+            "task022_database_sha256": task022_db_sha,
+            "task022_library_identity_verified": False}
 
 
 def _check_git_identity() -> dict[str, Any]:
+    if TASK022_MODE:
+        roots = {
+            "b0": (B0_CHECKOUT, EXPECTED_B0_HEAD, "experiment/evidence-ablation-b0"),
+            "b2": (B2_CHECKOUT, EXPECTED_B2_HEAD, None),
+            "hybrid": (PROJECT_ROOT, None, "experiment/task022-cross-capability"),
+        }
+        identities = {}
+        for variant, (root, expected_head, expected_branch) in roots.items():
+            head = _git(root, "rev-parse", "HEAD")
+            branch = _git(root, "branch", "--show-current")
+            status = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
+            if status:
+                raise RuntimeError(f"Task022 checkout is not clean: {variant}")
+            if expected_head is not None and head != expected_head:
+                raise RuntimeError(f"Task022 frozen commit mismatch: {variant}")
+            if expected_branch is not None and branch != expected_branch:
+                raise RuntimeError(f"Task022 branch mismatch: {variant}")
+            if variant == "hybrid":
+                _git(root, "merge-base", "--is-ancestor", EXPECTED_TASK021_HEAD, "HEAD")
+            fingerprint = _business_fingerprint(root)
+            identities[variant] = {
+                "path": str(root), "head": head, "branch": branch,
+                "business_fingerprint": fingerprint, "worktree_clean": True,
+            }
+        return identities
     if TASK021_STAGE:
         roots = {"direct_hybrid": (PROJECTS_ROOT / "rag-knowledge-base-task019-direct-hybrid",
                                    TASK019_HEAD, EXPECTED_TASK019_FP),
@@ -308,6 +438,9 @@ def _parse_worker_json(stdout: bytes | str) -> dict[str, Any]:
 def _run_child(*, item: dict[str, Any], run_id: str, output_dir: Path,
                budget_db: Path, api_key: str) -> dict[str, Any]:
     checkout = B2_CHECKOUT if item["variant"] == "b2" else TASK019_CHECKOUT
+    if TASK022_MODE:
+        checkout = {"b0": B0_CHECKOUT, "b2": B2_CHECKOUT,
+                    "hybrid": PROJECT_ROOT}[item["variant"]]
     if TASK021_STAGE:
         checkout = {"direct_hybrid": PROJECTS_ROOT / "rag-knowledge-base-task019-direct-hybrid",
                     "task020": PROJECTS_ROOT / "rag-knowledge-base-hybrid-task-contract",
@@ -322,8 +455,10 @@ def _run_child(*, item: dict[str, Any], run_id: str, output_dir: Path,
         "--max-requests", str(MAX_REQUESTS), "--max-tokens", str(MAX_TOKENS),
         "--max-estimated-usd", str(MAX_ESTIMATED_USD),
     ]
-    if TASK021_STAGE:
-        command.extend(["--budget-run-id", TASK021_BUDGET_ID])
+    if TASK022_MODE:
+        command.extend(["--knowledge-db", "task022_knowledge.sqlite3"])
+    if TASK021_STAGE or TASK022_MODE:
+        command.extend(["--budget-run-id", run_id if TASK022_MODE else TASK021_BUDGET_ID])
     child_env = _safe_child_env()
     child_env["DEEPSEEK_API_KEY"] = api_key
     try:
@@ -380,6 +515,16 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
     # Revalidate everything before creating a run record or child process.
     code_identity = _check_git_identity()
     fixture_identity = _fixture_identity()
+    probe_cases = _probe_cases() if TASK022_MODE else {}
+    if TASK022_MODE:
+        if len(TASK022_GROUPS) != 28 or len(PLAN) != 84:
+            raise RuntimeError("Task022 fixed matrix shape mismatch")
+        planned = [(item["case_id"], item["variant"]) for item in PLAN]
+        if len(set(planned)) != 84:
+            raise RuntimeError("Task022 plan contains duplicate case/variant rows")
+        if any(sum(item["variant"] == variant for item in PLAN) != 28
+               for variant in ("b0", "b2", "hybrid")):
+            raise RuntimeError("Task022 variant count mismatch")
     prompt_hashes = {
         "shared_planner_context": _hash_map(TASK019_CHECKOUT, COMMON_PROMPT_FILES),
         "direct_hybrid_decision_prompt_source": _sha256(
@@ -387,19 +532,26 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
         ),
     }
     b2_prompt_hashes = {"common": _hash_map(B2_CHECKOUT, COMMON_PROMPT_FILES)}
-    if not TASK021_STAGE and prompt_hashes["shared_planner_context"] != b2_prompt_hashes["common"]:
+    if not TASK021_STAGE and not TASK022_MODE and prompt_hashes["shared_planner_context"] != b2_prompt_hashes["common"]:
         raise RuntimeError("B2_TASK019_SHARED_PROMPT_SOURCE_DRIFT")
     runtime_hashes = _hash_map(TASK019_CHECKOUT, DIRECT_RUNTIME_IDENTITY_FILES)
     b2_runtime_hashes = _hash_map(B2_CHECKOUT, SHARED_RUNTIME_IDENTITY_FILES)
     eval_hashes = _hash_map(PROJECT_ROOT, EVAL_IDENTITY_FILES)
-    for root in (TASK019_CHECKOUT, B2_CHECKOUT):
+    roots_to_check = (B0_CHECKOUT, B2_CHECKOUT, TASK019_CHECKOUT) if TASK022_MODE else (TASK019_CHECKOUT, B2_CHECKOUT)
+    for root in roots_to_check:
         if not (root / "core/tool_agent/runtime.py").is_file():
             raise RuntimeError("AGENT_RUNTIME_SOURCE_MISSING")
 
     api_key, key_source = _load_key_from_existing_env()
     run_path.mkdir(parents=True, exist_ok=False)
-    cases_state = [{**item, "status": "NOT_EXECUTED", "criteria": CASE_CRITERIA[item["case_id"]]}
-                   for item in PLAN]
+    cases_state = [
+        {**item, "question": probe_cases[item["case_id"]].prompt,
+         "category": TASK022_GROUPS[item["case_id"]],
+         "status": "NOT_EXECUTED", "criteria": TASK022_CRITERIA[item["case_id"]]}
+        if TASK022_MODE else
+        {**item, "status": "NOT_EXECUTED", "criteria": CASE_CRITERIA[item["case_id"]]}
+        for item in PLAN
+    ]
     manifest = {
         "run_id": run_id,
         "authorization": "PROJECT_OWNER_AUTHORIZED_TASK_019_LIVE",
@@ -431,7 +583,8 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
                                             "estimated_usd": MAX_ESTIMATED_USD,
                                             "automatic_retries": 0,
                                             "task_retries": 0},
-        "plan": [{**item, "criteria": CASE_CRITERIA[item["case_id"]]} for item in PLAN],
+        "plan": ([{**item, "criteria": CASE_CRITERIA[item["case_id"]]} for item in PLAN]
+                 if not TASK022_MODE else []),
         "initial_status": "NO_REAL_MODEL_RUN_YET",
         "history_constraint": "Task018 live outcomes are historical context; Task019 run is the direct B2 comparison.",
     }
@@ -448,6 +601,45 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
         manifest.pop("b2_common_prompt_source_sha256", None)
         manifest.pop("b2_decision_prompt_source_sha256", None)
         manifest["history_constraint"] = "Task019/020 controls and Task021 candidate share four fixed tasks and fixtures; no historical scores substituted."
+    if TASK022_MODE:
+        manifest.update({
+            "authorization": "PROJECT_OWNER_AUTHORIZED_TASK022_84_AGENT_RUNS",
+            "task": "B0_B2_Hybrid_cross_capability_e2e",
+            "task021_base_commit": EXPECTED_TASK021_HEAD,
+            "budget_run_id": run_id,
+            "schedule": "case-major, variants b0 then b2 then hybrid; one attempt per case/variant",
+            "prompt_source_sha256": {
+                variant: _hash_map(Path(identity["path"]), [*COMMON_PROMPT_FILES, DECISION_PROMPT_FILE])
+                for variant, identity in code_identity.items()
+            },
+            "runtime_source_sha256": {
+                "b0": _hash_map(B0_CHECKOUT, SHARED_RUNTIME_IDENTITY_FILES),
+                "b2": _hash_map(B2_CHECKOUT, SHARED_RUNTIME_IDENTITY_FILES),
+                "hybrid": _hash_map(PROJECT_ROOT, DIRECT_RUNTIME_IDENTITY_FILES),
+            },
+            "evaluation_source_sha256": eval_hashes,
+            "plan": [
+                {**item, "category": TASK022_GROUPS[item["case_id"]],
+                 "question": probe_cases[item["case_id"]].prompt,
+                 "design_origin": TASK022_ORIGINS[item["case_id"]],
+                 "criteria": TASK022_CRITERIA[item["case_id"]]}
+                for item in PLAN
+            ],
+            "criteria_use": "post-run semantic grading only; never passed to worker or model input",
+            "shared_knowledge_database": "task022_knowledge.sqlite3 for every case and architecture",
+            "grading_labels": ["COMPLETE_CORRECT", "USEFUL_PARTIAL", "WRONG_DELIVERY", "NO_DELIVERY"],
+            "grading_policy": {
+                "completed_is_not_semantic_success": True,
+                "rejected_candidate_is_not_delivered": True,
+                "unsupported_key_claim_is_wrong_delivery": True,
+                "no_answer_is_no_delivery_even_when_refusal_is_appropriate": True,
+                "explicit_supported_boundary_answer_may_satisfy_a_conditional_request": True,
+                "appropriate_refusal_is_recorded_separately": True,
+                "review_kind": "developer non-blind source check, not independent blind review",
+            },
+            "price_source": "https://api-docs.deepseek.com/quick_start/pricing/",
+            "history_constraint": "Task018-021 results informed case design only; the 84 Task022 attempts are new runs and are not pooled with historical scores.",
+        })
     _atomic_json(run_path / "manifest.json", manifest)
     _write_run_state(run_path / "run_state.json", run_id, cases_state, None, None)
     budget_db = (results_root / "task021_shared_budget.sqlite3"
@@ -456,7 +648,8 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
     # Local import avoids making the product runtime depend on Task 018 tools.
     sys.path.insert(0, str(TASK018_DIR))
     from shared_budget import SharedBudgetGate
-    gate = SharedBudgetGate(budget_db, run_id=TASK021_BUDGET_ID if TASK021_STAGE else run_id, max_requests=MAX_REQUESTS,
+    budget_identity = TASK021_BUDGET_ID if TASK021_STAGE else run_id
+    gate = SharedBudgetGate(budget_db, run_id=budget_identity, max_requests=MAX_REQUESTS,
                             max_tokens=MAX_TOKENS,
                             max_estimated_usd=MAX_ESTIMATED_USD,
                             expected_model=EXPECTED_MODEL)
@@ -561,17 +754,25 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Execute the owner-authorized Task 019 matrix once")
+    parser = argparse.ArgumentParser(description="Execute one fixed, owner-authorized Task 018-family E2E matrix")
     parser.add_argument("--execute-live", action="store_true",
                         help="required to enter the owner-authorized real Provider path")
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
     parser.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
     parser.add_argument("--task021-stage", choices=("controls", "candidate"))
+    parser.add_argument("--task022", action="store_true",
+                        help="select the fixed Task 022 B0/B2/Hybrid 28-case matrix")
     args = parser.parse_args()
     if not args.execute_live:
         raise SystemExit("Live execution is disabled without --execute-live")
     if args.task021_stage:
         configure_task021(args.task021_stage)
+        if args.results_root == PROJECTS_ROOT / "_task019_direct_hybrid_live_results":
+            args.results_root = DEFAULT_RESULTS_ROOT
+        if args.run_id == "task019-direct-hybrid-20261014-001":
+            args.run_id = DEFAULT_RUN_ID
+    if args.task022:
+        configure_task022()
         if args.results_root == PROJECTS_ROOT / "_task019_direct_hybrid_live_results":
             args.results_root = DEFAULT_RESULTS_ROOT
         if args.run_id == "task019-direct-hybrid-20261014-001":
@@ -599,6 +800,27 @@ def configure_task021(stage: str) -> None:
              "case_id": case_id, "variant": variant, "group": "four_task_comparison"}
             for index, (case_id, variant) in enumerate(
                 (case_id, variant) for case_id in ("case10", "case09", "case07", "case08") for variant in variants)]
+
+
+def configure_task022() -> None:
+    """Select the one-shot, fixed Task 022 schedule on the existing launcher."""
+    global TASK022_MODE, PLAN, MAX_REQUESTS, MAX_TOKENS, MAX_ESTIMATED_USD
+    global B0_CHECKOUT, B2_CHECKOUT, TASK019_CHECKOUT, DEFAULT_RESULTS_ROOT, DEFAULT_RUN_ID
+    TASK022_MODE = True
+    MAX_REQUESTS, MAX_TOKENS, MAX_ESTIMATED_USD = 300, 2_000_000, 1.0
+    B0_CHECKOUT = PROJECTS_ROOT / "rag-knowledge-base-b0"
+    B2_CHECKOUT = PROJECTS_ROOT / "rag-knowledge-base-b2-exact-de0ca"
+    TASK019_CHECKOUT = PROJECT_ROOT
+    DEFAULT_RESULTS_ROOT = PROJECTS_ROOT / "_task022_cross_capability_results"
+    DEFAULT_RUN_ID = "task022-cross-capability-20261014-001"
+    variants = ("b0", "b2", "hybrid")
+    PLAN = [
+        {"task_order": order, "case_id": case_id, "variant": variant,
+         "group": TASK022_GROUPS[case_id]}
+        for order, (case_id, variant) in enumerate(
+            ((case_id, variant) for case_id in TASK022_GROUPS for variant in variants), start=1
+        )
+    ]
 
 
 if __name__ == "__main__":

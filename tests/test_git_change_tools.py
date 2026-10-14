@@ -143,7 +143,49 @@ def test_commit_range_reports_added_deleted_and_renamed(tmp_path: Path):
         )
     )
     assert diff.status == "ok"
-    assert "+rename me" in diff.result["diff"]
+    assert "rename from old.txt" in diff.result["diff"]
+    assert "rename to new.txt" in diff.result["diff"]
+    assert "similarity index 100%" in diff.result["diff"]
+    assert "+rename me" not in diff.result["diff"]
+
+    old_path_diff = _git_executor(repo).execute(
+        ToolCall.create(
+            "git_diff",
+            {
+                "mode": "commit_range",
+                "base_ref": base,
+                "head_ref": head,
+                "path": "old.txt",
+            },
+        )
+    )
+    assert old_path_diff.status == "ok"
+    assert "rename from old.txt" in old_path_diff.result["diff"]
+    assert "rename to new.txt" in old_path_diff.result["diff"]
+
+
+def test_commit_range_deleted_diff_has_valid_positive_line_range(tmp_path: Path):
+    repo = _new_repo(tmp_path)
+    (repo / "gone.py").write_text("def gone():\n    return 1\n", encoding="utf-8")
+    base = _commit(repo, "initial")
+    (repo / "gone.py").unlink()
+    head = _commit(repo, "delete")
+
+    diff = _git_executor(repo).execute(
+        ToolCall.create(
+            "git_diff",
+            {
+                "mode": "commit_range",
+                "base_ref": base,
+                "head_ref": head,
+                "path": "gone.py",
+            },
+        )
+    )
+    assert diff.status == "ok"
+    assert "-def gone():" in diff.result["diff"]
+    assert diff.result["start_line"] >= 1
+    assert diff.result["end_line"] >= 1
 
 
 def test_invalid_refs_option_like_refs_and_non_git_root(tmp_path: Path):

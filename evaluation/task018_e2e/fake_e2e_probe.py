@@ -51,6 +51,7 @@ class Case:
     status: str | None = None
     open_analysis: bool = False
     rag: bool = False
+    knowledge_db: str = "case08_knowledge.sqlite3"
 
 
 CASES = {
@@ -109,6 +110,38 @@ CASES = {
         "case08_corpus",
         rag=True,
     ),
+    # Task 022 fixed cross-capability matrix. These are bounded adaptations
+    # of the existing Dev/Validation and Task 018/021 question families to
+    # the already-frozen Task 018 Git fixture. Gold stays in the parent
+    # runner and is never passed to this Runtime process.
+    "t22_gs_01": Case("t22_gs_01", f"列出 {BASE_REF} 到 {HEAD_REF} 之间全部可见变更文件及状态。", "commit_range", operation="list_all"),
+    "t22_gs_02": Case("t22_gs_02", f"只列出 {BASE_REF} 到 {HEAD_REF} 中状态为 deleted 的文件。", "commit_range", operation="filter_status", status="deleted"),
+    "t22_gs_03": Case("t22_gs_03", f"列出 {BASE_REF} 到 {HEAD_REF} 的重命名旧路径和新路径。", "commit_range", operation="filter_status", status="renamed"),
+    "t22_gs_04": Case("t22_gs_04", "列出当前 working_tree 中全部未跟踪文件。", "working_tree_untracked", operation="filter_status", status="untracked"),
+    "t22_ga_01": Case("t22_ga_01", f"结合 {BASE_REF} 到 {HEAD_REF} 的实际差异，选一项最重要的变更并说明证据范围。", "commit_range", open_analysis=True),
+    "t22_ga_02": Case("t22_ga_02", f"说明 {BASE_REF} 到 {HEAD_REF} 的 src/main.py 改了什么，及其对 scale 结果的影响。", "commit_range", open_analysis=True),
+    "t22_ga_03": Case("t22_ga_03", f"检查 {BASE_REF} 到 {HEAD_REF} 新增的 docs/usage.md 和 src/main.py 的差异，说明能从材料确认什么。", "commit_range", open_analysis=True),
+    "t22_ga_04": Case("t22_ga_04", f"完整分析 {BASE_REF} 到 {HEAD_REF} 所有变更文件及其影响；如果材料覆盖不全请明确说明。", "commit_range", open_analysis=True),
+    "t22_src_01": Case("t22_src_01", "只定位 src/main.py 中 scale 的定义文件和行号，不需要解释实现。", "commit_range"),
+    "t22_src_02": Case("t22_src_02", "解释 src/main.py 中 scale 函数如何计算；把它直接使用的同文件常量值也查清。", "commit_range"),
+    "t22_src_03": Case("t22_src_03", "解释 src/new_parser.py 中 parse(data) 对输入字符串做了什么处理。", "commit_range"),
+    "t22_src_04": Case("t22_src_04", "依据当前 src/main.py 的实现，scale(3) 返回什么？说明公式和实际常量。", "commit_range"),
+    "t22_xt_01": Case("t22_xt_01", "比较 src/main.py 的 scale 实现和 tests/test_main.py 中对应断言；说明二者表达的预期是否一致，不要声称测试已执行。", "commit_range"),
+    "t22_xt_02": Case("t22_xt_02", "为 src/main.py 查找候选测试文件，并说明候选位置，不要说成已覆盖或已运行。", "commit_range"),
+    "t22_xt_03": Case("t22_xt_03", f"结合 {BASE_REF} 到 {HEAD_REF} 的变更，比较 src/old_parser.py 与 src/new_parser.py 的内容和状态。", "commit_range", open_analysis=True),
+    "t22_xt_04": Case("t22_xt_04", "读取 tests/test_main.py 的完整内容，指出它实际断言了什么，以及从这份源码不能推出什么。", "commit_range"),
+    "t22_rag_01": Case("t22_rag_01", "说明为什么更换 corpus commit 后不能直接沿用旧 retrieval hit 结论；哪些 parser、chunker、embedding 信息和固定评测方式需要跟踪？", "task022_knowledge_corpus", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_rag_02": Case("t22_rag_02", "资料如何区分证据支持度与世界事实正确性？回答通过 evidence verification 能推出什么，不能推出什么？", "task022_knowledge_corpus", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_rag_03": Case("t22_rag_03", "文档增量更新时，内容没变、内容改变和源文件消失分别应该如何处理？", "task022_knowledge_corpus", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_rag_04": Case("t22_rag_04", "资料中 Mock 和 Stub 有什么区别？行覆盖率与分支覆盖率又分别关注什么？", "task022_knowledge_corpus", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_mix_01": Case("t22_mix_01", "读取 src/new_parser.py，说明 parse 的实际处理步骤；结合 Function Calling 资料解释，为什么仅有这份源码不能声称函数已经被工具执行成功。", "commit_range", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_mix_02": Case("t22_mix_02", "知识资料中的标准重试窗口是多少？再读取 src/main.py 的 scale 实现与常量。两者数值相同是否就能证明 LIMIT 是服务重试配置？请分别列出依据。", "commit_range", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_mix_03": Case("t22_mix_03", "结合单元测试资料，检查 tests/test_main.py 中 scale 的断言；它能说明什么测试意图，哪些结论仍需要实际运行测试才能确认？", "commit_range", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_mix_04": Case("t22_mix_04", "读取项目 docs/usage.md 与 src/main.py，结合知识资料对来源元数据的要求，说明文档与实现的对应关系，并区分知识资料和当前仓库源码的证据身份。", "commit_range", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_ev_01": Case("t22_ev_01", "读取 src/missing.py 并解释 Missing.run 的实现；如果文件或定义不存在，请明确说明，不要猜测。", "commit_range"),
+    "t22_ev_02": Case("t22_ev_02", "请实际执行这个隔离项目的 pytest，并告诉我真实通过数量。", "commit_range"),
+    "t22_ev_03": Case("t22_ev_03", "确认当前生产服务的默认重试窗口是否为 12 秒，并提供项目配置依据。", "commit_range", rag=True, knowledge_db="task022_knowledge.sqlite3"),
+    "t22_ev_04": Case("t22_ev_04", "确认这个提交范围里的 pytest 是否全部通过；如果只有测试源码或候选位置，请不要推断执行结果。", "commit_range"),
 }
 
 
@@ -189,7 +222,7 @@ class FakeHTTPProvider:
                     "retrieval_required": False, "action": "no_retrieval",
                     "reason_code": "NO_RETRIEVAL_NEEDED", "subqueries": [],
                 }, ensure_ascii=False)
-            if self.variant in {"task020", "task021"}:
+            if self.variant in {"task020", "task021", "hybrid"}:
                 value = json.loads(content)
                 operation = ("knowledge_answer" if self.case.rag else "source_read"
                     if self.case.case_id == "case09" else "change_analysis"
@@ -697,12 +730,14 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
              *, fault: dict[str, Any] | None = None, request_limit: int = MAX_REQUESTS,
              token_limit: int = MAX_TOKENS, cost_limit: float = MAX_ESTIMATED_USD,
               model_override: str = FLASH_MODEL,
+              knowledge_db_override: str | None = None,
               provider_mode: str = "fake",
               shared_budget: SharedBudgetGate | None = None,
               task_order: int = 0,
               run_id: str | None = None,
               diagnostic_log: Path | None = None) -> dict[str, Any]:
     _install_checkout(checkout)
+    knowledge_db_name = knowledge_db_override or case.knowledge_db
     if provider_mode == "fake":
         # Ensure dotenv can only observe a dummy value in this isolated process.
         os.environ.pop("DEEPSEEK_API_KEY", None)
@@ -728,15 +763,14 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
     from core.knowledge_library import KnowledgeLibrary
     from core.tool_agent.executor import ToolExecutor
 
-    if case.case_id == "case08":
-        source_root = fixture_root / "case08_corpus"
-        db_source = fixture_root / "case08_knowledge.sqlite3"
-        if not source_root.is_dir() or not db_source.is_file():
-            raise ValueError("case08 local corpus fixture is incomplete")
-    else:
-        source_root = fixture_root / case.fixture
-        if not source_root.is_dir():
-            raise ValueError(f"missing Git fixture: {case.fixture}")
+    source_root = fixture_root / case.fixture
+    db_source = fixture_root / knowledge_db_name
+    if not source_root.is_dir():
+        raise ValueError(f"missing fixture: {case.fixture}")
+    if case.rag and not db_source.is_file():
+        raise ValueError("local corpus fixture is incomplete")
+    if not db_source.is_file():
+        raise ValueError("local knowledge database fixture is incomplete")
 
     if provider_mode == "live":
         recorder = LiveHTTPProvider(
@@ -762,12 +796,15 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
             # Each Agent run receives a fresh copy, so even accidental writes
             # cannot alter the prepared source fixture or another run.
             project_root = temp_root / "project"
-            if case.case_id != "case08":
+            has_git_fixture = case.fixture in {
+                "commit_range", "working_tree_clean", "working_tree_untracked"
+            }
+            if has_git_fixture:
                 shutil.copytree(source_root, project_root)
             else:
                 project_root.mkdir()
             db_path = temp_root / "knowledge.sqlite3"
-            shutil.copy2(fixture_root / "case08_knowledge.sqlite3", db_path)
+            shutil.copy2(fixture_root / knowledge_db_name, db_path)
             library = KnowledgeLibrary(db_path)
             stack.enter_context(patch.object(app_module, "engineering_knowledge_backend", library))
             stack.enter_context(patch.object(app_module, "FROZEN_TOOL_MODEL", model_override))
@@ -882,10 +919,10 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 stack.enter_context(patch.object(runtime_module, "finalize_changed_files_typed", record_typed))
             project = EngineeringProject(root=project_root.resolve(strict=True),
                 project_name=source_root.name, source="configured")
-            if variant in {"direct_hybrid", "task020", "task021"}:
+            if variant in {"direct_hybrid", "task020", "task021", "hybrid"}:
                 assembled = app_module._build_engineering_project_runtime(
                     project, finalization_strategy=("hybrid_task_contract"
-                        if variant in {"task020", "task021"} else "direct_hybrid")
+                        if variant in {"task020", "task021", "hybrid"} else "direct_hybrid")
                 )
             else:
                 assembled = app_module._build_engineering_project_runtime(project)
@@ -910,8 +947,9 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 "variant": variant,
                 "question": case.prompt,
                 "fixture_id": case.fixture,
-                "fixture_head": _git(project_root, "rev-parse", "HEAD") if case.case_id != "case08" else None,
-                "fixture_status": _git(project_root, "status", "--short") if case.case_id != "case08" else None,
+                "knowledge_db_fixture": knowledge_db_name,
+                "fixture_head": _git(project_root, "rev-parse", "HEAD") if has_git_fixture else None,
+                "fixture_status": _git(project_root, "status", "--short") if has_git_fixture else None,
                 "code_head": _git(checkout, "rev-parse", "HEAD"),
                 "requested_model": model_override,
                 "expected_model": FLASH_MODEL,
@@ -1025,8 +1063,9 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Task 019 Runtime probe using the Task 018 fixture and recorder")
     parser.add_argument("--checkout", required=True, type=Path)
-    parser.add_argument("--variant", required=True, choices=("b2", "direct_hybrid", "task017", "task020", "task021"))
+    parser.add_argument("--variant", required=True, choices=("b0", "b2", "hybrid", "direct_hybrid", "task017", "task020", "task021"))
     parser.add_argument("--fixture-root", required=True, type=Path)
+    parser.add_argument("--knowledge-db")
     parser.add_argument("--cases", nargs="+", choices=tuple(CASES), required=True)
     parser.add_argument("--provider-mode", choices=("fake", "live"), default="fake")
     parser.add_argument("--shared-budget-db", type=Path)
@@ -1063,6 +1102,7 @@ def main() -> None:
     results = [run_case(
         args.checkout, args.variant, CASES[name], args.fixture_root,
         provider_mode=args.provider_mode, shared_budget=shared_budget,
+        knowledge_db_override=args.knowledge_db,
         task_order=args.task_order, run_id=args.run_id,
         diagnostic_log=args.diagnostic_log,
     ) for name in args.cases]
