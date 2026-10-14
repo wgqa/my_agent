@@ -40,6 +40,11 @@ BASE_URL = "https://api.deepseek.com/v1"
 MAX_REQUESTS = 60
 MAX_TOKENS = 200_000
 MAX_ESTIMATED_USD = 0.15
+TASK021_STAGE = None
+TASK021_BUDGET_ID = "task021-authorized-20261014-001"
+TASK020_HEAD = "0af34f97d3bc0052b99341e00d1741ae2efd41d4"
+TASK020_FP = "e0e5144cef73e6c9f9416ba09f9d91752d25da1343001c7ac542258f1a916282"
+TASK019_HEAD = "4658857ce7a4b61dce0bdcea98f72cb9a3e5c0d2"
 
 # Fixed Task 019 order: four paired comparisons and three direct diagnostics.
 PLAN = [
@@ -57,6 +62,12 @@ PLAN = [
 ]
 
 CASE_CRITERIA = {
+    "case09": {"intent": "解释 src/main.py 的 scale 函数实现",
+               "expected_facts": [["value * LIMIT", "LIMIT = 12"]],
+               "semantic_rule": "须读取完整函数正文；不得以定位行或 diff 冒充当前实现"},
+    "case10": {"intent": "列出指定 commit range 已删除的源码文件",
+               "expected_facts": [["src/retired_source.py", "deleted"]],
+               "semantic_rule": "文件事实和实际交付独立评价；旧 Router 阻塞单列"},
     "case01": {"intent": "列出 commit range 内全部变更文件及状态", "expected_facts": [
         ["docs/usage.md", "added"], ["src/main.py", "modified"],
         ["src/old_parser.py", "renamed_from"], ["src/new_parser.py", "renamed_to"],
@@ -178,6 +189,29 @@ def _fixture_identity() -> dict[str, Any]:
 
 
 def _check_git_identity() -> dict[str, Any]:
+    if TASK021_STAGE:
+        roots = {"direct_hybrid": (PROJECTS_ROOT / "rag-knowledge-base-task019-direct-hybrid",
+                                   TASK019_HEAD, EXPECTED_TASK019_FP),
+                 "task020": (PROJECTS_ROOT / "rag-knowledge-base-hybrid-task-contract",
+                             TASK020_HEAD, TASK020_FP)}
+        if TASK021_STAGE == "candidate":
+            roots["task021"] = (PROJECT_ROOT, _git(PROJECT_ROOT, "rev-parse", "HEAD"), None)
+        identities = {}
+        for variant, (root, expected_head, expected_fp) in roots.items():
+            head = _git(root, "rev-parse", "HEAD")
+            if head != expected_head or _git(root, "status", "--porcelain=v1", "--untracked-files=all"):
+                raise RuntimeError(f"Task021 control identity/cleanliness drift: {variant}")
+            fingerprint = _business_fingerprint(root)
+            if expected_fp is not None and fingerprint["sha256"] != expected_fp:
+                raise RuntimeError(f"Task021 control business drift: {variant}")
+            if variant == "task021":
+                _git(root, "merge-base", "--is-ancestor", TASK020_HEAD, "HEAD")
+            identities[variant] = {"path": str(root), "head": head,
+                "branch": _git(root, "branch", "--show-current"),
+                "business_fingerprint": fingerprint, "worktree_clean": True}
+        if _git(PROJECT_ROOT, "status", "--porcelain=v1", "--untracked-files=all"):
+            raise RuntimeError("Task021 measurement seam must be committed before live")
+        return identities
     b2_head = _git(B2_CHECKOUT, "rev-parse", "HEAD")
     task_head = _git(TASK019_CHECKOUT, "rev-parse", "HEAD")
     if b2_head != EXPECTED_B2_HEAD:
@@ -274,6 +308,10 @@ def _parse_worker_json(stdout: bytes | str) -> dict[str, Any]:
 def _run_child(*, item: dict[str, Any], run_id: str, output_dir: Path,
                budget_db: Path, api_key: str) -> dict[str, Any]:
     checkout = B2_CHECKOUT if item["variant"] == "b2" else TASK019_CHECKOUT
+    if TASK021_STAGE:
+        checkout = {"direct_hybrid": PROJECTS_ROOT / "rag-knowledge-base-task019-direct-hybrid",
+                    "task020": PROJECTS_ROOT / "rag-knowledge-base-hybrid-task-contract",
+                    "task021": PROJECT_ROOT}[item["variant"]]
     command = [
         sys.executable, "-I", "-X", "utf8", str(PROBE_PATH),
         "--checkout", str(checkout), "--variant", item["variant"],
@@ -284,6 +322,8 @@ def _run_child(*, item: dict[str, Any], run_id: str, output_dir: Path,
         "--max-requests", str(MAX_REQUESTS), "--max-tokens", str(MAX_TOKENS),
         "--max-estimated-usd", str(MAX_ESTIMATED_USD),
     ]
+    if TASK021_STAGE:
+        command.extend(["--budget-run-id", TASK021_BUDGET_ID])
     child_env = _safe_child_env()
     child_env["DEEPSEEK_API_KEY"] = api_key
     try:
@@ -347,11 +387,11 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
         ),
     }
     b2_prompt_hashes = {"common": _hash_map(B2_CHECKOUT, COMMON_PROMPT_FILES)}
-    if prompt_hashes["shared_planner_context"] != b2_prompt_hashes["common"]:
+    if not TASK021_STAGE and prompt_hashes["shared_planner_context"] != b2_prompt_hashes["common"]:
         raise RuntimeError("B2_TASK019_SHARED_PROMPT_SOURCE_DRIFT")
     runtime_hashes = _hash_map(TASK019_CHECKOUT, DIRECT_RUNTIME_IDENTITY_FILES)
     b2_runtime_hashes = _hash_map(B2_CHECKOUT, SHARED_RUNTIME_IDENTITY_FILES)
-    eval_hashes = _hash_map(TASK019_CHECKOUT, EVAL_IDENTITY_FILES)
+    eval_hashes = _hash_map(PROJECT_ROOT, EVAL_IDENTITY_FILES)
     for root in (TASK019_CHECKOUT, B2_CHECKOUT):
         if not (root / "core/tool_agent/runtime.py").is_file():
             raise RuntimeError("AGENT_RUNTIME_SOURCE_MISSING")
@@ -395,14 +435,28 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
         "initial_status": "NO_REAL_MODEL_RUN_YET",
         "history_constraint": "Task018 live outcomes are historical context; Task019 run is the direct B2 comparison.",
     }
+    if TASK021_STAGE:
+        manifest["authorization"] = "PROJECT_OWNER_AUTHORIZED_TASK021_12_AGENT_RUNS"
+        manifest["stage"] = TASK021_STAGE
+        manifest["budget_run_id"] = TASK021_BUDGET_ID
+        manifest["prompt_source_sha256"] = {
+            variant: _hash_map(Path(identity["path"]), [*COMMON_PROMPT_FILES, DECISION_PROMPT_FILE])
+            for variant, identity in code_identity.items()}
+        manifest["runtime_source_sha256"] = {
+            variant: _hash_map(Path(identity["path"]), DIRECT_RUNTIME_IDENTITY_FILES)
+            for variant, identity in code_identity.items()}
+        manifest.pop("b2_common_prompt_source_sha256", None)
+        manifest.pop("b2_decision_prompt_source_sha256", None)
+        manifest["history_constraint"] = "Task019/020 controls and Task021 candidate share four fixed tasks and fixtures; no historical scores substituted."
     _atomic_json(run_path / "manifest.json", manifest)
     _write_run_state(run_path / "run_state.json", run_id, cases_state, None, None)
-    budget_db = run_path / "shared_budget.sqlite3"
+    budget_db = (results_root / "task021_shared_budget.sqlite3"
+                 if TASK021_STAGE else run_path / "shared_budget.sqlite3")
 
     # Local import avoids making the product runtime depend on Task 018 tools.
     sys.path.insert(0, str(TASK018_DIR))
     from shared_budget import SharedBudgetGate
-    gate = SharedBudgetGate(budget_db, run_id=run_id, max_requests=MAX_REQUESTS,
+    gate = SharedBudgetGate(budget_db, run_id=TASK021_BUDGET_ID if TASK021_STAGE else run_id, max_requests=MAX_REQUESTS,
                             max_tokens=MAX_TOKENS,
                             max_estimated_usd=MAX_ESTIMATED_USD,
                             expected_model=EXPECTED_MODEL)
@@ -410,8 +464,7 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
 
     stop_reason = None
     try:
-        for item in PLAN:
-            idx = item["task_order"] - 1
+        for idx, item in enumerate(PLAN):
             cases_state[idx]["status"] = "RUNNING"
             _write_run_state(run_path / "run_state.json", run_id, cases_state,
                              gate.snapshot(), stop_reason)
@@ -497,6 +550,12 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
                  "summary.json"]
     hashes = {name: _sha256(run_path / name) for name in sha_files
               if (run_path / name).is_file()}
+    if TASK021_STAGE:
+        # Snapshot billing identity with each immutable phase; the live shared
+        # database continues accounting across both phases without resetting.
+        with sqlite3.connect(budget_db) as source, sqlite3.connect(run_path / "shared_budget.sqlite3") as target:
+            source.backup(target)
+        hashes["shared_budget.sqlite3"] = _sha256(run_path / "shared_budget.sqlite3")
     _atomic_json(run_path / "sha256sums.json", hashes)
     return run_path
 
@@ -507,12 +566,39 @@ def main() -> None:
                         help="required to enter the owner-authorized real Provider path")
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
     parser.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
+    parser.add_argument("--task021-stage", choices=("controls", "candidate"))
     args = parser.parse_args()
     if not args.execute_live:
         raise SystemExit("Live execution is disabled without --execute-live")
+    if args.task021_stage:
+        configure_task021(args.task021_stage)
+        if args.results_root == PROJECTS_ROOT / "_task019_direct_hybrid_live_results":
+            args.results_root = DEFAULT_RESULTS_ROOT
+        if args.run_id == "task019-direct-hybrid-20261014-001":
+            args.run_id = DEFAULT_RUN_ID
     path = execute(args.run_id, results_root=args.results_root)
     print(json.dumps({"run_directory": str(path), "report_status": "RAW_RUN_SAVED",
                       "live_requests": True}, ensure_ascii=False))
+
+
+def configure_task021(stage: str) -> None:
+    """Reuse the fixed serial launcher and its existing gate for two phases."""
+    global TASK021_STAGE, PLAN, MAX_REQUESTS, MAX_TOKENS, MAX_ESTIMATED_USD
+    global B2_CHECKOUT, TASK019_CHECKOUT, DEFAULT_RESULTS_ROOT, DEFAULT_RUN_ID
+    if stage not in {"controls", "candidate"}:
+        raise ValueError("Invalid Task021 phase")
+    TASK021_STAGE = stage
+    MAX_REQUESTS, MAX_TOKENS, MAX_ESTIMATED_USD = 84, 400_000, 0.25
+    B2_CHECKOUT = PROJECTS_ROOT / "rag-knowledge-base-task019-direct-hybrid"
+    TASK019_CHECKOUT = (PROJECTS_ROOT / "rag-knowledge-base-hybrid-task-contract"
+                        if stage == "controls" else PROJECT_ROOT)
+    DEFAULT_RESULTS_ROOT = PROJECTS_ROOT / "_task021_hybrid_live_results"
+    DEFAULT_RUN_ID = f"task021-{stage}-20261014-001"
+    variants = ("direct_hybrid", "task020") if stage == "controls" else ("task021",)
+    PLAN = [{"task_order": (1 if stage == "controls" else 9) + index,
+             "case_id": case_id, "variant": variant, "group": "four_task_comparison"}
+            for index, (case_id, variant) in enumerate(
+                (case_id, variant) for case_id in ("case10", "case09", "case07", "case08") for variant in variants)]
 
 
 if __name__ == "__main__":

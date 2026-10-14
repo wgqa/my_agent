@@ -62,6 +62,39 @@ def _worker(checkout: Path, variant: str, cases: list[str], *, context: bool = F
     return json.loads(stdout[position:].decode("utf-8", errors="strict"))
 
 
+def test_task021_measurement_seam_observes_real_task020_runtime_offline():
+    result = _worker(PROJECTS / "rag-knowledge-base-hybrid-task-contract", "task020",
+                     ["case10", "case09", "case07", "case08"])
+    assert result["live_mode"] is False
+    assert len(result["results"]) == 4
+    for row in result["results"]:
+        assert row["infrastructure_status"] == "ok", row
+        assert row["planner"][0]["task_contract"] is not None
+        assert row["final"]["task_contract"] is not None
+        assert row["final"]["status"] == "completed", row["final"]
+        assert row["final"]["trace"]
+        assert all(call["model"] == "deepseek-flash"
+                   and call["thinking"] == {"type": "disabled"}
+                   for call in row["provider_requests"])
+        assert all(call["host"] == "offline.invalid" for call in row["provider_requests"])
+    assert result["results"][0]["tools"][0]["call"]["tool_name"] == "changed_files"
+    assert result["results"][1]["tools"][0]["call"]["tool_name"] == "read_project_context"
+
+
+def test_task021_schedule_and_combined_budget_do_not_reset_between_phases():
+    runner = _live_runner_module()
+    runner.configure_task021("controls")
+    assert len(runner.PLAN) == 8
+    assert [item["variant"] for item in runner.PLAN] == ["direct_hybrid", "task020"] * 4
+    assert [item["case_id"] for item in runner.PLAN[::2]] == ["case10", "case09", "case07", "case08"]
+    budget_id = runner.TASK021_BUDGET_ID
+    runner.configure_task021("candidate")
+    assert len(runner.PLAN) == 4
+    assert [item["task_order"] for item in runner.PLAN] == [9, 10, 11, 12]
+    assert runner.TASK021_BUDGET_ID == budget_id
+    assert (runner.MAX_REQUESTS, runner.MAX_TOKENS, runner.MAX_ESTIMATED_USD) == (84, 400_000, 0.25)
+
+
 def test_task019_matrix_uses_real_runtime_and_fake_http_only():
     b2 = _worker(B2_CHECKOUT, "b2", ["case01", "case02", "case03", "case04"])
     direct = _worker(TASK019_CHECKOUT, "direct_hybrid",

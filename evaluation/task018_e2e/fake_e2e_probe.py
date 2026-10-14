@@ -54,6 +54,9 @@ class Case:
 
 
 CASES = {
+    "case09": Case("case09", "解释 src/main.py 中 scale 函数的实现。", "commit_range"),
+    "case10": Case("case10", f"列出 {BASE_REF} 到 {HEAD_REF} 之间已删除的源码文件路径。",
+                   "commit_range", operation="filter_status", status="deleted"),
     "case01": Case(
         "case01",
         f"列出 {BASE_REF} 到 {HEAD_REF} 之间全部变更文件及状态。",
@@ -186,6 +189,30 @@ class FakeHTTPProvider:
                     "retrieval_required": False, "action": "no_retrieval",
                     "reason_code": "NO_RETRIEVAL_NEEDED", "subqueries": [],
                 }, ensure_ascii=False)
+            if self.variant in {"task020", "task021"}:
+                value = json.loads(content)
+                operation = ("knowledge_answer" if self.case.rag else "source_read"
+                    if self.case.case_id == "case09" else "change_analysis"
+                    if self.case.open_analysis else "file_status")
+                git_range = self.case.fixture == "commit_range" and operation != "source_read"
+                value["task_contract"] = {
+                    "operation": operation,
+                    "object_kind": ("knowledge" if self.case.rag else "function"
+                        if operation == "source_read" else "source_files"
+                        if self.case.case_id == "case10" else "files"),
+                    "target_paths": ["src/main.py"] if operation == "source_read" else [],
+                    "target_symbols": ["scale"] if operation == "source_read" else [],
+                    "scope_mode": ("knowledge" if self.case.rag else "project"
+                        if operation == "source_read" else "commit_range" if git_range else "working_tree"),
+                    "base_ref": BASE_REF if git_range else None,
+                    "head_ref": HEAD_REF if git_range else None,
+                    "status": self.case.status or "any",
+                    "requires_source_body": operation == "source_read",
+                    "requires_diff": operation == "change_analysis",
+                    "requires_complete_list": operation == "file_status",
+                    "requires_test_execution": False, "requires_knowledge": self.case.rag,
+                }
+                content = json.dumps(value, ensure_ascii=False)
             return ("planner", {"content": content})
 
         def decision(payload: dict[str, Any]):
@@ -197,6 +224,15 @@ class FakeHTTPProvider:
                 "action": "final_answer",
                 "answer": "知识库给出的标准重试窗口是 12 秒。[E1]",
             }))
+            return steps
+
+        if self.case.case_id == "case09":
+            steps.extend([
+                decision({"action": "tool_call", "tool_name": "read_project_context", "arguments": {
+                    "path": "src/main.py", "target": {"kind": "file", "start_line": 1}}}),
+                decision({"action": "final_answer", "answer":
+                    "scale(value) 返回 value * LIMIT；同文件 LIMIT = 12，因此输入乘以 12。[E1]"}),
+            ])
             return steps
 
         if self.case.open_analysis:
@@ -221,7 +257,7 @@ class FakeHTTPProvider:
         if self.case.fixture == "commit_range":
             tool_arguments = {"mode": "commit_range", "base_ref": BASE_REF, "head_ref": HEAD_REF}
         steps.append(decision({"action": "tool_call", "tool_name": "changed_files", "arguments": tool_arguments}))
-        if self.variant == "direct_hybrid":
+        if self.variant in {"direct_hybrid", "task020", "task021"}:
             selected = {"action": "changed_files_finalization", "evidence_id": "E1",
                         "operation": self.case.operation}
             if self.case.operation == "filter_status":
@@ -761,6 +797,8 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 item = {"plan": outcome.plan.to_dict(),
                                        "fallback_used": outcome.fallback_used,
                                         "failure_code": outcome.failure_code}
+                contract = getattr(outcome, "task_contract", None)
+                item["task_contract"] = contract.to_dict() if contract is not None else None
                 planner_events.append(item)
                 _append_diagnostic_event(diagnostic_log, run_id=run_id,
                     task_order=task_order, case_id=case.case_id, event_type="planner",
@@ -804,8 +842,8 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
             if hasattr(runtime_module, "_lightweight_open_answer_check"):
                 original_open_check = runtime_module._lightweight_open_answer_check
 
-                def record_open_check(verifier, current_evidence, answer):
-                    error_code = original_open_check(verifier, current_evidence, answer)
+                def record_open_check(verifier, current_evidence, answer, **kwargs):
+                    error_code = original_open_check(verifier, current_evidence, answer, **kwargs)
                     item = {"candidate_answer": answer,
                         "accepted": error_code is None,
                         "error_code": error_code,
@@ -844,9 +882,10 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 stack.enter_context(patch.object(runtime_module, "finalize_changed_files_typed", record_typed))
             project = EngineeringProject(root=project_root.resolve(strict=True),
                 project_name=source_root.name, source="configured")
-            if variant == "direct_hybrid":
+            if variant in {"direct_hybrid", "task020", "task021"}:
                 assembled = app_module._build_engineering_project_runtime(
-                    project, finalization_strategy="direct_hybrid"
+                    project, finalization_strategy=("hybrid_task_contract"
+                        if variant in {"task020", "task021"} else "direct_hybrid")
                 )
             else:
                 assembled = app_module._build_engineering_project_runtime(project)
@@ -862,6 +901,9 @@ def run_case(checkout: Path, variant: str, case: Case, fixture_root: Path,
                 "tool_errors_used": result.tool_errors_used,
                 "execution": result.execution.to_dict() if result.execution else None,
                 "evidence": [item.to_dict() for item in result.evidence],
+                "trace": [item.to_dict() for item in result.trace],
+                "task_contract": (result.task_contract.to_dict()
+                    if getattr(result, "task_contract", None) is not None else None),
             }
             output = {
                 "case_id": case.case_id,
@@ -983,13 +1025,14 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Task 019 Runtime probe using the Task 018 fixture and recorder")
     parser.add_argument("--checkout", required=True, type=Path)
-    parser.add_argument("--variant", required=True, choices=("b2", "direct_hybrid", "task017"))
+    parser.add_argument("--variant", required=True, choices=("b2", "direct_hybrid", "task017", "task020", "task021"))
     parser.add_argument("--fixture-root", required=True, type=Path)
     parser.add_argument("--cases", nargs="+", choices=tuple(CASES), required=True)
     parser.add_argument("--provider-mode", choices=("fake", "live"), default="fake")
     parser.add_argument("--shared-budget-db", type=Path)
     parser.add_argument("--task-order", type=int, default=0)
     parser.add_argument("--run-id")
+    parser.add_argument("--budget-run-id")
     parser.add_argument("--diagnostic-log", type=Path)
     parser.add_argument("--max-requests", type=int, default=140)
     parser.add_argument("--max-tokens", type=int, default=500_000)
@@ -1005,7 +1048,7 @@ def main() -> None:
     if args.shared_budget_db:
         shared_budget = SharedBudgetGate(
             args.shared_budget_db,
-            run_id=args.run_id or "task018-offline-shared-budget",
+            run_id=args.budget_run_id or args.run_id or "task018-offline-shared-budget",
             max_requests=args.max_requests,
             max_tokens=args.max_tokens,
             max_estimated_usd=args.max_estimated_usd,
