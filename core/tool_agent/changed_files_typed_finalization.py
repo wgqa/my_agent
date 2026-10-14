@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from core.engineering_requirements import EngineeringEvidenceRequirement
+from core.engineering_task_contract import HybridTaskContract
 from core.engineering_verification import EngineeringVerificationResult
 from core.tool_agent.models import ToolCall, ToolObservation
 from core.tool_agent.runtime_models import ToolResultEvidence
@@ -384,9 +385,12 @@ def _render_answer(
     evidence: ToolResultEvidence,
     observation_result: Mapping[str, object],
     arguments: Mapping[str, object],
+    rows: tuple | None = None,
+    object_label: str = "",
 ) -> str:
     scope = _scope_label(arguments)
-    rows = evidence.status_entries
+    file_label = object_label or "变更文件"
+    rows = evidence.status_entries if rows is None else rows
     if operation == "filter_status":
         rows = tuple(row for row in rows if row[1] == status_filter)
     complete = evidence.completeness == "complete"
@@ -397,19 +401,19 @@ def _render_answer(
 
     if operation == "list_all" and complete and not rows:
         return (
-            f"已成功检查范围 {scope}；changed_files 返回的变更文件清单为空，"
-            f"结果完整（未截断、无敏感项省略），未发现可见变更文件。[{evidence_id}]"
+            f"已成功检查范围 {scope}；changed_files 返回的{file_label}清单为空，"
+            f"结果完整（未截断、无敏感项省略），未发现可见{file_label}。[{evidence_id}]"
         )
 
     if operation == "list_all":
         if complete:
             heading = (
-                f"已成功检查范围 {scope}；完整清单共 {len(rows)} 项 "
+                f"已成功检查范围 {scope}；完整{object_label}清单共 {len(rows)} 项 "
                 f"（未截断、无敏感项省略）[{evidence_id}]："
             )
         else:
             heading = (
-                f"已成功检查范围 {scope}；当前仅返回部分清单 {len(rows)} 项 "
+                f"已成功检查范围 {scope}；当前仅返回部分{object_label}清单 {len(rows)} 项 "
                 f"（total_count={total_count}, returned_count={returned_count}, "
                 f"truncated={str(truncated).lower()}, omitted_sensitive_count={omitted}），"
                 f"结果不穷举 [{evidence_id}]："
@@ -417,12 +421,13 @@ def _render_answer(
     else:
         completeness_text = "完整清单中" if complete else "当前部分返回清单中（未验证穷举）"
         heading = (
-            f"已成功检查范围 {scope}；{completeness_text}的 {status_filter} 状态项 "
+            f"已成功检查范围 {scope}；{completeness_text}的 {status_filter} 状态"
+            f"{'项' if not object_label else '的' + object_label} "
             f"共 {len(rows)} 项 [{evidence_id}]："
         )
     if not rows:
         if complete:
-            return heading + "\n\n该范围内没有符合条件的可见变更文件。"
+            return heading + f"\n\n该范围内没有符合条件的可见{file_label}。"
         return heading + "\n\n当前返回项中没有符合条件的文件；来源不完整，不能据此认定范围内不存在此类文件。"
 
     table = [heading, "", "| 路径 | 状态 |", "| --- | --- |"]
@@ -442,6 +447,7 @@ def finalize_changed_files_typed(
     execution: ChangedFilesExecution,
     current_public_evidence: Sequence[object],
     finalization_verifier: object,
+    task_contract: HybridTaskContract | None = None,
 ) -> TypedFinalizationResult:
     """Validate one selector, preserve the frozen Requirement, and render facts."""
 
@@ -469,6 +475,17 @@ def finalize_changed_files_typed(
         return _failure(source_error, evidence_id=evidence_id)
 
     evidence = execution.evidence
+    if task_contract is not None:
+        if type(task_contract) is not HybridTaskContract:
+            return _failure("INVALID_TASK_CONTRACT", evidence_id=evidence_id)
+        task_error = task_contract.selection_error(evidence, selector)
+        if task_error is not None:
+            from dataclasses import replace
+            return replace(
+                _failure(task_error, evidence_id=evidence_id),
+                protocol_valid=True, source_valid=True, operation=operation,
+                completeness=evidence.completeness,
+            )
     result = execution.observation.result
     if type(result) is not dict:
         return _failure("INVALID_TOOL_OBSERVATION", evidence_id=evidence_id)
@@ -483,6 +500,12 @@ def finalize_changed_files_typed(
         evidence=evidence,
         observation_result=result,
         arguments=arguments,
+        rows=task_contract.status_rows(evidence) if task_contract is not None else None,
+        object_label=(
+            ("指定路径的" if task_contract.target_paths else "")
+            + {"source_files": "源码文件", "documents": "文档文件", "tests": "测试文件"}.get(
+                task_contract.object_kind, "变更文件" if task_contract.target_paths else "")
+            if task_contract is not None else ""),
     )
     verify = getattr(finalization_verifier, "verify", None)
     if not callable(verify):

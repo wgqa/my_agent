@@ -97,6 +97,7 @@ task_contract 必须包含以下全部字段：
 operation: file_status / source_read / change_analysis / knowledge_answer / test_execution / other。
 object_kind: files / source_files / function / documents / tests / knowledge / other。
 target_paths: 用户或指代上下文明确指定的相对路径数组，没有路径时为 []，不得编造。
+target_symbols: 明确要求解释/读取的函数或符号名数组，没有名字时为 []；不得用同文件其他符号替代。函数解释须读取完整定义正文。
 scope_mode: working_tree / commit_range / project / knowledge / unspecified。
 base_ref、head_ref: commit_range 时为用户指定的两个 ref，方向必须原样保留；其他范围为 null。
 status: any / added / modified / deleted / renamed / untracked；非 file_status 必须为 any。
@@ -104,7 +105,7 @@ requires_source_body、requires_diff、requires_complete_list、requires_test_ex
 列出源码文件的路径/状态并不自动要求源码正文；解释函数实现、明确要求阅读源码时必须要求真实正文。
 完整列表不得漏项；完整源码、源码解释、diff 分析、实际执行测试分别需要对应材料/真实执行，不能用定位行、候选或状态列表替代。
 执行测试不同于查找测试文件；当前工具没有测试执行能力时也不能删除用户的执行要求。
-重要性、风险、原因或影响分析用 change_analysis 并要求 diff；不得强行改成 file_status。
+重要性、风险、原因或影响分析用 change_analysis 并要求 diff；不得强行改成 file_status。对整个变更范围做比较或穷举分析须 requires_complete_list=true，先取得完整变更范围再取相应 diff；只明确分析指定路径时保持该路径范围。
 只需仓库/Git 材料且不要求知识库时，可以采用合法 no_retrieval 组合；知识检索计划仅服务材料获取，不是最终用户任务裁判。
 知识库问答必须 requires_knowledge=true。未知/复合且无法完整表达的任务用 other，保留兼容要求。
 这里只输出操作和材料要求，不输出答案、Evidence ID、评分标签或预算。

@@ -13,7 +13,8 @@ import json
 import re
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from core.engineering_task_contract import HybridTaskContract
 
 from core.agent_runtime.models import EvidenceBundle, EvidenceItem, VerificationResult
 from core.agent_runtime.runtime import MinimalEvidenceVerifier
@@ -1113,6 +1114,7 @@ class BoundEngineeringEvidenceVerifier:
         planner_outcome: PlannerOutcome,
         retrieval_snapshot: EngineeringRetrievalSnapshot,
         requirement: EngineeringEvidenceRequirement,
+        task_contract: HybridTaskContract | None = None,
     ) -> None:
         verifier._validate_inputs(
             planner_outcome,
@@ -1123,6 +1125,7 @@ class BoundEngineeringEvidenceVerifier:
         self._planner_outcome = planner_outcome
         self._retrieval_snapshot = retrieval_snapshot
         self._requirement = requirement
+        self.task_contract = task_contract
 
     def verify(
         self,
@@ -1135,6 +1138,7 @@ class BoundEngineeringEvidenceVerifier:
             self._requirement,
             current_public_evidence,
             proposed_answer=proposed_answer,
+            **({"task_contract": self.task_contract} if self.task_contract is not None else {}),
         )
 
 
@@ -1165,12 +1169,15 @@ class EngineeringEvidenceVerifier:
         planner_outcome: PlannerOutcome,
         retrieval_snapshot: EngineeringRetrievalSnapshot,
         requirement: EngineeringEvidenceRequirement,
+        *,
+        task_contract: HybridTaskContract | None = None,
     ) -> BoundEngineeringEvidenceVerifier:
         return BoundEngineeringEvidenceVerifier(
             self,
             planner_outcome,
             retrieval_snapshot,
             requirement,
+            task_contract,
         )
 
     def verify(
@@ -1181,10 +1188,13 @@ class EngineeringEvidenceVerifier:
         current_public_evidence: Sequence[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence],
         *,
         proposed_answer: str | None = None,
+        task_contract: HybridTaskContract | None = None,
     ) -> EngineeringVerificationResult:
         """Run all orthogonal checks and return one finalization state."""
 
         self._validate_inputs(planner_outcome, retrieval_snapshot, requirement)
+        if task_contract is not None and type(task_contract) is not HybridTaskContract:
+            raise TypeError("task_contract must be HybridTaskContract")
         evidence = _strict_evidence_sequence(current_public_evidence)
         if proposed_answer is not None and type(proposed_answer) is not str:
             raise TypeError("proposed_answer 必须是 str 或 None")
@@ -1203,6 +1213,8 @@ class EngineeringEvidenceVerifier:
             any(kind.startswith("project_") for kind in requirement_kinds)
             and "knowledge" not in requirement_kinds
         )
+        if task_contract is not None and task_contract.operation != "other":
+            planned_knowledge_required = task_contract.requires_knowledge
         retrieval_result = MinimalEvidenceVerifier().verify(
             planner_outcome.plan,
             retrieval_snapshot.evidence_bundle,
@@ -1212,7 +1224,12 @@ class EngineeringEvidenceVerifier:
             upgrade_used=retrieval_snapshot.upgrade_used,
             retrieval_required=planned_knowledge_required,
         )
-        requirement_state = evaluate_evidence_requirement(requirement, evidence)
+        requirement_evidence = (
+            task_contract.scoped_evidence(evidence) if task_contract is not None else evidence
+        )
+        requirement_state = evaluate_evidence_requirement(requirement, requirement_evidence)
+        if task_contract is not None and task_contract.material_error(requirement_evidence):
+            requirement_state = replace(requirement_state, satisfied=False)
 
         citation_status = CITATION_STATUS_NOT_CHECKED
         invalid_citation_ids: tuple[str, ...] = ()

@@ -733,7 +733,7 @@ _EVIDENCE_CITATION_LIKE = re.compile(r"\[\s*E[^\]\r\n]*\]")
 _EVIDENCE_ID = re.compile(r"E[1-9][0-9]*")
 
 
-def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str) -> str | None:
+def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str, *, context=()) -> str | None:
     """Check current-run sources and hard requirements without legacy Binding.
 
     This intentionally does not test whether each natural-language claim is
@@ -743,12 +743,19 @@ def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str)
     """
     if finalization_verifier is None:
         return "FINALIZATION_VERIFIER_REQUIRED"
+    contract = getattr(finalization_verifier, "task_contract", None)
+    if contract is not None and contract.operation == "file_status":
+        return "TASK_REQUIRES_TYPED_FINALIZATION"
     verification = _run_finalization_verifier(
         finalization_verifier, evidence, None
     )
     if not verification.retrieval_can_generate:
         return "RETRIEVAL_NOT_SATISFIED"
     if not verification.evidence_requirement_satisfied:
+        if contract is not None:
+            material_error = contract.material_error(contract.scoped_evidence(evidence))
+            if material_error is not None:
+                return material_error
         return "EXISTING_REQUIREMENT_NOT_SATISFIED"
 
     citations = _EVIDENCE_CITATION_LIKE.findall(answer)
@@ -765,6 +772,17 @@ def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str)
         return "INVALID_CURRENT_RUN_EVIDENCE_REFERENCE"
     if evidence and not citations:
         return "CURRENT_RUN_EVIDENCE_REFERENCE_MISSING"
+    if contract is not None:
+        cited_ids = {token.strip()[1:-1].strip() for token in citations}
+        selected = tuple(item for item in evidence if item.evidence_id in cited_ids)
+        if contract.scoped_evidence(selected) != selected:
+            return "TASK_CITATION_SCOPE_MISMATCH"
+        selected_verification = _run_finalization_verifier(finalization_verifier, selected, None)
+        if not selected_verification.evidence_requirement_satisfied:
+            return "TASK_REQUIRED_MATERIAL_NOT_CITED"
+        source_error = contract.source_context_error(context, selected)
+        if source_error is not None:
+            return source_error
     return None
 
 
@@ -976,6 +994,7 @@ class ToolAgentRuntime:
         changed_files_executions: list[ChangedFilesExecution] = []
         changed_files_source_failed = False
         changed_files_selector_attempted = False
+        task_contract = getattr(finalization_verifier, "task_contract", None)
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
         activity_number = 0
@@ -1092,6 +1111,10 @@ class ToolAgentRuntime:
                 finalization_strategy=(
                     "direct_hybrid" if finalization_strategy == "direct_hybrid" else None
                 ),
+                task_contract=task_contract,
+                task_contract_missing_material=(
+                    task_contract.material_error(task_contract.scoped_evidence(evidence))
+                    if task_contract is not None else None),
             )
             outcome = self._decide(
                 run_registry,
@@ -1178,8 +1201,10 @@ class ToolAgentRuntime:
                     execution=changed_files_executions[0],
                     current_public_evidence=tuple(evidence),
                     finalization_verifier=finalization_verifier,
+                    **({"task_contract": task_contract} if task_contract is not None else {}),
                 )
-                if not typed_result.protocol_valid or not typed_result.source_valid:
+                if (not typed_result.protocol_valid or not typed_result.source_valid
+                        or (typed_result.error_code or "").startswith("TASK_")):
                     return self._hard_stop(
                         trace,
                         evidence,
@@ -1188,6 +1213,7 @@ class ToolAgentRuntime:
                         tool_errors,
                         INSUFFICIENT_EVIDENCE_TO_FINALIZE,
                         trace_sink,
+                        trace_code=typed_result.error_code if task_contract is not None else None,
                     )
                 if typed_result.accepted:
                     self._append_terminal(
@@ -1279,7 +1305,8 @@ class ToolAgentRuntime:
             if isinstance(action, FinalAnswerAction):
                 if finalization_strategy == "direct_hybrid":
                     error_code = _lightweight_open_answer_check(
-                        finalization_verifier, evidence, action.answer
+                        finalization_verifier, evidence, action.answer,
+                        **({"context": tuple(context)} if task_contract is not None else {}),
                     )
                     if error_code is not None:
                         return self._hard_stop(
@@ -1290,6 +1317,7 @@ class ToolAgentRuntime:
                             tool_errors,
                             INSUFFICIENT_EVIDENCE_TO_FINALIZE,
                             trace_sink,
+                            trace_code=error_code if task_contract is not None else None,
                         )
                     self._append_terminal(
                         trace, iterations, tool_calls, tool_errors, None, trace_sink
@@ -1978,9 +2006,11 @@ class ToolAgentRuntime:
         tool_errors: int,
         code: str,
         trace_sink: Callable[[RuntimeTraceEvent], None] | None,
+        *,
+        trace_code: str | None = None,
     ) -> ToolAgentRunResult:
         self._append_terminal(
-            trace, iterations, tool_calls, tool_errors, code, trace_sink
+            trace, iterations, tool_calls, tool_errors, trace_code or code, trace_sink
         )
         return ToolAgentRunResult(
             status="refused",

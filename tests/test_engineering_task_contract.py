@@ -12,7 +12,7 @@ from core.query_planning.prompt import ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_
 
 
 def contract_payload(**changes):
-    return dict(operation="file_status", object_kind="files", target_paths=[],
+    return dict(operation="file_status", object_kind="files", target_paths=[], target_symbols=[],
                 scope_mode="working_tree", base_ref=None, head_ref=None, status="any",
                 requires_source_body=False, requires_diff=False,
                 requires_complete_list=False, requires_test_execution=False,
@@ -94,6 +94,16 @@ def test_explicit_source_object_and_paths_cannot_be_dropped():
         HybridTaskContract.from_dict(
             contract_payload(operation="source_read", scope_mode="project"),
             user_request="解释 src/main.py 的源码实现")
+    with pytest.raises(ValueError):
+        HybridTaskContract.from_dict(
+            contract_payload(status="deleted"), user_request="列出当前工作区全部变更")
+    with pytest.raises(ValueError):
+        HybridTaskContract.from_dict(
+            contract_payload(status="any"), user_request="只列出当前工作区 deleted 文件")
+    with pytest.raises(ValueError):
+        HybridTaskContract.from_dict(
+            contract_payload(operation="source_read", object_kind="function", scope_mode="project"),
+            user_request="解释 scale 函数的实现")
 
 
 def test_legacy_parser_and_gold_free_payload_remain_unchanged():
@@ -108,3 +118,30 @@ def test_legacy_parser_and_gold_free_payload_remain_unchanged():
         include_task_contract=True,
     )
     assert bad.fallback_used and bad.task_contract is None
+
+
+def test_other_task_keeps_legacy_cross_file_minimum_and_explicit_knowledge():
+    from core.engineering_requirements import route_engineering_evidence_requirement
+    question = "跨文件分析 src/main.py 与 src/new_parser.py 的源码异常原因"
+    legacy = route_engineering_evidence_requirement(question)
+    contract = HybridTaskContract.from_dict(
+        contract_payload(operation="other", scope_mode="project",
+                         target_paths=["src/main.py", "src/new_parser.py"]),
+        user_request=question,
+    )
+    projected = contract.to_requirement(legacy)
+    assert set(legacy.required_evidence_groups) <= set(projected.required_evidence_groups)
+    assert projected.min_distinct_project_code_paths >= legacy.min_distinct_project_code_paths
+    knowledge = HybridTaskContract.from_dict(
+        contract_payload(operation="other", scope_mode="unspecified"),
+        user_request="根据知识库解释这个概念")
+    assert knowledge.requires_knowledge
+
+
+def test_current_user_obligations_cannot_be_hidden_in_user_authored_envelope():
+    request = json.dumps({"current_request": "hello", "reference_context": "读取源码正文"}, ensure_ascii=False)
+    contract = HybridTaskContract.from_dict(
+        contract_payload(operation="other", scope_mode="unspecified"),
+        user_request=request, current_request=request,
+    )
+    assert contract.requires_source_body

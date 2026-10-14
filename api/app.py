@@ -25,7 +25,10 @@ from core.engineering_planning import EngineeringEvidencePlanner
 from core.engineering_retrieval import EngineeringRetrievalComponent
 from core.engineering_verification import EngineeringEvidenceVerifier
 from core.query_planning import OpenAICompatibleQueryPlanner
-from core.query_planning.prompt import ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION
+from core.query_planning.prompt import (
+    ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION,
+    ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_VERSION,
+)
 from core.conversation_context.resolver import ENGINEERING_REFERENCE_PROMPT_VERSION
 from core.unified_engineering_runtime import (
     LegacyToolAgentExecutionAdapter,
@@ -153,9 +156,11 @@ class EngineeringProjectRuntime:
 def _build_engineering_project_runtime(
     project: EngineeringProject,
     *,
-    finalization_strategy: str = "legacy",
+    finalization_strategy: str | None = None,
 ) -> EngineeringProjectRuntime:
     """Assemble the existing Core chain with a product-selected local root."""
+    if finalization_strategy is None:
+        finalization_strategy = os.getenv("ENGINEERING_FINALIZATION_STRATEGY", "legacy")
     if engineering_knowledge_backend is None:
         raise ValueError("Engineering knowledge is unavailable")
     port = engineering_knowledge_backend.retrieval_port
@@ -176,7 +181,9 @@ def _build_engineering_project_runtime(
     planner = EngineeringEvidencePlanner(OpenAICompatibleQueryPlanner(
         provider=FROZEN_TOOL_PROVIDER, model=FROZEN_TOOL_MODEL,
         api_key=os.getenv("DEEPSEEK_API_KEY"), base_url=DEEPSEEK_BASE_URL,
-        prompt_version=ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION,
+        prompt_version=(ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_VERSION
+                        if finalization_strategy == "hybrid_task_contract"
+                        else ENGINEERING_OVERVIEW_PLANNER_PROMPT_VERSION),
     ))
     retrieval = EngineeringRetrievalComponent(port)
     runtime = UnifiedEngineeringRuntime(

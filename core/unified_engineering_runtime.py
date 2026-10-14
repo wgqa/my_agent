@@ -22,6 +22,8 @@ from core.engineering_requirements import (
     route_engineering_evidence_requirement,
 )
 from core.engineering_verification import EngineeringEvidenceVerifier
+from core.engineering_task_contract import HybridTaskContract
+from core.tool_agent.actions import ACTION_PARSE_FAILED
 from core.tool_agent.activity import ActivityEvent
 from core.tool_agent.runtime import ToolAgentRuntime
 from core.tool_agent.runtime_models import (
@@ -135,8 +137,8 @@ class UnifiedEngineeringRuntime:
             )
         if not isinstance(evidence_verifier, EngineeringEvidenceVerifier):
             raise TypeError("evidence_verifier must be EngineeringEvidenceVerifier")
-        if finalization_strategy not in ("legacy", "direct_hybrid"):
-            raise ValueError("finalization_strategy 必须是 legacy 或 direct_hybrid")
+        if finalization_strategy not in ("legacy", "direct_hybrid", "hybrid_task_contract"):
+            raise ValueError("Unsupported finalization_strategy")
         self._execution_adapter = execution_adapter
         self._context_resolver = context_resolver
         self._evidence_planner = evidence_planner
@@ -178,6 +180,28 @@ class UnifiedEngineeringRuntime:
         # finalization binding can keep Knowledge supplementary for Project-only
         # tasks while preserving it as required for Theory-Code tasks.
         requirement = route_engineering_evidence_requirement(context_snapshot.lexical_query)
+        task_contract = None
+        if self._finalization_strategy == "hybrid_task_contract":
+            if planner_outcome.task_contract is None:
+                # Invalid/missing intent cannot silently fall back to a weaker
+                # task or enter the tool loop. No second model request.
+                return ToolAgentRunResult(
+                    status="failed", answer=None, reason_code=None,
+                    failure_code=ACTION_PARSE_FAILED, iterations_used=0,
+                    tool_calls_used=0, tool_errors_used=0,
+                    trace=(RuntimeTraceEvent(iteration=0, event_type="runtime_stopped",
+                                             error_code="TASK_CONTRACT_INVALID"),),
+                    execution=ToolAgentExecutionMetrics(
+                        elapsed_ms=int((time.monotonic() - started) * 1000),
+                        decision_llm_calls=0),
+                )
+            payload = planner_outcome.task_contract.to_dict()
+            payload.pop("version")
+            task_contract = HybridTaskContract.from_dict(
+                payload, user_request=resolved_input,
+                current_request=context_snapshot.original_input,
+            )
+            requirement = task_contract.to_requirement(requirement)
         retrieval_snapshot = self._retrieval_component.retrieve(
             resolved_input,
             planner_outcome,
@@ -187,6 +211,7 @@ class UnifiedEngineeringRuntime:
             planner_outcome,
             retrieval_snapshot,
             requirement,
+            **({"task_contract": task_contract} if task_contract is not None else {}),
         )
         result = self._execution_adapter.run(
             resolved_input,
@@ -195,7 +220,8 @@ class UnifiedEngineeringRuntime:
             initial_evidence=retrieval_snapshot.knowledge_evidence,
             disabled_tools=("knowledge_search",),
             finalization_verifier=finalization_verifier,
-            finalization_strategy=self._finalization_strategy,
+            finalization_strategy=("direct_hybrid" if task_contract is not None
+                                   else self._finalization_strategy),
             trace_sink=trace_sink,
             activity_sink=activity_sink,
             enforce_evidence_acquisition=True,
@@ -218,7 +244,7 @@ class UnifiedEngineeringRuntime:
                 inner.selector_latency_ms if inner is not None else None
             ),
         )
-        return replace(result, execution=execution)
+        return replace(result, execution=execution, task_contract=task_contract)
 
 
 __all__ = [

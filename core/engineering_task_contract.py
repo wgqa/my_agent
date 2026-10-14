@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, replace
-from pathlib import PurePosixPath
 
 TASK_CONTRACT_VERSION = "hybrid_task_contract_v1"
 _OPERATIONS = {"file_status", "source_read", "change_analysis", "knowledge_answer",
@@ -16,9 +15,16 @@ _OPERATIONS = {"file_status", "source_read", "change_analysis", "knowledge_answe
 _OBJECTS = {"files", "source_files", "function", "documents", "tests", "knowledge", "other"}
 _SCOPES = {"working_tree", "commit_range", "project", "knowledge", "unspecified"}
 _STATUSES = {"any", "added", "modified", "deleted", "renamed", "untracked"}
+_STATUS_TERMS = {
+    "added": r"added|新增|新建",
+    "modified": r"modified|修改|更改",
+    "deleted": r"deleted|删除|删掉|移除",
+    "renamed": r"renamed|重命名|改名",
+    "untracked": r"untracked|未跟踪|未追踪",
+}
 _FLAGS = ("requires_source_body", "requires_diff", "requires_complete_list",
           "requires_test_execution", "requires_knowledge")
-_FIELDS = {"operation", "object_kind", "target_paths", "scope_mode", "base_ref",
+_FIELDS = {"operation", "object_kind", "target_paths", "target_symbols", "scope_mode", "base_ref",
            "head_ref", "status", *_FLAGS}
 
 
@@ -29,7 +35,8 @@ def _task_text(request: str) -> str:
         value = json.loads(request)
     except (ValueError, TypeError):
         return request
-    if isinstance(value, dict) and isinstance(value.get("current_request"), str):
+    if (isinstance(value, dict) and set(value) == {"current_request", "reference_context"}
+            and isinstance(value.get("current_request"), str)):
         return value["current_request"]
     return request
 
@@ -39,6 +46,7 @@ class HybridTaskContract:
     operation: str
     object_kind: str
     target_paths: tuple[str, ...]
+    target_symbols: tuple[str, ...]
     scope_mode: str
     base_ref: str | None
     head_ref: str | None
@@ -65,6 +73,11 @@ class HybridTaskContract:
             if (type(path) is not str or not path or "\\" in path or ":" in path
                     or path.startswith("/") or any(p in {"", ".", ".."} for p in path.split("/"))):
                 raise ValueError("Unsafe target path")
+        if (type(self.target_symbols) is not tuple or len(self.target_symbols) > 4
+                or len(set(self.target_symbols)) != len(self.target_symbols)
+                or any(type(s) is not str or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,199}", s)
+                       for s in self.target_symbols)):
+            raise ValueError("Invalid target symbols")
         if self.scope_mode == "commit_range":
             for ref in (self.base_ref, self.head_ref):
                 if (type(ref) is not str or ref.startswith("-")
@@ -74,16 +87,40 @@ class HybridTaskContract:
             raise ValueError("Git refs require commit_range")
         if self.operation != "file_status" and self.status != "any":
             raise ValueError("Status filter requires file_status")
+        if self.operation == "file_status" and self.scope_mode not in {"working_tree", "commit_range"}:
+            raise ValueError("File status requires an explicit Git scope")
+        if self.operation == "file_status" and self.object_kind not in {"files", "source_files", "documents", "tests"}:
+            raise ValueError("File-status object must be a file category")
+        if self.operation == "file_status" and self.target_symbols:
+            raise ValueError("Function bodies are not file-status targets")
 
     @classmethod
-    def from_dict(cls, obj: object, *, user_request: str) -> "HybridTaskContract":
-        if type(obj) is not dict or set(obj) != _FIELDS or type(obj["target_paths"]) is not list:
+    def from_dict(cls, obj: object, *, user_request: str,
+                  current_request: str | None = None) -> "HybridTaskContract":
+        if (type(obj) is not dict or set(obj) != _FIELDS
+                or type(obj["target_paths"]) is not list or type(obj["target_symbols"]) is not list):
             raise ValueError("Invalid task contract fields")
-        contract = cls(**{**obj, "target_paths": tuple(obj["target_paths"])})
-        text = _task_text(user_request)
+        contract = cls(**{**obj, "target_paths": tuple(obj["target_paths"]),
+                          "target_symbols": tuple(obj["target_symbols"])})
+        text = _task_text(user_request) if current_request is None else current_request
         # Ground explicit targets/scopes in the original task, never tool text.
         if any(path not in user_request for path in contract.target_paths):
             raise ValueError("Task target is not present in the request/context")
+        if any(symbol not in user_request for symbol in contract.target_symbols):
+            raise ValueError("Task symbol is not present in the request/context")
+        explicit_symbols = set(re.findall(
+            r"(?<![\w/.])([A-Za-z_][A-Za-z0-9_.]*)\s*函数", text))
+        explicit_symbols.update(re.findall(
+            r"\bfunction\s+([A-Za-z_][A-Za-z0-9_.]*)", text, re.I))
+        if not explicit_symbols <= set(contract.target_symbols):
+            raise ValueError("Explicit function targets cannot be omitted")
+        if contract.status != "any" and not re.search(_STATUS_TERMS[contract.status], text, re.I):
+            raise ValueError("A status restriction must come from the current request")
+        if contract.operation == "file_status":
+            explicit_only = {status for status, term in _STATUS_TERMS.items()
+                             if re.search(rf"(?:只|仅|\bonly\b).{{0,60}}(?:{term})", text, re.I)}
+            if explicit_only and explicit_only != {contract.status}:
+                raise ValueError("An explicit status-only request cannot be broadened")
         from core.tool_agent.project_files import ALLOWED_SUFFIXES
         suffixes = "|".join(re.escape(suffix) for suffix in ALLOWED_SUFFIXES)
         explicit_paths = set(re.findall(
@@ -103,26 +140,29 @@ class HybridTaskContract:
         # Merely saying 'source files' does not require reading their bodies.
         body = bool(re.search(
             r"(?:读取|阅读|查看|检查).{0,16}(?:源码|代码|正文)|"
-            r"(?:解释|分析).{0,24}(?:源码|函数实现|代码实现)|"
+            r"(?:解释|分析).{0,24}(?:源码|函数.{0,8}实现|代码实现)|"
             r"(?:read|explain|inspect)\b.{0,40}(?:source|implementation|code body)", text, re.I))
         diff = bool(re.search(r"(?:读取|查看|分析|解释|read|inspect)\s*.{0,20}\bdiff\b", text, re.I))
         tests = bool(re.search(r"(?:运行|执行).{0,16}测试|\b(?:run|execute)\b.{0,25}\btests?\b", text, re.I))
-        complete = contract.operation == "file_status" and bool(re.search(
+        complete = contract.operation in {"file_status", "change_analysis"} and bool(re.search(
             r"全部|所有|完整|穷举|\ball\b|\bcomplete\b", text, re.I))
         return replace(
             contract,
             object_kind=("source_files" if contract.operation == "file_status"
                 and re.search(r"(?:源码|源代码)文件|\bsource (?:code )?files\b", text, re.I)
                 else contract.object_kind),
-            requires_source_body=contract.requires_source_body or body or contract.operation == "source_read",
+            requires_source_body=contract.requires_source_body or body
+                or contract.operation == "source_read" or bool(contract.target_symbols),
             requires_diff=contract.requires_diff or diff or contract.operation == "change_analysis",
             requires_test_execution=contract.requires_test_execution or tests or contract.operation == "test_execution",
             requires_complete_list=contract.requires_complete_list or complete,
-            requires_knowledge=contract.requires_knowledge or contract.operation == "knowledge_answer",
+            requires_knowledge=contract.requires_knowledge or contract.operation == "knowledge_answer"
+                or bool(re.search(r"(?:依据|根据|查阅|检索).{0,16}知识库|"
+                                  r"\b(?:from|based on|consult)\b.{0,30}\bknowledge base\b", text, re.I)),
         )
 
     def to_dict(self) -> dict:
-        return {name: (list(self.target_paths) if name == "target_paths" else getattr(self, name))
+        return {name: (list(getattr(self, name)) if name in {"target_paths", "target_symbols"} else getattr(self, name))
                 for name in sorted(_FIELDS)} | {"version": TASK_CONTRACT_VERSION}
 
     def to_requirement(self, legacy):
@@ -139,8 +179,8 @@ class HybridTaskContract:
         return EngineeringEvidenceRequirement(
             requirement_profile=EngineeringRequirementProfile.TASK_CONTRACT_V1,
             required_evidence_groups=tuple(groups),
-            min_distinct_project_code_paths=(max(1, len(self.target_paths))
-                if self.requires_source_body and body_kind == "project_code" else
+            min_distinct_project_code_paths=max(
+                max(1, len(self.target_paths)) if self.requires_source_body and body_kind == "project_code" else 0,
                 legacy.min_distinct_project_code_paths if self.operation == "other" else 0),
             router_version=TASK_CONTRACT_VERSION,
         )
@@ -149,6 +189,10 @@ class HybridTaskContract:
         if self.scope_mode not in {"working_tree", "commit_range"}:
             return True
         if getattr(evidence, "tool_name", None) not in {"changed_files", "git_diff"}:
+            if self.scope_mode == "commit_range" and getattr(evidence, "kind", "").startswith("project_"):
+                # The current Reader cannot read historical refs. Current
+                # source bodies do not prove a commit-range implementation.
+                return False
             return True
         try:
             args = json.loads(evidence.arguments_json)
@@ -170,6 +214,19 @@ class HybridTaskContract:
             # The frozen registry has no test-execution tool. A test file or
             # find_tests candidate never proves that tests actually ran.
             return "TEST_EXECUTION_NOT_VERIFIED"
+        if (self.operation == "change_analysis" and self.requires_complete_list
+                and self.scope_mode in {"working_tree", "commit_range"} and not self.target_paths):
+            inventories = [item for item in evidence
+                           if getattr(item, "granularity", None) == "status_list"
+                           and getattr(item, "completeness", None) == "complete"]
+            if len(inventories) != 1:
+                return "CHANGE_SCOPE_NOT_ESTABLISHED"
+            requested = {row[0] for row in inventories[0].status_entries}
+            covered = {path for item in evidence if getattr(item, "granularity", None) == "diff"
+                       and getattr(item, "completeness", None) == "complete"
+                       for path in item.scope_paths}
+            if not requested <= covered:
+                return "CHANGE_SCOPE_INCOMPLETE"
         if self.requires_source_body and self.target_paths:
             bodies = {getattr(item, "path", None) for item in evidence
                       if getattr(item, "kind", None) in {"project_code", "project_doc", "project_test"}
@@ -180,13 +237,59 @@ class HybridTaskContract:
         return None
 
     def status_rows(self, evidence):
-        from core.tool_agent.project_files import PROJECT_CODE_SUFFIXES
+        from core.tool_agent.project_files import classify_project_evidence_path
         rows = evidence.status_entries
-        if self.object_kind == "source_files":
-            rows = tuple(row for row in rows if PurePosixPath(row[0]).suffix.lower() in PROJECT_CODE_SUFFIXES)
+        category = {"source_files": "project_code", "documents": "project_doc",
+                    "tests": "project_test"}.get(self.object_kind)
+        if category:
+            rows = tuple(row for row in rows if classify_project_evidence_path(row[0]) == category)
         if self.target_paths:
             rows = tuple(row for row in rows if row[0] in self.target_paths or row[2] in self.target_paths)
         return rows
+
+    def source_context_error(self, context, cited_evidence) -> str | None:
+        """Function explanations use complete Reader definitions, not headers."""
+        if not self.requires_source_body or not (self.target_symbols or self.object_kind == "function"):
+            return None
+        available = set()
+        locations = {(getattr(item, "path", None), getattr(item, "start_line", None),
+                      getattr(item, "end_line", None)) for item in cited_evidence}
+        for item in context:
+            if item.tool_name != "read_project_context" or item.observation_status != "ok":
+                continue
+            result = item.observation_result
+            if type(result) is not dict:
+                continue
+            path = result.get("path")
+            definitions = []
+            if result.get("mode") == "definition" and result.get("content_complete") is True:
+                definitions.append((result.get("definition"), result))
+            elif result.get("mode") == "targets" and result.get("selection_truncated") is False:
+                regions = result.get("regions", [])
+                for target in result.get("targets", []):
+                    index = target.get("region_index")
+                    if (target.get("status") == "read" and target.get("content_complete") is True
+                            and type(index) is int and 0 <= index < len(regions)):
+                        region = regions[index]
+                        definition = target.get("definition")
+                        definitions.append((definition, region))
+                        if (definition is None and target.get("requested") == "file"
+                                and path.endswith(".py")):
+                            # Reuse the Reader's existing syntactic index for
+                            # a complete file; never execute imported code.
+                            from core.tool_agent.tools.source_navigation import python_symbols
+                            spans, error = python_symbols([line["text"] for line in region["lines"]])
+                            if error is None:
+                                definitions.extend((span.to_dict(), region) for span in spans
+                                                   if span.kind == "function")
+            for definition, region in definitions:
+                if (type(definition) is dict and (path, region.get("start_line"), region.get("end_line")) in locations):
+                    name = definition.get("name")
+                    if type(name) is str:
+                        available.update((name, name.split(".")[-1]))
+        if (self.target_symbols and not set(self.target_symbols) <= available) or not available:
+            return "REQUESTED_FUNCTION_BODY_INCOMPLETE"
+        return None
 
     def selection_error(self, evidence, selector) -> str | None:
         if self.operation != "file_status":

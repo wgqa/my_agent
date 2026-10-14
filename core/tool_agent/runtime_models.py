@@ -14,6 +14,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from core.engineering_task_contract import HybridTaskContract
 
 from core.tool_agent.actions import (
     AGENT_DECISION_FAILURE_CODES,
@@ -578,8 +579,19 @@ class DecisionControlState:
     citation_required_evidence_groups: tuple[tuple[str, ...], ...] = ()
     citation_required_min_distinct_project_code_paths: int = 0
     finalization_strategy: Optional[str] = None
+    task_contract: HybridTaskContract | None = None
+    task_contract_missing_material: str | None = None
 
     def __post_init__(self) -> None:
+        if self.task_contract is not None and type(self.task_contract) is not HybridTaskContract:
+            raise TypeError("task_contract must be HybridTaskContract")
+        if self.task_contract_missing_material is not None and (
+            self.task_contract is None or self.task_contract_missing_material not in {
+                "TEST_EXECUTION_NOT_VERIFIED", "REQUESTED_SOURCE_BODY_MISSING",
+                "CHANGE_SCOPE_NOT_ESTABLISHED", "CHANGE_SCOPE_INCOMPLETE",
+            }
+        ):
+            raise ValueError("Invalid task contract material diagnostic")
         _require_non_negative_int(self.iteration, "iteration")
         if self.iteration < 1:
             raise ValueError("iteration 必须 >= 1")
@@ -653,6 +665,10 @@ class DecisionControlState:
         }
         if self.finalization_strategy == "direct_hybrid":
             result["finalization_strategy"] = self.finalization_strategy
+        if self.task_contract is not None:
+            result["task_contract"] = self.task_contract.to_dict()
+            if self.task_contract_missing_material is not None:
+                result["task_contract_missing_material"] = self.task_contract_missing_material
         if include_evidence_reference_control:
             result.update(
                 {
@@ -1083,8 +1099,11 @@ class ToolAgentRunResult:
     trace: Sequence[RuntimeTraceEvent]
     evidence: Sequence[EngineeringEvidence | KnowledgeEvidence | ToolResultEvidence] = ()
     execution: Optional[ToolAgentExecutionMetrics] = None
+    task_contract: HybridTaskContract | None = None
 
     def __post_init__(self) -> None:
+        if self.task_contract is not None and type(self.task_contract) is not HybridTaskContract:
+            raise TypeError("task_contract must be HybridTaskContract")
         if self.status not in RUN_STATUSES:
             raise ValueError(f"status 必须是 {'、'.join(RUN_STATUSES)} 之一")
         _require_non_negative_int(self.iterations_used, "iterations_used")
@@ -1136,7 +1155,7 @@ class ToolAgentRunResult:
             raise TypeError("execution 必须是 ToolAgentExecutionMetrics 或 None")
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "status": self.status,
             "answer": self.answer,
             "reason_code": self.reason_code,
@@ -1150,6 +1169,9 @@ class ToolAgentRunResult:
             if self.execution is None
             else self.execution.to_dict(),
         }
+        if self.task_contract is not None:
+            result["task_contract"] = self.task_contract.to_dict()
+        return result
 
 
 @runtime_checkable
