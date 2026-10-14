@@ -1,0 +1,17 @@
+{
+  "run_id": "task022-cross-capability-20261014-001",
+  "experiment_commit": "afa384668e00401385b5cc2084d4e515b73474da",
+  "raw_directory": "D:\\学习\\rag实战项目\\_task022_cross_capability_results\\task022-cross-capability-20261014-001",
+  "sha256sums": {
+    "attempts.jsonl": "131b75ad300c48ddcd11c8f32f10bcd5c68ac5587ba2ea8227ec1b522a5f9a19",
+    "manifest.json": "82ec1cab99bcd306cb0d3d8e208f259e2f38117b54f362fda423c8641440a94b",
+    "provider_calls.jsonl": "e6fe7723d315964c7eef834f02193e7ee61bfa4e8c71c3e49dc7ba7e2d887392",
+    "run_state.json": "f6c955a5d8b380811708b1a2498aaf65ea92de764acfb648cc2408b26f153b52",
+    "runtime_events.jsonl": "e338c4b948f5df71bb3cc446c2ed7966f5f466148b3c15563f7fad45d4233685",
+    "shared_budget.sqlite3": "a8c8c7655989ce04742f44632c39f59493bb5220dedb1d035f75bbf8ae3dfac2",
+    "summary.json": "fa1c212bc5237605b7ae622446c7ebf308ee42b87dd0795f890ddc5d3c7a8833"
+  },
+  "review_kind": "developer non-blind source check",
+  "real_provider_requests": 270,
+  "no_resampling": true
+}
