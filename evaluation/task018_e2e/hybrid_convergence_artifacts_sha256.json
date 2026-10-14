@@ -1,0 +1,22 @@
+{
+  "run_id": "hybrid-convergence-20261015-001",
+  "raw_results_directory": "D:\\学习\\rag实战项目\\_hybrid_convergence_results\\hybrid-convergence-20261015-001",
+  "implementation_commit": "12c6fe93ef078b7a1957f11664aef562da4ab21a",
+  "business_fingerprint": {
+    "file_count": 108,
+    "sha256": "4237a411387914dac9cd6a97bf1cccfd26555593e4e3551c14052f58b934c6ee"
+  },
+  "raw_sha256": {
+    "attempts.jsonl": "faaf31809e2c4f9786adca4f1b42db03a08f4537bb2b2e6e4434a78587a9e49a",
+    "manifest.json": "5e56374b98801761287c09efbd89678dae2b55c0921dd2c399ca3b5badf86f77",
+    "provider_calls.jsonl": "ae4a93e69582961b149a2a06197cd44b198f15ef9cd07dc6257e6e009fa5c01a",
+    "run_state.json": "44f8f2c133f1663f47c61e65213292b70a5193cfb639dd1e2785526144ac2558",
+    "runtime_events.jsonl": "2ce8c1ecd4599148eea10ba925b21f552fee80a261f10c6f148cba1e458511a3",
+    "shared_budget.sqlite3": "f0d6864b0d479d3747eeefce66a510cd44c6b174433e0403cf5403acdbd3e80a",
+    "summary.json": "c751c90568a77b1ad053f1b708df574077ab7d49565a90a4a3b6fb9dcfdccc48"
+  },
+  "sha256sums_sha256": "d29d5b84caef22704e32063b7a6c089fc651479fca5019429bfd82b17518d06c",
+  "historical_reference_run_id": "task022-cross-capability-20261014-001",
+  "inputs_and_criteria_match": true,
+  "review_kind": "Codex developer non-blind source review; independent human review not claimed"
+}
