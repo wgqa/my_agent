@@ -43,7 +43,7 @@ MAX_ESTIMATED_USD = 0.15
 TASK021_STAGE = None
 TASK021_BUDGET_ID = "task021-authorized-20261014-001"
 TASK020_HEAD = "0af34f97d3bc0052b99341e00d1741ae2efd41d4"
-TASK020_FP = "e0e5144cef73e6c9f9416ba09f9d91752d25da1343001c7ac542258f1a916282"
+TASK020_FP = "211987e5d7a38bce9f456258e05bf5bb9b6ac7d1aff61f5de57759fd46bb1889"
 TASK019_HEAD = "4658857ce7a4b61dce0bdcea98f72cb9a3e5c0d2"
 
 # Fixed Task 019 order: four paired comparisons and three direct diagnostics.
