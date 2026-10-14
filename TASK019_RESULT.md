@@ -26,6 +26,10 @@
 - Direct Hybrid：共享 Planner、Agent 工具循环、Router、Git/RAG 工具与原预算；FinalAnswerAction 可直接选择 Typed changed_files Action 或普通回答。Typed Action 直接由来源 Observation 校验并渲染，不先走旧 Gate，也没有第二次 Selector 请求。普通回答走新的轻量来源检查。
 - 四道 Direct 配对题均由真实 Agent 调用 changed_files 取得 Observation；不是注入预制 Observation。case01、case02、case04 使用 Typed Finalization；case03 的模型直接给出普通答案并由轻量检查接受。
 
+## 离线回归
+
+Live 前，修复后的 Runner 与 Runtime 离线套件为 46 passed、2 warnings；警告是既有 Chroma/Jieba 弃用提示。真实运行后没有改动业务代码，本次只补写实验报告。
+
 ## 逐题结果
 
 | 案例 | B2 | Direct Hybrid | 按冻结 fixture 核对 |
