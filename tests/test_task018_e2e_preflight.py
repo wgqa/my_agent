@@ -301,6 +301,18 @@ def test_live_preflight_checks_fixed_code_and_fixture_identities_without_provide
     assert fixtures["git"]["working_tree_untracked"]["status_porcelain"] == "?? notes/local_sample.md"
 
 
+def test_runtime_source_hashes_use_version_specific_file_sets():
+    runner = _live_runner_module()
+    direct = runner._hash_map(
+        runner.TASK019_CHECKOUT, runner.DIRECT_RUNTIME_IDENTITY_FILES
+    )
+    b2 = runner._hash_map(runner.B2_CHECKOUT, runner.SHARED_RUNTIME_IDENTITY_FILES)
+    assert "core/tool_agent/changed_files_typed_finalization.py" in direct
+    assert "core/tool_agent/changed_files_typed_finalization.py" not in b2
+    assert len(direct) == len(runner.DIRECT_RUNTIME_IDENTITY_FILES)
+    assert len(b2) == len(runner.SHARED_RUNTIME_IDENTITY_FILES)
+
+
 def test_live_worker_json_parser_tolerates_binary_diagnostics_but_keeps_json_strict():
     runner = _live_runner_module()
     record = {"mode": "live", "live_mode": True, "results": [{"case_id": "case01"}]}

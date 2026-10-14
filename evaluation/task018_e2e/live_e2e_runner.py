@@ -85,16 +85,19 @@ COMMON_PROMPT_FILES = [
     "core/conversation_context/resolver.py",
 ]
 DECISION_PROMPT_FILE = "core/tool_agent/decision_prompt.py"
-RUNTIME_IDENTITY_FILES = [
+SHARED_RUNTIME_IDENTITY_FILES = [
     "api/app.py",
     "core/tool_agent/actions.py",
-    "core/tool_agent/changed_files_typed_finalization.py",
     "core/tool_agent/integration.py",
     "core/tool_agent/default_tools.py",
     "core/tool_agent/decision_prompt.py",
     "core/tool_agent/runtime.py",
     "core/tool_agent/runtime_models.py",
     "core/unified_engineering_runtime.py",
+]
+DIRECT_RUNTIME_IDENTITY_FILES = [
+    *SHARED_RUNTIME_IDENTITY_FILES,
+    "core/tool_agent/changed_files_typed_finalization.py",
 ]
 EVAL_IDENTITY_FILES = [
     "evaluation/task018_e2e/fake_e2e_probe.py",
@@ -346,8 +349,8 @@ def execute(run_id: str, *, results_root: Path = DEFAULT_RESULTS_ROOT) -> Path:
     b2_prompt_hashes = {"common": _hash_map(B2_CHECKOUT, COMMON_PROMPT_FILES)}
     if prompt_hashes["shared_planner_context"] != b2_prompt_hashes["common"]:
         raise RuntimeError("B2_TASK019_SHARED_PROMPT_SOURCE_DRIFT")
-    runtime_hashes = _hash_map(TASK019_CHECKOUT, RUNTIME_IDENTITY_FILES)
-    b2_runtime_hashes = _hash_map(B2_CHECKOUT, RUNTIME_IDENTITY_FILES)
+    runtime_hashes = _hash_map(TASK019_CHECKOUT, DIRECT_RUNTIME_IDENTITY_FILES)
+    b2_runtime_hashes = _hash_map(B2_CHECKOUT, SHARED_RUNTIME_IDENTITY_FILES)
     eval_hashes = _hash_map(TASK019_CHECKOUT, EVAL_IDENTITY_FILES)
     for root in (TASK019_CHECKOUT, B2_CHECKOUT):
         if not (root / "core/tool_agent/runtime.py").is_file():
