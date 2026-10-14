@@ -81,7 +81,9 @@ def _unified(runtime, *, context_resolver=None):
     )
 
 
-def test_delegation_parity_preserves_the_complete_tool_agent_result():
+def test_delegation_parity_preserves_the_complete_tool_agent_result(monkeypatch):
+    # Compare delegation, not incidental wall-clock millisecond rounding.
+    monkeypatch.setattr("core.tool_agent.runtime.time.monotonic", lambda: 100.0)
     question = "calculate 12*7"
 
     legacy_runtime, legacy_provider = _runtime(_direct_actions())

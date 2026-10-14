@@ -221,7 +221,8 @@ def test_locator_unrelated_body_and_failed_observation_never_prove_implementatio
         "解释 src/main.py 的源码实现",
         contract_payload(operation="source_read", object_kind="source_files",
                          scope_mode="project", target_paths=["src/main.py"]),
-        [first_call, final("src/main.py 的实现已经验证 [E1]")], root=git_fixture)
+        [first_call, final("src/main.py 的实现已经验证 [E1]"),
+         dict(action="refuse", reason_code="INSUFFICIENT_INFORMATION")], root=git_fixture)
     assert result.status in {"refused", "failed"} and result.answer is None
 
 
@@ -323,7 +324,8 @@ def test_case07_knowledge_coverage_and_missing_diff_are_independent(git_fixture,
     checked.clear()
     missing_diff, _ = run_hybrid(
         question, contract, [call("changed_files", GIT_ARGS),
-                             final("仅凭状态不足以判断重要性 [E1]")],
+                             final("仅凭状态不足以判断重要性 [E1]"),
+                             dict(action="refuse", reason_code="INSUFFICIENT_INFORMATION")],
         root=git_fixture, plan=plan)
     assert missing_diff.status == "refused"
     assert any("REQUIRED_EVIDENCE_MISSING" in reasons for reasons in checked)
@@ -331,7 +333,8 @@ def test_case07_knowledge_coverage_and_missing_diff_are_independent(git_fixture,
     checked.clear()
     with_diff, _ = run_hybrid(
         question, contract, [call("git_diff", GIT_ARGS | {"path": "src/main.py"}),
-                             final("src/main.py 的真实 diff 可支持所述行为变化 [E1]")],
+                             final("src/main.py 的真实 diff 可支持所述行为变化 [E1]"),
+                             dict(action="refuse", reason_code="INSUFFICIENT_INFORMATION")],
         root=git_fixture, plan=plan)
     assert with_diff.status == "refused"
     assert with_diff.trace[-1].error_code == "CHANGE_SCOPE_NOT_ESTABLISHED"
@@ -371,6 +374,7 @@ def test_single_file_diff_cannot_satisfy_complete_change_scope(git_fixture):
         question, range_contract(operation="change_analysis"),
         [call("changed_files", GIT_ARGS),
          call("git_diff", GIT_ARGS | {"path": "src/main.py"}),
-         final("这些材料已经证明全部变更的影响 [E2]")], root=git_fixture)
+         final("这些材料已经证明全部变更的影响 [E2]"),
+         dict(action="refuse", reason_code="INSUFFICIENT_INFORMATION")], root=git_fixture)
     assert result.status == "refused" and result.answer is None
     assert result.trace[-1].error_code == "CHANGE_SCOPE_INCOMPLETE"

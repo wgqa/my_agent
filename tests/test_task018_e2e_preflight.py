@@ -62,8 +62,12 @@ def _worker(checkout: Path, variant: str, cases: list[str], *, context: bool = F
     return json.loads(stdout[position:].decode("utf-8", errors="strict"))
 
 
-def test_task021_measurement_seam_observes_real_task020_runtime_offline():
-    result = _worker(PROJECTS / "rag-knowledge-base-hybrid-task-contract", "task020",
+@pytest.mark.parametrize("checkout,variant", [
+    (PROJECTS / "rag-knowledge-base-hybrid-task-contract", "task020"),
+    (ROOT, "task021"),
+])
+def test_task021_measurement_seam_observes_real_task020_runtime_offline(checkout, variant):
+    result = _worker(checkout, variant,
                      ["case10", "case09", "case07", "case08"])
     assert result["live_mode"] is False
     assert len(result["results"]) == 4
