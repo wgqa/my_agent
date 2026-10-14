@@ -197,6 +197,7 @@ def _append_direct_hybrid_policy(
     if control_state.task_contract is not None:
         trusted_state["task_contract"] = control_state.task_contract.to_dict()
         trusted_state["task_contract_missing_material"] = control_state.task_contract_missing_material
+        trusted_state["task_contract_recovery_attempted"] = control_state.task_contract_recovery_attempted
     policy = (
         "Task019 Direct Hybrid finalization is enabled for this run. This trusted "
         "contract adds one final action to the base action set. For a closed request "
@@ -233,6 +234,25 @@ def _append_direct_hybrid_policy(
             "retrieval guidance, not additional project task obligations. When complete "
             "change analysis is required, obtain the complete status inventory and diff "
             "for its scope; a single-file diff cannot prove all workspace changes."
+            "\nTask021 material acquisition: finalization_blocked and task_contract_missing_material "
+            "are active acquisition constraints. With REQUIRED_DIFF_MISSING, changed_files is "
+            "only a scope inventory, never diff. If tool_call_allowed, choose git_diff for a "
+            "relevant path using the SAME Git mode/base_ref/head_ref. If the scope is unknown, "
+            "first obtain changed_files. For importance/risk comparison, use that inventory "
+            "to choose relevant files yourself, read their diffs within the remaining budget, "
+            "and compare actual changes. Do not invent paths, call every file without need, "
+            "or equate importance with exhaustive implementation analysis. State what was "
+            "and was not inspected; a limited comparison cannot claim full review. "
+            "CHANGE_SCOPE_NOT_ESTABLISHED needs a complete inventory; CHANGE_SCOPE_INCOMPLETE "
+            "needs missing in-scope diffs for the explicitly complete analysis. "
+            "REQUESTED_SOURCE_BODY_MISSING needs the actual requested Reader body, not search "
+            "hits. A function explanation should read its definition and any same-file "
+            "constants needed to explain the behavior. Do not force Git for ordinary source "
+            "or RAG tasks. When no material is missing, answer without redundant calls. "
+            "If a premature final_answer/refuse was blocked, the existing loop grants at "
+            "most one recovery opportunity, counted within the ORIGINAL Decision/Tool budget. "
+            "Use it for a producer tool, not the same refusal. If tools/budget cannot satisfy "
+            "the task, refuse or disclose the limitation; never claim it was satisfied."
         )
     insert_at = next(
         (index for index, message in enumerate(messages)

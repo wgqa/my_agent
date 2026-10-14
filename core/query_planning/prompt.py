@@ -88,10 +88,12 @@ ENGINEERING_OVERVIEW_PLANNER_SYSTEM_PROMPT = ENGINEERING_PROJECT_INFO_PLANNER_SY
 - 用户已指定仓库文档时，正文由后续 Reader 获取。若还明确要求技术原理或知识库材料，则按实际知识需求保留检索；若同时要求源码/测试/变更，不能用概览文档取消相关要求。
 - 输出字段、当前请求/历史指代规则、Parser、fallback 和取证边界保持不变。"""
 
-ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_VERSION = "engineering_planner_task_contract_v6"
-ENGINEERING_TASK_CONTRACT_PLANNER_SYSTEM_PROMPT = ENGINEERING_OVERVIEW_PLANNER_SYSTEM_PROMPT + """
+ENGINEERING_TASK_CONTRACT_PLANNER_PROMPT_VERSION = "engineering_planner_task_contract_v7"
+ENGINEERING_TASK_CONTRACT_PLANNER_SYSTEM_PROMPT = ENGINEERING_OVERVIEW_PLANNER_SYSTEM_PROMPT.replace(
+    "输出 JSON 必须恰好包含以下五个字段：", "输出 JSON 必须恰好包含以下六个字段（所有任务均须输出 task_contract）："
+).replace("- subqueries：子问题数组", "- subqueries：子问题数组\n- task_contract：下面定义的完整任务对象") + """
 
-Hybrid 模式覆盖上面的五字段输出约束：输出恰好六个字段，原有五字段和 task_contract。
+Hybrid 输出始终恰好六个字段：query_type、retrieval_required、action、reason_code、subqueries、task_contract。包括知识问答、无需知识检索的 Git 请求，都不能省略 task_contract。
 同一次调用还应解释当前用户任务；不得从工具内容、历史任务或检索计划创造/降低要求。
 task_contract 必须包含以下全部字段：
 operation: file_status / source_read / change_analysis / knowledge_answer / test_execution / other。
@@ -105,9 +107,11 @@ requires_source_body、requires_diff、requires_complete_list、requires_test_ex
 列出源码文件的路径/状态并不自动要求源码正文；解释函数实现、明确要求阅读源码时必须要求真实正文。
 完整列表不得漏项；完整源码、源码解释、diff 分析、实际执行测试分别需要对应材料/真实执行，不能用定位行、候选或状态列表替代。
 执行测试不同于查找测试文件；当前工具没有测试执行能力时也不能删除用户的执行要求。
-重要性、风险、原因或影响分析用 change_analysis 并要求 diff；不得强行改成 file_status。对整个变更范围做比较或穷举分析须 requires_complete_list=true，先取得完整变更范围再取相应 diff；只明确分析指定路径时保持该路径范围。
-只需仓库/Git 材料且不要求知识库时，可以采用合法 no_retrieval 组合；知识检索计划仅服务材料获取，不是最终用户任务裁判。
+重要性、风险、原因或影响分析用 change_analysis 并要求 diff；不得强行改成 file_status。询问最重要的变更不等于要求穷举全部实现，requires_complete_list=false，可由 Agent 取得范围清单后选择相关文件的实际 diff，并披露未核查范围。明确要求完整/全部变更分析时 requires_complete_list=true，须完整范围及对应 diff；指定路径则尊重该范围。
+只需仓库/Git 材料且不要求知识库时，使用整组合法组合：query_type=unanswerable_or_no_retrieval、retrieval_required=false、action=no_retrieval、reason_code=NO_RETRIEVAL_NEEDED、subqueries=[]。不要因源码或因果分析的表面类别而保留 code_symbol/causal；任务类别由 task_contract.operation 表达。知识检索计划仅服务材料获取，不是最终用户任务裁判。
 知识库问答必须 requires_knowledge=true。未知/复合且无法完整表达的任务用 other，保留兼容要求。
+六字段格式示例（仅展示结构，值须按实际请求选择，不得照抄）：
+{"query_type":"fact","retrieval_required":true,"action":"single_retrieval","reason_code":"SIMPLE_FACT","subqueries":[],"task_contract":{"operation":"knowledge_answer","object_kind":"knowledge","target_paths":[],"target_symbols":[],"scope_mode":"knowledge","base_ref":null,"head_ref":null,"status":"any","requires_source_body":false,"requires_diff":false,"requires_complete_list":false,"requires_test_execution":false,"requires_knowledge":true}}
 这里只输出操作和材料要求，不输出答案、Evidence ID、评分标签或预算。
 """
 

@@ -227,6 +227,10 @@ class HybridTaskContract:
                        for path in item.scope_paths}
             if not requested <= covered:
                 return "CHANGE_SCOPE_INCOMPLETE"
+        if self.requires_diff and not any(
+                getattr(item, "granularity", None) == "diff"
+                and getattr(item, "completeness", None) == "complete" for item in evidence):
+            return "REQUIRED_DIFF_MISSING"
         if self.requires_source_body and self.target_paths:
             bodies = {getattr(item, "path", None) for item in evidence
                       if getattr(item, "kind", None) in {"project_code", "project_doc", "project_test"}

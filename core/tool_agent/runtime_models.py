@@ -581,6 +581,7 @@ class DecisionControlState:
     finalization_strategy: Optional[str] = None
     task_contract: HybridTaskContract | None = None
     task_contract_missing_material: str | None = None
+    task_contract_recovery_attempted: bool = False
 
     def __post_init__(self) -> None:
         if self.task_contract is not None and type(self.task_contract) is not HybridTaskContract:
@@ -588,10 +589,13 @@ class DecisionControlState:
         if self.task_contract_missing_material is not None and (
             self.task_contract is None or self.task_contract_missing_material not in {
                 "TEST_EXECUTION_NOT_VERIFIED", "REQUESTED_SOURCE_BODY_MISSING",
-                "CHANGE_SCOPE_NOT_ESTABLISHED", "CHANGE_SCOPE_INCOMPLETE",
+                "CHANGE_SCOPE_NOT_ESTABLISHED", "CHANGE_SCOPE_INCOMPLETE", "REQUIRED_DIFF_MISSING",
             }
         ):
             raise ValueError("Invalid task contract material diagnostic")
+        if type(self.task_contract_recovery_attempted) is not bool or (
+                self.task_contract_recovery_attempted and self.task_contract is None):
+            raise ValueError("Task material recovery requires a task contract")
         _require_non_negative_int(self.iteration, "iteration")
         if self.iteration < 1:
             raise ValueError("iteration 必须 >= 1")
@@ -667,6 +671,7 @@ class DecisionControlState:
             result["finalization_strategy"] = self.finalization_strategy
         if self.task_contract is not None:
             result["task_contract"] = self.task_contract.to_dict()
+            result["task_contract_recovery_attempted"] = self.task_contract_recovery_attempted
             if self.task_contract_missing_material is not None:
                 result["task_contract_missing_material"] = self.task_contract_missing_material
         if include_evidence_reference_control:

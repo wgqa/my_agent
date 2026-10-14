@@ -619,6 +619,8 @@ def _recovery_is_feasible(
     tool_calls: int,
     tool_errors: int,
     budget: ToolAgentBudget,
+    task_contract=None,
+    evidence=(),
 ) -> bool:
     """Check whether the next Decision can still execute a producer Tool."""
 
@@ -628,6 +630,17 @@ def _recovery_is_feasible(
         return False
     if tool_calls >= budget.max_tool_calls or tool_errors >= budget.max_tool_errors:
         return False
+    if task_contract is not None:
+        missing = task_contract.material_error(task_contract.scoped_evidence(evidence))
+        producers = {
+            "TEST_EXECUTION_NOT_VERIFIED": (),
+            "REQUIRED_DIFF_MISSING": ("git_diff",),
+            "CHANGE_SCOPE_NOT_ESTABLISHED": ("changed_files",),
+            "CHANGE_SCOPE_INCOMPLETE": ("git_diff",),
+            "REQUESTED_SOURCE_BODY_MISSING": ("read_project_context",),
+        }
+        if missing in producers:
+            return any(name in registry for name in producers[missing])
     for kind in _missing_evidence_kinds(requirement, state):
         if any(tool_name in registry for tool_name in _EVIDENCE_PRODUCER_TOOLS[kind]):
             return True
@@ -997,6 +1010,7 @@ class ToolAgentRuntime:
         task_contract = getattr(finalization_verifier, "task_contract", None)
         last_blocked_fingerprint: tuple[tuple] | None = None
         recovery_control_active = False
+        task_contract_recovery_attempted = False
         activity_number = 0
 
         self._record_activity(
@@ -1112,6 +1126,7 @@ class ToolAgentRuntime:
                     "direct_hybrid" if finalization_strategy == "direct_hybrid" else None
                 ),
                 task_contract=task_contract,
+                task_contract_recovery_attempted=task_contract_recovery_attempted,
                 task_contract_missing_material=(
                     task_contract.material_error(task_contract.scoped_evidence(evidence))
                     if task_contract is not None else None),
@@ -1181,6 +1196,37 @@ class ToolAgentRuntime:
                 )
 
             action = outcome.action
+            if (task_contract is not None and finalization_strategy == "direct_hybrid"
+                    and (isinstance(action, FinalAnswerAction)
+                         or isinstance(action, RefuseAction)
+                         and action.reason_code == "INSUFFICIENT_INFORMATION")
+                    and guard_state is not None and not guard_state.satisfied):
+                # One bounded opportunity in the existing loop. This does not
+                # repair a bad citation/selector, unsafe refusal or API error.
+                material_error = task_contract.material_error(task_contract.scoped_evidence(evidence))
+                current = _run_finalization_verifier(finalization_verifier, evidence, None)
+                if (not task_contract_recovery_attempted and current.recovery_allowed
+                        and _recovery_is_feasible(
+                            run_registry, evidence_requirement, guard_state,
+                            iterations=iterations, tool_calls=tool_calls, tool_errors=tool_errors,
+                            budget=self._budget, task_contract=task_contract, evidence=evidence)):
+                    task_contract_recovery_attempted = True
+                    last_blocked_fingerprint = _evidence_fingerprint(evidence)
+                    recovery_control_active = True
+                    self._record_trace(trace, RuntimeTraceEvent(
+                        iteration=iterations, event_type="finalization_guard_blocked",
+                        guard_status="blocked", error_code=material_error,
+                        missing_evidence_groups=guard_state.missing_evidence_groups,
+                        distinct_project_code_paths=guard_state.distinct_project_code_paths,
+                        required_min_distinct_project_code_paths=guard_state.required_min_distinct_project_code_paths,
+                        iterations_used=iterations, tool_calls_used=tool_calls, tool_errors_used=tool_errors), trace_sink)
+                    self._record_activity(VerificationBlockedActivity(
+                        iteration=iterations,
+                        missing_evidence_kinds=tuple(sorted(current.missing_evidence_kinds))), activity_sink)
+                    continue
+                return self._hard_stop(trace, evidence, iterations, tool_calls, tool_errors,
+                    INSUFFICIENT_EVIDENCE_TO_FINALIZE, trace_sink,
+                    trace_code=material_error or "EXISTING_REQUIREMENT_NOT_SATISFIED")
             if isinstance(action, ChangedFilesFinalizationAction):
                 if (
                     finalization_strategy != "direct_hybrid"
@@ -1633,6 +1679,7 @@ class ToolAgentRuntime:
             if isinstance(action, RefuseAction):
                 if (
                     enforce_evidence_acquisition
+                    and task_contract is None
                     and evidence_requirement is not None
                     and guard_state is not None
                     and not guard_state.satisfied
