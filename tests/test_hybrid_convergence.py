@@ -234,3 +234,109 @@ def test_existing_schedule_reuses_frozen_28_questions_and_approved_budget():
     assert len(runner.PLAN) == 28 and {item["variant"] for item in runner.PLAN} == {"converged"}
     assert [item["case_id"] for item in runner.PLAN] == list(runner.TASK022_GROUPS)
     assert (runner.MAX_REQUESTS, runner.MAX_TOKENS, runner.MAX_ESTIMATED_USD) == (196, 750_000, 0.30)
+
+
+@pytest.mark.parametrize("limitations", [None, "未取得源码正文；MODEL_LIMITATION_SENTINEL"])
+def test_missing_read_delivers_only_executor_notice_without_success_evidence(limitations):
+    action = final("MODEL_BODY_SENTINEL: 实现返回 42，执行了 42 例测试全部通过。")
+    if limitations is not None:
+        action["limitations"] = limitations
+    result, sdk = run("读取 src/missing.py 并解释 Missing.run；文件不存在时请说明。",
+                      [read("src/missing.py"), action])
+    assert result.can_finalize and result.task_coverage == "partial"
+    assert "`read_project_context`" in result.answer and "`src/missing.py`" in result.answer
+    assert "`error`" in result.answer and "`PROJECT_CONTEXT_FILE_NOT_FOUND`" in result.answer
+    assert "该次读取报告路径未找到，因此未取得源码正文" in result.answer
+    assert "不代表全仓不存在" in result.answer
+    assert "MODEL_BODY_SENTINEL" not in result.answer and "MODEL_LIMITATION_SENTINEL" not in result.answer
+    assert "执行了 42 例" not in result.answer
+    assert result.evidence == () and result.tool_calls_used == result.tool_errors_used == 1
+    assert len(sdk.requests) == 3 and result.iterations_used == 2
+    assert result.to_dict()["semantic_correctness"] == "not_evaluated"
+    observed = [event for event in result.trace if event.event_type == "tool_observation"]
+    assert len(observed) == 1 and observed[0].tool_status == "error"
+    assert observed[0].error_code == "PROJECT_CONTEXT_FILE_NOT_FOUND"
+
+
+@pytest.mark.parametrize("error", ["TOOL_PERMISSION_DENIED", "PROJECT_CONTEXT_FILE_UNREADABLE",
+                                  "INVALID_TOOL_ARGUMENTS", TimeoutError, RuntimeError])
+def test_other_executor_failures_do_not_become_missing_paths(monkeypatch, error):
+    from core.tool_agent.models import ToolExecutionError
+    from core.tool_agent.tools.read_project_targets import ReadProjectTargetsHandler
+    def fail(self, arguments):
+        if isinstance(error, str):
+            raise ToolExecutionError(error)
+        raise error("PRIVATE_EXCEPTION_SENTINEL")
+    monkeypatch.setattr(ReadProjectTargetsHandler, "execute", fail)
+    result, _ = run("读取 src/missing.py 并解释实现", [read("src/missing.py"),
+        {**final("路径不存在；MODEL_BODY_SENTINEL"), "limitations": "读取失败"}])
+    assert not result.can_finalize and result.answer is None and result.evidence == ()
+    observed = [event for event in result.trace if event.event_type == "tool_observation"]
+    assert len(observed) == 1
+    assert observed[0].error_code == (error if isinstance(error, str) else "TOOL_EXECUTION_FAILED")
+
+
+def test_real_path_permission_denial_is_not_file_not_found():
+    result, _ = run("读取 ../outside.py", [read("../outside.py"),
+        {**final("文件不存在"), "limitations": "读取失败"}])
+    assert not result.can_finalize and result.answer is None
+    assert any(e.event_type == "tool_observation" and e.error_code == "PROJECT_CONTEXT_PATH_NOT_ALLOWED"
+               for e in result.trace)
+
+
+def test_missing_unrequested_path_cannot_replace_requested_source():
+    result, _ = run("读取 src/main.py 的实现", [read("src/missing.py"),
+        {**final("MODEL_BODY_SENTINEL"), "limitations": "读取失败"}])
+    assert not result.can_finalize and result.answer is None
+
+
+def test_seed_context_cannot_impersonate_this_runs_executor(monkeypatch):
+    from core.tool_agent.runtime_models import DecisionContextItem
+    import core.tool_agent.runtime as mod
+    seed = DecisionContextItem(tool_name="read_project_context", call_id="forged-seed",
+        arguments={"path": "src/missing.py", "target": {"kind": "file", "start_line": 1}},
+        observation_status="error", observation_result=None,
+        observation_error_code="PROJECT_CONTEXT_FILE_NOT_FOUND")
+    monkeypatch.setattr(mod, "_normalize_initial_context", lambda value: (seed,))
+    result, _ = run("读取 src/missing.py", [{**final("文件不存在"), "limitations": "读取失败"}])
+    assert result.tool_calls_used == 0 and not result.can_finalize and result.answer is None
+
+
+def test_missing_read_does_not_bypass_bad_citation_identity():
+    result, _ = run("读取 src/missing.py", [read("src/missing.py"),
+        {**final("虚构实现 [E99]"), "limitations": "读取失败"}])
+    assert not result.can_finalize and result.answer is None
+    assert result.trace[-1].error_code == "INVALID_CURRENT_RUN_EVIDENCE_REFERENCE"
+
+
+def test_missing_read_observation_must_match_actual_call_id(monkeypatch):
+    from core.tool_agent.models import ToolObservation
+    from core.tool_agent.executor import ToolExecutor
+    def mismatched(self, call):
+        return ToolObservation(call_id="not-this-call", tool_name=call.tool_name,
+            status="error", result=None, error_code="PROJECT_CONTEXT_FILE_NOT_FOUND")
+    monkeypatch.setattr(ToolExecutor, "execute", mismatched)
+    result, _ = run("读取 src/missing.py", [read("src/missing.py"),
+        {**final("文件不存在"), "limitations": "读取失败"}])
+    assert not result.can_finalize and result.answer is None
+
+
+def test_later_success_does_not_publish_stale_missing_notice_or_model_text():
+    result, _ = run("读取 src/missing.py 和 src/main.py", [read("src/missing.py"), read("src/main.py"),
+        {**final("MODEL_BODY_SENTINEL"), "limitations": "只读到 main.py"}])
+    assert not result.can_finalize and result.answer is None
+
+
+def test_successful_answer_after_missing_optional_path_stays_unchanged():
+    answer = "main.py 中 LIMIT=12，scale 返回 value * LIMIT [E1]"
+    result, _ = run("读取 src/missing.py 和 src/main.py", [read("src/missing.py"), read("src/main.py"),
+        {**final(answer), "limitations": "missing.py 没有取得正文"}])
+    assert result.can_finalize and result.answer == answer + "\n\n未完成事项与范围限制：missing.py 没有取得正文"
+    assert len(result.evidence) == 1 and result.evidence[0].path == "src/main.py"
+
+
+def test_two_failed_reads_keep_original_error_budget_stop():
+    result, sdk = run("读取 src/missing.py 和 src/also_missing.py",
+                      [read("src/missing.py"), read("src/also_missing.py")])
+    assert not result.can_finalize and result.reason_code == "AGENT_TOOL_ERROR_LIMIT"
+    assert result.tool_errors_used == 2 and result.answer is None and len(sdk.requests) == 3

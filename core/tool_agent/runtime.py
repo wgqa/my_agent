@@ -54,6 +54,7 @@ from core.tool_agent.changed_files_typed_finalization import (
     ChangedFilesExecution,
     ChangedFilesSelectorOutcome,
     finalize_changed_files_typed,
+    _safe_inline_code,
 )
 from core.tool_agent.executor import ToolExecutor
 from core.tool_agent.models import AGENT_BUDGET_EXCEEDED, ToolCall, json_deep_copy
@@ -748,6 +749,31 @@ _EVIDENCE_CITATION_LIKE = re.compile(r"\[\s*E[^\]\r\n]*\]")
 _EVIDENCE_ID = re.compile(r"E[1-9][0-9]*")
 
 
+def _missing_read_notice(execution, request: str) -> str | None:
+    """Render only the latest executor-recorded missing read, never model text.
+
+    Only the Runtime-owned ToolCall/ToolObservation pair is used, not seed
+    context or the copy sent to Decision. This notice is not Evidence.
+    """
+    if execution is None:
+        return None
+    call, observation = execution
+    path = call.arguments_copy().get("path")
+    if (call.tool_name != "read_project_context" or observation.tool_name != call.tool_name
+            or observation.call_id != call.call_id or observation.status != "error"
+            or observation.error_code != "PROJECT_CONTEXT_FILE_NOT_FOUND"
+            or observation.result is not None or not _safe_repo_path(path)
+            or not re.search(rf"(?<![\w./-]){re.escape(path)}(?![\w./-])", request)):
+        return None
+    return (
+        f"本次 `{call.tool_name}` 读取当前项目路径 {_safe_inline_code(path)} 失败"
+        f"（状态 `{observation.status}`，错误码 `{observation.error_code}`）。"
+        "该次读取报告路径未找到，因此未取得源码正文。"
+        "此说明仅限这次读取，不代表全仓不存在该文件或同名定义，"
+        "也不构成源码实现、代码执行或测试通过的证明；相关分析尚未完成。"
+    )
+
+
 def _lightweight_open_answer_check(finalization_verifier, evidence, answer: str, *, context=(), limitations=None) -> str | None:
     """Check current-run sources and hard requirements without legacy Binding.
 
@@ -1080,6 +1106,7 @@ class ToolAgentRuntime:
         )
         executor = self._executor if not disabled else ToolExecutor(run_registry)
         context: list[DecisionContextItem] = list(seed_context)
+        last_tool_execution = None
         executed: set[tuple[str, str]] = set()
         iterations = 0
         tool_calls = 0
@@ -1282,10 +1309,17 @@ class ToolAgentRuntime:
                 )
 
             action = outcome.action
+            missing_read_notice = (
+                _missing_read_notice(last_tool_execution, finalization_verifier.user_request)
+                if converged and isinstance(action, FinalAnswerAction)
+                and getattr(finalization_verifier, "user_request", None) is not None
+                and not _EVIDENCE_CITATION_LIKE.search(action.answer) else None
+            )
             if (converged and guard_state is not None and not guard_state.satisfied
                     and (isinstance(action, FinalAnswerAction) and not action.limitations
                          or isinstance(action, RefuseAction) and action.reason_code == "INSUFFICIENT_INFORMATION")
                     and not task_contract_recovery_attempted
+                    and missing_read_notice is None
                     and explicit_material_gap(finalization_verifier.user_request, evidence)[0] != "TEST_EXECUTION_NOT_VERIFIED"
                     and _recovery_is_feasible(run_registry, evidence_requirement, guard_state,
                         iterations=iterations, tool_calls=tool_calls, tool_errors=tool_errors, budget=self._budget)):
@@ -1463,6 +1497,15 @@ class ToolAgentRuntime:
                         **({"limitations": action.limitations} if converged else {}),
                     )
                     if error_code is not None:
+                        if error_code == "CURRENT_RUN_EVIDENCE_REFERENCE_MISSING" and missing_read_notice is not None:
+                            self._append_terminal(trace, iterations, tool_calls, tool_errors, None, trace_sink)
+                            return ToolAgentRunResult(
+                                status="completed", answer=missing_read_notice,
+                                reason_code=None, failure_code=None,
+                                iterations_used=iterations, tool_calls_used=tool_calls,
+                                tool_errors_used=tool_errors, trace=tuple(trace),
+                                evidence=tuple(evidence), task_coverage="partial",
+                            )
                         return self._hard_stop(
                             trace,
                             evidence,
@@ -1967,6 +2010,7 @@ class ToolAgentRuntime:
                 trace_sink,
             )
             observation = executor.execute(call)
+            last_tool_execution = (call, observation)
             tool_calls += 1
             if observation.status != "ok":
                 tool_errors += 1
